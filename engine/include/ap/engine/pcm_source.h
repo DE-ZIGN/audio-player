@@ -4,7 +4,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace ap::engine {
@@ -15,6 +17,13 @@ struct SourceHealth
     std::uint32_t starvations = 0;    // reads that could not be filled in time
     std::uint64_t starvedFrames = 0;  // frames replaced by silence because of that
     std::uint64_t seekFillFrames = 0; // silence while refilling after a seek (not a dropout)
+};
+
+// Set when the PCM stream carries DSD packed as DoP (DSD over PCM).
+struct DopInfo
+{
+    std::uint32_t dsdRate = 0;   // e.g. 2822400 for DSD64
+    std::string container;       // "DSF" or "DFF"
 };
 
 // A source of interleaved PCM in its original byte layout. Sources never
@@ -44,6 +53,9 @@ public:
     // Blocks until data at the current position can be read without filling
     // (e.g. after a seek while not playing). Not for the playback thread.
     virtual void waitUntilReady() {}
+
+    // Set when the samples are DoP; such streams must never be processed.
+    virtual std::optional<DopInfo> dop() const { return std::nullopt; }
 };
 
 // Holds all PCM bytes in memory.

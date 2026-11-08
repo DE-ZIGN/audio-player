@@ -29,9 +29,11 @@ add_executable(ap_engine_unit_tests
     unit/deadline_tracker_test.cpp
     unit/prefetching_source_test.cpp
     unit/asio_sample_types_test.cpp
-    unit/asio_probe_test.cpp)
+    unit/asio_probe_test.cpp
+    unit/dsd_source_test.cpp
+    unit/dop_source_test.cpp)
 
-target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine Catch2::Catch2WithMain)
+target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine ap_test_support Catch2::Catch2WithMain)
 target_compile_definitions(ap_engine_unit_tests PRIVATE
     AP_EXPECTED_VERSION="${PROJECT_VERSION}"
     AP_EXPECTED_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
