@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <vector>
 
 namespace ap::engine {
@@ -13,7 +14,8 @@ namespace ap::engine {
 // Output that writes exactly the bytes it would hand to a device into a file
 // (raw interleaved PCM, no header). Used by the acceptance tests to verify
 // engine output byte for byte. Unlike a device, it does not append silence at
-// end of stream.
+// end of stream. One instance writes one file: the first run() truncates it,
+// later runs (after reopening, e.g. for a new sample rate) append.
 class DummyOutput final : public AudioOutput
 {
 public:
@@ -30,6 +32,8 @@ public:
         // reason and accepted rates are then worked out by checkFormatWith(),
         // the same way as for WASAPI.
         std::function<bool(const PcmFormat&)> accepts;
+        // Receives the format of every run() (one entry per time the output is opened and started).
+        std::shared_ptr<std::vector<PcmFormat>> sessionLog;
     };
 
     explicit DummyOutput(Options options);
@@ -45,6 +49,7 @@ private:
     Options options_;
     PcmFormat format_;
     bool opened_ = false;
+    bool firstRun_ = true;
     std::atomic<bool> stop_{false};
 };
 

@@ -44,9 +44,15 @@ RunStats DummyOutput::run(const RenderCallback& render)
     if (!opened_)
         throw OutputException(OutputError::DeviceError, "dummy output is not open");
 
-    std::ofstream out(options_.path, std::ios::binary | std::ios::trunc);
+    // The first run of this instance starts a new file; later runs (the output
+    // reopened for another format) append, like one continuous device stream.
+    const auto mode = std::ios::binary | (firstRun_ ? std::ios::trunc : std::ios::app);
+    firstRun_ = false;
+    std::ofstream out(options_.path, mode);
     if (!out)
         throw OutputException(OutputError::DeviceError, "cannot create " + options_.path.string());
+    if (options_.sessionLog)
+        options_.sessionLog->push_back(format_);
 
     const std::size_t bpf = format_.bytesPerFrame();
     std::size_t maxPeriod = 0;
