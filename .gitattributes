@@ -1,6 +1,9 @@
 # Normalise line endings for text; never touch audio or other binary data.
 * text=auto
 
+# Vendored third-party files are kept byte-for-byte as distributed.
+third_party/asiosdk/** -text
+
 *.wav  binary
 *.aif  binary
 *.aiff binary

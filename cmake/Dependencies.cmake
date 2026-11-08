@@ -8,6 +8,11 @@
 
 include(FetchContent)
 
+# Steinberg ASIO SDK 2.3.4 headers, vendored unmodified in third_party/asiosdk
+# (used under GPLv3; see third_party/asiosdk/VENDORED.md).
+add_library(ap_asiosdk INTERFACE)
+target_include_directories(ap_asiosdk SYSTEM INTERFACE "${CMAKE_SOURCE_DIR}/third_party/asiosdk/common")
+
 # Microsoft WebView2 SDK 1.0.3485.44 (NuGet package), BSD-3-Clause.
 # JUCE links its static loader (WebView2LoaderStatic.lib); the WebView2
 # runtime itself is the one installed in Windows. JUCE's FindWebView2 looks

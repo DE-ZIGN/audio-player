@@ -79,6 +79,19 @@
 
 ---
 
+## Steinberg ASIO SDK
+
+- バージョン：2.3.4（2025-10-15）
+- ライセンス：GPL-3.0-only（Steinberg ASIO License とのデュアルライセンスのうち GPLv3 を選択）
+- 配布物：含む（`third_party/asiosdk/` のヘッダー3つ。ASIO 出力の実装に使う）
+- 入手先：https://www.steinberg.net/developers/asiosdk-open/
+- 著作権表示：(c) 2025, Steinberg Media Technologies GmbH, All Rights Reserved
+- ライセンス本文：`third_party/asiosdk/LICENSE.txt`、https://www.gnu.org/licenses/gpl-3.0.html
+- 商標：ASIO は Steinberg Media Technologies GmbH の商標です。本製品は ASIO のロゴを使っていません。
+- 同梱の詳細：`third_party/asiosdk/VENDORED.md`
+
+---
+
 ## Microsoft WebView2 SDK
 
 - バージョン：1.0.3485.44（NuGet パッケージ `Microsoft.Web.WebView2`）
