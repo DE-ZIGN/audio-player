@@ -1,13 +1,16 @@
-// ap_play: step S1 prototype. Plays a WAV file bit-perfect through exclusive,
-// event-driven WASAPI, or writes the engine output to a file (dummy output).
+// ap_play: prototype player for steps S1/S2 and tasks 1-1/1-2. Plays WAV
+// files bit-perfect through exclusive, event-driven WASAPI as a gapless
+// queue, or writes the engine output to a file (dummy output).
 //
-//   ap_play --list
-//   ap_play FILE [--device N|ID] [--exact-only] [--check]
-//   ap_play FILE --dummy OUT.raw [--exact-only]
+//   ap_play --list | --formats | --watch
+//   ap_play FILE... [--device N|ID] [--exact-only] [--check]
+//   ap_play FILE... --dummy OUT.raw [--exact-only]
 
+#include <ap/engine/output/device_watcher.h>
 #include <ap/engine/output/dummy_output.h>
 #include <ap/engine/output/format_probe.h>
 #include <ap/engine/output/wasapi_exclusive_output.h>
+#include <ap/engine/player.h>
 #include <ap/engine/playback.h>
 #include <ap/engine/sha256.h>
 #include <ap/engine/wav_file_source.h>
@@ -22,6 +25,7 @@
 #include <exception>
 #include <filesystem>
 #include <format>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <thread>
@@ -36,10 +40,14 @@ constexpr const char* kUsage =
     "使い方:\n"
     "  ap_play --list                         出力デバイスの一覧\n"
     "  ap_play --formats [--device N|ID]      デバイスが排他モードで受け付けるレートと形式の一覧\n"
-    "  ap_play FILE [--device N|ID]           排他 WASAPI で再生（既定のデバイス、または一覧の番号か ID）\n"
+    "  ap_play --watch                        出力デバイスの変化（抜き差し、既定の変更など）を表示する\n"
+    "  ap_play FILE... [--device N|ID]        排他 WASAPI で順に再生（既定のデバイス、または一覧の番号か ID）\n"
     "               [--exact-only]            コンテナの詰め替え（24bit → 32bit コンテナなど）もしない\n"
     "               [--check]                 再生せず、送る形式だけを確かめる\n"
-    "  ap_play FILE --dummy OUT.raw           デバイスに送るはずのバイト列をファイルに書き、ハッシュを比べる\n"
+    "  ap_play FILE... --dummy OUT.raw        デバイスに送るはずのバイト列をファイルに書き、ハッシュを比べる\n"
+    "\n"
+    "複数のファイルは順に再生します。形式が同じなら出力を開き直さずにつなげ（ギャップレス）、\n"
+    "形式が違えば開き直して、切り替えにかかった時間を表示します。\n"
     "  ap_play --env                          実行環境（MSIX パッケージの中かどうか）\n"
     "  ap_play --asio-list                    ASIO ドライバーの一覧（レジストリ）\n"
     "  ap_play --asio-load N|all              ASIO ドライバーを読み込めるか試す（再生はしない）\n"
@@ -92,9 +100,9 @@ std::string rejectionText(const FormatCheck& c, const PcmFormat& f)
     }
 }
 
-std::string outputErrorText(const OutputException& e)
+std::string outputErrorText(OutputError code, const std::string& detail)
 {
-    switch (e.code())
+    switch (code)
     {
         case OutputError::DeviceNotFound:
             return "デバイスが見つかりません。--list で番号か ID を確かめてください。";
@@ -110,7 +118,7 @@ std::string outputErrorText(const OutputException& e)
         case OutputError::Timeout:
             return "デバイスがデータを要求しなくなりました。";
         default:
-            return std::format("デバイスのエラーです（{}）。", e.what());
+            return std::format("デバイスのエラーです（{}）。", detail);
     }
 }
 
@@ -149,13 +157,16 @@ void printVolume(const EndpointVolumeInfo& v)
         print("  注意: 排他モードでは Windows のソフトウェア音量はかかりません。この設定は再生に影響しません。\n");
 }
 
-AudioOutput* g_output = nullptr;
+Player* g_player = nullptr;
+std::atomic<bool> g_interrupted{false};
 
 BOOL WINAPI onConsoleCtrl(DWORD type)
 {
-    if ((type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT) && g_output)
+    if (type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT)
     {
-        g_output->requestStop();
+        g_interrupted = true;
+        if (g_player)
+            g_player->stop();
         return TRUE;
     }
     return FALSE;
@@ -163,7 +174,8 @@ BOOL WINAPI onConsoleCtrl(DWORD type)
 
 struct Options
 {
-    std::string file;
+    std::vector<std::string> files;
+    bool watch = false;
     std::string device;
     std::string dummy;
     bool exactOnly = false;
@@ -192,6 +204,8 @@ std::optional<Options> parse(int argc, char** argv)
             o.formats = true;
         else if (a == "--env")
             o.env = true;
+        else if (a == "--watch")
+            o.watch = true;
         else if (a == "--asio-list")
             o.asioList = true;
         else if (a == "--asio-load")
@@ -208,12 +222,10 @@ std::optional<Options> parse(int argc, char** argv)
             return std::nullopt;
         else if (a.starts_with("--"))
             throw std::runtime_error("不明なオプション: " + a);
-        else if (o.file.empty())
-            o.file = a;
         else
-            throw std::runtime_error("ファイルは1つだけ指定してください");
+            o.files.push_back(a);
     }
-    if (!o.list && !o.formats && !o.env && !o.asioList && o.asioLoad.empty() && o.file.empty())
+    if (!o.list && !o.formats && !o.env && !o.watch && !o.asioList && o.asioLoad.empty() && o.files.empty())
         return std::nullopt;
     return o;
 }
@@ -342,106 +354,200 @@ void printSource(const fs::path& path, const PcmSource& src, const std::string& 
         print(std::format("  PCM の SHA-256: {}\n", hash));
 }
 
-int runDummy(const Options& o, const fs::path& in)
+std::string transitionText(const TrackTransition& t)
 {
-    WavFileSource src(in);
-    const auto inputHash = toHex(sha256File(in, static_cast<WavFileSource&>(src).dataOffset(),
-                                            src.totalFrames() * src.format().bytesPerFrame()));
-    printSource(in, src, inputHash);
-
-    const fs::path outPath = fs::path(o.dummy);
-    DummyOutput out({.path = outPath, .periodFrames = {4096}, .check = {}});
-    print(std::format("出力: {}\n", out.deviceName()));
-
-    const auto report = play(src, out, PlaybackOptions{.allowRepack = !o.exactOnly});
-    const auto outputHash = toHex(sha256File(outPath));
-    print(std::format("  送った形式: {}\n  詰め替え: {}\n", describe(report.plan.output), repackText(report.plan)));
-    print(std::format("  出力の SHA-256: {}\n", outputHash));
-    print(std::format("  {}\n", outputHash == inputHash ? "一致（ビットパーフェクト）"
-                                : report.plan.repack != Repack::None
-                                    ? "不一致（詰め替えたため。詰め替え前の値は保たれています）"
-                                    : "不一致"));
-    return outputHash == inputHash || report.plan.repack != Repack::None ? 0 : 1;
+    if (t.kind == TransitionKind::Gapless)
+        return std::format("{} → {} 曲目: ギャップレス（形式が同じなので出力を開き直さずにつなげた）", t.fromIndex + 1,
+                           t.toIndex + 1);
+    return std::format("{} → {} 曲目: 形式の切り替え {} → {}（出力を開き直した。データが途切れてから次の曲のデータを"
+                       "送り始めるまで約 {:.0f} ms）",
+                       t.fromIndex + 1, t.toIndex + 1, describe(t.fromFormat), describe(t.toFormat),
+                       t.switchMilliseconds);
 }
 
-int runWasapi(const Options& o, const fs::path& in)
+std::string playerErrorText(const PlayerStatus& s)
 {
-    WavFileSource file(in);
-    printSource(in, file, {});
-
-    WasapiExclusiveOutput out(resolveDeviceId(o.device));
-    print(std::format("出力: {}（排他 WASAPI、イベント駆動）\n", out.deviceName()));
-    printWindowsDefault(out);
-    printVolume(out.endpointVolume());
-
-    const auto negotiation = negotiate(file.format(), out, !o.exactOnly);
-    if (!negotiation.plan)
+    const auto& e = s.error;
+    switch (e.kind)
     {
-        print("  再生できません: " + rejectionText(negotiation.exactCheck, file.format()) + "\n");
-        return 3;
+        case PlayerErrorKind::FormatNotSupported:
+            return "再生できません: " + rejectionText(e.formatCheck, s.sourceFormat.value_or(PcmFormat{}));
+        case PlayerErrorKind::Output:
+            return "エラー: " + outputErrorText(e.outputError, e.detail);
+        case PlayerErrorKind::Load:
+            return std::format("{} 曲目を開けません: {}", s.queueIndex + 1, e.detail);
+        default:
+            return "エラー: " + e.detail;
     }
-    print(std::format("  送る形式: {}\n  詰め替え: {}\n", describe(negotiation.plan->output),
-                      repackText(*negotiation.plan)));
-    if (o.checkOnly)
-        return 0;
+}
 
-    // Read the whole file first so the render thread never waits for the disk
-    // (dropout prevention only; proper prefetching comes in task 1-3).
-    auto memory = MemoryPcmSource::loadAll(file);
-
-    std::atomic<std::uint64_t> played{0};
-    struct Counting final : PcmSource
+int exitCodeFor(PlayerErrorKind kind)
+{
+    switch (kind)
     {
-        PcmSource& inner;
-        std::atomic<std::uint64_t>& count;
-        Counting(PcmSource& i, std::atomic<std::uint64_t>& c) : inner(i), count(c) {}
-        const PcmFormat& format() const noexcept override { return inner.format(); }
-        std::uint64_t totalFrames() const noexcept override { return inner.totalFrames(); }
-        bool seek(std::uint64_t frame) override { return inner.seek(frame); }
-        std::uint64_t position() const noexcept override { return inner.position(); }
-        std::size_t read(std::span<std::byte> dst) override
-        {
-            const auto n = inner.read(dst);
-            count += n;
-            return n;
-        }
-    } counting(memory, played);
+        case PlayerErrorKind::None:               return 0;
+        case PlayerErrorKind::FormatNotSupported: return 3;
+        case PlayerErrorKind::Output:             return 4;
+        case PlayerErrorKind::Load:               return 5;
+        default:                                  return 1;
+    }
+}
 
-    g_output = &out;
+// Plays the files as a queue (WASAPI, or the dummy output when o.dummy is set).
+int runQueue(const Options& o)
+{
+    const bool dummy = !o.dummy.empty();
+    std::vector<QueueItem> items;
+    Sha256 inputHash; // dummy only: hash of all data chunks in order
+
+    for (std::size_t i = 0; i < o.files.size(); ++i)
+    {
+        const fs::path path{o.files[i]}; // argv is in the ANSI code page, as is path(std::string)
+        WavFileSource src(path);
+        print(std::format("{} 曲目: {}\n", i + 1, reinterpret_cast<const char*>(path.filename().u8string().c_str())));
+        print(std::format("  形式: {}、長さ {}\n", describe(src.format()),
+                          duration(src.totalFrames(), src.format().sampleRate)));
+        if (dummy)
+        {
+            std::vector<std::byte> buf(65536 * static_cast<std::size_t>(src.format().bytesPerFrame()));
+            while (const auto n = src.read(buf))
+                inputHash.update(std::span(buf).first(n * src.format().bytesPerFrame()));
+        }
+        // Read the whole file before it plays, so the playback thread never
+        // waits for the disk (dropout prevention; prefetching comes in task 1-3).
+        items.push_back({reinterpret_cast<const char*>(path.filename().u8string().c_str()), [path] {
+                             WavFileSource f(path);
+                             return std::make_unique<MemoryPcmSource>(MemoryPcmSource::loadAll(f));
+                         }});
+    }
+
+    Player::OutputFactory factory;
+    if (dummy)
+    {
+        const fs::path outPath{o.dummy};
+        factory = [outPath] {
+            return std::make_unique<DummyOutput>(DummyOutput::Options{.path = outPath, .periodFrames = {4096}});
+        };
+        print(std::format("出力: ダミー出力（ファイル）: {}\n", o.dummy));
+    }
+    else
+    {
+        const auto id = resolveDeviceId(o.device);
+        WasapiExclusiveOutput probe(id);
+        print(std::format("出力: {}（排他 WASAPI、イベント駆動）\n", probe.deviceName()));
+        printWindowsDefault(probe);
+        printVolume(probe.endpointVolume());
+
+        if (o.checkOnly)
+        {
+            int worst = 0;
+            for (std::size_t i = 0; i < o.files.size(); ++i)
+            {
+                WavFileSource src(fs::path{o.files[i]});
+                const auto n = negotiate(src.format(), probe, !o.exactOnly);
+                if (n.plan)
+                    print(std::format("  {} 曲目: 送る形式 {}、詰め替え {}\n", i + 1, describe(n.plan->output),
+                                      repackText(*n.plan)));
+                else
+                {
+                    print(std::format("  {} 曲目: 再生できません: {}\n", i + 1, rejectionText(n.exactCheck, src.format())));
+                    worst = 3;
+                }
+            }
+            return worst;
+        }
+        factory = [id] { return std::make_unique<WasapiExclusiveOutput>(id); };
+    }
+
+    Player player(factory, PlaybackOptions{.allowRepack = !o.exactOnly});
+    player.setQueue(std::move(items));
+    if (player.status().state == PlayerState::Error)
+    {
+        printErr(playerErrorText(player.status()) + "\n");
+        return exitCodeFor(player.status().error.kind);
+    }
+
+    g_player = &player;
     SetConsoleCtrlHandler(onConsoleCtrl, TRUE);
+    player.play();
 
-    std::atomic<bool> done{false};
-    const auto total = memory.totalFrames();
-    const auto rate = memory.format().sampleRate;
-    std::thread progress([&] {
-        while (!done)
+    std::size_t shownTransitions = 0;
+    std::optional<PlaybackPlan> shownPlan;
+    PlayerStatus s;
+    for (;;)
+    {
+        s = player.status();
+        for (; shownTransitions < s.transitions.size(); ++shownTransitions)
+            print("\r  " + transitionText(s.transitions[shownTransitions]) + "                    \n");
+        if (s.plan && (!shownPlan || !(shownPlan->output == s.plan->output)))
         {
-            print(std::format("\r  再生中 {} / {}（Ctrl+C で停止）   ", duration(played, rate), duration(total, rate)));
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            print(std::format("\r  送る形式: {}、詰め替え: {}                    \n", describe(s.plan->output),
+                              repackText(*s.plan)));
+            shownPlan = s.plan;
         }
+        if (s.state != PlayerState::Playing)
+            break;
+        const auto rate = s.sourceFormat ? s.sourceFormat->sampleRate : 1u;
+        print(std::format("\r  再生中 {}/{} 曲目 {} / {}（Ctrl+C で停止）   ", s.queueIndex + 1, s.queueLength,
+                          duration(s.positionFrames, rate), duration(s.totalFrames, rate)));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    g_player = nullptr;
+    player.waitUntilIdle();
+    s = player.status();
+
+    switch (s.state)
+    {
+        case PlayerState::Ended:   print("\n完了しました。\n"); break;
+        case PlayerState::Stopped: print(std::format("\n停止しました（{} 曲目）。\n", s.queueIndex + 1)); break;
+        case PlayerState::Error:   print("\n"); printErr(playerErrorText(s) + "\n"); break;
+        default: break;
+    }
+
+    if (dummy && s.state == PlayerState::Ended)
+    {
+        const auto in = toHex(inputHash.finish());
+        const auto out = toHex(sha256File(fs::path{o.dummy}));
+        print(std::format("入力 PCM（全曲をつなげたもの）の SHA-256: {}\n出力の SHA-256:                         {}\n", in, out));
+        const bool repacked = s.plan && s.plan->repack != Repack::None;
+        print(in == out ? "一致（ビットパーフェクト、曲の境目に欠けも重なりもなし）\n"
+              : repacked ? "不一致（詰め替えたため。詰め替え前の値は保たれています）\n"
+                         : "不一致\n");
+        if (in != out && !repacked)
+            return 1;
+    }
+    return exitCodeFor(s.error.kind);
+}
+
+// Prints device changes until Ctrl+C.
+int watchDevices()
+{
+    auto nameOf = [](const std::string& id) {
+        for (const auto& d : WasapiExclusiveOutput::listDevices())
+            if (d.id == id)
+                return d.name;
+        return std::string("（一覧にない）");
+    };
+    std::mutex printMutex;
+    DeviceWatcher watcher([&](const DeviceEvent& e) {
+        // Runs on a system thread; COM is available there (MTA).
+        static const char* labels[] = {"追加", "削除", "状態の変化", "既定のデバイスの変更"};
+        const auto label = labels[static_cast<int>(e.kind)];
+        std::string name;
+        try
+        {
+            name = nameOf(e.deviceId);
+        }
+        catch (...)
+        {
+        }
+        std::lock_guard lock(printMutex);
+        print(std::format("{}: {}\n    ID: {}\n", label, name, e.deviceId));
     });
-
-    PlaybackReport report;
-    try
-    {
-        report = play(counting, out, PlaybackOptions{.allowRepack = !o.exactOnly});
-    }
-    catch (...)
-    {
-        done = true;
-        progress.join();
-        g_output = nullptr;
-        print("\n");
-        throw;
-    }
-    done = true;
-    progress.join();
-    g_output = nullptr;
-
-    const auto& s = report.stats;
-    print(std::format("\n{}: 送ったフレーム {} / {}、周期 {:.2f} ms（{} フレーム）、デバイス待ちのタイムアウト {} 回\n",
-                      s.stoppedByRequest ? "停止" : "完了", s.framesRendered, total, s.periodMilliseconds,
-                      s.periodFrames, s.lateWakeups));
+    SetConsoleCtrlHandler(onConsoleCtrl, TRUE);
+    print("出力デバイスの変化を待っています（Ctrl+C で終了）…\n");
+    while (!g_interrupted)
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     return 0;
 }
 
@@ -472,8 +578,9 @@ int main(int argc, char** argv)
         if (o->formats)
             return listFormats(*o);
 
-        const fs::path in{o->file}; // argv is in the ANSI code page, as is path(std::string)
-        return o->dummy.empty() ? runWasapi(*o, in) : runDummy(*o, in);
+        if (o->watch)
+            return watchDevices();
+        return runQueue(*o);
     }
     catch (const FormatNotSupportedError& e)
     {
@@ -482,7 +589,7 @@ int main(int argc, char** argv)
     }
     catch (const OutputException& e)
     {
-        printErr("エラー: " + outputErrorText(e) + "\n");
+        printErr("エラー: " + outputErrorText(e.code(), e.what()) + "\n");
         return 4;
     }
     catch (const WavFormatError& e)
