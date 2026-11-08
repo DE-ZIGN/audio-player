@@ -1,0 +1,164 @@
+/* Provisional styling for the S3 skeleton. Colours follow CLAUDE.md chapter 8
+   (dark background, amber accent) and live here only, as tokens. */
+:root {
+  --bg: #14120f;
+  --panel: #1e1b17;
+  --panel-border: #2c2822;
+  --text: #ece4d4;
+  --muted: #9b917f;
+  --accent: #f2a93b;
+  --accent-dim: #8a6122;
+  --error: #ff8a70;
+  --radius: 8px;
+  color-scheme: dark;
+  font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.app-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+h1 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.tag,
+.backend-kind {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-name {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: #2a261f;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent-dim);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1408;
+  font-weight: 600;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.state {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.seek {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.seek input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 3.5em;
+  text-align: center;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: 7em 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+dt {
+  color: var(--muted);
+}
+
+dd {
+  margin: 0;
+}
+
+.error {
+  margin: 10px 0 0;
+  color: var(--error);
+  font-size: 13px;
+  line-height: 1.5;
+}
