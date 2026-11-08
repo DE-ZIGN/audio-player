@@ -27,7 +27,8 @@ add_executable(ap_engine_unit_tests
     unit/device_selection_test.cpp
     unit/device_watcher_test.cpp
     unit/deadline_tracker_test.cpp
-    unit/prefetching_source_test.cpp)
+    unit/prefetching_source_test.cpp
+    unit/asio_sample_types_test.cpp)
 
 target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine Catch2::Catch2WithMain)
 target_compile_definitions(ap_engine_unit_tests PRIVATE
@@ -49,9 +50,10 @@ if(TARGET ap_signalgen_lib)
         unit/wav_file_source_test.cpp
         unit/player_test.cpp
         unit/player_queue_test.cpp
-        unit/player_dropout_test.cpp)
+        unit/player_dropout_test.cpp
+        unit/asio_output_test.cpp)
     target_link_libraries(ap_engine_signal_tests PRIVATE
-        ap_engine ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
+        ap_engine ap_signalgen_lib ap_test_support ap_asiosdk ole32 Catch2::Catch2WithMain)
     ap_apply_compiler_settings(ap_engine_signal_tests)
     set_target_properties(ap_engine_signal_tests PROPERTIES FOLDER "tests")
 

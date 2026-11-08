@@ -15,9 +15,11 @@ add_library(ap_engine STATIC
     src/output/format_probe.cpp
     src/output/device_selection.cpp
     src/output/device_watcher.cpp
+    src/output/asio_sample_types.cpp
+    src/output/asio_output.cpp
     src/output/wasapi_exclusive_output.cpp)
 
-target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt)
+target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt user32 advapi32 ap_asiosdk)
 
 target_include_directories(ap_engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)
