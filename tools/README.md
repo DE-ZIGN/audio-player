@@ -15,6 +15,7 @@ ap_play FILE... [--device N] [--check]  順に再生（--check は送る形式�
 ap_play FILE... --exact-only            コンテナの詰め替えもしない
 ap_play FILE... --dummy OUT.raw         デバイスに送るはずのバイト列をファイルに書き、全曲をつなげた入力とハッシュを比べる
 ap_play FILE... --stress N              N 個のスレッドで CPU に負荷をかけながら再生し、音切れの回数を表示する
+ap_play FILE... --inject-stall S:MS     1 曲目の S 秒の時点で再生スレッドを MS ミリ秒止める（音切れの検出の確認用）
 ap_play --env                        実行環境（MSIX パッケージの中かどうか）
 ap_play --asio-list                  ASIO ドライバーの一覧（レジストリ）
 ap_play --asio-load N|all            ASIO ドライバーを読み込めるか試す（再生はしない）
