@@ -80,9 +80,14 @@ MainComponent::MainComponent(MainOptions options)
     browser_ = std::make_unique<juce::WebBrowserComponent>(browserOptions);
     bridge_.attach(browser_.get());
     addAndMakeVisible(*browser_);
+    resized(); // setSize() above ran before the browser existed
     juce::String url = useDevServer ? options_.devServerUrl : juce::WebBrowserComponent::getResourceProviderRoot();
     if (selfTest)
-        url += (useDevServer ? "" : "index.html") + juce::String("?selftest=1");
+    {
+        // The page checks that its viewport matches the component it lives in.
+        url += (useDevServer ? "" : "index.html") + juce::String("?selftest=1")
+             + "&w=" + juce::String(browser_->getWidth()) + "&h=" + juce::String(browser_->getHeight());
+    }
     browser_->goToURL(url);
 }
 

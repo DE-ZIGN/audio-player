@@ -11,7 +11,29 @@ export interface SelfTestResult {
   log: string[];
 }
 
-export async function runSelfTest(backend: Backend): Promise<SelfTestResult> {
+export interface ExpectedViewport {
+  width: number;
+  height: number;
+}
+
+// Reads ?w=&h= (the size of the app's web view component, in logical pixels).
+export function expectedViewportFromQuery(search: string): ExpectedViewport | null {
+  const q = new URLSearchParams(search);
+  const w = Number(q.get("w"));
+  const h = Number(q.get("h"));
+  return q.has("w") && q.has("h") && Number.isFinite(w) && Number.isFinite(h) ? { width: w, height: h } : null;
+}
+
+const documentViewport = (): ExpectedViewport => ({
+  width: document.documentElement.clientWidth,
+  height: document.documentElement.clientHeight,
+});
+
+export async function runSelfTest(
+  backend: Backend,
+  expected: ExpectedViewport | null = null,
+  viewport: () => ExpectedViewport = documentViewport,
+): Promise<SelfTestResult> {
   const log: string[] = [];
   let latest: PlaybackStatus = await backend.getStatus();
   const waiters = new Set<() => void>();
@@ -43,6 +65,15 @@ export async function runSelfTest(backend: Backend): Promise<SelfTestResult> {
     });
 
   try {
+    // The page must actually have room to show itself (a 0x0 web view runs
+    // scripts fine but shows nothing).
+    const { width: w, height: h } = viewport();
+    if (w < 200 || h < 200) throw new Error(`page is too small to be visible: ${w}x${h}`);
+    if (expected && (Math.abs(w - expected.width) > 2 || Math.abs(h - expected.height) > 2)) {
+      throw new Error(`page ${w}x${h} does not fill its web view ${expected.width}x${expected.height}`);
+    }
+    log.push(`page size ${w}x${h}${expected ? ` (web view ${expected.width}x${expected.height})` : ""}`);
+
     if (latest.state !== "stopped" || latest.totalFrames <= 0) throw new Error(`not loaded: state=${latest.state}`);
     const total = latest.totalFrames;
     log.push(`loaded ${latest.fileName}, ${total} frames`);

@@ -87,8 +87,8 @@ async function main() {
   });
 
   if (new URLSearchParams(location.search).has("selftest")) {
-    const { runSelfTest } = await import("./selftest");
-    const result = await runSelfTest(backend);
+    const { runSelfTest, expectedViewportFromQuery } = await import("./selftest");
+    const result = await runSelfTest(backend, expectedViewportFromQuery(location.search));
     await backend.selfTestResult(result);
     return;
   }
