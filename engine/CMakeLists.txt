@@ -9,9 +9,10 @@ add_library(ap_engine STATIC
     src/repack.cpp
     src/playback.cpp
     src/sha256.cpp
-    src/output/dummy_output.cpp)
+    src/output/dummy_output.cpp
+    src/output/wasapi_exclusive_output.cpp)
 
-target_link_libraries(ap_engine PRIVATE bcrypt)
+target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt)
 
 target_include_directories(ap_engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)

@@ -82,6 +82,8 @@ public:
     virtual std::string deviceName() const = 0;
 
     // Exact check: true only if the format can be sent unchanged.
+    // May throw OutputException for device-level failures (device in use,
+    // exclusive mode not allowed, device removed), which are not about the format.
     virtual FormatCheck checkFormat(const PcmFormat& format) = 0;
 
     // Throws OutputException.
