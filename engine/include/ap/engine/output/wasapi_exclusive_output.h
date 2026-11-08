@@ -23,16 +23,11 @@ private:
     bool initialized_ = false;
 };
 
-// Windows endpoint volume. In exclusive mode the Windows audio engine is
-// bypassed, so the volume only has an effect when the device implements it
-// in hardware (it is then applied inside the device).
-struct EndpointVolumeInfo
-{
-    bool available = false;
-    float scalar = 1.0f; // 0..1
-    bool muted = false;
-    bool hardwareVolume = false;
-};
+// The path record for an exclusive, event-driven WASAPI stream (one buffer
+// of `bufferFrames` per device period). The volume is included only when the
+// endpoint has a volume control.
+OutputPathInfo makeWasapiPathInfo(const std::string& deviceName, const PcmFormat& format, std::uint32_t bufferFrames,
+                                  const EndpointVolumeInfo& volume);
 
 // Exclusive-mode, event-driven WASAPI render output. The device receives the
 // opened format unchanged; formats the device does not accept are rejected.
@@ -56,6 +51,7 @@ public:
     void requestStop() noexcept override;
     void close() noexcept override;
     OutputHealth health() const noexcept override;
+    std::optional<OutputPathInfo> pathInfo() const override;
 
     EndpointVolumeInfo endpointVolume() const;
 

@@ -55,7 +55,8 @@ if(TARGET ap_signalgen_lib)
         unit/player_queue_test.cpp
         unit/player_dropout_test.cpp
         unit/asio_output_test.cpp
-        unit/dsd_signal_test.cpp)
+        unit/dsd_signal_test.cpp
+        unit/signal_path_test.cpp)
     target_link_libraries(ap_engine_signal_tests PRIVATE
         ap_engine ap_signalgen_lib ap_test_support ap_asiosdk ole32 Catch2::Catch2WithMain)
     ap_apply_compiler_settings(ap_engine_signal_tests)

@@ -56,6 +56,10 @@ public:
 
     // Set when the samples are DoP; such streams must never be processed.
     virtual std::optional<DopInfo> dop() const { return std::nullopt; }
+
+    // The file type the samples are read from ("WAV", "DSF", "DFF"); empty
+    // for sources that are not read from a file.
+    virtual std::string containerName() const { return {}; }
 };
 
 // Holds all PCM bytes in memory.

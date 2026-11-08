@@ -47,6 +47,7 @@ public:
     void requestStop() noexcept override { stop_ = true; }
     void close() noexcept override { opened_ = false; }
     OutputHealth health() const noexcept override { return {lateBuffers_.load(), 0, false}; }
+    std::optional<OutputPathInfo> pathInfo() const override;
 
 private:
     Options options_;

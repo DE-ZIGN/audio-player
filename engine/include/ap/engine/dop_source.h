@@ -36,6 +36,7 @@ public:
     bool seek(std::uint64_t frame) override;
     std::uint64_t position() const noexcept override { return position_; }
     std::optional<DopInfo> dop() const override { return info_; }
+    std::string containerName() const override { return info_.container; }
 
 private:
     std::unique_ptr<DsdSource> dsd_;

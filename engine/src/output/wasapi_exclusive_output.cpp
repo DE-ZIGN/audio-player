@@ -199,6 +199,7 @@ struct WasapiExclusiveOutput::Impl
     PcmFormat format;
     UINT32 bufferFrames = 0;
     REFERENCE_TIME periodHns = 0;
+    EndpointVolumeInfo volumeAtOpen;
     bool opened = false;
     std::atomic<bool> stop{false};
     std::atomic<std::uint32_t> lateBuffers{0};
@@ -341,8 +342,33 @@ void WasapiExclusiveOutput::open(const PcmFormat& format)
 
     impl_->format = format;
     impl_->periodHns = period;
+    impl_->volumeAtOpen = endpointVolume();
     impl_->stop = false;
     impl_->opened = true;
+}
+
+std::optional<OutputPathInfo> WasapiExclusiveOutput::pathInfo() const
+{
+    if (!impl_->opened)
+        return std::nullopt;
+    return makeWasapiPathInfo(impl_->name, impl_->format, impl_->bufferFrames, impl_->volumeAtOpen);
+}
+
+OutputPathInfo makeWasapiPathInfo(const std::string& deviceName, const PcmFormat& format, std::uint32_t bufferFrames,
+                                  const EndpointVolumeInfo& volume)
+{
+    OutputPathInfo p;
+    p.api = OutputApi::WasapiExclusive;
+    p.deviceName = deviceName;
+    p.format = format;
+    // Exclusive event mode: one buffer is one device period.
+    p.periodFrames = bufferFrames;
+    p.periodMilliseconds = format.sampleRate ? 1000.0 * bufferFrames / format.sampleRate : 0.0;
+    p.eventDriven = true;
+    p.layout = SampleLayout::Interleaved;
+    if (volume.available)
+        p.endpointVolume = volume;
+    return p;
 }
 
 RunStats WasapiExclusiveOutput::run(const RenderCallback& render)

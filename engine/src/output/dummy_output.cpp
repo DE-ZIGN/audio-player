@@ -40,6 +40,20 @@ void DummyOutput::open(const PcmFormat& format)
     stop_ = false;
 }
 
+std::optional<OutputPathInfo> DummyOutput::pathInfo() const
+{
+    if (!opened_)
+        return std::nullopt;
+    OutputPathInfo p;
+    p.api = OutputApi::Dummy;
+    p.deviceName = deviceName();
+    p.format = format_;
+    p.periodFrames = static_cast<std::uint32_t>(options_.periodFrames.front());
+    p.periodMilliseconds = 1000.0 * static_cast<double>(p.periodFrames) / format_.sampleRate;
+    p.layout = SampleLayout::Interleaved;
+    return p;
+}
+
 RunStats DummyOutput::run(const RenderCallback& render)
 {
     if (!opened_)

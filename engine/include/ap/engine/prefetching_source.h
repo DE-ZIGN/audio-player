@@ -41,6 +41,7 @@ public:
     SourceHealth health() const noexcept override;
     void waitUntilReady() override;
     std::optional<DopInfo> dop() const override { return dop_; }
+    std::string containerName() const override { return container_; }
 
     std::size_t bufferFrames() const noexcept { return capacity_; }
 
@@ -53,6 +54,7 @@ private:
     std::unique_ptr<PcmSource> inner_;
     PcmFormat format_;
     std::optional<DopInfo> dop_; // copied at construction (the reader thread owns inner_)
+    std::string container_;      // likewise
     std::uint64_t totalFrames_ = 0;
     std::size_t bpf_ = 0;
     std::size_t capacity_ = 0;            // frames

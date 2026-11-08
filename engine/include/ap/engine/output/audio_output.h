@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -86,10 +87,65 @@ struct OutputHealth
     bool realtimePriority = false; // the playback thread runs with MMCSS "Pro Audio"
 };
 
+enum class OutputApi
+{
+    Dummy,           // writes the bytes to a file (tests, --dummy)
+    WasapiExclusive, // WASAPI exclusive mode, event-driven
+    Asio,
+};
+
+// How the opened format's samples are placed in the device's buffers. None of
+// these changes a sample value.
+enum class SampleLayout
+{
+    Interleaved,            // the opened format's bytes as they are (WASAPI, dummy)
+    PerChannel,             // ASIO: split per channel, each sample copied at the same width
+    PerChannelRightAligned, // ASIO Int32LSB16/24: the sample in the low bytes of a 32-bit slot, sign-extended
+};
+
+// Windows endpoint volume. In exclusive mode the Windows audio engine is
+// bypassed, so the volume only has an effect when the device implements it
+// in hardware (it is then applied inside the device).
+struct EndpointVolumeInfo
+{
+    bool available = false;
+    float scalar = 1.0f; // 0..1
+    bool muted = false;
+    bool hardwareVolume = false;
+};
+
+struct AsioPathInfo
+{
+    std::string driverName; // as reported by the driver
+    long driverVersion = 0;
+    long sampleType = -1;   // asio::SampleTypeCode of the output channels
+    std::string sampleTypeName;
+    bool rateChanged = false; // open() switched the driver's sample rate
+    double rateBefore = 0.0;  // the driver's rate before open()
+};
+
+// What the output layer does with the data, as reported by the output after
+// open(). Only facts the output itself knows or the OS/driver reported.
+struct OutputPathInfo
+{
+    OutputApi api = OutputApi::Dummy;
+    std::string deviceName;
+    PcmFormat format; // as opened (what the output receives)
+    std::uint32_t periodFrames = 0; // frames handed over per device period / buffer switch
+    double periodMilliseconds = 0.0;
+    bool eventDriven = false; // WASAPI: the device signals when it needs data
+    SampleLayout layout = SampleLayout::Interleaved;
+    std::optional<AsioPathInfo> asio;                 // ASIO only
+    std::optional<EndpointVolumeInfo> endpointVolume; // WASAPI only, when the endpoint has a volume control
+};
+
 class AudioOutput
 {
 public:
     virtual ~AudioOutput() = default;
+
+    // Set between open() and close(); empty when not open or not reported.
+    virtual std::optional<OutputPathInfo> pathInfo() const { return std::nullopt; }
 
     // Cumulative over the life of this object. Thread-safe.
     virtual OutputHealth health() const noexcept { return {}; }

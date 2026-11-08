@@ -185,6 +185,7 @@ struct AsioOutput::Impl
     std::vector<std::byte> scratch;
     double periodSeconds = 0.0;
     double rateSet = 0.0;
+    double rateBefore = 0.0;
     ASIOCallbacks callbacks{};
 
     // Run state (bufferSwitch runs on the driver's thread).
@@ -483,6 +484,7 @@ void AsioOutput::open(const PcmFormat& format)
         {
             ASIOSampleRate current = 0;
             d.driver->getSampleRate(&current);
+            d.rateBefore = current;
             d.rateSet = 0;
             if (current != static_cast<ASIOSampleRate>(format.sampleRate))
             {
@@ -632,6 +634,29 @@ void AsioOutput::close() noexcept
     catch (...)
     {
     }
+}
+
+std::optional<OutputPathInfo> AsioOutput::pathInfo() const
+{
+    const auto& d = *impl_;
+    if (!d.opened)
+        return std::nullopt;
+    OutputPathInfo p;
+    p.api = OutputApi::Asio;
+    p.deviceName = d.displayName;
+    p.format = d.format;
+    p.periodFrames = static_cast<std::uint32_t>(d.bufferSize);
+    p.periodMilliseconds = d.periodSeconds * 1000.0;
+    p.layout = asio::rightAligned(d.sampleType) ? SampleLayout::PerChannelRightAligned : SampleLayout::PerChannel;
+    AsioPathInfo a;
+    a.driverName = d.details.driverName;
+    a.driverVersion = d.details.driverVersion;
+    a.sampleType = d.sampleType;
+    a.sampleTypeName = asio::sampleTypeName(d.sampleType);
+    a.rateChanged = d.rateSet != 0.0;
+    a.rateBefore = d.rateBefore;
+    p.asio = a;
+    return p;
 }
 
 OutputHealth AsioOutput::health() const noexcept

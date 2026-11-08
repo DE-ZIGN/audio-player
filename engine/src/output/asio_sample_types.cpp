@@ -50,7 +50,7 @@ void deinterleave(long t, const PcmFormat& f, std::span<const std::byte> src, st
     if (src.size() < frames * bpf)
         throw std::invalid_argument("asio::deinterleave: source too short");
 
-    const bool signExtend = (t == Int32LSB16 || t == Int32LSB24);
+    const bool signExtend = rightAligned(t);
     for (std::size_t c = 0; c < f.channels; ++c)
     {
         auto* out = static_cast<std::byte*>(channels[c]);
@@ -73,6 +73,11 @@ void deinterleave(long t, const PcmFormat& f, std::span<const std::byte> src, st
             }
         }
     }
+}
+
+bool rightAligned(long t) noexcept
+{
+    return t == Int32LSB16 || t == Int32LSB24;
 }
 
 std::string sampleTypeName(long t)

@@ -3,6 +3,7 @@
 #include <ap/engine/output/audio_output.h>
 #include <ap/engine/pcm_source.h>
 #include <ap/engine/playback.h>
+#include <ap/engine/signal_path.h>
 
 #include <atomic>
 #include <chrono>
@@ -93,6 +94,9 @@ struct PlayerStatus
     std::optional<PcmFormat> sourceFormat;
     std::optional<DopInfo> dop;       // set when the current track is DSD sent as DoP
     std::optional<PlaybackPlan> plan; // set once the output has been opened
+    // The current track's path (input, processing, output), set once the
+    // output has been opened and the output reported what it does.
+    std::optional<SignalPath> path;
     std::string outputName;
     std::uint64_t positionFrames = 0; // within the current track
     std::uint64_t totalFrames = 0;    // of the current track
@@ -157,6 +161,8 @@ private:
     mutable std::mutex mutex_;
     std::condition_variable idle_;
     PlayerStatus status_;
+    std::optional<OutputPathInfo> outputPath_; // reported by the output at the start of the session
+    std::string container_;                    // of the current track
     AudioOutput* activeOutput_ = nullptr; // owned by the playback thread
     std::thread thread_;
     bool running_ = false;

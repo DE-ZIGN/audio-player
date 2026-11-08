@@ -152,6 +152,8 @@ void Player::setQueue(std::vector<QueueItem> items, std::size_t startIndex)
     retiredOutputHealth_ = {};
 
     status_ = PlayerStatus{};
+    outputPath_.reset();
+    container_.clear();
     status_.queueLength = queue_.size();
     if (queue_.empty())
         return;
@@ -216,6 +218,7 @@ void Player::publishTrackLocked()
     status_.sourceFormat = source_ ? std::optional<PcmFormat>(source_->format()) : std::nullopt;
     status_.dop = source_ ? source_->dop() : std::nullopt;
     status_.totalFrames = source_ ? source_->totalFrames() : 0;
+    container_ = source_ ? source_->containerName() : std::string{};
 }
 
 void Player::play()
@@ -252,6 +255,7 @@ void Player::play()
     status_.state = PlayerState::Playing;
     status_.error = PlayerError{};
     status_.plan.reset();
+    outputPath_.reset();
     loadFailed_ = false;
     loadError_.clear();
     stopRequested_ = false;
@@ -316,6 +320,18 @@ PlayerStatus Player::status() const
         out.realtimePriority = out.realtimePriority || h.realtimePriority;
     }
     s.dropouts = {out.lateBuffers, out.timeouts, src.starvations, src.starvedFrames, out.realtimePriority};
+
+    if (s.plan && outputPath_ && s.sourceFormat)
+    {
+        SignalPath path;
+        path.container = container_;
+        path.source = *s.sourceFormat;
+        path.dop = s.dop;
+        path.processing = false; // phase 1: the direct path only
+        path.repack = s.plan->repack;
+        path.output = *outputPath_;
+        s.path = std::move(path);
+    }
     return s;
 }
 
@@ -354,9 +370,11 @@ void Player::threadMain()
 
         PlaybackOptions options = options_;
         options.onStart = [this, output = output.get(), userOnStart = options_.onStart](const PlaybackPlan& plan) {
+            const auto reported = output->pathInfo();
             {
                 std::lock_guard lock(mutex_);
                 status_.plan = plan;
+                outputPath_ = reported;
             }
             // open() clears an earlier stop request inside the output; re-issue it.
             if (stopRequested_)

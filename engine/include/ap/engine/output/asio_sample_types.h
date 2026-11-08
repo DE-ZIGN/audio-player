@@ -44,6 +44,10 @@ bool accepts(long sampleType, const PcmFormat& format) noexcept;
 void deinterleave(long sampleType, const PcmFormat& format, std::span<const std::byte> src, std::size_t frames,
                   std::span<void* const> channels);
 
+// True for the types that hold a narrower sample in the low bytes of a 32-bit
+// slot (Int32LSB16, Int32LSB24): samples are sign-extended into them.
+bool rightAligned(long sampleType) noexcept;
+
 // "Int32LSB" etc., for logs and the UI.
 std::string sampleTypeName(long sampleType);
 

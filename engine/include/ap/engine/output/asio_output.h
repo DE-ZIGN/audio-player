@@ -74,6 +74,7 @@ public:
     void requestStop() noexcept override;
     void close() noexcept override;
     OutputHealth health() const noexcept override;
+    std::optional<OutputPathInfo> pathInfo() const override;
 
     AsioDriverDetails details() const;
 

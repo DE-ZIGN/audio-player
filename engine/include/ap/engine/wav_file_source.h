@@ -32,6 +32,7 @@ public:
     std::size_t read(std::span<std::byte> dst) override;
     bool seek(std::uint64_t frame) override;
     std::uint64_t position() const noexcept override { return framesRead_; }
+    std::string containerName() const override { return "WAV"; }
 
     // Byte offset of the first sample in the file (for diagnostics).
     std::uint64_t dataOffset() const noexcept { return dataOffset_; }
