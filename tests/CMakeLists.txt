@@ -127,7 +127,29 @@ endif()
 # ---------------------------------------------------------------------------
 if(AP_BUILD_APP)
     add_test(NAME app_smoke_test COMMAND $<TARGET_FILE:ap_app> --smoke-test)
+    # Passes only when WebView2 starts, the built UI loads from <exe dir>/ui and
+    # the page reaches the bridge (getStatus, uiReady).
     set_tests_properties(app_smoke_test PROPERTIES
         LABELS  "smoke"
-        TIMEOUT 30)
+        TIMEOUT 60)
+
+    # End to end: the page plays, seeks and stops a 2 s file through the
+    # native bridge into a dummy output; the app checks the bytes.
+    if(TARGET ap_signalgen)
+        set(self_test_dir "${CMAKE_CURRENT_BINARY_DIR}/app_self_test")
+        add_test(NAME app_self_test_signal
+            COMMAND ap_signalgen sine --rate 48000 --bits 24 --level -40 --seconds 2
+                    --out "${self_test_dir}/selftest_48k_24bit.wav")
+        set_tests_properties(app_self_test_signal PROPERTIES
+            LABELS "smoke"
+            FIXTURES_SETUP app_self_test_signal)
+
+        add_test(NAME app_self_test
+            COMMAND ap_app "--self-test=${self_test_dir}/selftest_48k_24bit.wav"
+                           "--self-test-output=${self_test_dir}/out.raw")
+        set_tests_properties(app_self_test PROPERTIES
+            LABELS "smoke"
+            TIMEOUT 60
+            FIXTURES_REQUIRED app_self_test_signal)
+    endif()
 endif()

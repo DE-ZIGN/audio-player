@@ -8,6 +8,23 @@
 
 include(FetchContent)
 
+# Microsoft WebView2 SDK 1.0.3485.44 (NuGet package), BSD-3-Clause.
+# JUCE links its static loader (WebView2LoaderStatic.lib); the WebView2
+# runtime itself is the one installed in Windows. JUCE's FindWebView2 looks
+# for a "*Microsoft.Web.WebView2*" folder under JUCE_WEBVIEW2_PACKAGE_LOCATION.
+if(AP_BUILD_APP)
+    set(AP_WEBVIEW2_VERSION 1.0.3485.44)
+    set(AP_WEBVIEW2_PARENT "${FETCHCONTENT_BASE_DIR}/webview2-package")
+    FetchContent_Declare(webview2
+        URL           https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/${AP_WEBVIEW2_VERSION}
+        URL_HASH      SHA256=bc09150b179246ac90189649b13be8e6b11b3ac200e817e18df106e1f3cf489e
+        DOWNLOAD_NAME microsoft.web.webview2.${AP_WEBVIEW2_VERSION}.zip
+        SOURCE_DIR    "${AP_WEBVIEW2_PARENT}/Microsoft.Web.WebView2.${AP_WEBVIEW2_VERSION}"
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+    FetchContent_MakeAvailable(webview2)
+    set(JUCE_WEBVIEW2_PACKAGE_LOCATION "${AP_WEBVIEW2_PARENT}")
+endif()
+
 # JUCE 8.0.17 (tag 8.0.17-security), used under AGPLv3.
 if(AP_BUILD_APP)
     FetchContent_Declare(JUCE

@@ -51,11 +51,15 @@ if(AP_BUILD_TOOLS)
     add_subdirectory(tools)
 endif()
 
+if(AP_BUILD_TESTS)
+    enable_testing()
+endif()
+
 if(AP_BUILD_APP)
+    add_subdirectory(ui)
     add_subdirectory(app)
 endif()
 
 if(AP_BUILD_TESTS)
-    enable_testing()
     add_subdirectory(tests)
 endif()
