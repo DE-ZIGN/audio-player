@@ -14,7 +14,7 @@
 - AAC: 特許プール（Via LA）は「オープンソースやシェアウェアでも特許ライセンスが要る場合がある」と明記 → Windows Media Foundationのデコーダーを使い同梱しない。MP3特許は失効
 - 署名: Azure Artifact Signing（月9.99ドル）は個人は米国・カナダのみ、組織は米・加・EU・英 → 日本の個人は不可。市販証明書は2026年3月から有効期間最長460日
 - 署名とSmartScreen（重要）: 2024年からEVの即時バイパスは廃止。EV/OV/Artifact Signingとも、新しいファイルは評判が貯まるまで警告が出うる（評判はファイルのハッシュごと）。署名で変わるのは発行元表示（「不明な発行元」→名前）と改ざん防止。警告が出ないのはMicrosoft Store経由のみ（Microsoftが再署名）
-  - Microsoft Store: 個人登録無料、MSIXなら無料で署名・ホスト・自動更新。要検証: MSIX内で排他WASAPI・ASIO（レジストリ登録COM）が動くか
+  - Microsoft Store: 個人登録無料、MSIXなら無料で署名・ホスト・自動更新。検証済み（2026-11-08、S2）: MSIX内で排他WASAPIの再生とASIOドライバー（レジストリ登録COM）の読み込みが動く。ASIOの再生は1-4で確認（詳細は phase1-tasks.md の記録）
   - SignPath Foundation: OSS向け無料。OSI承認ライセンス・公開リポジトリ・ビルド自動化・MFA、発行元はSignPath Foundation名義、表示文掲載
 - 非商用条件: CC BY IRは問題なし、Voxengoは無償・無改変なら可、MusicBrainz補足データ（CC BY-NC-SA）とAcoustID（非商用無料）は寄付の扱いが未定義 → 必須でないので避けるか問い合わせ
 - 商標: ASIO（独自ライセンスで表記条項）、VST（MITでも名称・ロゴは商標）、DSDロゴ。製品名は商標を確認、Storeで名前予約可。ライセンス表示画面をフェーズ1から
