@@ -8,11 +8,14 @@ import {
   dropoutText,
   errorText,
   formatTime,
+  outputModeText,
   priorityText,
   queueText,
+  rateChangeText,
   repackText,
   stateLabel,
   transitionText,
+  volumeText,
 } from "./messages";
 import type { PlaybackStatus } from "./status";
 
@@ -35,6 +38,8 @@ const els = {
   duration: $("duration"),
   sourceFormat: $("source-format"),
   outputName: $("output-name"),
+  outputMode: $("output-mode"),
+  volume: $("volume"),
   outputFormat: $("output-format"),
   repack: $("repack"),
   error: $("error"),
@@ -67,8 +72,13 @@ function render(s: PlaybackStatus) {
   const note = dopNotice(s);
   els.dopNote.hidden = note === "";
   els.dopNote.textContent = note;
-  els.outputName.textContent = s.outputName ? `${s.outputName}（排他 WASAPI）` : "—";
-  els.outputFormat.textContent = s.outputFormat ? describeFormat(s.outputFormat) : "—";
+  els.outputName.textContent = s.outputName || "—";
+  els.outputMode.textContent = s.path ? outputModeText(s.path) : "—";
+  els.volume.textContent = (s.path && volumeText(s.path)) || "—";
+  const rateChange = rateChangeText(s);
+  els.outputFormat.textContent = s.outputFormat
+    ? describeFormat(s.outputFormat) + (rateChange ? `（${rateChange}）` : "")
+    : "—";
   els.repack.textContent = s.outputFormat ? repackText(s) : "—";
   els.queue.textContent = queueText(s);
   const started = s.outputFormat !== null;

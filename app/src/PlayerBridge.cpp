@@ -78,6 +78,72 @@ const char* toString(PlayerErrorKind k)
     return "other";
 }
 
+const char* toString(OutputApi a)
+{
+    switch (a)
+    {
+        case OutputApi::Dummy:           return "dummy";
+        case OutputApi::WasapiExclusive: return "wasapiExclusive";
+        case OutputApi::Asio:            return "asio";
+    }
+    return "dummy";
+}
+
+const char* toString(SampleLayout l)
+{
+    switch (l)
+    {
+        case SampleLayout::Interleaved:            return "interleaved";
+        case SampleLayout::PerChannel:             return "perChannel";
+        case SampleLayout::PerChannelRightAligned: return "perChannelRightAligned";
+    }
+    return "interleaved";
+}
+
+// The facts of the path that are not already in the status (formats, DoP, repack are).
+juce::var pathVar(const SignalPath& p)
+{
+    auto* o = new juce::DynamicObject();
+    o->setProperty("container", juce::String(p.container));
+    o->setProperty("processing", p.processing);
+
+    const auto& out = p.output;
+    auto* d = new juce::DynamicObject();
+    d->setProperty("api", toString(out.api));
+    d->setProperty("periodFrames", static_cast<int>(out.periodFrames));
+    d->setProperty("periodMilliseconds", out.periodMilliseconds);
+    d->setProperty("eventDriven", out.eventDriven);
+    d->setProperty("layout", toString(out.layout));
+    if (out.asio)
+    {
+        auto* a = new juce::DynamicObject();
+        a->setProperty("driverName", juce::String::fromUTF8(out.asio->driverName.c_str()));
+        a->setProperty("driverVersion", static_cast<juce::int64>(out.asio->driverVersion));
+        a->setProperty("sampleType", juce::String(out.asio->sampleTypeName));
+        a->setProperty("rateChanged", out.asio->rateChanged);
+        a->setProperty("rateBefore", out.asio->rateBefore);
+        d->setProperty("asio", juce::var(a));
+    }
+    else
+    {
+        d->setProperty("asio", juce::var());
+    }
+    if (out.endpointVolume)
+    {
+        auto* v = new juce::DynamicObject();
+        v->setProperty("scalar", static_cast<double>(out.endpointVolume->scalar));
+        v->setProperty("muted", out.endpointVolume->muted);
+        v->setProperty("hardware", out.endpointVolume->hardwareVolume);
+        d->setProperty("endpointVolume", juce::var(v));
+    }
+    else
+    {
+        d->setProperty("endpointVolume", juce::var());
+    }
+    o->setProperty("output", juce::var(d));
+    return juce::var(o);
+}
+
 juce::var formatVar(const PcmFormat& f)
 {
     auto* o = new juce::DynamicObject();
@@ -255,6 +321,7 @@ juce::var PlayerBridge::statusAsVar() const
     o->setProperty("outputFormat", s.plan ? formatVar(s.plan->output) : juce::var());
     o->setProperty("repack", s.plan ? toString(s.plan->repack) : "none");
     o->setProperty("outputName", juce::String::fromUTF8(s.outputName.c_str()));
+    o->setProperty("path", s.path ? pathVar(*s.path) : juce::var());
     o->setProperty("positionFrames", static_cast<juce::int64>(s.positionFrames));
     o->setProperty("totalFrames", static_cast<juce::int64>(s.totalFrames));
 

@@ -8,13 +8,16 @@ import {
   dropoutText,
   errorText,
   formatTime,
+  outputModeText,
   priorityText,
   queueText,
+  rateChangeText,
   repackText,
   stateLabel,
   transitionText,
+  volumeText,
 } from "./messages";
-import { emptyStatus, type FormatInfo, type PlaybackStatus } from "./status";
+import { emptyStatus, type FormatInfo, type PlaybackStatus, type SignalPath } from "./status";
 
 const f = (rate: number, container: number, valid: number, type: "int" | "float" = "int"): FormatInfo => ({
   sampleRate: rate,
@@ -135,6 +138,88 @@ describe("DoP texts", () => {
     expect(t).toContain("176.4 kHz");
     expect(t).toContain("DoP に対応していない DAC");
     expect(dopNotice({ ...dopStatus, dop: null })).toBe("");
+  });
+});
+
+describe("output path texts", () => {
+  const wasapi: SignalPath = {
+    container: "WAV",
+    processing: false,
+    output: {
+      api: "wasapiExclusive",
+      periodFrames: 960,
+      periodMilliseconds: 10,
+      eventDriven: true,
+      layout: "interleaved",
+      asio: null,
+      endpointVolume: { scalar: 1, muted: false, hardware: false },
+    },
+  };
+  const asio = (layout: SignalPath["output"]["layout"], sampleType: string, rateChanged = false): SignalPath => ({
+    ...wasapi,
+    output: {
+      ...wasapi.output,
+      api: "asio",
+      periodFrames: 512,
+      periodMilliseconds: 10.67,
+      eventDriven: false,
+      layout,
+      asio: { driverName: "SSL ASIO Driver", driverVersion: 3, sampleType, rateChanged, rateBefore: 96000 },
+      endpointVolume: null,
+    },
+  });
+  const withPath = (path: SignalPath | null): PlaybackStatus => ({
+    ...emptyStatus,
+    state: "playing",
+    outputFormat: f(44100, 24, 24),
+    path,
+  });
+
+  it("names exclusive WASAPI and the period", () => {
+    const t = outputModeText(wasapi);
+    expect(t).toContain("排他 WASAPI");
+    expect(t).toContain("イベント駆動");
+    expect(t).toContain("960 フレーム");
+    expect(t).toContain("10 ms");
+  });
+  it("names the ASIO driver and its sample type", () => {
+    const t = outputModeText(asio("perChannel", "Int24LSB"));
+    expect(t).toContain("ASIO");
+    expect(t).toContain("SSL ASIO Driver");
+    expect(t).toContain("Int24LSB");
+    expect(t).toContain("512 フレーム");
+    expect(t).not.toContain("右詰め");
+  });
+  it("explains a right-aligned ASIO sample type without claiming a change", () => {
+    const t = outputModeText(asio("perChannelRightAligned", "Int32LSB24"));
+    expect(t).toContain("Int32LSB24");
+    expect(t).toContain("右詰め");
+    expect(t).toContain("値は変わりません");
+  });
+  it("says when the driver's rate was switched", () => {
+    expect(rateChangeText(withPath(asio("perChannel", "Int32LSB", true)))).toContain("96 kHz → 44.1 kHz");
+    expect(rateChangeText(withPath(asio("perChannel", "Int32LSB", false)))).toBe("");
+    expect(rateChangeText(withPath(wasapi))).toBe("");
+  });
+  it("explains the Windows volume depending on where it is applied", () => {
+    const software = volumeText({ ...wasapi, output: { ...wasapi.output, endpointVolume: { scalar: 0.9, muted: false, hardware: false } } });
+    expect(software).toContain("90%");
+    expect(software).toContain("排他モードではかかりません");
+
+    const hardware = volumeText({ ...wasapi, output: { ...wasapi.output, endpointVolume: { scalar: 0.5, muted: false, hardware: true } } });
+    expect(hardware).toContain("50%");
+    expect(hardware).toContain("デバイスの中");
+    expect(hardware).toContain("100%");
+
+    const full = volumeText({ ...wasapi, output: { ...wasapi.output, endpointVolume: { scalar: 1, muted: false, hardware: true } } });
+    expect(full).toContain("100%");
+    expect(full).not.toContain("にしてください");
+
+    const muted = volumeText({ ...wasapi, output: { ...wasapi.output, endpointVolume: { scalar: 1, muted: true, hardware: true } } });
+    expect(muted).toContain("ミュート");
+  });
+  it("shows nothing about volume when the output has none", () => {
+    expect(volumeText(asio("perChannel", "Int24LSB"))).toBe("");
   });
 });
 

@@ -504,6 +504,37 @@ std::string transitionText(const TrackTransition& t)
                        t.switchMilliseconds);
 }
 
+// The output part of the path, as the output reported it after opening.
+std::string outputModeText(const SignalPath& p)
+{
+    const auto& o = p.output;
+    const auto period = std::format("{} フレーム（{:.2f} ms）", o.periodFrames, o.periodMilliseconds);
+    switch (o.api)
+    {
+        case OutputApi::WasapiExclusive:
+            return std::format("排他 WASAPI{}・1 回に {}", o.eventDriven ? "（イベント駆動）" : "", period);
+        case OutputApi::Asio:
+        {
+            std::string s = "ASIO";
+            if (o.asio)
+            {
+                s += std::format(" {}（版 {}）・ドライバーの形式 {}", o.asio->driverName, o.asio->driverVersion,
+                                 o.asio->sampleTypeName);
+                if (o.layout == SampleLayout::PerChannelRightAligned)
+                    s += "（32bit の枠の下位に右詰めで入れて送る。値は変わらない）";
+            }
+            s += "・バッファー " + period;
+            if (o.asio && o.asio->rateChanged)
+                s += std::format("・ドライバーのレートを {:g} → {:g} kHz に切り替えた", o.asio->rateBefore / 1000.0,
+                                 o.format.sampleRate / 1000.0);
+            return s;
+        }
+        case OutputApi::Dummy:
+            return "ダミー出力（ファイルに書き出すだけ）・1 回に " + period;
+    }
+    return {};
+}
+
 std::string playerErrorText(const PlayerStatus& s)
 {
     const auto& e = s.error;
@@ -711,6 +742,10 @@ int runQueue(const Options& o)
         {
             print(std::format("\r  送る形式: {}、詰め替え: {}                    \n", describe(s.plan->output),
                               repackText(*s.plan)));
+            if (s.path)
+                print(std::format("  出力の方式: {}\n  処理: {}\n", outputModeText(*s.path),
+                                  s.path->dop ? "なし（DoP の経路では処理をかけられない）"
+                                              : "なし（原音経路：音量・変換・ディザをかけない）"));
             shownPlan = s.plan;
         }
         if (s.state != PlayerState::Playing)

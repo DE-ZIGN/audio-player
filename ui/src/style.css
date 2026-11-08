@@ -142,7 +142,7 @@ button:disabled {
 
 dl {
   display: grid;
-  grid-template-columns: 7em 1fr;
+  grid-template-columns: max-content 1fr;
   gap: 4px 12px;
   margin: 0;
   font-size: 13px;

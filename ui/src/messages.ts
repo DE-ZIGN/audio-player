@@ -1,7 +1,7 @@
 // User-facing text (Japanese first). Describes what the player does; never
 // claims that something sounds better.
 
-import type { DropoutCounts, FormatInfo, PlaybackStatus, PlayerState, TrackTransition } from "./status";
+import type { DropoutCounts, FormatInfo, PlaybackStatus, PlayerState, SignalPath, TrackTransition } from "./status";
 
 function rateText(rate: number): string {
   return `${Number((rate / 1000).toFixed(3))} kHz`;
@@ -78,6 +78,52 @@ export function dopNotice(s: PlaybackStatus): string {
   return (
     `DSD を DoP（PCM ${rateText(s.sourceFormat.sampleRate)} / 24bit に包む形）で送っています。` +
     "DoP に対応していない DAC では、大きなノイズになります。DAC の表示が DSD になっているか確かめてください。"
+  );
+}
+
+function periodText(frames: number, ms: number): string {
+  return `${frames} フレーム（${Number(ms.toFixed(2))} ms）`;
+}
+
+// How the output layer delivers the data (from what the output reported).
+export function outputModeText(path: SignalPath): string {
+  const o = path.output;
+  switch (o.api) {
+    case "wasapiExclusive":
+      return `排他 WASAPI${o.eventDriven ? "（イベント駆動）" : ""}・1 回に ${periodText(o.periodFrames, o.periodMilliseconds)}`;
+    case "asio": {
+      const a = o.asio;
+      const driver = a ? `${a.driverName}（版 ${a.driverVersion}）` : "";
+      const type = a ? `・ドライバーの形式 ${a.sampleType}` : "";
+      const aligned =
+        o.layout === "perChannelRightAligned" ? "（32bit の枠の下位に右詰めで入れて送ります。値は変わりません）" : "";
+      return `ASIO ${driver}${type}${aligned}・バッファー ${periodText(o.periodFrames, o.periodMilliseconds)}`;
+    }
+    case "dummy":
+      return `ダミー出力（ファイルに書き出すだけ）・1 回に ${periodText(o.periodFrames, o.periodMilliseconds)}`;
+  }
+}
+
+// ASIO: the driver's rate was switched for this track.
+export function rateChangeText(s: PlaybackStatus): string {
+  const a = s.path?.output.asio;
+  if (!a || !a.rateChanged || !s.outputFormat) return "";
+  return `この曲に合わせて、ドライバーのレートを ${rateText(a.rateBefore)} → ${rateText(s.outputFormat.sampleRate)} に切り替えました`;
+}
+
+// Windows endpoint volume (WASAPI). Empty when the output has no volume control.
+export function volumeText(path: SignalPath): string {
+  const v = path.output.endpointVolume;
+  if (!v) return "";
+  const percent = Math.round(v.scalar * 100);
+  if (!v.hardware) {
+    return `${percent}%${v.muted ? "・ミュート" : ""}（このデバイスはソフトウェア音量なので、排他モードではかかりません）`;
+  }
+  if (v.muted) return "ミュート（このデバイスは音量をデバイスの中でかけるため、音が出ません）";
+  if (percent >= 100) return "100%（このデバイスは音量をデバイスの中でかけます。今は最大です）";
+  return (
+    `${percent}%：このデバイスは音量をデバイスの中でかけるため、DAC に届いたあとで信号が変わります。` +
+    "原音のまま出すには 100% にしてください（アプリからドライバーまでは原音のままです）"
   );
 }
 

@@ -3,7 +3,7 @@
 // server opened directly) a mock backend simulates playback so the page can
 // be worked on without the app.
 
-import { emptyStatus, type PlaybackStatus } from "./status";
+import { emptyStatus, type PlaybackStatus, type SignalPath } from "./status";
 
 export interface OpenResult {
   ok: boolean;
@@ -82,6 +82,21 @@ const fmt24 = (sampleRate: number) => ({
   sampleType: "int" as const,
 });
 
+// What a WASAPI exclusive output reports for a track (10 ms periods).
+const mockPath = (t: MockTrack): SignalPath => ({
+  container: t.dsdRate ? "DSF" : "WAV",
+  processing: false,
+  output: {
+    api: "wasapiExclusive",
+    periodFrames: t.sampleRate / 100,
+    periodMilliseconds: 10,
+    eventDriven: true,
+    layout: "interleaved",
+    asio: null,
+    endpointVolume: { scalar: 1, muted: false, hardware: false },
+  },
+});
+
 // Three tracks with a rate change, for working on the page in a browser.
 export const DEMO_QUEUE: MockTrack[] = [
   { name: "（試験用）01_44k.wav", sampleRate: 44100, seconds: 8 },
@@ -113,6 +128,7 @@ export class MockBackend implements Backend {
       sourceFormat: fmt24(t.sampleRate),
       dop: t.dsdRate ? { dsdRate: t.dsdRate, container: "DSF" } : null,
       outputFormat: null,
+      path: null,
       totalFrames: Math.round(t.sampleRate * t.seconds),
       positionFrames: 0,
     };
@@ -126,6 +142,7 @@ export class MockBackend implements Backend {
       state: "playing",
       outputName: "（模擬）出力デバイス",
       outputFormat: this.status.sourceFormat && { ...this.status.sourceFormat, containerBits: 32 },
+      path: mockPath(this.tracks[this.status.queueIndex]),
       repack: "widerContainer",
       dropouts: { ...this.status.dropouts, realtimePriority: true },
     });
@@ -148,6 +165,7 @@ export class MockBackend implements Backend {
         ...this.status,
         ...fields,
         outputFormat: { ...fields.sourceFormat, containerBits: 32 },
+        path: mockPath(this.tracks[from + 1]),
         transitions: [
           ...this.status.transitions,
           {

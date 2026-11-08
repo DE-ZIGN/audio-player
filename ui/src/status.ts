@@ -58,8 +58,41 @@ export interface DopInfo {
   container: string; // "DSF" or "DFF"
 }
 
+export type OutputApi = "dummy" | "wasapiExclusive" | "asio";
+export type SampleLayout = "interleaved" | "perChannel" | "perChannelRightAligned";
+
+export interface AsioPathInfo {
+  driverName: string;
+  driverVersion: number;
+  sampleType: string; // e.g. "Int32LSB24"
+  rateChanged: boolean; // the driver's rate was switched for this track
+  rateBefore: number; // Hz
+}
+
+export interface EndpointVolume {
+  scalar: number; // 0..1
+  muted: boolean;
+  hardware: boolean; // applied inside the device (otherwise it has no effect in exclusive mode)
+}
+
+// Facts about the path that are not elsewhere in the status. Set once the output is open.
+export interface SignalPath {
+  container: string; // "WAV", "DSF", "DFF"
+  processing: boolean; // phase 1: always false (direct path)
+  output: {
+    api: OutputApi;
+    periodFrames: number;
+    periodMilliseconds: number;
+    eventDriven: boolean;
+    layout: SampleLayout;
+    asio: AsioPathInfo | null;
+    endpointVolume: EndpointVolume | null; // WASAPI, when the endpoint has a volume control
+  };
+}
+
 export interface PlaybackStatus {
   state: PlayerState;
+  path: SignalPath | null;
   dropouts: DropoutCounts;
   dop: DopInfo | null; // set when the current track is DSD sent as DoP
   fileName: string; // name of the current track
@@ -77,6 +110,7 @@ export interface PlaybackStatus {
 
 export const emptyStatus: PlaybackStatus = {
   state: "empty",
+  path: null,
   dropouts: { lateBuffers: 0, deviceTimeouts: 0, readStarvations: 0, starvedFrames: 0, realtimePriority: false },
   dop: null,
   fileName: "",
