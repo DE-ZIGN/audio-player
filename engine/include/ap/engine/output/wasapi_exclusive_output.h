@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ap/engine/output/audio_output.h>
+#include <ap/engine/output/device_selection.h>
 
 #include <memory>
 #include <optional>
@@ -20,13 +21,6 @@ public:
 
 private:
     bool initialized_ = false;
-};
-
-struct OutputDeviceInfo
-{
-    std::string id;   // IMMDevice endpoint ID (UTF-8)
-    std::string name; // friendly name (UTF-8)
-    bool isDefault = false;
 };
 
 // Windows endpoint volume. In exclusive mode the Windows audio engine is

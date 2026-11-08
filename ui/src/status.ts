@@ -28,6 +28,8 @@ export interface PlaybackError {
   reason: FormatRejection;
   outputError: OutputError;
   detail: string;
+  // Sample rates (Hz) the device accepts right now, when a format was refused.
+  acceptedRates: number[];
 }
 
 export interface PlaybackStatus {
@@ -51,5 +53,5 @@ export const emptyStatus: PlaybackStatus = {
   outputName: "",
   positionFrames: 0,
   totalFrames: 0,
-  error: { kind: "none", reason: "none", outputError: "deviceError", detail: "" },
+  error: { kind: "none", reason: "none", outputError: "deviceError", detail: "", acceptedRates: [] },
 };

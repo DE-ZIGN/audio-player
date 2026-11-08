@@ -65,11 +65,14 @@ export function errorText(s: PlaybackStatus): string {
 
   if (e.kind === "formatNotSupported") {
     switch (e.reason) {
-      case "sampleRate":
+      case "sampleRate": {
+        const accepted = e.acceptedRates ?? [];
+        const now = accepted.length > 0 ? `このデバイスが今受け付けるのは ${accepted.map(rateText).join("、")} です。` : "";
         return (
-          `このデバイスは排他モードで ${rate} に対応していません。レートの変換はしません。` +
+          `このデバイスは排他モードで ${rate} に対応していません。レートの変換はしません。${now}` +
           `デバイスの設定（オーディオインターフェースのコントロールパネルなど）でレートを ${rate} にすると再生できる場合があります。`
         );
+      }
       case "bitDepth":
         return `このデバイスは ${rate} には対応していますが、この形式（${fmt ? describeFormat(fmt) : ""}）には対応していません。`;
       case "channels":

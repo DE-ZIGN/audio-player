@@ -73,6 +73,16 @@ describe("errorText", () => {
     expect(t).toContain("変換はしません");
     expect(t).toContain("デバイスの設定");
   });
+  it("names the rates the device accepts now", () => {
+    const one = errorText(withError({ kind: "formatNotSupported", reason: "sampleRate", acceptedRates: [96000] }));
+    expect(one).toContain("今受け付けるのは 96 kHz です");
+    const two = errorText(withError({ kind: "formatNotSupported", reason: "sampleRate", acceptedRates: [44100, 48000] }));
+    expect(two).toContain("44.1 kHz、48 kHz");
+  });
+  it("says so when the device accepts no rate at this channel count", () => {
+    const t = errorText(withError({ kind: "formatNotSupported", reason: "sampleRate", acceptedRates: [] }));
+    expect(t).not.toContain("今受け付けるのは");
+  });
   it("explains a device held by another application", () => {
     expect(errorText(withError({ kind: "output", outputError: "deviceInUse" }))).toContain("他のアプリ");
   });

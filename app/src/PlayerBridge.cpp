@@ -200,6 +200,10 @@ juce::var PlayerBridge::statusAsVar() const
     e->setProperty("reason", toString(s.error.formatCheck.reason));
     e->setProperty("outputError", toString(s.error.outputError));
     e->setProperty("detail", juce::String::fromUTF8(s.error.detail.c_str()));
+    juce::Array<juce::var> rates;
+    for (const auto r : s.error.formatCheck.acceptedRates)
+        rates.add(static_cast<int>(r));
+    e->setProperty("acceptedRates", rates);
     o->setProperty("error", juce::var(e));
     return juce::var(o);
 }

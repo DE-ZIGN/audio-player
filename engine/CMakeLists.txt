@@ -12,6 +12,7 @@ add_library(ap_engine STATIC
     src/sha256.cpp
     src/output/dummy_output.cpp
     src/output/format_probe.cpp
+    src/output/device_selection.cpp
     src/output/wasapi_exclusive_output.cpp)
 
 target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt)

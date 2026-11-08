@@ -6,6 +6,7 @@
 //   ap_play FILE --dummy OUT.raw [--exact-only]
 
 #include <ap/engine/output/dummy_output.h>
+#include <ap/engine/output/format_probe.h>
 #include <ap/engine/output/wasapi_exclusive_output.h>
 #include <ap/engine/playback.h>
 #include <ap/engine/sha256.h>
@@ -69,7 +70,15 @@ std::string rejectionText(const FormatCheck& c, const PcmFormat& f)
     switch (c.reason)
     {
         case FormatRejection::SampleRate:
-            return std::format("このデバイスは排他モードで {} に対応していません。レートの変換はしません。", rate);
+        {
+            std::string now;
+            for (const auto r : c.acceptedRates)
+                now += std::format("{}{:g} kHz", now.empty() ? "" : "、", r / 1000.0);
+            return std::format("このデバイスは排他モードで {} に対応していません。レートの変換はしません。{}"
+                               "デバイスの設定でレートを {} にすると再生できる場合があります。",
+                               rate, now.empty() ? "" : std::format("このデバイスが今受け付けるのは {} です。", now),
+                               rate);
+        }
         case FormatRejection::BitDepth:
             return std::format("このデバイスは {} には対応していますが、この形式（{}）には対応していません。",
                                rate, describe(f));
@@ -309,16 +318,14 @@ int listFormats(const Options& o)
     print("排他モードで受け付ける形式（○ = 可、- = 不可）:\n");
     print("              16bit  24bit  24bit(32bit コンテナ)  32bit\n");
 
-    static constexpr std::pair<std::uint16_t, std::uint16_t> kLayouts[] = {{16, 16}, {24, 24}, {32, 24}, {32, 32}};
-    for (std::uint32_t rate : {44100u, 48000u, 88200u, 96000u, 176400u, 192000u, 352800u, 384000u})
+    for (const auto rate : standardSampleRates())
     {
         std::string row = std::format("  {:>7g} kHz", rate / 1000.0);
-        for (const auto& [container, valid] : kLayouts)
+        for (const auto& f : standardIntLayouts(rate, 2))
         {
-            const PcmFormat f{rate, 2, container, valid, SampleType::Int, 0};
             const bool ok = out.checkFormat(f).supported;
-            row += container == 32 && valid == 24 ? std::format("  {:^21}", ok ? "○" : "-")
-                                                   : std::format("  {:^5}", ok ? "○" : "-");
+            row += f.containerBits == 32 && f.validBits == 24 ? std::format("  {:^21}", ok ? "○" : "-")
+                                                               : std::format("  {:^5}", ok ? "○" : "-");
         }
         print(row + "\n");
     }
