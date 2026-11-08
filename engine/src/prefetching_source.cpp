@@ -102,7 +102,9 @@ void PrefetchingSource::readerMain()
         if (restartGen_.load(std::memory_order_relaxed) != 0)
             r = std::max(r, std::min(w, restartPos_.load(std::memory_order_relaxed)));
         const std::size_t space = capacity_ - static_cast<std::size_t>(w - r);
-        if (space < std::min<std::size_t>(chunk, capacity_ / 8 + 1))
+        // Fill whatever is free, so the buffer can become completely full
+        // (the capacity need not be a multiple of the chunk size).
+        if (space == 0)
         {
             waitFor(std::chrono::milliseconds(2));
             continue;

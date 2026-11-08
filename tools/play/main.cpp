@@ -43,6 +43,7 @@ constexpr const char* kUsage =
     "  ap_play --formats [--device N|ID]      デバイスが排他モードで受け付けるレートと形式の一覧\n"
     "  ap_play --watch                        出力デバイスの変化（抜き差し、既定の変更など）を表示する\n"
     "  ap_play FILE... --stress N             N 個のスレッドで CPU に負荷をかけながら再生し、音切れの回数を表示する\n"
+    "  ap_play FILE... --inject-stall S:MS    1 曲目の S 秒の時点で再生スレッドを MS ミリ秒止める（音切れの検出の確認用）\n"
     "  ap_play FILE... [--device N|ID]        排他 WASAPI で順に再生（既定のデバイス、または一覧の番号か ID）\n"
     "               [--exact-only]            コンテナの詰め替え（24bit → 32bit コンテナなど）もしない\n"
     "               [--check]                 再生せず、送る形式だけを確かめる\n"
@@ -179,6 +180,8 @@ struct Options
     std::vector<std::string> files;
     bool watch = false;
     int stressThreads = 0;
+    double stallAtSeconds = 0.0; // --inject-stall S:MS (first track only)
+    int stallMilliseconds = 0;
     std::string device;
     std::string dummy;
     bool exactOnly = false;
@@ -211,6 +214,15 @@ std::optional<Options> parse(int argc, char** argv)
             o.watch = true;
         else if (a == "--stress")
             o.stressThreads = std::max(0, std::stoi(value()));
+        else if (a == "--inject-stall")
+        {
+            const auto v = value();
+            const auto colon = v.find(':');
+            if (colon == std::string::npos)
+                throw std::runtime_error("--inject-stall は 秒:ミリ秒 で指定してください（例 3:50）");
+            o.stallAtSeconds = std::stod(v.substr(0, colon));
+            o.stallMilliseconds = std::max(0, std::stoi(v.substr(colon + 1)));
+        }
         else if (a == "--asio-list")
             o.asioList = true;
         else if (a == "--asio-load")
@@ -359,6 +371,39 @@ void printSource(const fs::path& path, const PcmSource& src, const std::string& 
         print(std::format("  PCM の SHA-256: {}\n", hash));
 }
 
+// --inject-stall: blocks the playback thread once, inside read(), when the
+// position reaches `frame`. Used to check on real hardware that a dropout is
+// both heard and counted.
+class RenderStallSource final : public PcmSource
+{
+public:
+    RenderStallSource(std::unique_ptr<PcmSource> inner, std::uint64_t frame, std::chrono::milliseconds stall)
+        : inner_(std::move(inner)), frame_(frame), stall_(stall)
+    {
+    }
+    const PcmFormat& format() const noexcept override { return inner_->format(); }
+    std::uint64_t totalFrames() const noexcept override { return inner_->totalFrames(); }
+    std::uint64_t position() const noexcept override { return inner_->position(); }
+    bool seek(std::uint64_t f) override { return inner_->seek(f); }
+    SourceHealth health() const noexcept override { return inner_->health(); }
+    void waitUntilReady() override { inner_->waitUntilReady(); }
+    std::size_t read(std::span<std::byte> dst) override
+    {
+        if (!done_ && inner_->position() >= frame_)
+        {
+            done_ = true;
+            std::this_thread::sleep_for(stall_);
+        }
+        return inner_->read(dst);
+    }
+
+private:
+    std::unique_ptr<PcmSource> inner_;
+    std::uint64_t frame_;
+    std::chrono::milliseconds stall_;
+    bool done_ = false;
+};
+
 std::string transitionText(const TrackTransition& t)
 {
     if (t.kind == TransitionKind::Gapless)
@@ -420,8 +465,15 @@ int runQueue(const Options& o)
         }
         // Read ahead on a separate thread so the playback thread never waits
         // for the disk (dropout prevention only).
-        items.push_back({reinterpret_cast<const char*>(path.filename().u8string().c_str()), [path] {
-                             return std::make_unique<PrefetchingSource>(std::make_unique<WavFileSource>(path));
+        const bool stallHere = i == 0 && o.stallMilliseconds > 0;
+        items.push_back({reinterpret_cast<const char*>(path.filename().u8string().c_str()),
+                         [path, stallHere, at = o.stallAtSeconds, ms = o.stallMilliseconds]() -> std::unique_ptr<PcmSource> {
+                             auto src = std::make_unique<PrefetchingSource>(std::make_unique<WavFileSource>(path));
+                             if (!stallHere)
+                                 return src;
+                             const auto frame = static_cast<std::uint64_t>(at * src->format().sampleRate);
+                             return std::make_unique<RenderStallSource>(std::move(src), frame,
+                                                                        std::chrono::milliseconds(ms));
                          }});
     }
 

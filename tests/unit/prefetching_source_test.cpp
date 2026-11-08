@@ -114,6 +114,27 @@ TEST_CASE("Prefetching delivers the inner bytes unchanged", "[engine][prefetch]"
     CHECK(src.read(more) == 0);
 }
 
+TEST_CASE("The default buffer fills completely and the constructor returns promptly", "[engine][prefetch]")
+{
+    // 96 kHz: the default buffer (2 s = 192000 frames) is not a multiple of the read chunk.
+    const PcmFormat f96{96000, 2, 24, 24, SampleType::Int, 3};
+    std::vector<std::byte> data(96000 * 10 * kBpf, std::byte{1}); // 10 s
+    const auto t0 = std::chrono::steady_clock::now();
+    PrefetchingSource src(std::make_unique<MemoryPcmSource>(f96, data));
+    const auto elapsed = std::chrono::steady_clock::now() - t0;
+
+    CHECK(src.bufferFrames() == 192000u);
+    CHECK(src.bufferedFrames() == src.bufferFrames());
+    CHECK(elapsed < 1s);
+
+    // Same after a seek while not playing.
+    src.seek(500000);
+    const auto t1 = std::chrono::steady_clock::now();
+    src.waitUntilReady();
+    CHECK(std::chrono::steady_clock::now() - t1 < 1s);
+    CHECK(src.bufferedFrames() == src.bufferFrames());
+}
+
 TEST_CASE("A small buffer read flat out: any shortfall is counted, never hidden", "[engine][prefetch]")
 {
     const std::size_t total = 200000;
