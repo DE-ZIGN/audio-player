@@ -20,9 +20,11 @@
 - 入手先：https://github.com/juce-framework/JUCE
 - 著作権表示：Copyright (c) Raw Material Software Limited
 - ライセンス本文：JUCE の `LICENSE.md`、https://www.gnu.org/licenses/agpl-3.0.html
-- 使っているモジュール：`juce_core`、`juce_events`、`juce_graphics`、`juce_gui_basics`
+- 使っているモジュール：`juce_core`、`juce_events`、`juce_graphics`、`juce_gui_basics`、`juce_gui_extra`（WebView）
 
 以下は、上記のモジュールに同梱されていてアプリに組み込まれる部品です（JUCE の `LICENSE.md` の一覧による）。
+
+- 画面（ui/）には、JUCE の JavaScript ヘルパー（`juce_gui_extra/native/javascript` の `index.js` と `check_native_interop.js`）を `ui/src/juce/` に写して使っている。ライセンスは上と同じ（AGPLv3 で利用）。
 
 ### zlib（`juce_core` に同梱）
 
@@ -74,6 +76,31 @@
 - 入手先：https://github.com/Tehreer/SheenBidi
 - 著作権表示：Copyright (C) 2014-2025 Muhammad Tayyab Akram
 - ライセンス本文：JUCE `modules/juce_graphics/unicode/sheenbidi/LICENSE`
+
+---
+
+## Microsoft WebView2 SDK
+
+- バージョン：1.0.3485.44（NuGet パッケージ `Microsoft.Web.WebView2`）
+- ライセンス：BSD-3-Clause
+- 配布物：含む（静的ローダー `WebView2LoaderStatic.lib` をアプリにリンク。WebView2 ランタイム本体は Windows に入っているものを使い、同梱しない）
+- 入手先：https://www.nuget.org/packages/Microsoft.Web.WebView2
+- 著作権表示：Copyright (C) Microsoft Corporation. All rights reserved.
+- ライセンス本文：パッケージの `LICENSE.txt`
+
+---
+
+## 画面のビルドとテストにだけ使うもの（配布物に含まない）
+
+`ui/package.json` の devDependencies。Vite が `ui/src/` から作るファイルだけを配布し、これらのパッケージ自体は含まない。
+
+| 名前 | バージョン | ライセンス | 入手先 |
+|---|---|---|---|
+| Vite | 8.3.6 | MIT | https://github.com/vitejs/vite |
+| TypeScript | 7.0.2 | Apache-2.0 | https://github.com/microsoft/TypeScript |
+| Vitest | 5.1.0 | MIT | https://github.com/vitest-dev/vitest |
+
+これらが依存するパッケージは `ui/package-lock.json` を参照。
 
 ---
 

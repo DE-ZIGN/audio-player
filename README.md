@@ -10,7 +10,7 @@ Windows 10/11 向けの、無料・オープンソースの高音質音楽プレ
 
 ## ビルド
 
-必要なもの：Visual Studio 2022（C++ デスクトップ開発）、CMake 3.25 以上、Git。JUCE と Catch2 は初回の構成時に自動で取得します（コミットと SHA-256 で固定）。
+必要なもの：Visual Studio 2022（C++ デスクトップ開発）、CMake 3.25 以上、Git、Node.js LTS（画面のビルド用）。JUCE、Catch2、WebView2 SDK は初回の構成時に自動で取得します（SHA-256 で固定）。画面（`ui/`）はビルドのときに npm で作られ、アプリの隣の `ui/` フォルダーに置かれます。
 
 ```
 cmake --preset vs2022
@@ -19,6 +19,7 @@ ctest --preset debug
 ```
 
 - アプリ：`build/vs2022/app/ap_app_artefacts/Debug/AudioPlayer.exe`
+- 画面の開発：`npm --prefix ui run dev` で Vite の開発サーバーを起動し、`AudioPlayer.exe --dev-server` で開く（保存するとすぐ反映される）。ブラウザーで http://localhost:5173 を直接開くと、模擬エンジンで画面だけを確認できる。
 - エンジンとテストだけをビルドする（JUCE を取得しない）：`vs2022-tests-only` の構成と、`tests-only-debug` のビルド・テスト
 
 ## ライセンス
