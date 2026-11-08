@@ -160,4 +160,15 @@ std::size_t WavFileSource::read(std::span<std::byte> dst)
     return got;
 }
 
+bool WavFileSource::seek(std::uint64_t frame)
+{
+    const std::uint64_t clamped = std::min(frame, totalFrames_);
+    file_.clear();
+    file_.seekg(static_cast<std::streamoff>(dataOffset_ + clamped * format_.bytesPerFrame()));
+    if (!file_)
+        return false;
+    framesRead_ = clamped;
+    return true;
+}
+
 } // namespace ap::engine

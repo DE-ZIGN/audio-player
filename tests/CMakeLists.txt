@@ -41,7 +41,8 @@ catch_discover_tests(ap_engine_unit_tests
 # ---------------------------------------------------------------------------
 if(TARGET ap_signalgen_lib)
     add_executable(ap_engine_signal_tests
-        unit/wav_file_source_test.cpp)
+        unit/wav_file_source_test.cpp
+        unit/player_test.cpp)
     target_link_libraries(ap_engine_signal_tests PRIVATE
         ap_engine ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
     ap_apply_compiler_settings(ap_engine_signal_tests)

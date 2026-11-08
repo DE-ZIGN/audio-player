@@ -42,4 +42,16 @@ std::size_t MemoryPcmSource::read(std::span<std::byte> dst)
     return frames;
 }
 
+bool MemoryPcmSource::seek(std::uint64_t frame)
+{
+    const std::uint64_t clamped = std::min(frame, totalFrames());
+    position_ = static_cast<std::size_t>(clamped * format_.bytesPerFrame());
+    return true;
+}
+
+std::uint64_t MemoryPcmSource::position() const noexcept
+{
+    return position_ / format_.bytesPerFrame();
+}
+
 } // namespace ap::engine

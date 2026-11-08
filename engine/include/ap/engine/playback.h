@@ -4,6 +4,7 @@
 #include <ap/engine/pcm_source.h>
 #include <ap/engine/repack.h>
 
+#include <functional>
 #include <optional>
 #include <stdexcept>
 
@@ -31,6 +32,8 @@ NegotiationResult negotiate(const PcmFormat& source, AudioOutput& output, bool a
 struct PlaybackOptions
 {
     bool allowRepack = true;
+    // Called on the playback thread after the output has been opened, before data flows.
+    std::function<void(const PlaybackPlan&)> onStart;
 };
 
 struct PlaybackReport

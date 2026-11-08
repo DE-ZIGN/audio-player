@@ -390,6 +390,8 @@ int runWasapi(const Options& o, const fs::path& in)
         Counting(PcmSource& i, std::atomic<std::uint64_t>& c) : inner(i), count(c) {}
         const PcmFormat& format() const noexcept override { return inner.format(); }
         std::uint64_t totalFrames() const noexcept override { return inner.totalFrames(); }
+        bool seek(std::uint64_t frame) override { return inner.seek(frame); }
+        std::uint64_t position() const noexcept override { return inner.position(); }
         std::size_t read(std::span<std::byte> dst) override
         {
             const auto n = inner.read(dst);

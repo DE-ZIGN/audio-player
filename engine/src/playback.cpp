@@ -38,6 +38,8 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
 
     const PlaybackPlan plan = *negotiation.plan;
     output.open(plan.output);
+    if (options.onStart)
+        options.onStart(plan);
 
     RenderCallback render;
     std::vector<std::byte> scratch;

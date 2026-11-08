@@ -30,6 +30,8 @@ public:
     const PcmFormat& format() const noexcept override { return format_; }
     std::uint64_t totalFrames() const noexcept override { return totalFrames_; }
     std::size_t read(std::span<std::byte> dst) override;
+    bool seek(std::uint64_t frame) override;
+    std::uint64_t position() const noexcept override { return framesRead_; }
 
     // Byte offset of the first sample in the file (for diagnostics).
     std::uint64_t dataOffset() const noexcept { return dataOffset_; }

@@ -1,7 +1,9 @@
 #include <ap/engine/output/dummy_output.h>
 
 #include <algorithm>
+#include <chrono>
 #include <fstream>
+#include <thread>
 
 namespace ap::engine {
 
@@ -67,6 +69,8 @@ RunStats DummyOutput::run(const RenderCallback& render)
         stats.framesRendered += frames;
         if (frames < period)
             break;
+        if (options_.paceInRealTime)
+            std::this_thread::sleep_for(std::chrono::duration<double>(static_cast<double>(period) / format_.sampleRate));
     }
     return stats;
 }

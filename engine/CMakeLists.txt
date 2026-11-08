@@ -8,6 +8,7 @@ add_library(ap_engine STATIC
     src/wav_file_source.cpp
     src/repack.cpp
     src/playback.cpp
+    src/player.cpp
     src/sha256.cpp
     src/output/dummy_output.cpp
     src/output/wasapi_exclusive_output.cpp)

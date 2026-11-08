@@ -24,6 +24,8 @@ public:
         std::vector<std::size_t> periodFrames{4096};
         // Which formats this "device" accepts. Default: every valid format.
         std::function<FormatCheck(const PcmFormat&)> check;
+        // Sleep for the duration of each period, like a real device (for stop/seek tests).
+        bool paceInRealTime = false;
     };
 
     explicit DummyOutput(Options options);
