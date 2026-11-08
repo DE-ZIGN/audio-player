@@ -439,6 +439,17 @@ AsioDriverDetails AsioOutput::details() const
     return impl_->details;
 }
 
+std::vector<std::uint32_t> AsioOutput::supportedRates()
+{
+    return impl_->worker.invoke([this] {
+        std::vector<std::uint32_t> out;
+        for (const auto rate : standardSampleRates())
+            if (impl_->driver->canSampleRate(static_cast<ASIOSampleRate>(rate)) == ASE_OK)
+                out.push_back(rate);
+        return out;
+    });
+}
+
 double AsioOutput::rateSetByOpen() const noexcept
 {
     return impl_->rateSet;

@@ -17,6 +17,7 @@ add_library(ap_engine STATIC
     src/output/device_watcher.cpp
     src/output/asio_sample_types.cpp
     src/output/asio_output.cpp
+    src/output/asio_probe.cpp
     src/output/wasapi_exclusive_output.cpp)
 
 target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt user32 advapi32 ap_asiosdk)

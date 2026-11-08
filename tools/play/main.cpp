@@ -6,6 +6,9 @@
 //   ap_play FILE... [--device N|ID] [--exact-only] [--check]
 //   ap_play FILE... --dummy OUT.raw [--exact-only]
 
+#include <ap/engine/output/asio_output.h>
+#include <ap/engine/output/asio_probe.h>
+#include <ap/engine/output/asio_sample_types.h>
 #include <ap/engine/output/device_watcher.h>
 #include <ap/engine/output/dummy_output.h>
 #include <ap/engine/output/format_probe.h>
@@ -52,7 +55,9 @@ constexpr const char* kUsage =
     "複数のファイルは順に再生します。形式が同じなら出力を開き直さずにつなげ（ギャップレス）、\n"
     "形式が違えば開き直して、切り替えにかかった時間を表示します。\n"
     "  ap_play --env                          実行環境（MSIX パッケージの中かどうか）\n"
-    "  ap_play --asio-list                    ASIO ドライバーの一覧（レジストリ）\n"
+    "  ap_play --asio-list                    ASIO ドライバーの一覧（別のプロセスで読み込んで、使えるレートなども表示）\n"
+    "  ap_play FILE... --asio N|NAME          ASIO で順に再生（--asio-list の番号か名前。--check、--dummy 以外の\n"
+    "                                         オプションも使える。レートは曲ごとにドライバーへ設定する）\n"
     "  ap_play --asio-load N|all              ASIO ドライバーを読み込めるか試す（再生はしない）\n"
     "\n"
     "原音経路です。音量、変換、ディザはかけません。デバイスが受け付けない形式は再生せず、理由を表示します。\n";
@@ -191,6 +196,8 @@ struct Options
     bool env = false;
     bool asioList = false;
     std::string asioLoad;
+    std::string asio;          // --asio N|NAME
+    std::string asioProbeOne;  // --asio-probe-one CLSID (child process mode)
 };
 
 std::optional<Options> parse(int argc, char** argv)
@@ -225,6 +232,10 @@ std::optional<Options> parse(int argc, char** argv)
         }
         else if (a == "--asio-list")
             o.asioList = true;
+        else if (a == "--asio")
+            o.asio = value();
+        else if (a == "--asio-probe-one")
+            o.asioProbeOne = value();
         else if (a == "--asio-load")
             o.asioLoad = value();
         else if (a == "--device")
@@ -242,7 +253,8 @@ std::optional<Options> parse(int argc, char** argv)
         else
             o.files.push_back(a);
     }
-    if (!o.list && !o.formats && !o.env && !o.watch && !o.asioList && o.asioLoad.empty() && o.files.empty())
+    if (!o.list && !o.formats && !o.env && !o.watch && !o.asioList && o.asioLoad.empty() && o.asioProbeOne.empty()
+        && o.files.empty())
         return std::nullopt;
     return o;
 }
@@ -284,27 +296,98 @@ int showEnvironment()
     return 0;
 }
 
+// Loads the driver in a child process (this exe with --asio-probe-one), so a
+// driver that crashes its host does not take this process down.
+AsioProbeResult probeIsolated(const AsioDriverInfo& d)
+{
+    const std::wstring self = std::filesystem::path(ap::play::executablePath()).wstring();
+    const std::wstring clsid(d.clsid.begin(), d.clsid.end()); // CLSID text is ASCII
+    return probeAsioDriverIsolated(self, L"--asio-probe-one " + clsid);
+}
+
+std::string ratesText(const std::vector<std::uint32_t>& rates)
+{
+    std::string s;
+    for (const auto r : rates)
+        s += std::format("{}{:g}", s.empty() ? "" : "、", r / 1000.0);
+    return s.empty() ? "なし" : s + " kHz";
+}
+
+int asioProbeOne(const std::string& clsid)
+{
+    for (const auto& d : listAsioDrivers())
+        if (_stricmp(d.clsid.c_str(), clsid.c_str()) == 0)
+        {
+            print(formatProbeLine(probeAsioDriverInProcess(d)) + "\n");
+            return 0;
+        }
+    AsioProbeResult r;
+    r.message = "driver not registered";
+    print(formatProbeLine(r) + "\n");
+    return 0;
+}
+
 int asioList()
 {
-    const auto drivers = ap::play::listAsioDrivers();
+    const auto drivers = listAsioDrivers();
     print(std::format("MSIX パッケージ: {}\n", ap::play::packageFullName().empty() ? "なし" : "あり"));
     if (drivers.empty())
     {
         print("ASIO ドライバーが見つかりません（HKLM\\SOFTWARE\\ASIO）。\n");
         return 1;
     }
+    print("（各ドライバーは別のプロセスで読み込んで確かめています）\n");
     for (std::size_t i = 0; i < drivers.size(); ++i)
     {
         const auto& d = drivers[i];
-        print(std::format("{:2}. {}\n    CLSID: {}\n    DLL: {}\n", i + 1, d.name, d.clsid,
-                          d.dllPath.empty() ? "（登録が見つかりません）" : d.dllPath));
+        const auto r = probeIsolated(d);
+        print(std::format("{:2}. {}\n", i + 1, d.name));
+        switch (r.status)
+        {
+            case AsioProbeResult::Status::Ok:
+            {
+                const auto& x = r.details;
+                print(std::format("    ドライバー名: {}（版 {}）、出力 {} ch、入力 {} ch\n", x.driverName, x.driverVersion,
+                                  x.outputChannels, x.inputChannels));
+                print(std::format("    サンプル形式: {}、バッファー {} フレーム（{}〜{}）、今のレート {:g} kHz\n",
+                                  asio::sampleTypeName(x.sampleType), x.preferredBufferSize, x.minBufferSize,
+                                  x.maxBufferSize, x.currentSampleRate / 1000.0));
+                print(std::format("    使えるレート: {}\n", ratesText(r.rates)));
+                break;
+            }
+            case AsioProbeResult::Status::LoadFailed:
+                print(std::format("    使えません: ドライバーが初期化に失敗しました（{}）\n", r.message));
+                break;
+            case AsioProbeResult::Status::Crashed:
+                print(std::format("    使えません: このドライバーは読み込むと異常終了します（{}）\n", r.message));
+                break;
+            case AsioProbeResult::Status::TimedOut:
+                print("    使えません: ドライバーが応答しませんでした\n");
+                break;
+        }
     }
     return 0;
 }
 
+// --asio N|NAME → the driver, from the 1-based number in --asio-list or its name.
+AsioDriverInfo resolveAsioDriver(const std::string& arg)
+{
+    const auto drivers = listAsioDrivers();
+    if (!arg.empty() && arg.find_first_not_of("0123456789") == std::string::npos)
+    {
+        const auto index = std::stoul(arg);
+        if (index >= 1 && index <= drivers.size())
+            return drivers[index - 1];
+    }
+    for (const auto& d : drivers)
+        if (d.name == arg)
+            return d;
+    throw OutputException(OutputError::DeviceNotFound, "ASIO driver not found: " + arg);
+}
+
 int asioLoad(const std::string& which)
 {
-    const auto drivers = ap::play::listAsioDrivers();
+    const auto drivers = listAsioDrivers();
     print(std::format("MSIX パッケージ: {}\n", ap::play::packageFullName().empty() ? "なし" : "あり"));
     std::vector<std::size_t> targets;
     if (which == "all")
@@ -486,6 +569,48 @@ int runQueue(const Options& o)
         };
         print(std::format("出力: ダミー出力（ファイル）: {}\n", o.dummy));
     }
+    else if (!o.asio.empty())
+    {
+        const auto driver = resolveAsioDriver(o.asio);
+        // Load it in a child process first: some drivers crash the process that loads them.
+        const auto probe = probeIsolated(driver);
+        if (probe.status != AsioProbeResult::Status::Ok)
+        {
+            printErr(std::format("ASIO ドライバー「{}」は使えません: {}\n", driver.name,
+                                 probe.status == AsioProbeResult::Status::Crashed ? "読み込むと異常終了します"
+                                 : probe.status == AsioProbeResult::Status::TimedOut ? "応答しませんでした"
+                                                                                     : probe.message));
+            return 4;
+        }
+        const auto& x = probe.details;
+        print(std::format("出力: ASIO: {}（ドライバー名 {}、サンプル形式 {}、バッファー {} フレーム）\n", driver.name,
+                          x.driverName, asio::sampleTypeName(x.sampleType), x.preferredBufferSize));
+        print(std::format("  使えるレート: {}（曲ごとにドライバーへ設定します）、今のレート {:g} kHz\n", ratesText(probe.rates),
+                          x.currentSampleRate / 1000.0));
+
+        if (o.checkOnly)
+        {
+            AsioOutput out("ASIO: " + driver.name, AsioOutput::factoryFor(driver));
+            int worst = 0;
+            for (std::size_t i = 0; i < o.files.size(); ++i)
+            {
+                WavFileSource src(fs::path{o.files[i]});
+                const auto n = negotiate(src.format(), out, !o.exactOnly);
+                if (n.plan)
+                    print(std::format("  {} 曲目: 送る形式 {}、詰め替え {}\n", i + 1, describe(n.plan->output),
+                                      repackText(*n.plan)));
+                else
+                {
+                    print(std::format("  {} 曲目: 再生できません: {}\n", i + 1, rejectionText(n.exactCheck, src.format())));
+                    worst = 3;
+                }
+            }
+            return worst;
+        }
+        factory = [driver] {
+            return std::make_unique<AsioOutput>("ASIO: " + driver.name, AsioOutput::factoryFor(driver));
+        };
+    }
     else
     {
         const auto id = resolveDeviceId(o.device);
@@ -654,6 +779,8 @@ int main(int argc, char** argv)
 
         if (o->env)
             return showEnvironment();
+        if (!o->asioProbeOne.empty())
+            return asioProbeOne(o->asioProbeOne);
         if (o->asioList)
             return asioList();
         if (!o->asioLoad.empty())

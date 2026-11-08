@@ -77,6 +77,9 @@ public:
 
     AsioDriverDetails details() const;
 
+    // Standard rates (44.1 to 384 kHz) the driver says it can run at.
+    std::vector<std::uint32_t> supportedRates();
+
     // Sample rate the driver was set to by the last open() (0 if unchanged).
     double rateSetByOpen() const noexcept;
 

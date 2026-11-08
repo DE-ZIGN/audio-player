@@ -31,19 +31,6 @@ std::wstring toWide(const std::string& s)
     return w;
 }
 
-std::wstring readString(HKEY root, const std::wstring& subKey, const wchar_t* value, DWORD extraFlags = 0)
-{
-    DWORD bytes = 0;
-    const DWORD flags = RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ | extraFlags;
-    if (RegGetValueW(root, subKey.c_str(), value, flags, nullptr, nullptr, &bytes) != ERROR_SUCCESS || bytes == 0)
-        return {};
-    std::wstring s(bytes / sizeof(wchar_t), L'\0');
-    if (RegGetValueW(root, subKey.c_str(), value, flags, nullptr, s.data(), &bytes) != ERROR_SUCCESS)
-        return {};
-    s.resize(wcsnlen(s.c_str(), s.size()));
-    return s;
-}
-
 } // namespace
 
 std::string packageFullName()
@@ -73,34 +60,7 @@ std::string executablePath()
     }
 }
 
-std::vector<AsioDriverEntry> listAsioDrivers()
-{
-    std::vector<AsioDriverEntry> out;
-    HKEY asio = nullptr;
-    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\ASIO", 0, KEY_READ | KEY_WOW64_64KEY, &asio) != ERROR_SUCCESS)
-        return out;
-
-    for (DWORD i = 0;; ++i)
-    {
-        wchar_t name[256];
-        DWORD nameLength = 256;
-        if (RegEnumKeyExW(asio, i, name, &nameLength, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS)
-            break;
-
-        AsioDriverEntry e;
-        e.name = toUtf8(name);
-        const std::wstring clsid = readString(asio, name, L"CLSID");
-        e.clsid = toUtf8(clsid);
-        e.description = toUtf8(readString(asio, name, L"Description"));
-        if (!clsid.empty())
-            e.dllPath = toUtf8(readString(HKEY_CLASSES_ROOT, L"CLSID\\" + clsid + L"\\InprocServer32", nullptr));
-        out.push_back(std::move(e));
-    }
-    RegCloseKey(asio);
-    return out;
-}
-
-AsioLoadResult tryLoadAsioDriver(const AsioDriverEntry& driver)
+AsioLoadResult tryLoadAsioDriver(const ap::engine::AsioDriverInfo& driver)
 {
     AsioLoadResult result;
     // ASIO hosts conventionally create drivers on a single-threaded apartment.
