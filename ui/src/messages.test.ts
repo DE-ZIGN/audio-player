@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeFormat, errorText, formatTime, repackText, stateLabel } from "./messages";
+import { describeFormat, errorText, formatTime, queueText, repackText, stateLabel, transitionText } from "./messages";
 import { emptyStatus, type FormatInfo, type PlaybackStatus } from "./status";
 
 const f = (rate: number, container: number, valid: number, type: "int" | "float" = "int"): FormatInfo => ({
@@ -53,6 +53,42 @@ describe("repackText", () => {
     const t = repackText({ ...base, repack: "widerContainer" });
     expect(t).toContain("32bit コンテナ");
     expect(t).toContain("値は変わりません");
+  });
+});
+
+describe("queueText", () => {
+  it("shows the position in the queue only for more than one track", () => {
+    expect(queueText({ ...emptyStatus, state: "playing", queueIndex: 1, queueLength: 3 })).toBe("2 / 3 曲目");
+    expect(queueText({ ...emptyStatus, state: "playing", queueIndex: 0, queueLength: 1 })).toBe("");
+  });
+});
+
+describe("transitionText", () => {
+  it("describes a gapless join", () => {
+    const t = transitionText({
+      fromIndex: 0,
+      toIndex: 1,
+      kind: "gapless",
+      fromFormat: f(44100, 24, 24),
+      toFormat: f(44100, 24, 24),
+      switchMilliseconds: 0,
+    });
+    expect(t).toContain("1 → 2 曲目");
+    expect(t).toContain("ギャップレス");
+    expect(t).not.toContain("ms");
+  });
+  it("describes a format switch with the time it took", () => {
+    const t = transitionText({
+      fromIndex: 1,
+      toIndex: 2,
+      kind: "reopened",
+      fromFormat: f(44100, 24, 24),
+      toFormat: f(96000, 24, 24),
+      switchMilliseconds: 41.6,
+    });
+    expect(t).toContain("44.1 kHz");
+    expect(t).toContain("96 kHz");
+    expect(t).toContain("約 42 ms");
   });
 });
 

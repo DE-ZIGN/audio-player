@@ -17,6 +17,7 @@
       <section class="panel file">
         <button id="open" type="button">ファイルを開く</button>
         <div class="file-name" id="file-name">ファイルを開いてください</div>
+        <span class="queue" id="queue"></span>
       </section>
 
       <section class="panel transport">
@@ -45,6 +46,8 @@
           <dd id="repack">—</dd>
           <dt>処理</dt>
           <dd>なし（原音経路：音量・変換・ディザをかけません）</dd>
+          <dt>曲の切り替え</dt>
+          <dd><ul class="transitions" id="transitions"><li>—</li></ul></dd>
         </dl>
         <p class="error" id="error" hidden></p>
       </section>

@@ -1,6 +1,6 @@
 import "./style.css";
 import { createBackend, type Backend } from "./backend";
-import { describeFormat, errorText, formatTime, repackText, stateLabel } from "./messages";
+import { describeFormat, errorText, formatTime, queueText, repackText, stateLabel, transitionText } from "./messages";
 import type { PlaybackStatus } from "./status";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -11,6 +11,8 @@ const els = {
   stop: $<HTMLButtonElement>("stop"),
   seek: $<HTMLInputElement>("seek"),
   fileName: $("file-name"),
+  queue: $("queue"),
+  transitions: $("transitions"),
   state: $("state"),
   position: $("position"),
   duration: $("duration"),
@@ -47,6 +49,16 @@ function render(s: PlaybackStatus) {
   els.outputName.textContent = s.outputName ? `${s.outputName}（排他 WASAPI）` : "—";
   els.outputFormat.textContent = s.outputFormat ? describeFormat(s.outputFormat) : "—";
   els.repack.textContent = s.outputFormat ? repackText(s) : "—";
+  els.queue.textContent = queueText(s);
+
+  const recent = s.transitions.slice(-3);
+  els.transitions.replaceChildren(
+    ...(recent.length > 0 ? recent : [null]).map((t) => {
+      const li = document.createElement("li");
+      li.textContent = t ? transitionText(t) : "—";
+      return li;
+    }),
+  );
 
   const err = errorText(s);
   els.error.hidden = err === "";

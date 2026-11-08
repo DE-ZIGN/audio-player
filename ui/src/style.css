@@ -156,6 +156,22 @@ dd {
   margin: 0;
 }
 
+.queue {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.transitions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .error {
   margin: 10px 0 0;
   color: var(--error);

@@ -32,7 +32,9 @@ public:
     // selfTestResult({ ok, log }) from the page in self-test mode.
     std::function<void(const juce::var&)> onSelfTestResult;
 
-    // Loads a WAV file; returns an empty string on success, else a Japanese message.
+    // Loads WAV files as the play queue (in file-name order); returns an empty
+    // string on success, else a Japanese message.
+    juce::String loadFiles(juce::Array<juce::File> files);
     juce::String load(const juce::File& file);
 
     juce::var statusAsVar() const;
@@ -43,7 +45,6 @@ private:
     void pushStatus(bool force);
 
     ap::engine::Player player_;
-    juce::String fileName_;
     juce::WebBrowserComponent* browser_ = nullptr;
     std::unique_ptr<juce::FileChooser> chooser_;
     juce::String lastSent_;

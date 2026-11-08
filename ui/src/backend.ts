@@ -67,6 +67,27 @@ class AppBackend implements Backend {
   }
 }
 
+export interface MockTrack {
+  name: string;
+  sampleRate: number;
+  seconds: number;
+}
+
+const fmt24 = (sampleRate: number) => ({
+  sampleRate,
+  channels: 2,
+  containerBits: 24,
+  validBits: 24,
+  sampleType: "int" as const,
+});
+
+// Three tracks with a rate change, for working on the page in a browser.
+export const DEMO_QUEUE: MockTrack[] = [
+  { name: "（試験用）01_44k.wav", sampleRate: 44100, seconds: 8 },
+  { name: "（試験用）02_44k.wav", sampleRate: 44100, seconds: 8 },
+  { name: "（試験用）03_96k.wav", sampleRate: 96000, seconds: 8 },
+];
+
 // Simulated player for working on the page in a normal browser.
 export class MockBackend implements Backend {
   readonly kind = "mock" as const;
@@ -74,38 +95,67 @@ export class MockBackend implements Backend {
   private listeners: ((s: PlaybackStatus) => void)[] = [];
   private timer: ReturnType<typeof setInterval> | undefined;
 
+  constructor(private readonly tracks: MockTrack[] = [{ name: "（試験用）sine_96k_24bit.wav", sampleRate: 96000, seconds: 30 }]) {}
+
   async openFile(): Promise<OpenResult> {
     this.halt();
-    const format = { sampleRate: 96000, channels: 2, containerBits: 24, validBits: 24, sampleType: "int" as const };
-    this.update({
-      ...emptyStatus,
-      state: "stopped",
-      fileName: "（試験用）sine_96k_24bit.wav",
-      sourceFormat: format,
-      totalFrames: 96000 * 30,
-    });
+    this.update({ ...emptyStatus, state: "stopped", queueLength: this.tracks.length, ...this.trackFields(0) });
     return { ok: true };
   }
+
+  private trackFields(index: number) {
+    const t = this.tracks[index];
+    return {
+      queueIndex: index,
+      fileName: t.name,
+      sourceFormat: fmt24(t.sampleRate),
+      outputFormat: null,
+      totalFrames: Math.round(t.sampleRate * t.seconds),
+      positionFrames: 0,
+    };
+  }
+
   async play() {
     if (this.status.state === "empty" || this.status.state === "playing") return;
-    const restart = this.status.state === "ended";
+    if (this.status.state === "ended") this.update({ ...this.status, ...this.trackFields(0), transitions: [] });
     this.update({
       ...this.status,
       state: "playing",
-      positionFrames: restart ? 0 : this.status.positionFrames,
       outputName: "（模擬）出力デバイス",
       outputFormat: this.status.sourceFormat && { ...this.status.sourceFormat, containerBits: 32 },
       repack: "widerContainer",
     });
-    const rate = this.status.sourceFormat?.sampleRate ?? 48000;
     this.timer = setInterval(() => {
+      const rate = this.status.sourceFormat?.sampleRate ?? 48000;
       const next = this.status.positionFrames + rate / 10;
-      if (next >= this.status.totalFrames) {
+      if (next < this.status.totalFrames) {
+        this.update({ ...this.status, positionFrames: next });
+        return;
+      }
+      const from = this.status.queueIndex;
+      if (from + 1 >= this.tracks.length) {
         this.halt();
         this.update({ ...this.status, state: "ended", positionFrames: this.status.totalFrames });
-      } else {
-        this.update({ ...this.status, positionFrames: next });
+        return;
       }
+      const fields = this.trackFields(from + 1);
+      const gapless = fields.sourceFormat.sampleRate === this.status.sourceFormat?.sampleRate;
+      this.update({
+        ...this.status,
+        ...fields,
+        outputFormat: { ...fields.sourceFormat, containerBits: 32 },
+        transitions: [
+          ...this.status.transitions,
+          {
+            fromIndex: from,
+            toIndex: from + 1,
+            kind: gapless ? "gapless" : "reopened",
+            fromFormat: this.status.sourceFormat!,
+            toFormat: fields.sourceFormat,
+            switchMilliseconds: gapless ? 0 : 40,
+          },
+        ],
+      });
     }, 100);
   }
   async stop() {
@@ -140,7 +190,7 @@ export class MockBackend implements Backend {
 }
 
 export async function createBackend(): Promise<Backend> {
-  if (!window.__JUCE__) return new MockBackend();
+  if (!window.__JUCE__) return new MockBackend(DEMO_QUEUE);
   // JUCE's helper reads window.__JUCE__ when it is loaded, so import it only inside the app.
   const juce = await import("./juce/index.js");
   return new AppBackend((name) => juce.getNativeFunction(name) as (...args: unknown[]) => Promise<unknown>);

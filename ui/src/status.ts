@@ -13,7 +13,7 @@ export type OutputError =
   | "deviceInvalidated"
   | "timeout"
   | "deviceError";
-export type ErrorKind = "none" | "formatNotSupported" | "output" | "other";
+export type ErrorKind = "none" | "formatNotSupported" | "output" | "load" | "other";
 
 export interface FormatInfo {
   sampleRate: number;
@@ -32,9 +32,25 @@ export interface PlaybackError {
   acceptedRates: number[];
 }
 
+export type TransitionKind = "gapless" | "reopened";
+
+export interface TrackTransition {
+  fromIndex: number;
+  toIndex: number;
+  kind: TransitionKind;
+  fromFormat: FormatInfo;
+  toFormat: FormatInfo;
+  // Reopened: time from the end of the previous track's data to the first
+  // request for the next track's data (upper bound of the silence).
+  switchMilliseconds: number;
+}
+
 export interface PlaybackStatus {
   state: PlayerState;
-  fileName: string;
+  fileName: string; // name of the current track
+  queueIndex: number;
+  queueLength: number;
+  transitions: TrackTransition[]; // most recent last (the app sends the last few)
   sourceFormat: FormatInfo | null;
   outputFormat: FormatInfo | null;
   repack: Repack;
@@ -47,6 +63,9 @@ export interface PlaybackStatus {
 export const emptyStatus: PlaybackStatus = {
   state: "empty",
   fileName: "",
+  queueIndex: 0,
+  queueLength: 0,
+  transitions: [],
   sourceFormat: null,
   outputFormat: null,
   repack: "none",

@@ -37,7 +37,7 @@ constexpr const char* kUsage =
     "使い方:\n"
     "  ap_signalgen isp        --out FILE [共通] [--level dB(0)]\n"
     "      fs/4・位相45度のサイン波。サンプルのピークが --level、サンプル間のピークは +3.01 dB 高い\n"
-    "  ap_signalgen sine       --out FILE [共通] [--freq Hz(1000)] [--level dB(-90)]\n"
+    "  ap_signalgen sine       --out FILE [共通] [--freq Hz(1000)] [--level dB(-90)] [--phase 度(0)]\n"
     "  ap_signalgen bitpattern --out FILE [共通]   （整数形式のみ。右チャンネルは左のビット反転）\n"
     "  ap_signalgen sweep      --out FILE [共通] [--start Hz(20)] [--end Hz(20000)] [--level dB(-6)]\n"
     "      対数スイープ。--seconds の既定は 10\n"
@@ -153,6 +153,7 @@ struct Job
     double seconds;
     double level;
     double freq;
+    double phaseDegrees;
     double start;
     double end;
 };
@@ -187,7 +188,7 @@ PcmData render(const Job& j)
     if (j.signal == "isp")
         x = ispSine(layout, j.level);
     else if (j.signal == "sine")
-        x = sine(layout, j.freq, j.level);
+        x = sine(layout, j.freq, j.level, j.phaseDegrees * 3.14159265358979323846 / 180.0);
     else
         x = logSweep(layout, j.start, j.end, j.level);
     return quantize(x, layout.sampleRate, layout.channels, j.format);
@@ -205,6 +206,7 @@ Job jobFromArgs(const Args& a, const std::string& signal)
     j.channels = static_cast<std::uint16_t>(ch);
     j.seconds = option(a, "seconds", signal == "sweep" ? 10.0 : 1.0);
     j.freq = option(a, "freq", 1000.0);
+    j.phaseDegrees = option(a, "phase", 0.0);
     j.start = option(a, "start", 20.0);
     j.end = option(a, "end", 20000.0);
     const double defaultLevel = signal == "isp" ? 0.0 : signal == "sine" ? -90.0 : -6.0;
@@ -228,7 +230,7 @@ int runSingle(const Args& a)
     for (const auto& [key, value] : a.options)
     {
         static const std::vector<std::string_view> known{
-            "out", "rate", "bits", "channels", "seconds", "level", "freq", "start", "end"};
+            "out", "rate", "bits", "channels", "seconds", "level", "freq", "phase", "start", "end"};
         if (std::find(known.begin(), known.end(), key) == known.end())
             throw UsageError(std::format("不明なオプション: --{}", key));
     }

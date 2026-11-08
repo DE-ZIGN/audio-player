@@ -33,6 +33,22 @@ describe("MockBackend", () => {
     expect(seen.length).toBeGreaterThan(3);
   });
 
+  it("plays a queue, recording gapless joins and rate switches", async () => {
+    const b = new MockBackend([
+      { name: "a", sampleRate: 44100, seconds: 1 },
+      { name: "b", sampleRate: 44100, seconds: 1 },
+      { name: "c", sampleRate: 96000, seconds: 1 },
+    ]);
+    await b.openFile();
+    expect((await b.getStatus()).queueLength).toBe(3);
+    await b.play();
+    vi.advanceTimersByTime(4000);
+    const s = await b.getStatus();
+    expect(s.state).toBe("ended");
+    expect(s.queueIndex).toBe(2);
+    expect(s.transitions.map((t) => t.kind)).toEqual(["gapless", "reopened"]);
+  });
+
   it("ends at the last frame and restarts from zero", async () => {
     const b = new MockBackend();
     await b.openFile();

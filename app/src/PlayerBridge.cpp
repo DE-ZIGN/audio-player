@@ -69,6 +69,7 @@ const char* toString(PlayerErrorKind k)
         case PlayerErrorKind::None:               return "none";
         case PlayerErrorKind::FormatNotSupported: return "formatNotSupported";
         case PlayerErrorKind::Output:             return "output";
+        case PlayerErrorKind::Load:               return "load";
         case PlayerErrorKind::Other:              return "other";
     }
     return "other";
@@ -138,42 +139,65 @@ juce::WebBrowserComponent::Options PlayerBridge::registerFunctions(juce::WebBrow
 
 juce::String PlayerBridge::load(const juce::File& file)
 {
-    try
+    return loadFiles({file});
+}
+
+juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
+{
+    // Play in file-name order (the dialog does not guarantee an order).
+    std::sort(files.begin(), files.end(), [](const juce::File& a, const juce::File& b) {
+        return a.getFileName().compareNatural(b.getFileName()) < 0;
+    });
+
+    // Check every header now so a wrong file is reported before playback starts.
+    std::vector<QueueItem> items;
+    for (const auto& file : files)
     {
-        WavFileSource wav(std::filesystem::path(file.getFullPathName().toWideCharPointer()));
-        // Read the whole file first so the playback thread never waits for the
-        // disk (dropout prevention; proper prefetching comes in task 1-3).
-        auto memory = std::make_unique<MemoryPcmSource>(MemoryPcmSource::loadAll(wav));
-        player_.load(std::move(memory));
-        fileName_ = file.getFileName();
-        pushStatus(true);
-        return {};
+        const std::filesystem::path path(file.getFullPathName().toWideCharPointer());
+        try
+        {
+            WavFileSource probe(path);
+        }
+        catch (const std::exception& e)
+        {
+            return juce::String::fromUTF8("このファイルは読めません（WAV のみ対応）: ") + file.getFileName() + " ("
+                 + e.what() + ")";
+        }
+        // Each track is read completely before it plays, so the playback
+        // thread never waits for the disk (dropout prevention; proper
+        // prefetching comes in task 1-3). The next track is read in the
+        // background while the current one plays.
+        items.push_back({file.getFileName().toStdString(), [path] {
+                             WavFileSource wav(path);
+                             return std::make_unique<MemoryPcmSource>(MemoryPcmSource::loadAll(wav));
+                         }});
     }
-    catch (const WavFormatError& e)
-    {
-        return juce::String::fromUTF8("このファイルは読めません（WAV のみ対応）: ") + e.what();
-    }
-    catch (const std::exception& e)
-    {
-        return juce::String::fromUTF8("ファイルを開けませんでした: ") + e.what();
-    }
+
+    player_.setQueue(std::move(items));
+    pushStatus(true);
+    const auto s = player_.status();
+    if (s.state == PlayerState::Error)
+        return juce::String::fromUTF8("ファイルを開けませんでした: ") + juce::String::fromUTF8(s.error.detail.c_str());
+    return {};
 }
 
 void PlayerBridge::openFileAsync(juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
-    chooser_ = std::make_unique<juce::FileChooser>(juce::String::fromUTF8("音声ファイルを開く"), juce::File{}, "*.wav");
-    chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+    chooser_ = std::make_unique<juce::FileChooser>(juce::String::fromUTF8("音声ファイルを開く（複数選べます）"),
+                                                   juce::File{}, "*.wav");
+    chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles
+                              | juce::FileBrowserComponent::canSelectMultipleItems,
                           [this, completion = std::move(completion)](const juce::FileChooser& fc) {
                               auto* result = new juce::DynamicObject();
-                              const auto file = fc.getResult();
-                              if (file == juce::File{})
+                              const auto files = fc.getResults();
+                              if (files.isEmpty())
                               {
                                   result->setProperty("ok", false);
                                   result->setProperty("cancelled", true);
                               }
                               else
                               {
-                                  const auto message = load(file);
+                                  const auto message = loadFiles(files);
                                   result->setProperty("ok", message.isEmpty());
                                   if (message.isNotEmpty())
                                       result->setProperty("message", message);
@@ -187,7 +211,25 @@ juce::var PlayerBridge::statusAsVar() const
     const auto s = player_.status();
     auto* o = new juce::DynamicObject();
     o->setProperty("state", toString(s.state));
-    o->setProperty("fileName", fileName_);
+    o->setProperty("fileName", juce::String::fromUTF8(s.trackName.c_str()));
+    o->setProperty("queueIndex", static_cast<int>(s.queueIndex));
+    o->setProperty("queueLength", static_cast<int>(s.queueLength));
+
+    juce::Array<juce::var> transitions;
+    const std::size_t first = s.transitions.size() > 5 ? s.transitions.size() - 5 : 0;
+    for (std::size_t i = first; i < s.transitions.size(); ++i)
+    {
+        const auto& t = s.transitions[i];
+        auto* to = new juce::DynamicObject();
+        to->setProperty("fromIndex", static_cast<int>(t.fromIndex));
+        to->setProperty("toIndex", static_cast<int>(t.toIndex));
+        to->setProperty("kind", t.kind == TransitionKind::Gapless ? "gapless" : "reopened");
+        to->setProperty("fromFormat", formatVar(t.fromFormat));
+        to->setProperty("toFormat", formatVar(t.toFormat));
+        to->setProperty("switchMilliseconds", t.switchMilliseconds);
+        transitions.add(juce::var(to));
+    }
+    o->setProperty("transitions", transitions);
     o->setProperty("sourceFormat", s.sourceFormat ? formatVar(*s.sourceFormat) : juce::var());
     o->setProperty("outputFormat", s.plan ? formatVar(s.plan->output) : juce::var());
     o->setProperty("repack", s.plan ? toString(s.plan->repack) : "none");

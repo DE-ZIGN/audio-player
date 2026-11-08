@@ -1,7 +1,7 @@
 // User-facing text (Japanese first). Describes what the player does; never
 // claims that something sounds better.
 
-import type { FormatInfo, PlaybackStatus, PlayerState } from "./status";
+import type { FormatInfo, PlaybackStatus, PlayerState, TrackTransition } from "./status";
 
 function rateText(rate: number): string {
   return `${Number((rate / 1000).toFixed(3))} kHz`;
@@ -38,6 +38,19 @@ export function stateLabel(state: PlayerState): string {
     case "error":
       return "再生できません";
   }
+}
+
+export function queueText(s: PlaybackStatus): string {
+  return s.queueLength > 1 ? `${s.queueIndex + 1} / ${s.queueLength} 曲目` : "";
+}
+
+export function transitionText(t: TrackTransition): string {
+  const tracks = `${t.fromIndex + 1} → ${t.toIndex + 1} 曲目`;
+  if (t.kind === "gapless") return `${tracks}：ギャップレス（形式が同じなので出力を開き直さずにつなげました）`;
+  return (
+    `${tracks}：形式の切り替え ${describeFormat(t.fromFormat)} → ${describeFormat(t.toFormat)}` +
+    `（出力を開き直しました。前の曲のデータが途切れてから次の曲を送り始めるまで約 ${Math.round(t.switchMilliseconds)} ms）`
+  );
 }
 
 export function repackText(s: PlaybackStatus): string {
@@ -105,6 +118,8 @@ export function errorText(s: PlaybackStatus): string {
         return `デバイスのエラーです（${e.detail}）。`;
     }
   }
+
+  if (e.kind === "load") return `${s.queueIndex + 1} 曲目のファイルを開けません: ${e.detail}`;
 
   return `エラー: ${e.detail}`;
 }
