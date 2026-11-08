@@ -74,6 +74,18 @@ struct PlayerError
     std::string detail; // English, for logs
 };
 
+// Dropouts since the queue was set.
+struct DropoutCounts
+{
+    std::uint32_t lateBuffers = 0;     // device side: buffers not ready in time
+    std::uint32_t deviceTimeouts = 0;  // device side: the device did not ask for data
+    std::uint32_t readStarvations = 0; // read-ahead side: data not read from disk in time
+    std::uint64_t starvedFrames = 0;   // frames replaced by silence because of that
+    bool realtimePriority = false;     // the playback thread ran with MMCSS "Pro Audio"
+
+    std::uint32_t total() const noexcept { return lateBuffers + deviceTimeouts + readStarvations; }
+};
+
 struct PlayerStatus
 {
     PlayerState state = PlayerState::Empty;
@@ -86,6 +98,7 @@ struct PlayerStatus
     std::size_t queueLength = 0;
     std::string trackName;
     std::vector<TrackTransition> transitions; // since the queue was set (most recent last)
+    DropoutCounts dropouts;
     PlayerError error;
 };
 
@@ -134,6 +147,7 @@ private:
     bool openCurrentLocked();      // opens queue_[index_] into source_; on failure sets a Load error
     void startLoadingNextLocked(); // opens queue_[index_ + 1] in the background
     void publishTrackLocked();     // copies the current track's facts into status_
+    void retireSourceLocked();     // adds the current source's dropout counters to the totals
 
     OutputFactory outputFactory_;
     PlaybackOptions options_;
@@ -156,6 +170,10 @@ private:
     bool loadFailed_ = false;
     std::optional<TrackTransition> reopenPending_; // recorded at the first read after reopening
     std::chrono::steady_clock::time_point dataEndedAt_;
+
+    // Dropout totals from sources and outputs that are gone (guarded by mutex_).
+    SourceHealth retiredSourceHealth_;
+    OutputHealth retiredOutputHealth_;
 
     std::atomic<std::uint64_t> position_{0};
     std::atomic<std::int64_t> pendingSeek_{-1};

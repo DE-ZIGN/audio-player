@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cstring>
 #include <format>
 
@@ -131,6 +132,8 @@ public:
     MmcssScope(const MmcssScope&) = delete;
     MmcssScope& operator=(const MmcssScope&) = delete;
 
+    bool active() const noexcept { return handle_ != nullptr; }
+
 private:
     HANDLE handle_ = nullptr;
 };
@@ -198,6 +201,9 @@ struct WasapiExclusiveOutput::Impl
     REFERENCE_TIME periodHns = 0;
     bool opened = false;
     std::atomic<bool> stop{false};
+    std::atomic<std::uint32_t> lateBuffers{0};
+    std::atomic<std::uint32_t> timeouts{0};
+    std::atomic<bool> realtime{false};
 
     ComPtr<IAudioClient> activateClient() const
     {
@@ -346,6 +352,7 @@ RunStats WasapiExclusiveOutput::run(const RenderCallback& render)
 
     MmcssScope mmcss;
     auto& d = *impl_;
+    d.realtime = mmcss.active();
     const std::size_t bpf = d.format.bytesPerFrame();
 
     RunStats stats;
@@ -374,6 +381,10 @@ RunStats WasapiExclusiveOutput::run(const RenderCallback& render)
     check(d.client->Start(), "IAudioClient::Start");
 
     const DWORD timeoutMs = std::max<DWORD>(2000, static_cast<DWORD>(stats.periodMilliseconds * 8));
+    // After each device request the next buffer must be released within one
+    // period. Measuring from each wake-up (not from a fixed start time) keeps
+    // the device clock / QPC drift from accumulating over long playback.
+    const auto period = std::chrono::duration<double, std::milli>(stats.periodMilliseconds);
     int consecutiveTimeouts = 0;
     int drainPeriods = 0;
     try
@@ -384,6 +395,7 @@ RunStats WasapiExclusiveOutput::run(const RenderCallback& render)
             if (w == WAIT_TIMEOUT)
             {
                 ++stats.lateWakeups;
+                ++d.timeouts;
                 if (++consecutiveTimeouts >= 3)
                     throw OutputException(OutputError::Timeout, "the device stopped requesting data");
                 continue;
@@ -391,6 +403,7 @@ RunStats WasapiExclusiveOutput::run(const RenderCallback& render)
             if (w != WAIT_OBJECT_0)
                 throw OutputException(OutputError::DeviceError, "WaitForSingleObject failed");
             consecutiveTimeouts = 0;
+            const auto wokeAt = std::chrono::steady_clock::now();
 
             if (d.stop)
             {
@@ -401,6 +414,8 @@ RunStats WasapiExclusiveOutput::run(const RenderCallback& render)
             if (ended && ++drainPeriods >= 2)
                 break;
             fill();
+            if (std::chrono::steady_clock::now() - wokeAt > period)
+                ++d.lateBuffers;
         }
     }
     catch (...)
@@ -410,6 +425,11 @@ RunStats WasapiExclusiveOutput::run(const RenderCallback& render)
     }
     d.client->Stop();
     return stats;
+}
+
+OutputHealth WasapiExclusiveOutput::health() const noexcept
+{
+    return {impl_->lateBuffers.load(), impl_->timeouts.load(), impl_->realtime.load()};
 }
 
 void WasapiExclusiveOutput::requestStop() noexcept

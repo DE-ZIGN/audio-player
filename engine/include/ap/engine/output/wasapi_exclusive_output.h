@@ -55,6 +55,7 @@ public:
     RunStats run(const RenderCallback& render) override;
     void requestStop() noexcept override;
     void close() noexcept override;
+    OutputHealth health() const noexcept override;
 
     EndpointVolumeInfo endpointVolume() const;
 

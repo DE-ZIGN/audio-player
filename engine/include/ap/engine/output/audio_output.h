@@ -78,10 +78,21 @@ struct RunStats
     bool stoppedByRequest = false;
 };
 
+// Device-side dropout counters and thread priority, readable while running.
+struct OutputHealth
+{
+    std::uint32_t lateBuffers = 0; // buffers not ready when the device needed them (likely audible dropouts)
+    std::uint32_t timeouts = 0;    // waits for the device that timed out
+    bool realtimePriority = false; // the playback thread runs with MMCSS "Pro Audio"
+};
+
 class AudioOutput
 {
 public:
     virtual ~AudioOutput() = default;
+
+    // Cumulative over the life of this object. Thread-safe.
+    virtual OutputHealth health() const noexcept { return {}; }
 
     virtual std::string deviceName() const = 0;
 

@@ -80,6 +80,7 @@ public:
             t.toFormat = next->format();
             {
                 std::lock_guard lock(p_.mutex_);
+                p_.retireSourceLocked();
                 ++p_.index_;
                 p_.source_ = std::move(next);
                 p_.publishTrackLocked();
@@ -138,6 +139,8 @@ void Player::setQueue(std::vector<QueueItem> items, std::size_t startIndex)
     reopenPending_.reset();
     position_ = 0;
     pendingSeek_ = -1;
+    retiredSourceHealth_ = {};
+    retiredOutputHealth_ = {};
 
     status_ = PlayerStatus{};
     status_.queueLength = queue_.size();
@@ -183,6 +186,16 @@ void Player::startLoadingNextLocked()
         nextLoad_ = {};
 }
 
+void Player::retireSourceLocked()
+{
+    if (!source_)
+        return;
+    const auto h = source_->health();
+    retiredSourceHealth_.starvations += h.starvations;
+    retiredSourceHealth_.starvedFrames += h.starvedFrames;
+    retiredSourceHealth_.seekFillFrames += h.seekFillFrames;
+}
+
 void Player::publishTrackLocked()
 {
     status_.queueIndex = index_;
@@ -209,6 +222,7 @@ void Player::play()
         }
         else
         {
+            retireSourceLocked();
             index_ = 0;
             source_.reset();
         }
@@ -270,6 +284,23 @@ PlayerStatus Player::status() const
     std::lock_guard lock(mutex_);
     PlayerStatus s = status_;
     s.positionFrames = position_;
+
+    SourceHealth src = retiredSourceHealth_;
+    if (source_)
+    {
+        const auto h = source_->health();
+        src.starvations += h.starvations;
+        src.starvedFrames += h.starvedFrames;
+    }
+    OutputHealth out = retiredOutputHealth_;
+    if (activeOutput_)
+    {
+        const auto h = activeOutput_->health();
+        out.lateBuffers += h.lateBuffers;
+        out.timeouts += h.timeouts;
+        out.realtimePriority = out.realtimePriority || h.realtimePriority;
+    }
+    s.dropouts = {out.lateBuffers, out.timeouts, src.starvations, src.starvedFrames, out.realtimePriority};
     return s;
 }
 
@@ -295,10 +326,11 @@ void Player::threadMain()
     ScopedComInit com; // WASAPI needs COM on the thread that drives the device
     PlayerError error;
     bool ended = false;
+    std::unique_ptr<AudioOutput> output; // outlives the try block so its counters can be kept
 
     try
     {
-        auto output = outputFactory_();
+        output = outputFactory_();
         {
             std::lock_guard lock(mutex_);
             activeOutput_ = output.get();
@@ -334,6 +366,7 @@ void Player::threadMain()
                 t.fromFormat = source_->format();
                 t.toFormat = pendingNext_->format();
                 std::lock_guard lock(mutex_);
+                retireSourceLocked();
                 ++index_;
                 source_ = std::move(pendingNext_);
                 position_ = 0;
@@ -351,6 +384,7 @@ void Player::threadMain()
             if (loadFailed_)
             {
                 std::lock_guard lock(mutex_);
+                retireSourceLocked();
                 ++index_;
                 source_.reset();
                 status_.queueIndex = index_;
@@ -366,9 +400,6 @@ void Player::threadMain()
             position_ = source_->position();
             break;
         }
-
-        std::lock_guard lock(mutex_);
-        activeOutput_ = nullptr;
     }
     catch (const FormatNotSupportedError& e)
     {
@@ -384,6 +415,13 @@ void Player::threadMain()
     }
 
     std::lock_guard lock(mutex_);
+    if (output)
+    {
+        const auto h = output->health();
+        retiredOutputHealth_.lateBuffers += h.lateBuffers;
+        retiredOutputHealth_.timeouts += h.timeouts;
+        retiredOutputHealth_.realtimePriority = retiredOutputHealth_.realtimePriority || h.realtimePriority;
+    }
     activeOutput_ = nullptr;
     reopenPending_.reset();
     if (error.kind != PlayerErrorKind::None)

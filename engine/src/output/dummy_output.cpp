@@ -1,5 +1,6 @@
 #include <ap/engine/output/dummy_output.h>
 
+#include <ap/engine/output/deadline_tracker.h>
 #include <ap/engine/output/format_probe.h>
 
 #include <algorithm>
@@ -61,6 +62,8 @@ RunStats DummyOutput::run(const RenderCallback& render)
     std::vector<std::byte> buffer(maxPeriod * bpf);
 
     RunStats stats;
+    DeadlineTracker deadlines;
+    auto next = std::chrono::steady_clock::now();
     for (std::size_t i = 0;; ++i)
     {
         if (stop_)
@@ -80,7 +83,22 @@ RunStats DummyOutput::run(const RenderCallback& render)
         if (frames < period)
             break;
         if (options_.paceInRealTime)
-            std::this_thread::sleep_for(std::chrono::duration<double>(static_cast<double>(period) / format_.sampleRate));
+        {
+            const auto now = std::chrono::steady_clock::now();
+            const auto periodDuration = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                std::chrono::duration<double>(static_cast<double>(period) / format_.sampleRate));
+            if (i == 0)
+                deadlines.start(next, periodDuration);
+            if (deadlines.onDelivered(now))
+            {
+                ++lateBuffers_;
+                ++stats.lateWakeups;
+            }
+            next += periodDuration;
+            if (next < now)
+                next = now; // resume the schedule after a stall
+            std::this_thread::sleep_until(next);
+        }
     }
     return stats;
 }

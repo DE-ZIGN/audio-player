@@ -26,7 +26,9 @@ public:
         std::vector<std::size_t> periodFrames{4096};
         // Which formats this "device" accepts. Default: every valid format.
         std::function<FormatCheck(const PcmFormat&)> check;
-        // Sleep for the duration of each period, like a real device (for stop/seek tests).
+        // Run on a real-time schedule like a device: one period per period
+        // (for stop/seek tests). Buffers handed over later than the device
+        // would have needed them are counted in health().lateBuffers.
         bool paceInRealTime = false;
         // Alternative to `check`: which exact formats this "device" accepts. The
         // reason and accepted rates are then worked out by checkFormatWith(),
@@ -44,6 +46,7 @@ public:
     RunStats run(const RenderCallback& render) override;
     void requestStop() noexcept override { stop_ = true; }
     void close() noexcept override { opened_ = false; }
+    OutputHealth health() const noexcept override { return {lateBuffers_.load(), 0, false}; }
 
 private:
     Options options_;
@@ -51,6 +54,7 @@ private:
     bool opened_ = false;
     bool firstRun_ = true;
     std::atomic<bool> stop_{false};
+    std::atomic<std::uint32_t> lateBuffers_{0};
 };
 
 } // namespace ap::engine
