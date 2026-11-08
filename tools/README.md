@@ -13,7 +13,13 @@ ap_play --formats [--device N]       デバイスが排他モードで受け付�
 ap_play FILE [--device N] [--check]  再生（--check は送る形式を確かめるだけ）
 ap_play FILE --exact-only            コンテナの詰め替えもしない
 ap_play FILE --dummy OUT.raw         デバイスに送るはずのバイト列をファイルに書き、入力とハッシュを比べる
+ap_play --env                        実行環境（MSIX パッケージの中かどうか）
+ap_play --asio-list                  ASIO ドライバーの一覧（レジストリ）
+ap_play --asio-load N|all            ASIO ドライバーを読み込めるか試す（再生はしない）
 ```
+
+- `--asio-load` は、ドライバーの COM オブジェクトを作って解放するだけ。ドライバーによっては、それだけでアプリごと落ちる（Realtek ASIO で確認）。
+- MSIX の中で試すときは `packaging/msix-test/README.md` を参照。
 
 - デバイスが受け付けない形式は再生せず、理由（レート非対応、ビット深度非対応、他のアプリが使用中など）を表示する。
 - 24bit を 32bit コンテナでしか受け付けないデバイスには、コンテナを詰め替えて送る（下位8ビットは 0、値は変わらない）。詰め替えたときは表示する。

@@ -1,6 +1,10 @@
-# ap_play: step S1 prototype player (bit-perfect WAV -> exclusive WASAPI / dummy output).
+# ap_play: step S1/S2 prototype player (bit-perfect WAV -> exclusive WASAPI / dummy output)
+# with environment diagnostics for MSIX (package identity, ASIO driver loading).
 
-add_executable(ap_play main.cpp)
-target_link_libraries(ap_play PRIVATE ap_engine)
+add_executable(ap_play
+    main.cpp
+    environment_probe.cpp
+    environment_probe.h)
+target_link_libraries(ap_play PRIVATE ap_engine ole32)
 ap_apply_compiler_settings(ap_play)
 set_target_properties(ap_play PROPERTIES FOLDER "tools")

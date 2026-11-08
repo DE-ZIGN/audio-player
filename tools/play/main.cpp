@@ -11,6 +11,8 @@
 #include <ap/engine/sha256.h>
 #include <ap/engine/wav_file_source.h>
 
+#include "environment_probe.h"
+
 #include <windows.h>
 
 #include <atomic>
@@ -37,6 +39,9 @@ constexpr const char* kUsage =
     "               [--exact-only]            コンテナの詰め替え（24bit → 32bit コンテナなど）もしない\n"
     "               [--check]                 再生せず、送る形式だけを確かめる\n"
     "  ap_play FILE --dummy OUT.raw           デバイスに送るはずのバイト列をファイルに書き、ハッシュを比べる\n"
+    "  ap_play --env                          実行環境（MSIX パッケージの中かどうか）\n"
+    "  ap_play --asio-list                    ASIO ドライバーの一覧（レジストリ）\n"
+    "  ap_play --asio-load N|all              ASIO ドライバーを読み込めるか試す（再生はしない）\n"
     "\n"
     "原音経路です。音量、変換、ディザはかけません。デバイスが受け付けない形式は再生せず、理由を表示します。\n";
 
@@ -156,6 +161,9 @@ struct Options
     bool checkOnly = false;
     bool list = false;
     bool formats = false;
+    bool env = false;
+    bool asioList = false;
+    std::string asioLoad;
 };
 
 std::optional<Options> parse(int argc, char** argv)
@@ -173,6 +181,12 @@ std::optional<Options> parse(int argc, char** argv)
             o.list = true;
         else if (a == "--formats")
             o.formats = true;
+        else if (a == "--env")
+            o.env = true;
+        else if (a == "--asio-list")
+            o.asioList = true;
+        else if (a == "--asio-load")
+            o.asioLoad = value();
         else if (a == "--device")
             o.device = value();
         else if (a == "--dummy")
@@ -190,7 +204,7 @@ std::optional<Options> parse(int argc, char** argv)
         else
             throw std::runtime_error("ファイルは1つだけ指定してください");
     }
-    if (!o.list && !o.formats && o.file.empty())
+    if (!o.list && !o.formats && !o.env && !o.asioList && o.asioLoad.empty() && o.file.empty())
         return std::nullopt;
     return o;
 }
@@ -222,6 +236,63 @@ std::string resolveDeviceId(const std::string& arg)
         return devices[index - 1].id;
     }
     return arg;
+}
+
+int showEnvironment()
+{
+    const auto package = ap::play::packageFullName();
+    print(std::format("実行ファイル: {}\n", ap::play::executablePath()));
+    print(std::format("MSIX パッケージ: {}\n", package.empty() ? "なし（通常の exe として実行中）" : package));
+    return 0;
+}
+
+int asioList()
+{
+    const auto drivers = ap::play::listAsioDrivers();
+    print(std::format("MSIX パッケージ: {}\n", ap::play::packageFullName().empty() ? "なし" : "あり"));
+    if (drivers.empty())
+    {
+        print("ASIO ドライバーが見つかりません（HKLM\\SOFTWARE\\ASIO）。\n");
+        return 1;
+    }
+    for (std::size_t i = 0; i < drivers.size(); ++i)
+    {
+        const auto& d = drivers[i];
+        print(std::format("{:2}. {}\n    CLSID: {}\n    DLL: {}\n", i + 1, d.name, d.clsid,
+                          d.dllPath.empty() ? "（登録が見つかりません）" : d.dllPath));
+    }
+    return 0;
+}
+
+int asioLoad(const std::string& which)
+{
+    const auto drivers = ap::play::listAsioDrivers();
+    print(std::format("MSIX パッケージ: {}\n", ap::play::packageFullName().empty() ? "なし" : "あり"));
+    std::vector<std::size_t> targets;
+    if (which == "all")
+    {
+        for (std::size_t i = 0; i < drivers.size(); ++i)
+            targets.push_back(i);
+    }
+    else
+    {
+        const auto index = std::stoul(which);
+        if (index == 0 || index > drivers.size())
+            throw std::runtime_error("ASIO ドライバーの番号が範囲外です（--asio-list で確かめてください）");
+        targets.push_back(index - 1);
+    }
+
+    int failures = 0;
+    for (const auto i : targets)
+    {
+        const auto r = ap::play::tryLoadAsioDriver(drivers[i]);
+        print(std::format("{:2}. {}: {}（0x{:08X}）\n", i + 1, drivers[i].name, r.loaded ? "読み込めた" : "読み込めない",
+                          static_cast<unsigned long>(r.hresult)));
+        if (!r.loadedModulePath.empty())
+            print(std::format("    読み込まれた DLL: {}\n", r.loadedModulePath));
+        failures += r.loaded ? 0 : 1;
+    }
+    return failures == 0 ? 0 : 1;
 }
 
 void printWindowsDefault(const WasapiExclusiveOutput& out)
@@ -378,6 +449,13 @@ int main(int argc, char** argv)
             print(kUsage);
             return 2;
         }
+
+        if (o->env)
+            return showEnvironment();
+        if (o->asioList)
+            return asioList();
+        if (!o->asioLoad.empty())
+            return asioLoad(o->asioLoad);
 
         ScopedComInit com;
         if (o->list)
