@@ -10,6 +10,7 @@ project(audio_player
 # ---------------------------------------------------------------------------
 set(AP_PRODUCT_NAME "AudioPlayer" CACHE STRING "Provisional product name shown to users")
 set(AP_COMPANY_NAME "AudioPlayer Project" CACHE STRING "Provisional company / publisher name")
+set(AP_BUNDLE_ID    "com.audioplayer.app" CACHE STRING "Provisional reverse-DNS application ID")
 
 option(AP_BUILD_APP   "Build the JUCE application (downloads JUCE)" ON)
 option(AP_BUILD_TESTS "Build unit and acceptance tests (downloads Catch2)" ON)
