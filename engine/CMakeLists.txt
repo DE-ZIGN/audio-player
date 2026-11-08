@@ -6,6 +6,7 @@ add_library(ap_engine STATIC
     src/pcm_format.cpp
     src/pcm_source.cpp
     src/wav_file_source.cpp
+    src/prefetching_source.cpp
     src/repack.cpp
     src/playback.cpp
     src/player.cpp

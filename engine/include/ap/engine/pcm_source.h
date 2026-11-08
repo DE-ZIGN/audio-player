@@ -9,6 +9,14 @@
 
 namespace ap::engine {
 
+// Read-side dropout counters (see PrefetchingSource).
+struct SourceHealth
+{
+    std::uint32_t starvations = 0;    // reads that could not be filled in time
+    std::uint64_t starvedFrames = 0;  // frames replaced by silence because of that
+    std::uint64_t seekFillFrames = 0; // silence while refilling after a seek (not a dropout)
+};
+
 // A source of interleaved PCM in its original byte layout. Sources never
 // convert sample values: the bytes they deliver are the bytes of the file.
 class PcmSource
@@ -29,6 +37,9 @@ public:
 
     // Current read position in frames.
     virtual std::uint64_t position() const noexcept = 0;
+
+    // Dropout counters; plain sources never starve.
+    virtual SourceHealth health() const noexcept { return {}; }
 };
 
 // Holds all PCM bytes in memory.
