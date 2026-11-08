@@ -8,6 +8,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace ap::engine {
 
@@ -28,9 +29,12 @@ struct FormatCheck
     bool supported = false;
     FormatRejection reason = FormatRejection::None;
     long nativeError = 0; // HRESULT or similar, for logs
+    // When rejected: sample rates the device accepts right now with the
+    // requested channel count (for "set your device to N kHz" guidance).
+    std::vector<std::uint32_t> acceptedRates;
 
-    static FormatCheck ok() { return {true, FormatRejection::None, 0}; }
-    static FormatCheck rejected(FormatRejection r, long native = 0) { return {false, r, native}; }
+    static FormatCheck ok() { return {true, FormatRejection::None, 0, {}}; }
+    static FormatCheck rejected(FormatRejection r, long native = 0) { return {false, r, native, {}}; }
 };
 
 enum class OutputError

@@ -1,5 +1,7 @@
 #include <ap/engine/output/wasapi_exclusive_output.h>
 
+#include <ap/engine/output/format_probe.h>
+
 #include <windows.h>
 #include <mmreg.h>
 #include <mmdeviceapi.h>
@@ -210,19 +212,6 @@ struct WasapiExclusiveOutput::Impl
         return c->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE, &wfx.Format, nullptr);
     }
 
-    // True if any common integer layout works at this rate / channel count.
-    bool anyIntLayoutWorks(IAudioClient* c, std::uint32_t rate, std::uint16_t channels) const
-    {
-        static constexpr std::pair<std::uint16_t, std::uint16_t> kLayouts[] = {{16, 16}, {24, 24}, {32, 24}, {32, 32}};
-        for (const auto& [container, valid] : kLayouts)
-        {
-            PcmFormat probe{rate, channels, container, valid, SampleType::Int, 0};
-            if (isSupported(c, probe) == S_OK)
-                return true;
-        }
-        return false;
-    }
-
     void release() noexcept
     {
         if (client && opened)
@@ -299,14 +288,15 @@ FormatCheck WasapiExclusiveOutput::checkFormat(const PcmFormat& format)
     if (isDeviceLevelError(hr))
         throwHr(hr, "IAudioClient::IsFormatSupported");
 
-    // Work out the most useful reason by probing nearby formats.
-    const long native = static_cast<long>(hr);
-    if (impl_->anyIntLayoutWorks(c.Get(), format.sampleRate, format.channels))
-        return FormatCheck::rejected(
-            format.type == SampleType::Float ? FormatRejection::SampleType : FormatRejection::BitDepth, native);
-    if (format.channels != 2 && impl_->anyIntLayoutWorks(c.Get(), format.sampleRate, 2))
-        return FormatCheck::rejected(FormatRejection::Channels, native);
-    return FormatCheck::rejected(FormatRejection::SampleRate, native);
+    // Work out the reason and the rates that do work by probing nearby formats.
+    auto check = checkFormatWith(format, [&](const PcmFormat& f) {
+        const HRESULT probe = impl_->isSupported(c.Get(), f);
+        if (isDeviceLevelError(probe))
+            throwHr(probe, "IAudioClient::IsFormatSupported");
+        return probe == S_OK;
+    });
+    check.nativeError = static_cast<long>(hr);
+    return check;
 }
 
 void WasapiExclusiveOutput::open(const PcmFormat& format)

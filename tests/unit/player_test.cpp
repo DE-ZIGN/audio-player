@@ -184,6 +184,61 @@ TEST_CASE("Player reports an unsupported format as an error with its reason", "[
     CHECK(s.error.formatCheck.reason == FormatRejection::SampleRate);
 }
 
+TEST_CASE("Player on a 96 kHz-only device: reason, accepted rates and lossless repack", "[engine][player][format]")
+{
+    // Same acceptance as the SSL 2 MKII with its control panel at 96 kHz.
+    const auto ssl96 = [](const PcmFormat& f) {
+        return f.sampleRate == 96000 && f.channels == 2 && f.type == SampleType::Int
+            && ((f.containerBits == 16 && f.validBits == 16) || (f.containerBits == 32 && f.validBits == 24)
+                || (f.containerBits == 32 && f.validBits == 32));
+    };
+    ap::test::TempDir dir;
+    auto factory = [&](bool allowRepack) {
+        (void)allowRepack;
+        return [path = dir.path() / "out.raw", ssl96] {
+            return std::make_unique<DummyOutput>(DummyOutput::Options{
+                .path = path, .periodFrames = {480}, .check = {}, .paceInRealTime = false, .accepts = ssl96});
+        };
+    };
+
+    SECTION("44.1 kHz file: refused, device takes 96 kHz")
+    {
+        Player player(factory(true));
+        player.load(std::make_unique<MemoryPcmSource>(PcmFormat{44100, 2, 24, 24, SampleType::Int, 3}, makeData(1000)));
+        player.play();
+        player.waitUntilIdle();
+        const auto s = player.status();
+        CHECK(s.state == PlayerState::Error);
+        CHECK(s.error.formatCheck.reason == FormatRejection::SampleRate);
+        CHECK(s.error.formatCheck.acceptedRates == std::vector<std::uint32_t>{96000});
+        CHECK_FALSE(std::filesystem::exists(dir.path() / "out.raw"));
+    }
+
+    SECTION("96 kHz packed 24-bit: sent in a 32-bit container, values unchanged")
+    {
+        Player player(factory(true));
+        player.load(std::make_unique<MemoryPcmSource>(PcmFormat{96000, 2, 24, 24, SampleType::Int, 3}, makeData(1000)));
+        player.play();
+        player.waitUntilIdle();
+        const auto s = player.status();
+        CHECK(s.state == PlayerState::Ended);
+        REQUIRE(s.plan.has_value());
+        CHECK(s.plan->repack == Repack::WiderContainer);
+    }
+
+    SECTION("96 kHz packed 24-bit with repack disabled: refused as BitDepth")
+    {
+        Player player(factory(false), PlaybackOptions{.allowRepack = false});
+        player.load(std::make_unique<MemoryPcmSource>(PcmFormat{96000, 2, 24, 24, SampleType::Int, 3}, makeData(1000)));
+        player.play();
+        player.waitUntilIdle();
+        const auto s = player.status();
+        CHECK(s.state == PlayerState::Error);
+        CHECK(s.error.formatCheck.reason == FormatRejection::BitDepth);
+        CHECK(s.error.formatCheck.acceptedRates == std::vector<std::uint32_t>{96000});
+    }
+}
+
 TEST_CASE("Player load replaces the source and stops playback", "[engine][player]")
 {
     ap::test::TempDir dir;

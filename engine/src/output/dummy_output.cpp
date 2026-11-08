@@ -1,5 +1,7 @@
 #include <ap/engine/output/dummy_output.h>
 
+#include <ap/engine/output/format_probe.h>
+
 #include <algorithm>
 #include <chrono>
 #include <fstream>
@@ -22,6 +24,8 @@ FormatCheck DummyOutput::checkFormat(const PcmFormat& format)
 {
     if (!format.isValid())
         return FormatCheck::rejected(FormatRejection::Other);
+    if (options_.accepts)
+        return checkFormatWith(format, options_.accepts);
     return options_.check ? options_.check(format) : FormatCheck::ok();
 }
 

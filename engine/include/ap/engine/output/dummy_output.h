@@ -26,6 +26,10 @@ public:
         std::function<FormatCheck(const PcmFormat&)> check;
         // Sleep for the duration of each period, like a real device (for stop/seek tests).
         bool paceInRealTime = false;
+        // Alternative to `check`: which exact formats this "device" accepts. The
+        // reason and accepted rates are then worked out by checkFormatWith(),
+        // the same way as for WASAPI.
+        std::function<bool(const PcmFormat&)> accepts;
     };
 
     explicit DummyOutput(Options options);
