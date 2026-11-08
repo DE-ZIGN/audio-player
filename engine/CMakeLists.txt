@@ -2,7 +2,16 @@
 # Must not depend on the UI or on JUCE (plain C++20 + Win32).
 
 add_library(ap_engine STATIC
-    src/version.cpp)
+    src/version.cpp
+    src/pcm_format.cpp
+    src/pcm_source.cpp
+    src/wav_file_source.cpp
+    src/repack.cpp
+    src/playback.cpp
+    src/sha256.cpp
+    src/output/dummy_output.cpp)
+
+target_link_libraries(ap_engine PRIVATE bcrypt)
 
 target_include_directories(ap_engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)

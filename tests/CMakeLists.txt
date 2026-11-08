@@ -20,7 +20,9 @@ set_target_properties(ap_test_support PROPERTIES FOLDER "tests")
 # Engine unit tests
 # ---------------------------------------------------------------------------
 add_executable(ap_engine_unit_tests
-    unit/version_test.cpp)
+    unit/version_test.cpp
+    unit/sha256_test.cpp
+    unit/repack_test.cpp)
 
 target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine Catch2::Catch2WithMain)
 target_compile_definitions(ap_engine_unit_tests PRIVATE
@@ -33,6 +35,32 @@ set_target_properties(ap_engine_unit_tests PROPERTIES FOLDER "tests")
 
 catch_discover_tests(ap_engine_unit_tests
     PROPERTIES LABELS "unit")
+
+# ---------------------------------------------------------------------------
+# Engine tests that use generated signals as input
+# ---------------------------------------------------------------------------
+if(TARGET ap_signalgen_lib)
+    add_executable(ap_engine_signal_tests
+        unit/wav_file_source_test.cpp)
+    target_link_libraries(ap_engine_signal_tests PRIVATE
+        ap_engine ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
+    ap_apply_compiler_settings(ap_engine_signal_tests)
+    set_target_properties(ap_engine_signal_tests PROPERTIES FOLDER "tests")
+
+    catch_discover_tests(ap_engine_signal_tests
+        PROPERTIES LABELS "unit")
+
+    # CLAUDE.md chapter 5 acceptance criteria
+    add_executable(ap_acceptance_tests
+        acceptance/bitperfect_test.cpp)
+    target_link_libraries(ap_acceptance_tests PRIVATE
+        ap_engine ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
+    ap_apply_compiler_settings(ap_acceptance_tests)
+    set_target_properties(ap_acceptance_tests PROPERTIES FOLDER "tests")
+
+    catch_discover_tests(ap_acceptance_tests
+        PROPERTIES LABELS "acceptance")
+endif()
 
 # ---------------------------------------------------------------------------
 # Tools: signal generator
