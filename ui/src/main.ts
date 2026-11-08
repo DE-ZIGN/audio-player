@@ -1,6 +1,16 @@
 import "./style.css";
 import { createBackend, type Backend } from "./backend";
-import { describeFormat, errorText, formatTime, queueText, repackText, stateLabel, transitionText } from "./messages";
+import {
+  describeFormat,
+  dropoutText,
+  errorText,
+  formatTime,
+  priorityText,
+  queueText,
+  repackText,
+  stateLabel,
+  transitionText,
+} from "./messages";
 import type { PlaybackStatus } from "./status";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -13,6 +23,8 @@ const els = {
   fileName: $("file-name"),
   queue: $("queue"),
   transitions: $("transitions"),
+  dropouts: $("dropouts"),
+  priority: $("priority"),
   state: $("state"),
   position: $("position"),
   duration: $("duration"),
@@ -50,6 +62,9 @@ function render(s: PlaybackStatus) {
   els.outputFormat.textContent = s.outputFormat ? describeFormat(s.outputFormat) : "—";
   els.repack.textContent = s.outputFormat ? repackText(s) : "—";
   els.queue.textContent = queueText(s);
+  const started = s.outputFormat !== null;
+  els.dropouts.textContent = started ? dropoutText(s.dropouts) : "—";
+  els.priority.textContent = started ? priorityText(s.dropouts.realtimePriority) : "—";
 
   const recent = s.transitions.slice(-3);
   els.transitions.replaceChildren(

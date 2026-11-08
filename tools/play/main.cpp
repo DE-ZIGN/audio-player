@@ -12,6 +12,7 @@
 #include <ap/engine/output/wasapi_exclusive_output.h>
 #include <ap/engine/player.h>
 #include <ap/engine/playback.h>
+#include <ap/engine/prefetching_source.h>
 #include <ap/engine/sha256.h>
 #include <ap/engine/wav_file_source.h>
 
@@ -41,6 +42,7 @@ constexpr const char* kUsage =
     "  ap_play --list                         出力デバイスの一覧\n"
     "  ap_play --formats [--device N|ID]      デバイスが排他モードで受け付けるレートと形式の一覧\n"
     "  ap_play --watch                        出力デバイスの変化（抜き差し、既定の変更など）を表示する\n"
+    "  ap_play FILE... --stress N             N 個のスレッドで CPU に負荷をかけながら再生し、音切れの回数を表示する\n"
     "  ap_play FILE... [--device N|ID]        排他 WASAPI で順に再生（既定のデバイス、または一覧の番号か ID）\n"
     "               [--exact-only]            コンテナの詰め替え（24bit → 32bit コンテナなど）もしない\n"
     "               [--check]                 再生せず、送る形式だけを確かめる\n"
@@ -176,6 +178,7 @@ struct Options
 {
     std::vector<std::string> files;
     bool watch = false;
+    int stressThreads = 0;
     std::string device;
     std::string dummy;
     bool exactOnly = false;
@@ -206,6 +209,8 @@ std::optional<Options> parse(int argc, char** argv)
             o.env = true;
         else if (a == "--watch")
             o.watch = true;
+        else if (a == "--stress")
+            o.stressThreads = std::max(0, std::stoi(value()));
         else if (a == "--asio-list")
             o.asioList = true;
         else if (a == "--asio-load")
@@ -413,11 +418,10 @@ int runQueue(const Options& o)
             while (const auto n = src.read(buf))
                 inputHash.update(std::span(buf).first(n * src.format().bytesPerFrame()));
         }
-        // Read the whole file before it plays, so the playback thread never
-        // waits for the disk (dropout prevention; prefetching comes in task 1-3).
+        // Read ahead on a separate thread so the playback thread never waits
+        // for the disk (dropout prevention only).
         items.push_back({reinterpret_cast<const char*>(path.filename().u8string().c_str()), [path] {
-                             WavFileSource f(path);
-                             return std::make_unique<MemoryPcmSource>(MemoryPcmSource::loadAll(f));
+                             return std::make_unique<PrefetchingSource>(std::make_unique<WavFileSource>(path));
                          }});
     }
 
@@ -469,6 +473,30 @@ int runQueue(const Options& o)
 
     g_player = &player;
     SetConsoleCtrlHandler(onConsoleCtrl, TRUE);
+
+    // --stress N: keep N threads busy at normal priority while playing.
+    std::atomic<bool> stopStress{false};
+    std::vector<std::thread> stress;
+    for (int i = 0; i < o.stressThreads; ++i)
+        stress.emplace_back([&stopStress] {
+            volatile std::uint64_t x = 0;
+            while (!stopStress)
+                x = x * 6364136223846793005ull + 1442695040888963407ull;
+        });
+    if (o.stressThreads > 0)
+        print(std::format("  負荷: {} 個のスレッドで CPU を使い続けています\n", o.stressThreads));
+    struct StressGuard
+    {
+        std::atomic<bool>& stop;
+        std::vector<std::thread>& threads;
+        ~StressGuard()
+        {
+            stop = true;
+            for (auto& t : threads)
+                t.join();
+        }
+    } stressGuard{stopStress, stress};
+
     player.play();
 
     std::size_t shownTransitions = 0;
@@ -488,8 +516,9 @@ int runQueue(const Options& o)
         if (s.state != PlayerState::Playing)
             break;
         const auto rate = s.sourceFormat ? s.sourceFormat->sampleRate : 1u;
-        print(std::format("\r  再生中 {}/{} 曲目 {} / {}（Ctrl+C で停止）   ", s.queueIndex + 1, s.queueLength,
-                          duration(s.positionFrames, rate), duration(s.totalFrames, rate)));
+        print(std::format("\r  再生中 {}/{} 曲目 {} / {}  音切れ {} 回（Ctrl+C で停止）   ", s.queueIndex + 1,
+                          s.queueLength, duration(s.positionFrames, rate), duration(s.totalFrames, rate),
+                          s.dropouts.total()));
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     g_player = nullptr;
@@ -503,6 +532,12 @@ int runQueue(const Options& o)
         case PlayerState::Error:   print("\n"); printErr(playerErrorText(s) + "\n"); break;
         default: break;
     }
+    const auto& d = s.dropouts;
+    print(std::format("音切れ: {} 回（デバイスへの受け渡しの遅れ {}、ファイルの読み込みの遅れ {}（無音にしたフレーム {}）、"
+                      "デバイスの応答なし {}）\n",
+                      d.total(), d.lateBuffers, d.readStarvations, d.starvedFrames, d.deviceTimeouts));
+    print(std::format("再生スレッド: {}\n", d.realtimePriority ? "MMCSS（Pro Audio）で優先度を上げた"
+                                                              : "通常の優先度（MMCSS は使っていない）"));
 
     if (dummy && s.state == PlayerState::Ended)
     {

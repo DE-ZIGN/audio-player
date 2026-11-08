@@ -202,6 +202,29 @@ bool PrefetchingSource::seek(std::uint64_t frame)
     return true;
 }
 
+void PrefetchingSource::waitUntilReady()
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    if (waitingForGen_ != 0)
+    {
+        while (restartGen_.load(std::memory_order_acquire) != waitingForGen_
+               && std::chrono::steady_clock::now() < deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        if (restartGen_.load(std::memory_order_acquire) != waitingForGen_)
+            return; // the reader is stuck; read() will report it
+        readPos_.store(restartPos_.load(std::memory_order_acquire), std::memory_order_release);
+        waitingForGen_ = 0;
+        refilling_ = false;
+    }
+    // Wait for a full buffer (or the rest of the source).
+    const std::uint64_t remaining = totalFrames_ - std::min(totalFrames_, position_.load());
+    const std::uint64_t target = std::min<std::uint64_t>(capacity_, remaining);
+    while (!ended_.load(std::memory_order_acquire)
+           && writePos_.load(std::memory_order_acquire) - readPos_.load(std::memory_order_relaxed) < target
+           && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+}
+
 SourceHealth PrefetchingSource::health() const noexcept
 {
     return {starvations_.load(), starvedFrames_.load(), seekFillFrames_.load()};

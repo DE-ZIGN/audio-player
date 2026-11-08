@@ -45,8 +45,17 @@ export interface TrackTransition {
   switchMilliseconds: number;
 }
 
+export interface DropoutCounts {
+  lateBuffers: number; // device side: buffers not ready in time
+  deviceTimeouts: number; // device side: the device did not ask for data
+  readStarvations: number; // read-ahead side: data not read from disk in time
+  starvedFrames: number;
+  realtimePriority: boolean; // playback thread ran with MMCSS "Pro Audio"
+}
+
 export interface PlaybackStatus {
   state: PlayerState;
+  dropouts: DropoutCounts;
   fileName: string; // name of the current track
   queueIndex: number;
   queueLength: number;
@@ -62,6 +71,7 @@ export interface PlaybackStatus {
 
 export const emptyStatus: PlaybackStatus = {
   state: "empty",
+  dropouts: { lateBuffers: 0, deviceTimeouts: 0, readStarvations: 0, starvedFrames: 0, realtimePriority: false },
   fileName: "",
   queueIndex: 0,
   queueLength: 0,

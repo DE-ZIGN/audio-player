@@ -39,6 +39,7 @@ public:
     bool seek(std::uint64_t frame) override;
     std::uint64_t position() const noexcept override { return position_; }
     SourceHealth health() const noexcept override;
+    void waitUntilReady() override;
 
     std::size_t bufferFrames() const noexcept { return capacity_; }
 

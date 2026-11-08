@@ -1,7 +1,7 @@
 // User-facing text (Japanese first). Describes what the player does; never
 // claims that something sounds better.
 
-import type { FormatInfo, PlaybackStatus, PlayerState, TrackTransition } from "./status";
+import type { DropoutCounts, FormatInfo, PlaybackStatus, PlayerState, TrackTransition } from "./status";
 
 function rateText(rate: number): string {
   return `${Number((rate / 1000).toFixed(3))} kHz`;
@@ -51,6 +51,22 @@ export function transitionText(t: TrackTransition): string {
     `${tracks}：形式の切り替え ${describeFormat(t.fromFormat)} → ${describeFormat(t.toFormat)}` +
     `（出力を開き直しました。前の曲のデータが途切れてから次の曲を送り始めるまで約 ${Math.round(t.switchMilliseconds)} ms）`
   );
+}
+
+export function dropoutText(d: DropoutCounts): string {
+  const total = d.lateBuffers + d.deviceTimeouts + d.readStarvations;
+  if (total === 0) return "0 回";
+  const parts: string[] = [];
+  if (d.lateBuffers > 0) parts.push(`デバイスへの受け渡しの遅れ ${d.lateBuffers}`);
+  if (d.readStarvations > 0) parts.push(`ファイルの読み込みの遅れ ${d.readStarvations}`);
+  if (d.deviceTimeouts > 0) parts.push(`デバイスの応答なし ${d.deviceTimeouts}`);
+  return `${total} 回（${parts.join("、")}）`;
+}
+
+export function priorityText(realtime: boolean): string {
+  return realtime
+    ? "MMCSS（Pro Audio）で優先度を上げています（音切れを防ぐため）"
+    : "通常の優先度（MMCSS が使えませんでした）";
 }
 
 export function repackText(s: PlaybackStatus): string {

@@ -172,7 +172,9 @@ bool Player::openCurrentLocked()
         status_.totalFrames = 0;
         return false;
     }
-    source_->seek(0);
+    if (source_->position() != 0)
+        source_->seek(0);
+    source_->waitUntilReady();
     position_ = 0;
     publishTrackLocked();
     return true;
@@ -218,6 +220,7 @@ void Player::play()
         if (index_ == 0 && source_)
         {
             source_->seek(0);
+            source_->waitUntilReady(); // not playing: start with real data, not refill silence
             position_ = 0;
         }
         else
@@ -274,6 +277,7 @@ void Player::seek(std::uint64_t frame)
         return;
     }
     source_->seek(frame);
+    source_->waitUntilReady(); // not playing: start with real data, not refill silence
     position_ = source_->position();
     if (status_.state == PlayerState::Ended)
         status_.state = PlayerState::Stopped;

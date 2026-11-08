@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { describeFormat, errorText, formatTime, queueText, repackText, stateLabel, transitionText } from "./messages";
+import {
+  describeFormat,
+  dropoutText,
+  errorText,
+  formatTime,
+  priorityText,
+  queueText,
+  repackText,
+  stateLabel,
+  transitionText,
+} from "./messages";
 import { emptyStatus, type FormatInfo, type PlaybackStatus } from "./status";
 
 const f = (rate: number, container: number, valid: number, type: "int" | "float" = "int"): FormatInfo => ({
@@ -89,6 +99,31 @@ describe("transitionText", () => {
     expect(t).toContain("44.1 kHz");
     expect(t).toContain("96 kHz");
     expect(t).toContain("約 42 ms");
+  });
+});
+
+describe("dropoutText", () => {
+  const none = { lateBuffers: 0, deviceTimeouts: 0, readStarvations: 0, starvedFrames: 0, realtimePriority: true };
+  it("says 0 when nothing dropped out", () => {
+    expect(dropoutText(none)).toBe("0 回");
+  });
+  it("splits the count by cause", () => {
+    const t = dropoutText({ ...none, lateBuffers: 2, readStarvations: 1, starvedFrames: 4800 });
+    expect(t).toContain("3 回");
+    expect(t).toContain("デバイスへの受け渡しの遅れ 2");
+    expect(t).toContain("ファイルの読み込みの遅れ 1");
+  });
+  it("mentions device timeouts", () => {
+    expect(dropoutText({ ...none, deviceTimeouts: 1 })).toContain("デバイスの応答なし 1");
+  });
+});
+
+describe("priorityText", () => {
+  it("names MMCSS without claiming better sound", () => {
+    const t = priorityText(true);
+    expect(t).toContain("MMCSS");
+    expect(t).toContain("音切れ");
+    expect(t).not.toContain("音質");
   });
 });
 

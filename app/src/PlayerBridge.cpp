@@ -1,6 +1,7 @@
 #include "PlayerBridge.h"
 
 #include <ap/engine/output/wasapi_exclusive_output.h>
+#include <ap/engine/prefetching_source.h>
 #include <ap/engine/wav_file_source.h>
 
 namespace ap::app {
@@ -163,13 +164,11 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
             return juce::String::fromUTF8("このファイルは読めません（WAV のみ対応）: ") + file.getFileName() + " ("
                  + e.what() + ")";
         }
-        // Each track is read completely before it plays, so the playback
-        // thread never waits for the disk (dropout prevention; proper
-        // prefetching comes in task 1-3). The next track is read in the
-        // background while the current one plays.
+        // Read ahead on a separate thread so the playback thread never waits
+        // for the disk (dropout prevention only). The next track is opened
+        // and filled in the background while the current one plays.
         items.push_back({file.getFileName().toStdString(), [path] {
-                             WavFileSource wav(path);
-                             return std::make_unique<MemoryPcmSource>(MemoryPcmSource::loadAll(wav));
+                             return std::make_unique<PrefetchingSource>(std::make_unique<WavFileSource>(path));
                          }});
     }
 
@@ -230,6 +229,14 @@ juce::var PlayerBridge::statusAsVar() const
         transitions.add(juce::var(to));
     }
     o->setProperty("transitions", transitions);
+
+    auto* d = new juce::DynamicObject();
+    d->setProperty("lateBuffers", static_cast<int>(s.dropouts.lateBuffers));
+    d->setProperty("deviceTimeouts", static_cast<int>(s.dropouts.deviceTimeouts));
+    d->setProperty("readStarvations", static_cast<int>(s.dropouts.readStarvations));
+    d->setProperty("starvedFrames", static_cast<juce::int64>(s.dropouts.starvedFrames));
+    d->setProperty("realtimePriority", s.dropouts.realtimePriority);
+    o->setProperty("dropouts", juce::var(d));
     o->setProperty("sourceFormat", s.sourceFormat ? formatVar(*s.sourceFormat) : juce::var());
     o->setProperty("outputFormat", s.plan ? formatVar(s.plan->output) : juce::var());
     o->setProperty("repack", s.plan ? toString(s.plan->repack) : "none");

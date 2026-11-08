@@ -124,6 +124,7 @@ export class MockBackend implements Backend {
       outputName: "（模擬）出力デバイス",
       outputFormat: this.status.sourceFormat && { ...this.status.sourceFormat, containerBits: 32 },
       repack: "widerContainer",
+      dropouts: { ...this.status.dropouts, realtimePriority: true },
     });
     this.timer = setInterval(() => {
       const rate = this.status.sourceFormat?.sampleRate ?? 48000;

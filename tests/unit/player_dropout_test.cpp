@@ -69,6 +69,25 @@ private:
     bool done_ = false;
 };
 
+// Seeks take a while (e.g. a file on a network share).
+class SlowSeekSource final : public PcmSource
+{
+public:
+    explicit SlowSeekSource(std::vector<std::byte> data) : inner_(kFormat, std::move(data)) {}
+    const PcmFormat& format() const noexcept override { return inner_.format(); }
+    std::uint64_t totalFrames() const noexcept override { return inner_.totalFrames(); }
+    std::uint64_t position() const noexcept override { return inner_.position(); }
+    bool seek(std::uint64_t f) override
+    {
+        std::this_thread::sleep_for(80ms);
+        return inner_.seek(f);
+    }
+    std::size_t read(std::span<std::byte> dst) override { return inner_.read(dst); }
+
+private:
+    MemoryPcmSource inner_;
+};
+
 std::vector<std::byte> readFile(const std::filesystem::path& p)
 {
     std::ifstream in(p, std::ios::binary);
@@ -179,6 +198,39 @@ TEST_CASE("Under CPU load the counters and the output agree", "[engine][dropout]
     CHECK(out.size() == (expected.size() / kBpf + s.dropouts.starvedFrames) * kBpf);
     if (s.dropouts.readStarvations == 0)
         CHECK(out == expected); // late buffers delay data but never change it
+}
+
+TEST_CASE("With read-ahead, seeking while stopped and replaying start with real data, not silence",
+          "[engine][prefetch][player]")
+{
+    ap::test::TempDir dir;
+    const auto data = pattern(20000, 6);
+    Player player([path = dir.path() / "out.raw"] {
+        return std::make_unique<DummyOutput>(DummyOutput::Options{.path = path, .periodFrames = {480}});
+    });
+    // The buffer holds the whole track: the unpaced dummy output reads flat out, and
+    // what is checked here is the start after a seek, not keeping up with it.
+    player.setQueue({{"a", [data] {
+                          return std::make_unique<PrefetchingSource>(std::make_unique<SlowSeekSource>(data), 32768);
+                      }}});
+
+    SECTION("seek while stopped")
+    {
+        player.seek(12000);
+        player.play();
+        player.waitUntilIdle();
+        const std::vector<std::byte> tail(data.begin() + 12000 * kBpf, data.end());
+        CHECK(readFile(dir.path() / "out.raw") == tail);
+    }
+    SECTION("play again after the end")
+    {
+        player.play();
+        player.waitUntilIdle();
+        player.play();
+        player.waitUntilIdle();
+        CHECK(readFile(dir.path() / "out.raw") == data);
+    }
+    CHECK(player.status().dropouts.total() == 0u);
 }
 
 TEST_CASE("Dropout counters start from zero for a new queue", "[engine][dropout]")

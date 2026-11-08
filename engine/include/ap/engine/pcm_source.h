@@ -40,6 +40,10 @@ public:
 
     // Dropout counters; plain sources never starve.
     virtual SourceHealth health() const noexcept { return {}; }
+
+    // Blocks until data at the current position can be read without filling
+    // (e.g. after a seek while not playing). Not for the playback thread.
+    virtual void waitUntilReady() {}
 };
 
 // Holds all PCM bytes in memory.
