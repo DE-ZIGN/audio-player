@@ -16,12 +16,14 @@ ap_play FILE... --exact-only            コンテナの詰め替えもしない
 ap_play FILE... --dummy OUT.raw         デバイスに送るはずのバイト列をファイルに書き、全曲をつなげた入力とハッシュを比べる
 ap_play FILE... --stress N              N 個のスレッドで CPU に負荷をかけながら再生し、音切れの回数を表示する
 ap_play FILE... --inject-stall S:MS     1 曲目の S 秒の時点で再生スレッドを MS ミリ秒止める（音切れの検出の確認用）
+ap_play --asio-list                     ASIO ドライバーの一覧（各ドライバーを別のプロセスで読み込み、形式と使えるレートを表示）
+ap_play FILE... --asio N|NAME           ASIO で順に再生（--asio-list の番号か名前）。レートは曲ごとにドライバーへ設定する
 ap_play --env                        実行環境（MSIX パッケージの中かどうか）
 ap_play --asio-list                  ASIO ドライバーの一覧（レジストリ）
 ap_play --asio-load N|all            ASIO ドライバーを読み込めるか試す（再生はしない）
 ```
 
-- `--asio-load` は、ドライバーの COM オブジェクトを作って解放するだけ。ドライバーによっては、それだけでアプリごと落ちる（Realtek ASIO で確認）。
+- `--asio-load` は、ドライバーの COM オブジェクトを作って解放するだけ（S2 の確認用、同じプロセスで読み込む）。ドライバーによっては、それだけでアプリごと落ちる（Realtek ASIO で確認。初期化せずに解放した場合）。普段は、別のプロセスで確かめる `--asio-list` を使う。
 - MSIX の中で試すときは `packaging/msix-test/README.md` を参照。
 
 - 複数のファイルは順に再生する。形式が同じなら出力を開き直さずにつなげ（ギャップレス）、違えば開き直して、切り替えにかかった時間を表示する。
