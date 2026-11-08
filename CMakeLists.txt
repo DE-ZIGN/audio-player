@@ -14,6 +14,7 @@ set(AP_BUNDLE_ID    "com.audioplayer.app" CACHE STRING "Provisional reverse-DNS 
 
 option(AP_BUILD_APP   "Build the JUCE application (downloads JUCE)" ON)
 option(AP_BUILD_TESTS "Build unit and acceptance tests (downloads Catch2)" ON)
+option(AP_BUILD_TOOLS "Build developer tools (test-signal generator)" ON)
 
 # ---------------------------------------------------------------------------
 # Platform checks
@@ -45,6 +46,10 @@ include(Dependencies)
 # Sub-projects
 # ---------------------------------------------------------------------------
 add_subdirectory(engine)
+
+if(AP_BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
 
 if(AP_BUILD_APP)
     add_subdirectory(app)

@@ -1,9 +1,20 @@
 include(Catch)
 
 # Test labels:
-#   unit        fast unit tests of engine pieces
+#   unit        fast unit tests
+#   files       checks on files written by tools (CTest fixtures)
 #   acceptance  CLAUDE.md chapter 5 acceptance criteria (byte-exact output checks)
 #   smoke       the application starts and exits cleanly
+
+# ---------------------------------------------------------------------------
+# Shared test helpers
+# ---------------------------------------------------------------------------
+add_library(ap_test_support STATIC
+    support/wav_reader.cpp)
+target_include_directories(ap_test_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/support)
+target_compile_features(ap_test_support PUBLIC cxx_std_20)
+ap_apply_compiler_settings(ap_test_support)
+set_target_properties(ap_test_support PROPERTIES FOLDER "tests")
 
 # ---------------------------------------------------------------------------
 # Engine unit tests
@@ -22,6 +33,65 @@ set_target_properties(ap_engine_unit_tests PROPERTIES FOLDER "tests")
 
 catch_discover_tests(ap_engine_unit_tests
     PROPERTIES LABELS "unit")
+
+# ---------------------------------------------------------------------------
+# Tools: signal generator
+# ---------------------------------------------------------------------------
+if(TARGET ap_signalgen_lib)
+    add_executable(ap_tools_unit_tests
+        unit/signalgen_pcm_test.cpp
+        unit/signalgen_signals_test.cpp
+        unit/wav_writer_test.cpp)
+    target_link_libraries(ap_tools_unit_tests PRIVATE
+        ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
+    ap_apply_compiler_settings(ap_tools_unit_tests)
+    set_target_properties(ap_tools_unit_tests PROPERTIES FOLDER "tests")
+
+    catch_discover_tests(ap_tools_unit_tests
+        PROPERTIES LABELS "unit")
+
+    # Generate files with the real command-line tool, then verify them.
+    set(AP_SIGNAL_DIR "${CMAKE_CURRENT_BINARY_DIR}/signal_files")
+    set(AP_SIGNAL_TEST_RATES 44100 384000)
+    set(AP_SIGNAL_TEST_BITS 16 24 32)
+    set(AP_SIGNAL_TEST_SECONDS 0.25)
+    string(JOIN "," rates_csv ${AP_SIGNAL_TEST_RATES})
+    string(JOIN "," bits_csv ${AP_SIGNAL_TEST_BITS})
+
+    add_test(NAME signal_files_clean
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "${AP_SIGNAL_DIR}")
+    set_tests_properties(signal_files_clean PROPERTIES
+        LABELS "files"
+        FIXTURES_SETUP signal_files_clean)
+
+    add_test(NAME signal_files_generate
+        COMMAND ap_signalgen all
+            --out-dir "${AP_SIGNAL_DIR}"
+            --rates ${rates_csv}
+            --bits ${bits_csv}
+            --seconds ${AP_SIGNAL_TEST_SECONDS})
+    set_tests_properties(signal_files_generate PROPERTIES
+        LABELS "files"
+        FIXTURES_REQUIRED signal_files_clean
+        FIXTURES_SETUP signal_files)
+
+    add_executable(ap_signal_file_tests
+        files/signal_files_test.cpp)
+    target_link_libraries(ap_signal_file_tests PRIVATE
+        ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
+    target_compile_definitions(ap_signal_file_tests PRIVATE
+        AP_SIGNAL_DIR="${AP_SIGNAL_DIR}"
+        AP_SIGNAL_TEST_RATES=${rates_csv}
+        AP_SIGNAL_TEST_BITS=${bits_csv}
+        AP_SIGNAL_TEST_SECONDS=${AP_SIGNAL_TEST_SECONDS})
+    ap_apply_compiler_settings(ap_signal_file_tests)
+    set_target_properties(ap_signal_file_tests PROPERTIES FOLDER "tests")
+
+    catch_discover_tests(ap_signal_file_tests
+        PROPERTIES
+            LABELS "files"
+            FIXTURES_REQUIRED signal_files)
+endif()
 
 # ---------------------------------------------------------------------------
 # Application smoke test
