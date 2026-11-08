@@ -40,6 +40,7 @@ PrefetchingSource::PrefetchingSource(std::unique_ptr<PcmSource> inner, std::size
         throw std::invalid_argument("PrefetchingSource: no source");
     format_ = inner_->format();
     totalFrames_ = inner_->totalFrames();
+    dop_ = inner_->dop();
     bpf_ = format_.bytesPerFrame();
     capacity_ = bufferFrames != 0 ? bufferFrames : std::max<std::size_t>(65536, format_.sampleRate * 2u);
     ring_.resize(capacity_ * bpf_);

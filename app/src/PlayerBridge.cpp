@@ -1,6 +1,7 @@
 #include "PlayerBridge.h"
 
 #include <ap/engine/output/wasapi_exclusive_output.h>
+#include <ap/engine/audio_file.h>
 #include <ap/engine/prefetching_source.h>
 #include <ap/engine/wav_file_source.h>
 
@@ -71,6 +72,7 @@ const char* toString(PlayerErrorKind k)
         case PlayerErrorKind::FormatNotSupported: return "formatNotSupported";
         case PlayerErrorKind::Output:             return "output";
         case PlayerErrorKind::Load:               return "load";
+        case PlayerErrorKind::DopNotAllowed:      return "dopNotAllowed";
         case PlayerErrorKind::Other:              return "other";
     }
     return "other";
@@ -89,9 +91,10 @@ juce::var formatVar(const PcmFormat& f)
 
 } // namespace
 
-PlayerBridge::PlayerBridge(Player::OutputFactory outputFactory)
+PlayerBridge::PlayerBridge(Player::OutputFactory outputFactory, bool allowDop)
     : player_(outputFactory ? std::move(outputFactory)
-                            : Player::OutputFactory([] { return std::make_unique<WasapiExclusiveOutput>(); }))
+                            : Player::OutputFactory([] { return std::make_unique<WasapiExclusiveOutput>(); }),
+              PlaybackOptions{.allowRepack = true, .allowDop = allowDop})
 {
     startTimerHz(10);
 }
@@ -157,18 +160,18 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
         const std::filesystem::path path(file.getFullPathName().toWideCharPointer());
         try
         {
-            WavFileSource probe(path);
+            openAudioFile(path); // reads the header only
         }
         catch (const std::exception& e)
         {
-            return juce::String::fromUTF8("このファイルは読めません（WAV のみ対応）: ") + file.getFileName() + " ("
+            return juce::String::fromUTF8("このファイルは読めません（WAV、DSF、DFF に対応）: ") + file.getFileName() + " ("
                  + e.what() + ")";
         }
         // Read ahead on a separate thread so the playback thread never waits
         // for the disk (dropout prevention only). The next track is opened
         // and filled in the background while the current one plays.
         items.push_back({file.getFileName().toStdString(), [path] {
-                             return std::make_unique<PrefetchingSource>(std::make_unique<WavFileSource>(path));
+                             return std::make_unique<PrefetchingSource>(openAudioFile(path));
                          }});
     }
 
@@ -183,7 +186,7 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
 void PlayerBridge::openFileAsync(juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     chooser_ = std::make_unique<juce::FileChooser>(juce::String::fromUTF8("音声ファイルを開く（複数選べます）"),
-                                                   juce::File{}, "*.wav");
+                                                   juce::File{}, supportedAudioFilePattern());
     chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles
                               | juce::FileBrowserComponent::canSelectMultipleItems,
                           [this, completion = std::move(completion)](const juce::FileChooser& fc) {
@@ -238,6 +241,17 @@ juce::var PlayerBridge::statusAsVar() const
     d->setProperty("realtimePriority", s.dropouts.realtimePriority);
     o->setProperty("dropouts", juce::var(d));
     o->setProperty("sourceFormat", s.sourceFormat ? formatVar(*s.sourceFormat) : juce::var());
+    if (s.dop)
+    {
+        auto* dop = new juce::DynamicObject();
+        dop->setProperty("dsdRate", static_cast<juce::int64>(s.dop->dsdRate));
+        dop->setProperty("container", juce::String(s.dop->container));
+        o->setProperty("dop", juce::var(dop));
+    }
+    else
+    {
+        o->setProperty("dop", juce::var());
+    }
     o->setProperty("outputFormat", s.plan ? formatVar(s.plan->output) : juce::var());
     o->setProperty("repack", s.plan ? toString(s.plan->repack) : "none");
     o->setProperty("outputName", juce::String::fromUTF8(s.outputName.c_str()));

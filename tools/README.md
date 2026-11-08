@@ -16,6 +16,7 @@ ap_play FILE... --exact-only            コンテナの詰め替えもしない
 ap_play FILE... --dummy OUT.raw         デバイスに送るはずのバイト列をファイルに書き、全曲をつなげた入力とハッシュを比べる
 ap_play FILE... --stress N              N 個のスレッドで CPU に負荷をかけながら再生し、音切れの回数を表示する
 ap_play FILE... --inject-stall S:MS     1 曲目の S 秒の時点で再生スレッドを MS ミリ秒止める（音切れの検出の確認用）
+ap_play FILE... --dop                   DSD（.dsf/.dff）を DoP で送る。DoP に対応した DAC のときだけ使う（対応していないと大きなノイズになる）
 ap_play --asio-list                     ASIO ドライバーの一覧（各ドライバーを別のプロセスで読み込み、形式と使えるレートを表示）
 ap_play FILE... --asio N|NAME           ASIO で順に再生（--asio-list の番号か名前）。レートは曲ごとにドライバーへ設定する
 ap_play --env                        実行環境（MSIX パッケージの中かどうか）
@@ -46,6 +47,7 @@ ap_play --asio-load N|all            ASIO ドライバーを読み込めるか�
 | `bitpattern` | 下位ビットのパターン（整数形式のみ）。0、各ビットだけ立てた値（正負）、最大・最小、0〜255 と −1〜−256、0x55…/0x2A… とその反転。右チャンネルは左のビット反転（左＋右 = −1） | — |
 | `sweep` | 対数スイープ（Farina 方式） | `--start 20 --end 20000 --level -6 --seconds 10` |
 | `all` | 上の4種類を、レートと形式の組み合わせすべてで書き出す | 44.1〜384 kHz × 16/24/32bit |
+| `dsd` | DSD のサイン波（2次のΔΣ変調、0 dB = 変調度 50%）を `.dsf` か `.dff` で書き出す | `--dsd-rate 2822400 --freq 1000 --level -20 --seconds 5` |
 
 共通オプション：`--rate`（48000）、`--bits 16|24|32|f32|f64`（24）、`--channels`（2）、`--seconds`（1）
 

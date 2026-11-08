@@ -10,6 +10,7 @@
 
 #include <ap/signalgen/pcm.h>
 #include <ap/signalgen/signals.h>
+#include <ap/signalgen/dsd.h>
 #include <ap/signalgen/wav_writer.h>
 
 #include <windows.h>
@@ -41,6 +42,9 @@ constexpr const char* kUsage =
     "  ap_signalgen bitpattern --out FILE [共通]   （整数形式のみ。右チャンネルは左のビット反転）\n"
     "  ap_signalgen sweep      --out FILE [共通] [--start Hz(20)] [--end Hz(20000)] [--level dB(-6)]\n"
     "      対数スイープ。--seconds の既定は 10\n"
+    "  ap_signalgen dsd        --out FILE.dsf|FILE.dff [--dsd-rate Hz(2822400)] [--channels N(2)]\n"
+    "                          [--seconds S(5)] [--freq Hz(1000)] [--level dB(-20)]\n"
+    "      DSD のサイン波（2 次のΔΣ変調。0 dB = 変調度 50%）\n"
     "  ap_signalgen all        --out-dir DIR [--rates 44100,48000,...] [--bits 16,24,32]\n"
     "                          [--channels N] [--seconds S]\n"
     "      上の4種類を、指定したレートと形式の組み合わせすべてで書き出す\n"
@@ -241,6 +245,38 @@ int runSingle(const Args& a)
     return 0;
 }
 
+// ap_signalgen dsd --out FILE.dsf|FILE.dff [--dsd-rate 2822400] [--channels 2] [--seconds 5] [--freq 1000] [--level -20]
+int runDsd(const Args& a)
+{
+    const auto out = a.get("out");
+    if (!out)
+        throw UsageError("--out FILE.dsf または FILE.dff を指定してください");
+    for (const auto& [key, value] : a.options)
+    {
+        static const std::vector<std::string_view> known{"out", "dsd-rate", "channels", "seconds", "freq", "level"};
+        if (std::find(known.begin(), known.end(), key) == known.end())
+            throw UsageError(std::format("不明なオプション: --{}", key));
+    }
+    const fs::path path{std::string(*out)};
+    auto ext = path.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (ext != ".dsf" && ext != ".dff")
+        throw UsageError("DSD の出力ファイルは .dsf か .dff にしてください");
+
+    const auto rate = a.get("dsd-rate") ? parseUInt("dsd-rate", *a.get("dsd-rate")) : 2822400u;
+    const auto ch = a.get("channels") ? parseUInt("channels", *a.get("channels")) : 2u;
+    const double seconds = option(a, "seconds", 5.0);
+    const auto bytes = static_cast<std::size_t>(std::llround(seconds * rate / 8.0));
+    const auto channels = dsdSine(rate, static_cast<std::uint16_t>(ch), bytes, option(a, "freq", 1000.0), option(a, "level", -20.0));
+    if (path.has_parent_path())
+        fs::create_directories(path.parent_path());
+    writeBytes(path, ext == ".dsf" ? encodeDsf(channels, rate) : encodeDff(channels, rate));
+    const auto text = path.u8string();
+    std::fwrite(text.data(), 1, text.size(), stdout);
+    std::fputc('\n', stdout);
+    return 0;
+}
+
 int runAll(const Args& a)
 {
     const auto outDir = a.get("out-dir");
@@ -302,6 +338,8 @@ int main(int argc, char** argv)
     try
     {
         const auto args = parseArgs(argc, argv);
+        if (args.command == "dsd")
+            return runDsd(args);
         if (args.command == "all")
             return runAll(args);
         if (args.command == "isp" || args.command == "sine" || args.command == "bitpattern"

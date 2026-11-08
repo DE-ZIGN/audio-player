@@ -22,7 +22,7 @@ class PlayerBridge final : private juce::Timer
 {
 public:
     // Default: exclusive WASAPI on the default device.
-    explicit PlayerBridge(ap::engine::Player::OutputFactory outputFactory = {});
+    explicit PlayerBridge(ap::engine::Player::OutputFactory outputFactory = {}, bool allowDop = false);
     ~PlayerBridge() override;
 
     juce::WebBrowserComponent::Options registerFunctions(juce::WebBrowserComponent::Options options);

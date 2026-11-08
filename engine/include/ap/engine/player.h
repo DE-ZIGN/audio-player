@@ -63,6 +63,7 @@ enum class PlayerErrorKind
     FormatNotSupported, // see formatCheck
     Output,             // see outputError
     Load,               // a track could not be opened; see detail
+    DopNotAllowed,      // a DSD track would be sent as DoP, but DoP is not enabled for this output
     Other,
 };
 
@@ -90,6 +91,7 @@ struct PlayerStatus
 {
     PlayerState state = PlayerState::Empty;
     std::optional<PcmFormat> sourceFormat;
+    std::optional<DopInfo> dop;       // set when the current track is DSD sent as DoP
     std::optional<PlaybackPlan> plan; // set once the output has been opened
     std::string outputName;
     std::uint64_t positionFrames = 0; // within the current track

@@ -63,6 +63,7 @@ private:
 // Command line:
 //   --dev-server[=URL]  load the UI from the Vite dev server (default http://localhost:5173/)
 //   --ui-dir=PATH       load the built UI from PATH instead of <exe dir>/ui
+//   --allow-dop         send DSD files as DoP (only for DACs that decode DoP)
 //   --smoke-test        start, wait until the UI reports ready, then quit
 //                       (exit code 0; 1 if the UI did not become ready in time)
 //   --self-test=WAV     the page plays/seeks/stops WAV through the bridge into a
@@ -94,6 +95,8 @@ public:
                 options.devServerUrl = "http://localhost:5173/";
             else if (arg.startsWith("--dev-server="))
                 options.devServerUrl = value;
+            else if (arg == "--allow-dop")
+                options.allowDop = true;
             else if (arg.startsWith("--ui-dir="))
                 options.uiRoot = juce::File(value);
             else if (arg.startsWith("--self-test="))

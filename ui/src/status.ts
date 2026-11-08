@@ -13,7 +13,7 @@ export type OutputError =
   | "deviceInvalidated"
   | "timeout"
   | "deviceError";
-export type ErrorKind = "none" | "formatNotSupported" | "output" | "load" | "other";
+export type ErrorKind = "none" | "formatNotSupported" | "output" | "load" | "dopNotAllowed" | "other";
 
 export interface FormatInfo {
   sampleRate: number;
@@ -53,9 +53,15 @@ export interface DropoutCounts {
   realtimePriority: boolean; // playback thread ran with MMCSS "Pro Audio"
 }
 
+export interface DopInfo {
+  dsdRate: number; // e.g. 2822400 (DSD64)
+  container: string; // "DSF" or "DFF"
+}
+
 export interface PlaybackStatus {
   state: PlayerState;
   dropouts: DropoutCounts;
+  dop: DopInfo | null; // set when the current track is DSD sent as DoP
   fileName: string; // name of the current track
   queueIndex: number;
   queueLength: number;
@@ -72,6 +78,7 @@ export interface PlaybackStatus {
 export const emptyStatus: PlaybackStatus = {
   state: "empty",
   dropouts: { lateBuffers: 0, deviceTimeouts: 0, readStarvations: 0, starvedFrames: 0, realtimePriority: false },
+  dop: null,
   fileName: "",
   queueIndex: 0,
   queueLength: 0,

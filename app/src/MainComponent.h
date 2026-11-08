@@ -15,6 +15,8 @@ struct MainOptions
     juce::String devServerUrl;
     // Folder with the built UI.
     juce::File uiRoot;
+    // Send DSD files as DoP (only for DACs that decode DoP; until the settings screen in 6-3).
+    bool allowDop = false;
     // Called once the page has started and talked to the bridge.
     std::function<void()> onUiReady;
 

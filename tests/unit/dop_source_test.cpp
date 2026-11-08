@@ -1,6 +1,10 @@
 // Task 1-5 completion criterion: DoP markers and ordering.
 
+#include <ap/engine/audio_file.h>
 #include <ap/engine/dop_source.h>
+#include <ap/engine/output/dummy_output.h>
+#include <ap/engine/player.h>
+#include <ap/engine/prefetching_source.h>
 
 #include "dsd_test_files.h"
 #include "temp_dir.h"
@@ -9,6 +13,8 @@
 #include <catch2/generators/catch_generators.hpp>
 
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <vector>
 
 using namespace ap::engine;
@@ -48,16 +54,20 @@ std::vector<std::uint8_t> readAll(PcmSource& s, std::size_t chunk)
 }
 
 // Checks every DoP frame against the DSD bytes (padding with 0x69 beyond the end).
+// `firstFrame` = frame of the track the data starts at; `markerPhase` = frame
+// count the marker sequence continues from (defaults to firstFrame).
 void checkDop(const std::vector<std::uint8_t>& pcm, const std::vector<std::vector<std::uint8_t>>& ch,
-              std::uint64_t firstFrame = 0)
+              std::uint64_t firstFrame = 0, std::uint64_t markerPhase = UINT64_MAX)
 {
+    if (markerPhase == UINT64_MAX)
+        markerPhase = firstFrame;
     const std::size_t nch = ch.size();
     const std::size_t frames = pcm.size() / (3 * nch);
     auto dsdByte = [&](std::size_t c, std::size_t k) -> std::uint8_t { return k < ch[c].size() ? ch[c][k] : 0x69; };
     for (std::size_t i = 0; i < frames; ++i)
     {
         const std::uint64_t f = firstFrame + i;
-        const std::uint8_t marker = (f % 2 == 0) ? 0x05 : 0xFA;
+        const std::uint8_t marker = ((markerPhase + i) % 2 == 0) ? 0x05 : 0xFA;
         for (std::size_t c = 0; c < nch; ++c)
         {
             const std::uint8_t* s = &pcm[(i * nch + c) * 3]; // little-endian 24-bit
@@ -134,6 +144,111 @@ TEST_CASE("DoP: seek keeps data and marker phase", "[engine][dop]")
     std::vector<std::uint8_t> pcm(buf.size());
     std::memcpy(pcm.data(), buf.data(), buf.size());
     checkDop(pcm, ch, 1001);
+}
+
+TEST_CASE("DoP through Player: markers continue across a gapless join, also in 32-bit slots", "[engine][dop][player]")
+{
+    const bool only32 = GENERATE(false, true);
+    CAPTURE(only32);
+    const auto a = channels(1001); // odd number of DSD bytes
+    const auto b = channels(777);
+    ap::test::TempDir dir;
+    const auto fa = dir.write("a.dsf", ap::test::makeDsf(a, 2822400));
+    const auto fb = dir.write("b.dff", ap::test::makeDff(b, 2822400));
+
+    Player player(
+        [path = dir.path() / "out.raw", only32] {
+            DummyOutput::Options o{.path = path, .periodFrames = {64, 7}};
+            if (only32)
+                o.accepts = [](const PcmFormat& f) { return f.containerBits == 32; };
+            return std::make_unique<DummyOutput>(o);
+        },
+        PlaybackOptions{.allowDop = true});
+    auto open = [](std::filesystem::path p) {
+        return [p] { return std::make_unique<PrefetchingSource>(openAudioFile(p)); };
+    };
+    player.setQueue({{"a.dsf", open(fa)}, {"b.dff", open(fb)}});
+    REQUIRE(player.status().dop.has_value());
+    CHECK(player.status().dop->dsdRate == 2822400u);
+    player.play();
+    player.waitUntilIdle();
+
+    const auto s = player.status();
+    REQUIRE(s.state == PlayerState::Ended);
+    REQUIRE(s.transitions.size() == 1);
+    CHECK(s.transitions[0].kind == TransitionKind::Gapless);
+    CHECK(s.plan->output.sampleRate == 176400u);
+
+    std::ifstream in(dir.path() / "out.raw", std::ios::binary);
+    std::vector<std::uint8_t> out{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+    const std::size_t bps = only32 ? 4 : 3;
+    // Repack to 32-bit slots only prepends a zero byte; the 24-bit DoP word is unchanged.
+    std::vector<std::uint8_t> dop24;
+    for (std::size_t i = 0; i < out.size(); i += bps)
+    {
+        if (only32)
+            REQUIRE(out[i] == 0);
+        dop24.insert(dop24.end(), out.begin() + static_cast<std::ptrdiff_t>(i + bps - 3),
+                     out.begin() + static_cast<std::ptrdiff_t>(i + bps));
+    }
+    // Expected: track A padded to an even frame count, then track B, markers alternating throughout.
+    const std::size_t framesA = ((a[0].size() + 1) / 2 + 1) / 2 * 2;
+    const std::vector<std::uint8_t> partA(dop24.begin(), dop24.begin() + static_cast<std::ptrdiff_t>(framesA * 6));
+    const std::vector<std::uint8_t> partB(dop24.begin() + static_cast<std::ptrdiff_t>(framesA * 6), dop24.end());
+    checkDop(partA, a);
+    checkDop(partB, b, 0, framesA); // marker phase continues from track A
+}
+
+TEST_CASE("DoP is refused unless enabled for the output", "[engine][dop][player]")
+{
+    ap::test::TempDir dir;
+    const auto f = dir.write("a.dsf", ap::test::makeDsf(channels(1000), 2822400));
+    auto factory = [path = dir.path() / "out.raw"] {
+        return std::make_unique<DummyOutput>(DummyOutput::Options{.path = path, .periodFrames = {64}});
+    };
+
+    SECTION("default: refused, nothing sent")
+    {
+        Player player(factory);
+        player.setQueue({{"a.dsf", [f] { return openAudioFile(f); }}});
+        player.play();
+        player.waitUntilIdle();
+        const auto s = player.status();
+        CHECK(s.state == PlayerState::Error);
+        CHECK(s.error.kind == PlayerErrorKind::DopNotAllowed);
+        CHECK_FALSE(std::filesystem::exists(dir.path() / "out.raw"));
+    }
+    SECTION("enabled: played")
+    {
+        Player player(factory, PlaybackOptions{.allowDop = true});
+        player.setQueue({{"a.dsf", [f] { return openAudioFile(f); }}});
+        player.play();
+        player.waitUntilIdle();
+        CHECK(player.status().state == PlayerState::Ended);
+    }
+}
+
+TEST_CASE("A PCM track followed by a DoP track of the same PCM format is not joined", "[engine][dop][player]")
+{
+    ap::test::TempDir dir;
+    const auto dsf = dir.write("b.dsf", ap::test::makeDsf(channels(1000), 2822400));
+    const PcmFormat pcm176{176400, 2, 24, 24, SampleType::Int, 3};
+    std::vector<std::byte> pcmData(500 * 6, std::byte{0x11});
+
+    Player player([path = dir.path() / "out.raw"] {
+        return std::make_unique<DummyOutput>(DummyOutput::Options{.path = path, .periodFrames = {64}});
+    });
+    player.setQueue({{"a.wav", [pcm176, pcmData] { return std::make_unique<MemoryPcmSource>(pcm176, pcmData); }},
+                     {"b.dsf", [dsf] { return openAudioFile(dsf); }}});
+    player.play();
+    player.waitUntilIdle();
+
+    const auto s = player.status();
+    // The DoP track must go through the DoP check, so the join is a reopen, which here is refused.
+    CHECK(s.state == PlayerState::Error);
+    CHECK(s.error.kind == PlayerErrorKind::DopNotAllowed);
+    CHECK(s.queueIndex == 1);
+    REQUIRE(s.transitions.empty());
 }
 
 TEST_CASE("DoP: DSF and DFF with the same bits give identical DoP", "[engine][dop]")

@@ -3,7 +3,8 @@
 add_library(ap_signalgen_lib STATIC
     src/pcm.cpp
     src/signals.cpp
-    src/wav_writer.cpp)
+    src/wav_writer.cpp
+    src/dsd.cpp)
 
 target_include_directories(ap_signalgen_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)

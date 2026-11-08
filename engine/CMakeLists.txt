@@ -9,6 +9,7 @@ add_library(ap_engine STATIC
     src/prefetching_source.cpp
     src/dsd_source.cpp
     src/dop_source.cpp
+    src/audio_file.cpp
     src/repack.cpp
     src/playback.cpp
     src/player.cpp

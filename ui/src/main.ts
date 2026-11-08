@@ -2,6 +2,9 @@ import "./style.css";
 import { createBackend, type Backend } from "./backend";
 import {
   describeFormat,
+  dopNotice,
+  inputText,
+  processingText,
   dropoutText,
   errorText,
   formatTime,
@@ -25,6 +28,8 @@ const els = {
   transitions: $("transitions"),
   dropouts: $("dropouts"),
   priority: $("priority"),
+  processing: $("processing"),
+  dopNote: $("dop-note"),
   state: $("state"),
   position: $("position"),
   duration: $("duration"),
@@ -57,7 +62,11 @@ function render(s: PlaybackStatus) {
     els.seek.value = String(s.totalFrames > 0 ? Math.round((s.positionFrames / s.totalFrames) * SEEK_STEPS) : 0);
   }
 
-  els.sourceFormat.textContent = s.sourceFormat ? describeFormat(s.sourceFormat) : "—";
+  els.sourceFormat.textContent = inputText(s);
+  els.processing.textContent = processingText(s);
+  const note = dopNotice(s);
+  els.dopNote.hidden = note === "";
+  els.dopNote.textContent = note;
   els.outputName.textContent = s.outputName ? `${s.outputName}（排他 WASAPI）` : "—";
   els.outputFormat.textContent = s.outputFormat ? describeFormat(s.outputFormat) : "—";
   els.repack.textContent = s.outputFormat ? repackText(s) : "—";

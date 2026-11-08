@@ -6,6 +6,8 @@
 //   ap_play FILE... [--device N|ID] [--exact-only] [--check]
 //   ap_play FILE... --dummy OUT.raw [--exact-only]
 
+#include <ap/engine/audio_file.h>
+#include <ap/engine/dsd_source.h>
 #include <ap/engine/output/asio_output.h>
 #include <ap/engine/output/asio_probe.h>
 #include <ap/engine/output/asio_sample_types.h>
@@ -46,6 +48,7 @@ constexpr const char* kUsage =
     "  ap_play --formats [--device N|ID]      デバイスが排他モードで受け付けるレートと形式の一覧\n"
     "  ap_play --watch                        出力デバイスの変化（抜き差し、既定の変更など）を表示する\n"
     "  ap_play FILE... --stress N             N 個のスレッドで CPU に負荷をかけながら再生し、音切れの回数を表示する\n"
+    "  ap_play FILE... --dop                  DSD（.dsf/.dff）を DoP で送る（DoP に対応した DAC のときだけ。対応していないとノイズになる）\n"
     "  ap_play FILE... --inject-stall S:MS    1 曲目の S 秒の時点で再生スレッドを MS ミリ秒止める（音切れの検出の確認用）\n"
     "  ap_play FILE... [--device N|ID]        排他 WASAPI で順に再生（既定のデバイス、または一覧の番号か ID）\n"
     "               [--exact-only]            コンテナの詰め替え（24bit → 32bit コンテナなど）もしない\n"
@@ -185,6 +188,7 @@ struct Options
     std::vector<std::string> files;
     bool watch = false;
     int stressThreads = 0;
+    bool allowDop = false;     // --dop
     double stallAtSeconds = 0.0; // --inject-stall S:MS (first track only)
     int stallMilliseconds = 0;
     std::string device;
@@ -219,6 +223,8 @@ std::optional<Options> parse(int argc, char** argv)
             o.env = true;
         else if (a == "--watch")
             o.watch = true;
+        else if (a == "--dop")
+            o.allowDop = true;
         else if (a == "--stress")
             o.stressThreads = std::max(0, std::stoi(value()));
         else if (a == "--inject-stall")
@@ -509,6 +515,9 @@ std::string playerErrorText(const PlayerStatus& s)
             return "エラー: " + outputErrorText(e.outputError, e.detail);
         case PlayerErrorKind::Load:
             return std::format("{} 曲目を開けません: {}", s.queueIndex + 1, e.detail);
+        case PlayerErrorKind::DopNotAllowed:
+            return std::format("{} 曲目は DSD です。DoP で送るには --dop を付けてください。DoP に対応していない DAC では大きなノイズになるので、"
+                               "対応している DAC のときだけ付けてください。", s.queueIndex + 1);
         default:
             return "エラー: " + e.detail;
     }
@@ -522,6 +531,7 @@ int exitCodeFor(PlayerErrorKind kind)
         case PlayerErrorKind::FormatNotSupported: return 3;
         case PlayerErrorKind::Output:             return 4;
         case PlayerErrorKind::Load:               return 5;
+        case PlayerErrorKind::DopNotAllowed:      return 3;
         default:                                  return 1;
     }
 }
@@ -536,10 +546,21 @@ int runQueue(const Options& o)
     for (std::size_t i = 0; i < o.files.size(); ++i)
     {
         const fs::path path{o.files[i]}; // argv is in the ANSI code page, as is path(std::string)
-        WavFileSource src(path);
+        const auto opened = openAudioFile(path);
+        auto& src = *opened;
         print(std::format("{} 曲目: {}\n", i + 1, reinterpret_cast<const char*>(path.filename().u8string().c_str())));
-        print(std::format("  形式: {}、長さ {}\n", describe(src.format()),
-                          duration(src.totalFrames(), src.format().sampleRate)));
+        if (const auto dop = src.dop())
+        {
+            print(std::format("  形式: {}（{:g} MHz、{}）/ {}ch → DoP で {} にして送る、長さ {}\n",
+                              dsdRateName(dop->dsdRate), dop->dsdRate / 1e6, dop->container, src.format().channels,
+                              describe(src.format()), duration(src.totalFrames(), src.format().sampleRate)));
+            print("  注意: DoP に対応していない DAC では、大きなノイズになります。DoP の経路では処理をかけられません。\n");
+        }
+        else
+        {
+            print(std::format("  形式: {}、長さ {}\n", describe(src.format()),
+                              duration(src.totalFrames(), src.format().sampleRate)));
+        }
         if (dummy)
         {
             std::vector<std::byte> buf(65536 * static_cast<std::size_t>(src.format().bytesPerFrame()));
@@ -551,7 +572,7 @@ int runQueue(const Options& o)
         const bool stallHere = i == 0 && o.stallMilliseconds > 0;
         items.push_back({reinterpret_cast<const char*>(path.filename().u8string().c_str()),
                          [path, stallHere, at = o.stallAtSeconds, ms = o.stallMilliseconds]() -> std::unique_ptr<PcmSource> {
-                             auto src = std::make_unique<PrefetchingSource>(std::make_unique<WavFileSource>(path));
+                             auto src = std::make_unique<PrefetchingSource>(openAudioFile(path));
                              if (!stallHere)
                                  return src;
                              const auto frame = static_cast<std::uint64_t>(at * src->format().sampleRate);
@@ -594,7 +615,8 @@ int runQueue(const Options& o)
             int worst = 0;
             for (std::size_t i = 0; i < o.files.size(); ++i)
             {
-                WavFileSource src(fs::path{o.files[i]});
+                const auto opened = openAudioFile(fs::path{o.files[i]});
+                const auto& src = *opened;
                 const auto n = negotiate(src.format(), out, !o.exactOnly);
                 if (n.plan)
                     print(std::format("  {} 曲目: 送る形式 {}、詰め替え {}\n", i + 1, describe(n.plan->output),
@@ -624,7 +646,8 @@ int runQueue(const Options& o)
             int worst = 0;
             for (std::size_t i = 0; i < o.files.size(); ++i)
             {
-                WavFileSource src(fs::path{o.files[i]});
+                const auto opened = openAudioFile(fs::path{o.files[i]});
+                const auto& src = *opened;
                 const auto n = negotiate(src.format(), probe, !o.exactOnly);
                 if (n.plan)
                     print(std::format("  {} 曲目: 送る形式 {}、詰め替え {}\n", i + 1, describe(n.plan->output),
@@ -640,7 +663,7 @@ int runQueue(const Options& o)
         factory = [id] { return std::make_unique<WasapiExclusiveOutput>(id); };
     }
 
-    Player player(factory, PlaybackOptions{.allowRepack = !o.exactOnly});
+    Player player(factory, PlaybackOptions{.allowRepack = !o.exactOnly, .allowDop = o.allowDop});
     player.setQueue(std::move(items));
     if (player.status().state == PlayerState::Error)
     {

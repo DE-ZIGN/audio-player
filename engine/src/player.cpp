@@ -6,6 +6,12 @@
 
 namespace ap::engine {
 
+namespace {
+struct DopNotAllowed
+{
+};
+} // namespace
+
 // The source the output pulls from during one output session (one format).
 // Applies seeks requested from other threads, publishes the position, and at
 // the end of a track continues straight into the next one when it has the
@@ -14,7 +20,7 @@ namespace ap::engine {
 class Player::QueueReader final : public PcmSource
 {
 public:
-    explicit QueueReader(Player& p) : p_(p), format_(p.source_->format()) {}
+    explicit QueueReader(Player& p) : p_(p), format_(p.source_->format()), dop_(p.source_->dop().has_value()) {}
 
     const PcmFormat& format() const noexcept override { return format_; }
     std::uint64_t totalFrames() const noexcept override { return p_.source_->totalFrames(); }
@@ -64,7 +70,9 @@ public:
                 break;
             }
 
-            if (!(next->format() == format_))
+            // A change between PCM and DoP is never joined, even at the same PCM format:
+            // the output is reopened so the DoP check applies and the DAC can switch modes.
+            if (!(next->format() == format_) || next->dop().has_value() != dop_)
             {
                 p_.pendingNext_ = std::move(next);
                 p_.dataEndedAt_ = std::chrono::steady_clock::now();
@@ -96,6 +104,7 @@ public:
 private:
     Player& p_;
     PcmFormat format_;
+    bool dop_ = false;
 };
 
 Player::Player(OutputFactory outputFactory, PlaybackOptions options)
@@ -169,6 +178,7 @@ bool Player::openCurrentLocked()
         status_.queueIndex = index_;
         status_.trackName = queue_[index_].name;
         status_.sourceFormat.reset();
+        status_.dop.reset();
         status_.totalFrames = 0;
         return false;
     }
@@ -204,6 +214,7 @@ void Player::publishTrackLocked()
     status_.queueLength = queue_.size();
     status_.trackName = queue_.empty() ? std::string{} : queue_[index_].name;
     status_.sourceFormat = source_ ? std::optional<PcmFormat>(source_->format()) : std::nullopt;
+    status_.dop = source_ ? source_->dop() : std::nullopt;
     status_.totalFrames = source_ ? source_->totalFrames() : 0;
 }
 
@@ -357,6 +368,8 @@ void Player::threadMain()
         // One iteration per output session (per run of tracks with one format).
         for (;;)
         {
+            if (source_->dop() && !options_.allowDop)
+                throw DopNotAllowed{};
             QueueReader reader(*this);
             ap::engine::play(reader, *output, options);
 
@@ -394,6 +407,7 @@ void Player::threadMain()
                 status_.queueIndex = index_;
                 status_.trackName = queue_[index_].name;
                 status_.sourceFormat.reset();
+                status_.dop.reset();
                 status_.totalFrames = 0;
                 position_ = 0;
                 error = {PlayerErrorKind::Load, {}, OutputError::DeviceError, loadError_};
@@ -404,6 +418,10 @@ void Player::threadMain()
             position_ = source_->position();
             break;
         }
+    }
+    catch (const DopNotAllowed&)
+    {
+        error = {PlayerErrorKind::DopNotAllowed, {}, OutputError::FormatNotSupported, "DoP is not enabled for this output"};
     }
     catch (const FormatNotSupportedError& e)
     {

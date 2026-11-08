@@ -53,6 +53,34 @@ export function transitionText(t: TrackTransition): string {
   );
 }
 
+export function dsdRateName(rate: number): string {
+  if (rate % 44100 === 0 && (rate / 44100) % 64 === 0) return `DSD${rate / 44100}`;
+  if (rate % 48000 === 0 && (rate / 48000) % 64 === 0) return `DSD${rate / 48000}（48 kHz 系）`;
+  return `DSD ${rate} Hz`;
+}
+
+// The "input" line: DSD files are described as DSD, not as their DoP wrapper.
+export function inputText(s: PlaybackStatus): string {
+  if (!s.sourceFormat) return "—";
+  if (!s.dop) return describeFormat(s.sourceFormat);
+  const mhz = Number((s.dop.dsdRate / 1_000_000).toFixed(4));
+  return `${dsdRateName(s.dop.dsdRate)}（${mhz} MHz）/ ${s.sourceFormat.channels}ch（${s.dop.container}）`;
+}
+
+export function processingText(s: PlaybackStatus): string {
+  return s.dop
+    ? "なし（DoP の経路では処理をかけられません）"
+    : "なし（原音経路：音量・変換・ディザをかけません）";
+}
+
+export function dopNotice(s: PlaybackStatus): string {
+  if (!s.dop || !s.sourceFormat) return "";
+  return (
+    `DSD を DoP（PCM ${rateText(s.sourceFormat.sampleRate)} / 24bit に包む形）で送っています。` +
+    "DoP に対応していない DAC では、大きなノイズになります。DAC の表示が DSD になっているか確かめてください。"
+  );
+}
+
 export function dropoutText(d: DropoutCounts): string {
   const total = d.lateBuffers + d.deviceTimeouts + d.readStarvations;
   if (total === 0) return "0 回";
@@ -136,6 +164,13 @@ export function errorText(s: PlaybackStatus): string {
   }
 
   if (e.kind === "load") return `${s.queueIndex + 1} 曲目のファイルを開けません: ${e.detail}`;
+
+  if (e.kind === "dopNotAllowed")
+    return (
+      `${s.queueIndex + 1} 曲目は DSD です。DSD を DoP で送る設定がオフなので再生しません。` +
+      "DoP に対応していない DAC では大きなノイズになるため、対応している DAC のときだけオンにしてください" +
+      "（設定画面ができるまでは、起動時に --allow-dop を付けます）。"
+    );
 
   return `エラー: ${e.detail}`;
 }

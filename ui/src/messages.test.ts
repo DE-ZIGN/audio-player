@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   describeFormat,
+  dopNotice,
+  dsdRateName,
+  inputText,
+  processingText,
   dropoutText,
   errorText,
   formatTime,
@@ -102,6 +106,38 @@ describe("transitionText", () => {
   });
 });
 
+describe("DoP texts", () => {
+  const dopStatus: PlaybackStatus = {
+    ...emptyStatus,
+    state: "playing",
+    sourceFormat: { sampleRate: 176400, channels: 2, containerBits: 24, validBits: 24, sampleType: "int" },
+    dop: { dsdRate: 2822400, container: "DSF" },
+  };
+  it("names DSD rates", () => {
+    expect(dsdRateName(2822400)).toBe("DSD64");
+    expect(dsdRateName(5644800)).toBe("DSD128");
+    expect(dsdRateName(11289600)).toBe("DSD256");
+    expect(dsdRateName(3072000)).toBe("DSD64（48 kHz 系）");
+  });
+  it("describes the input as DSD, not as the PCM wrapper", () => {
+    const t = inputText(dopStatus);
+    expect(t).toContain("DSD64");
+    expect(t).toContain("2.8224 MHz");
+    expect(t).toContain("DSF");
+    expect(inputText({ ...dopStatus, dop: null })).toBe("176.4 kHz / 24bit / 2ch");
+  });
+  it("says that DoP cannot be processed", () => {
+    expect(processingText(dopStatus)).toContain("DoP の経路では処理をかけられません");
+    expect(processingText({ ...dopStatus, dop: null })).toContain("原音経路");
+  });
+  it("warns about DACs without DoP", () => {
+    const t = dopNotice(dopStatus);
+    expect(t).toContain("176.4 kHz");
+    expect(t).toContain("DoP に対応していない DAC");
+    expect(dopNotice({ ...dopStatus, dop: null })).toBe("");
+  });
+});
+
 describe("dropoutText", () => {
   const none = { lateBuffers: 0, deviceTimeouts: 0, readStarvations: 0, starvedFrames: 0, realtimePriority: true };
   it("says 0 when nothing dropped out", () => {
@@ -156,6 +192,11 @@ describe("errorText", () => {
   });
   it("explains a device held by another application", () => {
     expect(errorText(withError({ kind: "output", outputError: "deviceInUse" }))).toContain("他のアプリ");
+  });
+  it("explains that DoP is off and why", () => {
+    const t = errorText(withError({ kind: "dopNotAllowed" }));
+    expect(t).toContain("DoP");
+    expect(t).toContain("ノイズ");
   });
   it("explains disabled exclusive mode", () => {
     expect(errorText(withError({ kind: "output", outputError: "exclusiveModeNotAllowed" }))).toContain("排他的に制御");

@@ -71,6 +71,7 @@ export interface MockTrack {
   name: string;
   sampleRate: number;
   seconds: number;
+  dsdRate?: number; // DSD file sent as DoP at sampleRate (= dsdRate / 16)
 }
 
 const fmt24 = (sampleRate: number) => ({
@@ -86,6 +87,7 @@ export const DEMO_QUEUE: MockTrack[] = [
   { name: "（試験用）01_44k.wav", sampleRate: 44100, seconds: 8 },
   { name: "（試験用）02_44k.wav", sampleRate: 44100, seconds: 8 },
   { name: "（試験用）03_96k.wav", sampleRate: 96000, seconds: 8 },
+  { name: "（試験用）04_dsd64.dsf", sampleRate: 176400, seconds: 8, dsdRate: 2822400 },
 ];
 
 // Simulated player for working on the page in a normal browser.
@@ -109,6 +111,7 @@ export class MockBackend implements Backend {
       queueIndex: index,
       fileName: t.name,
       sourceFormat: fmt24(t.sampleRate),
+      dop: t.dsdRate ? { dsdRate: t.dsdRate, container: "DSF" } : null,
       outputFormat: null,
       totalFrames: Math.round(t.sampleRate * t.seconds),
       positionFrames: 0,

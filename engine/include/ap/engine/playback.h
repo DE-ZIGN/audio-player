@@ -32,6 +32,9 @@ NegotiationResult negotiate(const PcmFormat& source, AudioOutput& output, bool a
 struct PlaybackOptions
 {
     bool allowRepack = true;
+    // DoP is sent only when enabled for the output: a DAC without DoP turns
+    // it into loud noise, and whether a DAC decodes DoP cannot be detected.
+    bool allowDop = false;
     // Called on the playback thread after the output has been opened, before data flows.
     std::function<void(const PlaybackPlan&)> onStart;
 };

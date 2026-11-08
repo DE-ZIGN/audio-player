@@ -31,7 +31,7 @@ ap::engine::Player::OutputFactory outputFactoryFor(const MainOptions& o)
 } // namespace
 
 MainComponent::MainComponent(MainOptions options)
-    : options_(std::move(options)), bridge_(outputFactoryFor(options_))
+    : options_(std::move(options)), bridge_(outputFactoryFor(options_), options_.allowDop)
 {
     setSize(900, 620);
     bridge_.onUiReady = options_.onUiReady;
