@@ -1,0 +1,15 @@
+# Normalise line endings for text; never touch audio or other binary data.
+* text=auto
+
+*.wav  binary
+*.aif  binary
+*.aiff binary
+*.flac binary
+*.m4a  binary
+*.mp3  binary
+*.dsf  binary
+*.dff  binary
+*.raw  binary
+*.pcm  binary
+*.png  binary
+*.ico  binary

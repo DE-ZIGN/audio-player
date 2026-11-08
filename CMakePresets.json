@@ -1,0 +1,45 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "vs2022",
+      "displayName": "Visual Studio 2022 (x64)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/vs2022"
+    },
+    {
+      "name": "vs2022-tests-only",
+      "displayName": "Visual Studio 2022 (x64), engine and tests only",
+      "inherits": "vs2022",
+      "binaryDir": "${sourceDir}/build/vs2022-tests-only",
+      "cacheVariables": { "AP_BUILD_APP": "OFF" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug",   "configurePreset": "vs2022", "configuration": "Debug" },
+    { "name": "release", "configurePreset": "vs2022", "configuration": "Release" },
+    { "name": "tests-only-debug", "configurePreset": "vs2022-tests-only", "configuration": "Debug" }
+  ],
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "vs2022",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "release",
+      "configurePreset": "vs2022",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "tests-only-debug",
+      "configurePreset": "vs2022-tests-only",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}
