@@ -1,0 +1,40 @@
+# Build output
+/build/
+/out/
+CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
+_deps/
+
+# Visual Studio / IDE
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
+*.VC.db
+*.VC.opendb
+*.aps
+
+# Compiled artifacts
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.exe
+*.dll
+
+# UI (Vite)
+node_modules/
+/ui/dist/
+
+# Test output and generated test signals
+/tests/output/
+/tools/out/
+Testing/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
