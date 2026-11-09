@@ -293,6 +293,72 @@ TEST_CASE("Probe: MP3 seek differences", "[.probe]")
     }
 }
 
+// Checks a real MP3 (%AP_PROBE_IN%) against the Windows decoder and, when
+// %AP_PROBE_WAV% names the 16-bit WAV it was made from, against that: length,
+// offset and signal-to-error ratio. Run with "[.probe]".
+TEST_CASE("Probe: a real MP3 against the Windows decoder and its source WAV", "[.probe]")
+{
+    auto env = [](const wchar_t* name) -> std::filesystem::path {
+        wchar_t* v = nullptr;
+        std::size_t len = 0;
+        if (_wdupenv_s(&v, &len, name) != 0 || !v)
+            return {};
+        std::filesystem::path p(v);
+        std::free(v);
+        return p;
+    };
+    const auto mp3 = env(L"AP_PROBE_IN");
+    if (mp3.empty())
+        return;
+    Mp3FileSource src(mp3);
+    const auto ours = readAllFloats(src, 65536);
+    const std::uint16_t ch = src.format().channels;
+    std::printf("format %s, %llu frames, LAME/Xing delay info: %s\n", describe(src.format()).c_str(),
+                static_cast<unsigned long long>(src.totalFrames()), src.gaplessInfo() ? "yes" : "no");
+
+    const auto ref = ap::test::mfDecodeFloat(mp3);
+    const long lag = bestLag(ours, ref.samples, ch, 4000);
+    double sum = 0, peak = 0;
+    std::size_t n = 0;
+    for (std::size_t i = 0; i < ours.size(); ++i)
+    {
+        const long j = static_cast<long>(i) + lag * ch;
+        if (j < 0 || static_cast<std::size_t>(j) >= ref.samples.size())
+            continue;
+        const double d = std::abs(double{std::clamp(ours[i], -1.0f, 1.0f)} - ref.samples[static_cast<std::size_t>(j)]);
+        sum += d * d;
+        peak = std::max(peak, d);
+        ++n;
+    }
+    std::printf("Windows decoder: %zu frames, offset %ld frames, difference RMS %.1f dBFS, peak %.1f dBFS\n",
+                ref.samples.size() / ch, lag, 10 * std::log10(sum / std::max<std::size_t>(n, 1) + 1e-30),
+                20 * std::log10(peak + 1e-30));
+
+    const auto wavPath = env(L"AP_PROBE_WAV");
+    if (wavPath.empty())
+        return;
+    auto wav = openAudioFile(wavPath);
+    REQUIRE(wav->format().containerBits == 16);
+    std::vector<float> original;
+    std::vector<std::byte> buf(65536 * wav->format().bytesPerFrame());
+    while (const auto k = wav->read(buf))
+    {
+        const auto* s = reinterpret_cast<const std::int16_t*>(buf.data());
+        for (std::size_t i = 0; i < k * ch; ++i)
+            original.push_back(static_cast<float>(s[i] / 32768.0));
+    }
+    const long wlag = bestLag(original, ours, ch, 4000);
+    std::vector<float> aligned;
+    for (std::size_t i = 0; i < original.size(); ++i)
+    {
+        const long j = static_cast<long>(i) + wlag * ch;
+        aligned.push_back(j >= 0 && static_cast<std::size_t>(j) < ours.size() ? ours[static_cast<std::size_t>(j)] : 0.0f);
+    }
+    std::printf("source WAV: %zu frames; MP3 is %lld frames %s; offset %ld frames; SNR %.1f dB\n", original.size() / ch,
+                static_cast<long long>(ours.size() / ch) - static_cast<long long>(original.size() / ch),
+                ours.size() >= original.size() ? "longer" : "shorter (negative)", wlag, snrDb(original, aligned));
+}
+
 TEST_CASE("MP3 tracks join gaplessly in the player", "[engine][mp3][gapless]")
 {
     // One continuous signal cut into two files; played in a row, the result has
