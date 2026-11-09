@@ -4,7 +4,7 @@
 
 ## ap_play（S1 の試作プレイヤー）
 
-WAV を整数のまま、排他 WASAPI（イベント駆動）で再生する。音量、変換、ディザはかけない。
+WAV・FLAC・AIFF（と DSF/DFF を DoP で）を整数のまま、排他 WASAPI（イベント駆動）か ASIO で再生する。音量、変換、ディザはかけない。形式はファイルの中身で判断する。FLAC は最後まで読んだときに MD5 を照合し、終わりに結果を表示する。
 ビルドすると `build/vs2022/tools/play/<Debug|Release>/ap_play.exe` ができる。
 
 ```
@@ -35,7 +35,7 @@ ap_play --asio-load N|all            ASIO ドライバーを読み込めるか�
 
 ## ap_signalgen（テスト信号の生成）
 
-受け入れテスト（CLAUDE.md 5章）や実機確認で使うテスト信号を WAV で書き出す。
+受け入れテスト（CLAUDE.md 5章）や実機確認で使うテスト信号を WAV で書き出す。`--out` の拡張子が `.flac` なら FLAC で書き出す（整数形式のみ。MD5 と 1 秒ごとのシーク表つき。libFLAC でエンコードし、エンコーダー自身の検証を通している）。
 ビルドすると `build/vs2022/tools/signalgen/<Debug|Release>/ap_signalgen.exe` ができる。
 
 ### 信号
