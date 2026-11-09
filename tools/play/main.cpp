@@ -11,6 +11,7 @@
 #include <ap/engine/audio_file.h>
 #include <ap/engine/dsd_source.h>
 #include <ap/engine/flac_file_source.h>
+#include <ap/engine/mp3_file_source.h>
 #include <ap/engine/mp4_reader.h>
 #include <ap/engine/output/asio_output.h>
 #include <ap/engine/output/asio_probe.h>
@@ -108,7 +109,10 @@ std::string rejectionText(const FormatCheck& c, const PcmFormat& f)
         case FormatRejection::Channels:
             return std::format("このデバイスは {} チャンネルに対応していません。", f.channels);
         case FormatRejection::SampleType:
-            return "このデバイスは浮動小数点の形式に対応していません。";
+            return f.type == SampleType::Float
+                       ? "このデバイスは浮動小数点の形式に対応していません。MP3 など非可逆の形式は浮動小数点で出てくるため、"
+                         "ディザをかけて整数にする処理経路（M3）ができるまで、このデバイスでは再生できません（勝手に変換はしません）。"
+                       : "このデバイスはこの形式（整数 / 浮動小数点）に対応していません。";
         default:
             return std::format("このデバイスはこの形式に対応していません（0x{:08X}）。",
                                static_cast<unsigned long>(c.nativeError));
@@ -438,7 +442,7 @@ int listFormats(const Options& o)
     print(std::format("出力: {}\n", out.deviceName()));
     printWindowsDefault(out);
     print("排他モードで受け付ける形式（○ = 可、- = 不可）:\n");
-    print("              16bit  24bit  24bit(32bit コンテナ)  32bit\n");
+    print("              16bit  24bit  24bit(32bit コンテナ)  32bit  32bit 浮動小数点\n");
 
     for (const auto rate : standardSampleRates())
     {
@@ -449,8 +453,12 @@ int listFormats(const Options& o)
             row += f.containerBits == 32 && f.validBits == 24 ? std::format("  {:^21}", ok ? "○" : "-")
                                                                : std::format("  {:^5}", ok ? "○" : "-");
         }
+        const PcmFormat f32{rate, 2, 32, 32, SampleType::Float, 0};
+        row += std::format("  {:^15}", out.checkFormat(f32).supported ? "○" : "-");
         print(row + "\n");
     }
+    print("（MP3 など非可逆の形式は 32bit 浮動小数点で出てくる。浮動小数点を受け付けないデバイスでは、"
+          "ディザをかけて整数にする処理経路（M3）ができるまで再生できない）\n");
     return 0;
 }
 
@@ -905,7 +913,7 @@ int main(int argc, char** argv)
     }
     catch (const UnsupportedAudioFileError& e)
     {
-        printErr(std::string("このファイルは読めません（WAV、FLAC、AIFF、ALAC（.m4a）、DSF、DFF に対応）: ") + e.what() + "\n");
+        printErr(std::string("このファイルは読めません（WAV、FLAC、AIFF、ALAC（.m4a）、MP3、DSF、DFF に対応）: ") + e.what() + "\n");
         return 5;
     }
     catch (const FlacFormatError& e)
@@ -926,6 +934,11 @@ int main(int argc, char** argv)
     catch (const Mp4FormatError& e)
     {
         printErr(std::string("このファイルは読めません（MP4）: ") + e.what() + "\n");
+        return 5;
+    }
+    catch (const Mp3FormatError& e)
+    {
+        printErr(std::string("このファイルは読めません（MP3）: ") + e.what() + "\n");
         return 5;
     }
     catch (const DsdFormatError& e)

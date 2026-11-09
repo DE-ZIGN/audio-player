@@ -324,6 +324,12 @@ describe("errorText", () => {
     const t = errorText(withError({ kind: "formatNotSupported", reason: "sampleRate", acceptedRates: [] }));
     expect(t).not.toContain("今受け付けるのは");
   });
+  it("explains why a float source (MP3) does not play on an integer-only device, without converting", () => {
+    const t = errorText({ ...withError({ kind: "formatNotSupported", reason: "sampleType" }), sourceFormat: f(44100, 32, 32, "float") });
+    expect(t).toContain("浮動小数点");
+    expect(t).toContain("ディザ");
+    expect(t).toContain("変換はしません");
+  });
   it("explains a device held by another application", () => {
     expect(errorText(withError({ kind: "output", outputError: "deviceInUse" }))).toContain("他のアプリ");
   });

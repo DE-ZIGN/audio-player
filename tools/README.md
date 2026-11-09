@@ -4,7 +4,7 @@
 
 ## ap_play（S1 の試作プレイヤー）
 
-WAV・FLAC・AIFF（と DSF/DFF を DoP で）を整数のまま、排他 WASAPI（イベント駆動）か ASIO で再生する。音量、変換、ディザはかけない。形式はファイルの中身で判断する。FLAC は最後まで読んだときに MD5 を照合し、終わりに結果を表示する。
+WAV・FLAC・AIFF・ALAC（と DSF/DFF を DoP で）を整数のまま、MP3 を 32bit 浮動小数点のまま、排他 WASAPI（イベント駆動）か ASIO で再生する。音量、変換、ディザはかけない。形式はファイルの中身で判断する。FLAC は最後まで読んだときに MD5 を照合し、終わりに結果を表示する。
 ビルドすると `build/vs2022/tools/play/<Debug|Release>/ap_play.exe` ができる。
 
 ```
