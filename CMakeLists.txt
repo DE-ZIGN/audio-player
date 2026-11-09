@@ -15,6 +15,7 @@ set(AP_BUNDLE_ID    "com.audioplayer.app" CACHE STRING "Provisional reverse-DNS 
 option(AP_BUILD_APP   "Build the JUCE application (downloads JUCE)" ON)
 option(AP_BUILD_TESTS "Build unit and acceptance tests (downloads Catch2)" ON)
 option(AP_BUILD_TOOLS "Build developer tools (test-signal generator)" ON)
+option(AP_ASAN "Build everything with AddressSanitizer (preset vs2022-asan; for running the tests)" OFF)
 
 # ---------------------------------------------------------------------------
 # Platform checks
@@ -39,6 +40,24 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+# AddressSanitizer for every target, third-party code included (decoders read
+# untrusted files). Incompatible with /RTC and incremental linking.
+if(AP_ASAN)
+    if(NOT MSVC)
+        message(FATAL_ERROR "AP_ASAN is set up for MSVC only")
+    endif()
+    foreach(lang C CXX)
+        foreach(cfg DEBUG RELWITHDEBINFO)
+            string(REGEX REPLACE "/RTC[1csu]+" "" CMAKE_${lang}_FLAGS_${cfg} "${CMAKE_${lang}_FLAGS_${cfg}}")
+        endforeach()
+    endforeach()
+    add_compile_options(/fsanitize=address /Zi)
+    add_link_options(/INCREMENTAL:NO /DEBUG)
+    # The ASan runtime DLL sits next to cl.exe; tests need it on PATH.
+    get_filename_component(AP_ASAN_DLL_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+endif()
+
 include(CompilerSettings)
 include(Dependencies)
 

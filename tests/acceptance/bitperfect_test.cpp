@@ -6,6 +6,7 @@
 // the SHA-256 of the input file's data chunk.
 
 #include <ap/engine/aiff_file_source.h>
+#include <ap/engine/alac_file_source.h>
 #include <ap/engine/flac_file_source.h>
 #include <ap/engine/output/dummy_output.h>
 #include <ap/engine/playback.h>
@@ -16,6 +17,7 @@
 #include <ap/signalgen/wav_writer.h>
 
 #include "aiff_test_files.h"
+#include "alac_m4a_writer.h"
 #include "temp_dir.h"
 #include "wav_reader.h"
 
@@ -117,6 +119,28 @@ TEST_CASE("Bit-perfect from FLAC: dummy output hash equals the encoded PCM hash"
     CHECK(report.stats.framesRendered == rate / 4);
     CHECK(toHex(sha256File(dir.path() / "out.raw")) == toHex(sha256(asBytes(parsed.data))));
     CHECK(source.integrity().state == IntegrityState::Passed);
+}
+
+TEST_CASE("Bit-perfect from ALAC: dummy output hash equals the encoded PCM hash", "[acceptance][bitperfect][alac]")
+{
+    const auto rate = GENERATE(44100u, 48000u, 88200u, 96000u, 176400u, 192000u, 352800u, 384000u);
+    const auto format = GENERATE(sg::SampleFormat::Int16, sg::SampleFormat::Int24, sg::SampleFormat::Int32);
+    const auto signal = GENERATE(std::string("bitpattern"), std::string("isp"), std::string("sine"));
+    CAPTURE(rate, sg::formatName(format), signal);
+
+    ap::test::TempDir dir;
+    const auto parsed = ap::test::parseWav(makeWav(signal, rate, format));
+    std::vector<std::byte> pcm(parsed.data.size());
+    std::memcpy(pcm.data(), parsed.data.data(), pcm.size());
+    const auto inPath = dir.path() / "in.m4a";
+    ap::test::writeAppleAlacM4a(inPath, rate, 2, static_cast<std::uint16_t>(sg::bitsPerSample(format)), pcm);
+
+    AlacFileSource source(inPath);
+    DummyOutput output({.path = dir.path() / "out.raw", .periodFrames = {441, 4096, 7, 1000}, .check = {}});
+    const auto report = play(source, output);
+    CHECK(report.plan.repack == Repack::None);
+    CHECK(report.stats.framesRendered == rate / 4);
+    CHECK(toHex(sha256File(dir.path() / "out.raw")) == toHex(sha256(asBytes(parsed.data))));
 }
 
 TEST_CASE("Bit-perfect from AIFF: the output is the input with each sample's bytes reversed", "[acceptance][bitperfect][aiff]")

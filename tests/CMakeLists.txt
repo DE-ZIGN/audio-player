@@ -1,5 +1,17 @@
 include(Catch)
 
+# With AddressSanitizer the test programs need the ASan runtime DLL (next to cl.exe) on PATH,
+# both when Catch2 lists their tests at build time and when ctest runs them.
+set(AP_DISCOVER_ARGS)
+if(AP_ASAN)
+    set(AP_DISCOVER_ARGS DL_PATHS "${AP_ASAN_DLL_DIR}")
+endif()
+function(ap_asan_test_env)
+    if(AP_ASAN)
+        set_tests_properties(${ARGN} PROPERTIES ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${AP_ASAN_DLL_DIR}")
+    endif()
+endfunction()
+
 # Test labels:
 #   unit        fast unit tests
 #   files       checks on files written by tools (CTest fixtures)
@@ -9,9 +21,25 @@ include(Catch)
 # ---------------------------------------------------------------------------
 # Shared test helpers
 # ---------------------------------------------------------------------------
+# Apple's ALAC encoder (Apache-2.0, third_party/alac), for making test files
+# only; it is not part of the application.
+add_library(ap_alac_encoder STATIC
+    "${CMAKE_SOURCE_DIR}/third_party/alac/codec/ALACEncoder.cpp"
+    "${CMAKE_SOURCE_DIR}/third_party/alac/codec/ag_enc.c"
+    "${CMAKE_SOURCE_DIR}/third_party/alac/codec/dp_enc.c"
+    "${CMAKE_SOURCE_DIR}/third_party/alac/codec/matrix_enc.c")
+target_link_libraries(ap_alac_encoder PUBLIC ap_alac)
+target_compile_definitions(ap_alac_encoder PRIVATE TARGET_OS_WIN32=1)
+target_compile_options(ap_alac_encoder PRIVATE /W0)
+set_target_properties(ap_alac_encoder PROPERTIES FOLDER "tests")
+
 add_library(ap_test_support STATIC
-    support/wav_reader.cpp)
+    support/wav_reader.cpp
+    support/mf_audio.cpp
+    support/alac_m4a_writer.cpp)
 target_include_directories(ap_test_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/support)
+# Media Foundation: an independent ALAC encoder/decoder for making and checking test files.
+target_link_libraries(ap_test_support PUBLIC mfplat mfreadwrite mfuuid ole32 ap_alac_encoder)
 target_compile_features(ap_test_support PUBLIC cxx_std_20)
 ap_apply_compiler_settings(ap_test_support)
 set_target_properties(ap_test_support PROPERTIES FOLDER "tests")
@@ -43,7 +71,7 @@ target_compile_definitions(ap_engine_unit_tests PRIVATE
 ap_apply_compiler_settings(ap_engine_unit_tests)
 set_target_properties(ap_engine_unit_tests PROPERTIES FOLDER "tests")
 
-catch_discover_tests(ap_engine_unit_tests
+catch_discover_tests(ap_engine_unit_tests ${AP_DISCOVER_ARGS}
     PROPERTIES LABELS "unit")
 
 # ---------------------------------------------------------------------------
@@ -59,13 +87,14 @@ if(TARGET ap_signalgen_lib)
         unit/dsd_signal_test.cpp
         unit/signal_path_test.cpp
         unit/flac_file_source_test.cpp
-        unit/audio_file_test.cpp)
+        unit/audio_file_test.cpp
+        unit/alac_file_source_test.cpp)
     target_link_libraries(ap_engine_signal_tests PRIVATE
         ap_engine ap_signalgen_lib ap_test_support ap_asiosdk ole32 Catch2::Catch2WithMain)
     ap_apply_compiler_settings(ap_engine_signal_tests)
     set_target_properties(ap_engine_signal_tests PROPERTIES FOLDER "tests")
 
-    catch_discover_tests(ap_engine_signal_tests
+    catch_discover_tests(ap_engine_signal_tests ${AP_DISCOVER_ARGS}
         PROPERTIES LABELS "unit")
 
     # CLAUDE.md chapter 5 acceptance criteria
@@ -76,7 +105,7 @@ if(TARGET ap_signalgen_lib)
     ap_apply_compiler_settings(ap_acceptance_tests)
     set_target_properties(ap_acceptance_tests PROPERTIES FOLDER "tests")
 
-    catch_discover_tests(ap_acceptance_tests
+    catch_discover_tests(ap_acceptance_tests ${AP_DISCOVER_ARGS}
         PROPERTIES LABELS "acceptance")
 endif()
 
@@ -93,7 +122,7 @@ if(TARGET ap_signalgen_lib)
     ap_apply_compiler_settings(ap_tools_unit_tests)
     set_target_properties(ap_tools_unit_tests PROPERTIES FOLDER "tests")
 
-    catch_discover_tests(ap_tools_unit_tests
+    catch_discover_tests(ap_tools_unit_tests ${AP_DISCOVER_ARGS}
         PROPERTIES LABELS "unit")
 
     # Generate files with the real command-line tool, then verify them.
@@ -120,6 +149,7 @@ if(TARGET ap_signalgen_lib)
         LABELS "files"
         FIXTURES_REQUIRED signal_files_clean
         FIXTURES_SETUP signal_files)
+    ap_asan_test_env(signal_files_generate)
 
     add_executable(ap_signal_file_tests
         files/signal_files_test.cpp)
@@ -133,7 +163,7 @@ if(TARGET ap_signalgen_lib)
     ap_apply_compiler_settings(ap_signal_file_tests)
     set_target_properties(ap_signal_file_tests PROPERTIES FOLDER "tests")
 
-    catch_discover_tests(ap_signal_file_tests
+    catch_discover_tests(ap_signal_file_tests ${AP_DISCOVER_ARGS}
         PROPERTIES
             LABELS "files"
             FIXTURES_REQUIRED signal_files)

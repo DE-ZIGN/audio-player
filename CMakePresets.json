@@ -15,12 +15,20 @@
       "inherits": "vs2022",
       "binaryDir": "${sourceDir}/build/vs2022-tests-only",
       "cacheVariables": { "AP_BUILD_APP": "OFF" }
+    },
+    {
+      "name": "vs2022-asan",
+      "displayName": "Visual Studio 2022 (x64), engine and tests with AddressSanitizer",
+      "inherits": "vs2022",
+      "binaryDir": "${sourceDir}/build/vs2022-asan",
+      "cacheVariables": { "AP_BUILD_APP": "OFF", "AP_ASAN": "ON" }
     }
   ],
   "buildPresets": [
     { "name": "debug",   "configurePreset": "vs2022", "configuration": "Debug" },
     { "name": "release", "configurePreset": "vs2022", "configuration": "Release" },
-    { "name": "tests-only-debug", "configurePreset": "vs2022-tests-only", "configuration": "Debug" }
+    { "name": "tests-only-debug", "configurePreset": "vs2022-tests-only", "configuration": "Debug" },
+    { "name": "asan", "configurePreset": "vs2022-asan", "configuration": "RelWithDebInfo" }
   ],
   "testPresets": [
     {
@@ -39,6 +47,12 @@
       "name": "tests-only-debug",
       "configurePreset": "vs2022-tests-only",
       "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "asan",
+      "configurePreset": "vs2022-asan",
+      "configuration": "RelWithDebInfo",
       "output": { "outputOnFailure": true }
     }
   ]

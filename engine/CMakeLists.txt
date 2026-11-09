@@ -8,6 +8,8 @@ add_library(ap_engine STATIC
     src/wav_file_source.cpp
     src/flac_file_source.cpp
     src/aiff_file_source.cpp
+    src/mp4_reader.cpp
+    src/alac_file_source.cpp
     src/md5.cpp
     src/prefetching_source.cpp
     src/dsd_source.cpp
@@ -26,7 +28,7 @@ add_library(ap_engine STATIC
     src/output/asio_probe.cpp
     src/output/wasapi_exclusive_output.cpp)
 
-target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt user32 advapi32 ap_asiosdk FLAC::FLAC)
+target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt user32 advapi32 ap_asiosdk FLAC::FLAC ap_alac)
 
 target_include_directories(ap_engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)
