@@ -43,6 +43,7 @@ target_link_libraries(ap_app
         juce::juce_recommended_warning_flags)
 
 ap_apply_juce_target_settings(ap_app)
+ap_copy_engine_dlls(ap_app) # mpg123.dll next to the program
 set_target_properties(ap_app PROPERTIES FOLDER "app")
 
 # The built UI is served from <exe dir>/ui by the resource provider.

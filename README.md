@@ -10,7 +10,7 @@ Windows 10/11 向けの、無料・オープンソースの高音質音楽プレ
 
 ## ビルド
 
-必要なもの：Visual Studio 2022（C++ デスクトップ開発）、CMake 3.25 以上、Git、Node.js LTS（画面のビルド用）。JUCE、Catch2、WebView2 SDK、libFLAC は初回の構成時に自動で取得します（SHA-256 で固定）。ASIO SDK と ALAC のデコーダーは `third_party/` に同梱しています。画面（`ui/`）はビルドのときに npm で作られ、アプリの隣の `ui/` フォルダーに置かれます。
+必要なもの：Visual Studio 2022（C++ デスクトップ開発）、CMake 3.25 以上、Git、Node.js LTS（画面のビルド用）。JUCE、Catch2、WebView2 SDK、libFLAC、mpg123（と、テスト用の LAME）は初回の構成時に自動で取得します（SHA-256 で固定）。mpg123 は `mpg123.dll` として exe の隣に置かれます。ASIO SDK と ALAC のデコーダーは `third_party/` に同梱しています。画面（`ui/`）はビルドのときに npm で作られ、アプリの隣の `ui/` フォルダーに置かれます。
 
 ```
 cmake --preset vs2022

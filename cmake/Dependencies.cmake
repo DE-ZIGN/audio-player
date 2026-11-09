@@ -56,6 +56,42 @@ block(SCOPE_FOR VARIABLES)
 endblock()
 set_target_properties(FLAC PROPERTIES FOLDER "third_party")
 
+# mpg123 1.33.7 (official release tarball), LGPL-2.1. libmpg123 is built as a
+# DLL (CLAUDE.md: MP3 via mpg123 as a DLL) from its CMake port (ports/cmake).
+# Only the decoding library: no libout123, programs or network support.
+# No assembler: the portable C decoder ("generic"), so results are the same on
+# every CPU and the tests can check values. mpg123 needs CMP0077 to honour the
+# options set here (its minimum is 3.12).
+block(SCOPE_FOR VARIABLES)
+    set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+    set(BUILD_SHARED_LIBS ON)
+    set(BUILD_LIBOUT123 OFF)
+    set(BUILD_PROGRAMS OFF)
+    set(NETWORK OFF)
+    set(NO_ICY ON)
+    set(YASM_ASSEMBLER "YASM_ASSEMBLER-NOTFOUND")
+    FetchContent_Declare(mpg123
+        URL         https://www.mpg123.de/download/mpg123-1.33.7.tar.bz2
+        URL_HASH    SHA256=31d0e35a4ca567ec9b5ebda6c3062bb4435d6d3eacd6ef0d95cadd7854dc03ee
+        SOURCE_SUBDIR ports/cmake
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        SYSTEM
+        EXCLUDE_FROM_ALL)
+    FetchContent_MakeAvailable(mpg123)
+endblock()
+set_target_properties(libmpg123 PROPERTIES FOLDER "third_party")
+# mpg123.h is in the source tree; the CMake port only exports its build folder (for installs).
+# (mpg123's project() redefines mpg123_SOURCE_DIR as ports/cmake, so ask FetchContent for the root.)
+FetchContent_GetProperties(mpg123 SOURCE_DIR AP_MPG123_ROOT)
+target_include_directories(libmpg123 SYSTEM INTERFACE "$<BUILD_INTERFACE:${AP_MPG123_ROOT}/src/include>")
+
+# Copies the mpg123 DLL next to an executable that uses the engine.
+function(ap_copy_engine_dlls target)
+    add_custom_command(TARGET ${target} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:libmpg123> $<TARGET_FILE_DIR:${target}>
+        VERBATIM)
+endfunction()
+
 # Microsoft WebView2 SDK 1.0.3485.44 (NuGet package), BSD-3-Clause.
 # JUCE links its static loader (WebView2LoaderStatic.lib); the WebView2
 # runtime itself is the one installed in Windows. JUCE's FindWebView2 looks

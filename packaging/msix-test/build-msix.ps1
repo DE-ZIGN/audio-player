@@ -40,6 +40,10 @@ New-Item -ItemType Directory -Force (Join-Path $stage "Assets") | Out-Null
 $exe = Join-Path $build "tools\play\$Configuration\ap_play.exe"
 if (-not (Test-Path $exe)) { throw "ap_play.exe がありません。先に cmake --build --preset release を実行してください: $exe" }
 Copy-Item $exe $stage
+# libmpg123 (LGPL, a DLL; copied next to ap_play.exe by the build).
+$mpg123 = Join-Path $build "tools\play\$Configuration\mpg123.dll"
+if (-not (Test-Path $mpg123)) { throw "mpg123.dll がありません: $mpg123" }
+Copy-Item $mpg123 $stage
 
 # App-local VC++ runtime (Microsoft's documented app-local deployment).
 foreach ($dll in "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll") {

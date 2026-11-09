@@ -119,6 +119,28 @@
 
 ---
 
+## mpg123（libmpg123）
+
+- バージョン：1.33.7（公式のソース配布 `mpg123-1.33.7.tar.bz2`、SHA-256 `31d0e35a4ca567ec9b5ebda6c3062bb4435d6d3eacd6ef0d95cadd7854dc03ee`）
+- ライセンス：LGPL-2.1（`COPYING`）
+- 配布物：含む（`mpg123.dll` として、アプリの exe の隣に置く。MP3 のデコードに使う。動的リンクなので、利用者が同じ API の別のビルドに差し替えられる）
+- 入手先：https://www.mpg123.de/ （ソースは上の公式配布物。変更なし）
+- 著作権表示：Copyright (c) 1995-2020 by Michael Hipp and others, free software under the terms of the LGPL v2.1（`COPYING` に指定された表示。著者の一覧は `AUTHORS`）
+- ライセンス本文：mpg123 の `COPYING`
+- ビルドの設定：mpg123 の CMake（`ports/cmake`）で、デコードのライブラリだけを作る（libout123、プログラム、ネットワーク機能は作らない）。アセンブラーを使わない C だけのデコーダーにしている（どの CPU でも同じ結果になり、テストで値を確かめられるため）。
+
+---
+
+## LAME（テスト専用）
+
+- バージョン：3.100（`lame-3.100.tar.gz`、SHA-256 `ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e`）
+- ライセンス：LGPL-2.0-or-later（GNU Library General Public License）
+- 配布物：含まない（テスト用の MP3 ファイルを作るためだけに、テストの中でビルドする）
+- 入手先：https://lame.sourceforge.io/
+- 著作権表示：Copyrights (c) 1999-2011 by The LAME Project ほか（`README` を参照）
+
+---
+
 ## Microsoft WebView2 SDK
 
 - バージョン：1.0.3485.44（NuGet パッケージ `Microsoft.Web.WebView2`）
