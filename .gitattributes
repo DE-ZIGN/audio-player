@@ -3,6 +3,7 @@
 
 # Vendored third-party files are kept byte-for-byte as distributed.
 third_party/asiosdk/** -text
+third_party/alac/** -text
 
 *.wav  binary
 *.aif  binary
