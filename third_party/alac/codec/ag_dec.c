@@ -287,7 +287,11 @@ int32_t dyn_decomp( AGParamRecPtr params, BitBuffer * bitstream, int32_t * pc, i
 
 	in = bitstream->cur;
 	startPos = bitstream->bitIndex;
-	maxPos = bitstream->byteSize * 8;
+	// AP: the limit was byteSize * 8 counted from `cur`, i.e. up to a whole packet past its end.
+	// Count from `cur` to the end of the packet instead. A single code read past it stays within
+	// the caller's ALAC_INPUT_PADDING bytes; the loop stops before the next one.
+	RequireAction( bitstream->cur <= bitstream->end, return kALAC_ParamError; );
+	maxPos = (uint32_t)(bitstream->end - bitstream->cur) * 8;
 	bitPos = startPos;
 
     mb = params->mb0;

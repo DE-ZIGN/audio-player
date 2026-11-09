@@ -13,6 +13,23 @@ include(FetchContent)
 add_library(ap_asiosdk INTERFACE)
 target_include_directories(ap_asiosdk SYSTEM INTERFACE "${CMAKE_SOURCE_DIR}/third_party/asiosdk/common")
 
+# Apple ALAC decoder (macosforge/alac c38887c), Apache-2.0, vendored with
+# hardening patches in third_party/alac (see VENDORED.md).
+add_library(ap_alac STATIC
+    "${CMAKE_SOURCE_DIR}/third_party/alac/codec/ALACDecoder.cpp"
+    "${CMAKE_SOURCE_DIR}/third_party/alac/codec/ALACBitUtilities.c"
+    "${CMAKE_SOURCE_DIR}/third_party/alac/codec/EndianPortable.c"
+    "${CMAKE_SOURCE_DIR}/third_party/alac/codec/ag_dec.c"
+    "${CMAKE_SOURCE_DIR}/third_party/alac/codec/dp_dec.c"
+    "${CMAKE_SOURCE_DIR}/third_party/alac/codec/matrix_dec.c")
+target_include_directories(ap_alac SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/third_party/alac/codec")
+# The byte-order helpers look for __x86_64__ (not defined by MSVC); this selects little-endian.
+target_compile_definitions(ap_alac PRIVATE TARGET_OS_WIN32=1)
+if(MSVC)
+    target_compile_options(ap_alac PRIVATE /W0)
+endif()
+set_target_properties(ap_alac PROPERTIES FOLDER "third_party")
+
 # libFLAC 1.5.0 (official release tarball), BSD-3-Clause (COPYING.Xiph).
 # Only the C library is built: no programs (GPL), libFLAC++, Ogg, tests,
 # examples or docs. The options are set inside a block so they do not leak

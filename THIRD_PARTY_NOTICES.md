@@ -106,6 +106,19 @@
 
 ---
 
+## Apple Lossless Audio Codec（ALAC）
+
+- バージョン：macosforge/alac のコミット `c38887c5c5e64a4b31108733bd79ca9b2496d987`（2016-05-11。リポジトリは保管扱いで、コーデックのコードは 2011 年のもの）
+- ライセンス：Apache-2.0
+- 配布物：含む（デコーダーだけ。`third_party/alac/codec/` の ALACDecoder ほか）。エンコーダー（ALACEncoder ほか）はテスト用のファイルを作るためだけに使い、配布物には含まない
+- 入手先：https://github.com/macosforge/alac
+- 著作権表示：Copyright (c) 2011 Apple Inc. All rights reserved.
+- ライセンス本文：`third_party/alac/LICENSE`
+- **変更あり**：公開版のデコーダーには入力の検査がなく、同じコードを使った他社のデコーダーで脆弱性が見つかっている（CVE-2021-0674 / 0675 / 30351）。値の検査を足した。変更点の一覧と元のファイルのハッシュは `third_party/alac/VENDORED.md`（Apache 2.0 の「変更したことを示す」義務もここで満たす）。
+- 上流の `codec/` には Apple Public Source License 2.0 の本文（`APPLE_LICENSE.txt`）も置かれているが、使っているファイルはどれも Apache 2.0 のヘッダーを持ち、それを参照していないため同梱していない。
+
+---
+
 ## Microsoft WebView2 SDK
 
 - バージョン：1.0.3485.44（NuGet パッケージ `Microsoft.Web.WebView2`）

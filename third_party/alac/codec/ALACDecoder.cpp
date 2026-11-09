@@ -37,6 +37,19 @@
 // constants/data
 const uint32_t kMaxBitDepth = 32;			// max allowed bit depth is 32
 
+// AP: limits for validating the configuration (ReadMe.txt: 1..8 channels, packets of at most 16384 frames).
+static const uint32_t kAPMaxFrameLength = 16384;
+static const uint32_t kAPMaxChannels = 8;
+
+// AP: bits left before the end of the packet (negative once a read went past it). The caller's
+// buffer has ALAC_INPUT_PADDING zero bytes after the packet, so the few bytes a single read or
+// a single Golomb code can look past the end are inside the allocation; every larger step is
+// checked with this before it is taken.
+static int64_t APBitsLeft( const BitBuffer * bits )
+{
+	return ((int64_t)(bits->end - bits->cur) * 8) - (int64_t)bits->bitIndex;
+}
+
 
 // prototypes
 static void Zero16( int16_t * buffer, uint32_t numItems, uint32_t stride );
@@ -92,21 +105,25 @@ int32_t ALACDecoder::Init( void * inMagicCookie, uint32_t inMagicCookieSize )
     uint8_t * theActualCookie = (uint8_t *)inMagicCookie;
     uint32_t theCookieBytesRemaining = inMagicCookieSize;
 
+    // AP: refuse a missing cookie and a second Init (the buffers below would leak).
+    RequireAction( (theActualCookie != nil) && (mMixBufferU == nil), return kALAC_ParamError; );
+
     // For historical reasons the decoder needs to be resilient to magic cookies vended by older encoders.
-    // As specified in the ALACMagicCookieDescription.txt document, there may be additional data encapsulating 
+    // As specified in the ALACMagicCookieDescription.txt document, there may be additional data encapsulating
     // the ALACSpecificConfig. This would consist of format ('frma') and 'alac' atoms which precede the
-    // ALACSpecificConfig. 
+    // ALACSpecificConfig.
     // See ALACMagicCookieDescription.txt for additional documentation concerning the 'magic cookie'
-    
+
     // skip format ('frma') atom if present
-    if (theActualCookie[4] == 'f' && theActualCookie[5] == 'r' && theActualCookie[6] == 'm' && theActualCookie[7] == 'a')
+    // AP: only look at bytes 4..7 when they exist, and skip only what is there.
+    if (theCookieBytesRemaining >= 12 && theActualCookie[4] == 'f' && theActualCookie[5] == 'r' && theActualCookie[6] == 'm' && theActualCookie[7] == 'a')
     {
         theActualCookie += 12;
         theCookieBytesRemaining -= 12;
     }
-    
+
     // skip 'alac' atom header if present
-    if (theActualCookie[4] == 'a' && theActualCookie[5] == 'l' && theActualCookie[6] == 'a' && theActualCookie[7] == 'c')
+    if (theCookieBytesRemaining >= 12 && theActualCookie[4] == 'a' && theActualCookie[5] == 'l' && theActualCookie[6] == 'a' && theActualCookie[7] == 'c')
     {
         theActualCookie += 12;
         theCookieBytesRemaining -= 12;
@@ -130,6 +147,16 @@ int32_t ALACDecoder::Init( void * inMagicCookie, uint32_t inMagicCookieSize )
         mConfig = theConfig;
         
         RequireAction( mConfig.compatibleVersion <= kALACVersion, return kALAC_ParamError; );
+
+        // AP: validate the configuration before it sizes buffers and drives the decoder
+        // (the published code trusted it; see CVE-2021-30351 / CVE-2021-0674 / CVE-2021-0675).
+        // ReadMe: 1..8 channels, 16/20/24/32 bits, packets of at most 16384 sample frames.
+        // kb is used as a shift count ((1 << kb) - 1).
+        RequireAction( (mConfig.frameLength >= 1) && (mConfig.frameLength <= kAPMaxFrameLength), return kALAC_ParamError; );
+        RequireAction( (mConfig.numChannels >= 1) && (mConfig.numChannels <= kAPMaxChannels), return kALAC_ParamError; );
+        RequireAction( (mConfig.bitDepth == 16) || (mConfig.bitDepth == 20) || (mConfig.bitDepth == 24) || (mConfig.bitDepth == 32),
+                       return kALAC_ParamError; );
+        RequireAction( mConfig.kb <= 31, return kALAC_ParamError; );
 
         // allocate mix buffers
         mMixBufferU = (int32_t *) calloc( mConfig.frameLength * sizeof(int32_t), 1 );
@@ -200,6 +227,8 @@ int32_t ALACDecoder::Decode( BitBuffer * bits, uint8_t * sampleBuffer, uint32_t 
 	
 	RequireAction( (bits != nil) && (sampleBuffer != nil) && (outNumSamples != nil), return kALAC_ParamError; );
 	RequireAction( numChannels > 0, return kALAC_ParamError; );
+	// AP: Init must have succeeded, and the caller's request must fit the buffers sized from frameLength.
+	RequireAction( (mMixBufferU != nil) && (numSamples <= mConfig.frameLength), return kALAC_ParamError; );
 
 	mActiveElements = 0;
 	channelIndex	= 0;
@@ -224,6 +253,10 @@ int32_t ALACDecoder::Decode( BitBuffer * bits, uint8_t * sampleBuffer, uint32_t 
 			case ID_SCE:
 			case ID_LFE:
 			{
+				// AP: like the pair case below, never decode more channels than the output buffer holds.
+				if ( (channelIndex + 1) > numChannels )
+					goto NoMoreChannels;
+
 				// mono/LFE channel
 				elementInstanceTag = BitBufferReadSmall( bits, 4 );
 				mActiveElements |= (1u << elementInstanceTag);
@@ -244,13 +277,17 @@ int32_t ALACDecoder::Decode( BitBuffer * bits, uint8_t * sampleBuffer, uint32_t 
 
 				escapeFlag = headerByte & 0x1;
 
+				// AP: the shifted-off bytes must leave at least one bit (chanBits is used in shifts).
+				RequireAction( (bytesShifted * 8u) < mConfig.bitDepth, status = kALAC_ParamError; goto Exit; );
 				chanBits = mConfig.bitDepth - (bytesShifted * 8);
-				
+
 				// check for partial frame to override requested numSamples
 				if ( partialFrame != 0 )
 				{
 					numSamples  = BitBufferRead( bits, 16 ) << 16;
 					numSamples |= BitBufferRead( bits, 16 );
+					// AP: the frame's own count must fit the buffers (the ALHACK overflow).
+					RequireAction( numSamples <= mConfig.frameLength, status = kALAC_ParamError; goto Exit; );
 				}
 
 				if ( escapeFlag == 0 )
@@ -271,11 +308,16 @@ int32_t ALACDecoder::Decode( BitBuffer * bits, uint8_t * sampleBuffer, uint32_t 
 					for ( i = 0; i < numU; i++ )
 						coefsU[i] = (int16_t) BitBufferRead( bits, 16 );
 					
+					// AP: the element header and coefficients (at most ~140 bytes, within the padding) must have been inside the packet.
+					RequireAction( APBitsLeft( bits ) >= 0, status = kALAC_ParamError; goto Exit; );
+
 					// if shift active, skip the the shift buffer but remember where it starts
 					if ( bytesShifted != 0 )
 					{
+						// AP: the skipped area (read later from shiftBits) must be inside the packet.
+						RequireAction( APBitsLeft( bits ) >= (int64_t)(bytesShifted * 8) * numSamples, status = kALAC_ParamError; goto Exit; );
 						shiftBits = *bits;
-						BitBufferAdvance( bits, (bytesShifted * 8) * numSamples ); 
+						BitBufferAdvance( bits, (bytesShifted * 8) * numSamples );
 					}
 
 					// decompress
@@ -299,6 +341,8 @@ int32_t ALACDecoder::Decode( BitBuffer * bits, uint8_t * sampleBuffer, uint32_t 
 					//Assert( bytesShifted == 0 );
 
 					// uncompressed frame, copy data into the mix buffer to use common output code
+					// AP: all the samples must be inside the packet.
+					RequireAction( APBitsLeft( bits ) >= (int64_t)chanBits * numSamples, status = kALAC_ParamError; goto Exit; );
 					shift = 32 - chanBits;
 					if ( chanBits <= 16 )
 					{
@@ -395,13 +439,18 @@ int32_t ALACDecoder::Decode( BitBuffer * bits, uint8_t * sampleBuffer, uint32_t 
 
 				escapeFlag = headerByte & 0x1;
 
+				// AP: one extra bit for the side channel; the result is used in shifts, so 1..32 only.
+				RequireAction( (bytesShifted * 8u) < mConfig.bitDepth, status = kALAC_ParamError; goto Exit; );
 				chanBits = mConfig.bitDepth - (bytesShifted * 8) + 1;
-				
+				RequireAction( chanBits <= 32, status = kALAC_ParamError; goto Exit; );
+
 				// check for partial frame length to override requested numSamples
 				if ( partialFrame != 0 )
 				{
 					numSamples  = BitBufferRead( bits, 16 ) << 16;
 					numSamples |= BitBufferRead( bits, 16 );
+					// AP: the frame's own count must fit the buffers (the ALHACK overflow).
+					RequireAction( numSamples <= mConfig.frameLength, status = kALAC_ParamError; goto Exit; );
 				}
 
 				if ( escapeFlag == 0 )
@@ -409,6 +458,8 @@ int32_t ALACDecoder::Decode( BitBuffer * bits, uint8_t * sampleBuffer, uint32_t 
 					// compressed frame, read rest of parameters
 					mixBits		= (uint8_t) BitBufferRead( bits, 8 );
 					mixRes		= (int8_t) BitBufferRead( bits, 8 );
+					// AP: mixBits is a shift count in unmix*().
+					RequireAction( mixBits < 32, status = kALAC_ParamError; goto Exit; );
 
 					headerByte	= (uint8_t) BitBufferRead( bits, 8 );
 					modeU		= headerByte >> 4;
@@ -430,9 +481,14 @@ int32_t ALACDecoder::Decode( BitBuffer * bits, uint8_t * sampleBuffer, uint32_t 
 					for ( i = 0; i < numV; i++ )
 						coefsV[i] = (int16_t) BitBufferRead( bits, 16 );
 
+					// AP: the element header and coefficients (at most ~140 bytes, within the padding) must have been inside the packet.
+					RequireAction( APBitsLeft( bits ) >= 0, status = kALAC_ParamError; goto Exit; );
+
 					// if shift active, skip the interleaved shifted values but remember where they start
 					if ( bytesShifted != 0 )
 					{
+						// AP: the skipped area (read later from shiftBits) must be inside the packet.
+						RequireAction( APBitsLeft( bits ) >= (int64_t)(bytesShifted * 8) * 2 * numSamples, status = kALAC_ParamError; goto Exit; );
 						shiftBits = *bits;
 						BitBufferAdvance( bits, (bytesShifted * 8) * 2 * numSamples );
 					}
@@ -475,6 +531,8 @@ int32_t ALACDecoder::Decode( BitBuffer * bits, uint8_t * sampleBuffer, uint32_t 
 
 					// uncompressed frame, copy data into the mix buffers to use common output code
 					chanBits = mConfig.bitDepth;
+					// AP: all the samples of both channels must be inside the packet.
+					RequireAction( APBitsLeft( bits ) >= (int64_t)chanBits * 2 * numSamples, status = kALAC_ParamError; goto Exit; );
 					shift = 32 - chanBits;
 					if ( chanBits <= 16 )
 					{
@@ -606,6 +664,7 @@ NoMoreChannels:
 				Zero16( fill16, numSamples, numChannels );
 				break;
 			}
+			case 20: // AP: 20-bit output also uses 3 bytes per sample; it was left unfilled
 			case 24:
 			{
 				uint8_t *	fill24 = (uint8_t *)sampleBuffer + (channelIndex * 3);
