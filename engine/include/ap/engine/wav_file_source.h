@@ -16,7 +16,8 @@ public:
     using std::runtime_error::runtime_error;
 };
 
-// Streams the data chunk of a RIFF/WAVE file without touching sample values.
+// Streams the data chunk of a RIFF/WAVE file (also RF64 / BW64 for files
+// over 4 GiB) without touching sample values.
 // Supports WAVE_FORMAT_PCM (8-bit excluded), WAVE_FORMAT_IEEE_FLOAT and
 // WAVE_FORMAT_EXTENSIBLE with the PCM or IEEE_FLOAT subformat. Unknown chunks
 // are skipped; chunk padding is honoured.

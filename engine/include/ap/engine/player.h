@@ -103,6 +103,8 @@ struct PlayerStatus
     std::size_t queueIndex = 0;
     std::size_t queueLength = 0;
     std::string trackName;
+    IntegrityCheck integrity;                    // checksum check of the current track (FLAC MD5)
+    std::vector<std::size_t> integrityFailures; // queue indices of earlier tracks whose check failed
     std::vector<TrackTransition> transitions; // since the queue was set (most recent last)
     DropoutCounts dropouts;
     PlayerError error;

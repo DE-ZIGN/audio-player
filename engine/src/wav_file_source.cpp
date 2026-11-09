@@ -94,13 +94,15 @@ WavFileSource::WavFileSource(const std::filesystem::path& path)
     std::array<std::uint8_t, 12> header{};
     if (!file_.read(reinterpret_cast<char*>(header.data()), header.size()))
         fail("file is too small to be WAV");
-    if (std::memcmp(header.data(), "RF64", 4) == 0)
-        fail("RF64 is not supported yet");
-    if (std::memcmp(header.data(), "RIFF", 4) != 0 || std::memcmp(header.data() + 8, "WAVE", 4) != 0)
+    // RF64 (EBU Tech 3306) and BW64 (ITU-R BS.2088): like RIFF, but 32-bit
+    // sizes set to 0xFFFFFFFF are given as 64-bit values in a ds64 chunk.
+    const bool rf64 = std::memcmp(header.data(), "RF64", 4) == 0 || std::memcmp(header.data(), "BW64", 4) == 0;
+    if ((!rf64 && std::memcmp(header.data(), "RIFF", 4) != 0) || std::memcmp(header.data() + 8, "WAVE", 4) != 0)
         fail("not a RIFF/WAVE file");
 
     std::optional<PcmFormat> fmt;
     std::optional<std::uint64_t> dataSize;
+    std::optional<std::uint64_t> ds64DataSize;
     std::uint64_t pos = 12;
 
     while (pos + 8 <= fileSize && !(fmt && dataSize))
@@ -109,8 +111,22 @@ WavFileSource::WavFileSource(const std::filesystem::path& path)
         std::array<std::uint8_t, 8> ch{};
         if (!file_.read(reinterpret_cast<char*>(ch.data()), ch.size()))
             break;
-        const std::uint64_t size = le32(ch.data() + 4);
+        std::uint64_t size = le32(ch.data() + 4);
         const std::uint64_t body = pos + 8;
+
+        if (rf64 && std::memcmp(ch.data(), "ds64", 4) == 0)
+        {
+            std::array<std::uint8_t, 16> b{};
+            if (size < 16 || !file_.read(reinterpret_cast<char*>(b.data()), b.size()))
+                fail("ds64 chunk is too small");
+            ds64DataSize = static_cast<std::uint64_t>(le32(&b[8])) | (static_cast<std::uint64_t>(le32(&b[12])) << 32);
+        }
+        else if (rf64 && std::memcmp(ch.data(), "data", 4) == 0 && size == 0xFFFFFFFFu)
+        {
+            if (!ds64DataSize)
+                fail("RF64 data size is not given (no ds64 chunk before the data)");
+            size = *ds64DataSize;
+        }
 
         if (std::memcmp(ch.data(), "fmt ", 4) == 0)
         {

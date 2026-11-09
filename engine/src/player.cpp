@@ -2,6 +2,7 @@
 
 #include <ap/engine/output/wasapi_exclusive_output.h>
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace ap::engine {
@@ -205,6 +206,10 @@ void Player::retireSourceLocked()
     if (!source_)
         return;
     const auto h = source_->health();
+    if (source_->integrity().state == IntegrityState::Failed
+        && std::find(status_.integrityFailures.begin(), status_.integrityFailures.end(), index_)
+               == status_.integrityFailures.end())
+        status_.integrityFailures.push_back(index_);
     retiredSourceHealth_.starvations += h.starvations;
     retiredSourceHealth_.starvedFrames += h.starvedFrames;
     retiredSourceHealth_.seekFillFrames += h.seekFillFrames;
@@ -310,6 +315,7 @@ PlayerStatus Player::status() const
         const auto h = source_->health();
         src.starvations += h.starvations;
         src.starvedFrames += h.starvedFrames;
+        s.integrity = source_->integrity();
     }
     OutputHealth out = retiredOutputHealth_;
     if (activeOutput_)

@@ -42,6 +42,8 @@ public:
     void waitUntilReady() override;
     std::optional<DopInfo> dop() const override { return dop_; }
     std::string containerName() const override { return container_; }
+    // The inner source's check (thread-safe there); it completes when the reader reaches the end.
+    IntegrityCheck integrity() const override { return inner_->integrity(); }
 
     std::size_t bufferFrames() const noexcept { return capacity_; }
 

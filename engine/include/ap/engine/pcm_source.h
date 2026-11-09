@@ -26,6 +26,23 @@ struct DopInfo
     std::string container;       // "DSF" or "DFF"
 };
 
+// Whether the decoded samples were checked against a checksum stored in the
+// file (FLAC: the MD5 of the samples in STREAMINFO).
+enum class IntegrityState
+{
+    NotAvailable, // the format or this file carries no checksum (WAV, AIFF, FLAC without MD5)
+    Pending,      // known once the whole file has been decoded from the start
+    Passed,       // the decoded samples match the checksum
+    Failed,       // they do not match, or the decoder reported errors in the file
+    Skipped,      // cannot be checked: decoding did not run from the start (a seek)
+};
+
+struct IntegrityCheck
+{
+    IntegrityState state = IntegrityState::NotAvailable;
+    std::uint32_t decodeErrors = 0; // problems the decoder reported (lost sync, CRC mismatch, ...)
+};
+
 // A source of interleaved PCM in its original byte layout. Sources never
 // convert sample values: the bytes they deliver are the bytes of the file.
 class PcmSource
@@ -60,6 +77,10 @@ public:
     // The file type the samples are read from ("WAV", "DSF", "DFF"); empty
     // for sources that are not read from a file.
     virtual std::string containerName() const { return {}; }
+
+    // Checksum verification of the decoded samples. Thread-safe: may be
+    // called while another thread reads (e.g. the read-ahead).
+    virtual IntegrityCheck integrity() const { return {}; }
 };
 
 // Holds all PCM bytes in memory.

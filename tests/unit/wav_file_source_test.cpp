@@ -225,6 +225,37 @@ TEST_CASE("WavFileSource rejects unsupported and malformed files", "[engine][wav
     }
 }
 
+TEST_CASE("WavFileSource reads RF64 and BW64 (sizes from the ds64 chunk)", "[engine][wav]")
+{
+    const auto magic = GENERATE(std::string("RF64"), std::string("BW64"));
+    CAPTURE(magic);
+    const auto pcm = sg::bitPattern(sg::Layout{48000, 2, 3000}, sg::SampleFormat::Int24);
+    const auto data = dataChunkOf(sg::encodeWav(pcm));
+
+    std::vector<std::uint8_t> ds64;
+    const std::uint64_t riffSize = 4 + (8 + 28) + (8 + 40) + (8 + data.size());
+    put32(ds64, static_cast<std::uint32_t>(riffSize));
+    put32(ds64, static_cast<std::uint32_t>(riffSize >> 32));
+    put32(ds64, static_cast<std::uint32_t>(data.size()));
+    put32(ds64, 0);
+    put32(ds64, 3000); // sample count
+    put32(ds64, 0);
+    put32(ds64, 0); // table length
+
+    std::vector<std::uint8_t> b;
+    putTag(b, magic.c_str());
+    put32(b, 0xFFFFFFFFu);
+    putTag(b, "WAVE");
+    putChunk(b, "ds64", ds64);
+    putChunk(b, "fmt ", extensibleFmt(2, 48000, 24, 24, 1));
+    putChunk(b, "data", data, 0xFFFFFFFFu); // the real size is in ds64
+
+    ap::test::TempDir dir;
+    WavFileSource src(dir.write("big.wav", b));
+    CHECK(src.totalFrames() == 3000u);
+    CHECK(readAllBytes(src, 512) == data);
+}
+
 TEST_CASE("MemoryPcmSource::loadAll copies the remaining bytes", "[engine][source]")
 {
     const sg::Layout layout{44100, 2, 1234};
