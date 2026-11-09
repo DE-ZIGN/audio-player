@@ -90,9 +90,19 @@ export interface SignalPath {
   };
 }
 
+// Checksum check of the decoded samples (FLAC: the MD5 stored in the file).
+export type IntegrityState = "notAvailable" | "pending" | "passed" | "failed" | "skipped";
+
+export interface IntegrityCheck {
+  state: IntegrityState;
+  decodeErrors: number; // problems the decoder reported in the file
+}
+
 export interface PlaybackStatus {
   state: PlayerState;
   path: SignalPath | null;
+  integrity: IntegrityCheck; // of the current track
+  integrityFailures: number[]; // queue indices of earlier tracks whose check failed
   dropouts: DropoutCounts;
   dop: DopInfo | null; // set when the current track is DSD sent as DoP
   fileName: string; // name of the current track
@@ -111,6 +121,8 @@ export interface PlaybackStatus {
 export const emptyStatus: PlaybackStatus = {
   state: "empty",
   path: null,
+  integrity: { state: "notAvailable", decodeErrors: 0 },
+  integrityFailures: [],
   dropouts: { lateBuffers: 0, deviceTimeouts: 0, readStarvations: 0, starvedFrames: 0, realtimePriority: false },
   dop: null,
   fileName: "",

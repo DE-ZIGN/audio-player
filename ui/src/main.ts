@@ -8,6 +8,8 @@ import {
   dropoutText,
   errorText,
   formatTime,
+  integrityFailuresText,
+  integrityText,
   outputModeText,
   priorityText,
   queueText,
@@ -39,6 +41,8 @@ const els = {
   sourceFormat: $("source-format"),
   outputName: $("output-name"),
   outputMode: $("output-mode"),
+  integrity: $("integrity"),
+  integrityFailures: $("integrity-failures"),
   volume: $("volume"),
   outputFormat: $("output-format"),
   repack: $("repack"),
@@ -68,6 +72,10 @@ function render(s: PlaybackStatus) {
   }
 
   els.sourceFormat.textContent = inputText(s);
+  els.integrity.textContent = loaded ? integrityText(s) : "—";
+  const failures = integrityFailuresText(s);
+  els.integrityFailures.hidden = failures === "";
+  els.integrityFailures.textContent = failures;
   els.processing.textContent = processingText(s);
   const note = dopNotice(s);
   els.dopNote.hidden = note === "";

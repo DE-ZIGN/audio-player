@@ -100,6 +100,19 @@ const char* toString(SampleLayout l)
     return "interleaved";
 }
 
+const char* toString(IntegrityState s)
+{
+    switch (s)
+    {
+        case IntegrityState::NotAvailable: return "notAvailable";
+        case IntegrityState::Pending:      return "pending";
+        case IntegrityState::Passed:       return "passed";
+        case IntegrityState::Failed:       return "failed";
+        case IntegrityState::Skipped:      return "skipped";
+    }
+    return "notAvailable";
+}
+
 // The facts of the path that are not already in the status (formats, DoP, repack are).
 juce::var pathVar(const SignalPath& p)
 {
@@ -230,7 +243,7 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
         }
         catch (const std::exception& e)
         {
-            return juce::String::fromUTF8("このファイルは読めません（WAV、DSF、DFF に対応）: ") + file.getFileName() + " ("
+            return juce::String::fromUTF8("このファイルは読めません（WAV、FLAC、AIFF、DSF、DFF に対応）: ") + file.getFileName() + " ("
                  + e.what() + ")";
         }
         // Read ahead on a separate thread so the playback thread never waits
@@ -322,6 +335,15 @@ juce::var PlayerBridge::statusAsVar() const
     o->setProperty("repack", s.plan ? toString(s.plan->repack) : "none");
     o->setProperty("outputName", juce::String::fromUTF8(s.outputName.c_str()));
     o->setProperty("path", s.path ? pathVar(*s.path) : juce::var());
+
+    auto* ic = new juce::DynamicObject();
+    ic->setProperty("state", toString(s.integrity.state));
+    ic->setProperty("decodeErrors", static_cast<int>(s.integrity.decodeErrors));
+    o->setProperty("integrity", juce::var(ic));
+    juce::Array<juce::var> failures;
+    for (const auto i : s.integrityFailures)
+        failures.add(static_cast<int>(i));
+    o->setProperty("integrityFailures", failures);
     o->setProperty("positionFrames", static_cast<juce::int64>(s.positionFrames));
     o->setProperty("totalFrames", static_cast<juce::int64>(s.totalFrames));
 

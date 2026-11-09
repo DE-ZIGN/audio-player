@@ -62,7 +62,7 @@ export function dsdRateName(rate: number): string {
 // The "input" line: DSD files are described as DSD, not as their DoP wrapper.
 export function inputText(s: PlaybackStatus): string {
   if (!s.sourceFormat) return "—";
-  if (!s.dop) return describeFormat(s.sourceFormat);
+  if (!s.dop) return describeFormat(s.sourceFormat) + (s.path?.container ? `（${s.path.container}）` : "");
   const mhz = Number((s.dop.dsdRate / 1_000_000).toFixed(4));
   return `${dsdRateName(s.dop.dsdRate)}（${mhz} MHz）/ ${s.sourceFormat.channels}ch（${s.dop.container}）`;
 }
@@ -125,6 +125,30 @@ export function volumeText(path: SignalPath): string {
     `${percent}%：このデバイスは音量をデバイスの中でかけるため、DAC に届いたあとで信号が変わります。` +
     "原音のまま出すには 100% にしてください（アプリからドライバーまでは原音のままです）"
   );
+}
+
+// Checksum check of the current track (FLAC stores the MD5 of its samples).
+export function integrityText(s: PlaybackStatus): string {
+  const c = s.integrity;
+  switch (c.state) {
+    case "passed":
+      return "MD5 一致（デコードした音声データが、ファイルに記録された値と同じです）";
+    case "pending":
+      return "照合中（ファイルを最後まで読むと結果が出ます）";
+    case "skipped":
+      return "照合できません（途中にシークしたため。最初から再生し直すと照合します）";
+    case "failed":
+      return c.decodeErrors > 0
+        ? `デコーダーがファイルの中の ${c.decodeErrors} か所でデータの誤りを見つけました。ファイルが壊れている可能性があります`
+        : "MD5 が一致しません。ファイルが壊れている可能性があります";
+    case "notAvailable":
+      return "このファイルには照合用の値（MD5）が記録されていません（WAV・AIFF・DSD と、MD5 のない FLAC）";
+  }
+}
+
+export function integrityFailuresText(s: PlaybackStatus): string {
+  if (s.integrityFailures.length === 0) return "";
+  return `${s.integrityFailures.map((i) => i + 1).join("、")} 曲目は MD5 が一致しませんでした（ファイルが壊れている可能性があります）`;
 }
 
 export function dropoutText(d: DropoutCounts): string {

@@ -8,6 +8,8 @@ import {
   dropoutText,
   errorText,
   formatTime,
+  integrityFailuresText,
+  integrityText,
   outputModeText,
   priorityText,
   queueText,
@@ -220,6 +222,53 @@ describe("output path texts", () => {
   });
   it("shows nothing about volume when the output has none", () => {
     expect(volumeText(asio("perChannel", "Int24LSB"))).toBe("");
+  });
+});
+
+describe("integrity texts", () => {
+  const withCheck = (state: PlaybackStatus["integrity"]["state"], decodeErrors = 0, failures: number[] = []): PlaybackStatus => ({
+    ...emptyStatus,
+    state: "playing",
+    integrity: { state, decodeErrors },
+    integrityFailures: failures,
+  });
+  it("explains each state of the MD5 check", () => {
+    expect(integrityText(withCheck("passed"))).toContain("一致");
+    expect(integrityText(withCheck("pending"))).toContain("最後まで");
+    expect(integrityText(withCheck("skipped"))).toContain("シーク");
+    expect(integrityText(withCheck("notAvailable"))).toContain("記録されていません");
+  });
+  it("says what a failure means without guessing more", () => {
+    const t = integrityText(withCheck("failed"));
+    expect(t).toContain("一致しません");
+    expect(t).toContain("壊れている可能性");
+  });
+  it("mentions decoder errors", () => {
+    expect(integrityText(withCheck("failed", 3))).toContain("3 か所");
+  });
+  it("names the file type in the input line once it is known", () => {
+    const s: PlaybackStatus = {
+      ...emptyStatus,
+      sourceFormat: f(96000, 24, 20),
+      path: {
+        container: "FLAC",
+        processing: false,
+        output: {
+          api: "dummy",
+          periodFrames: 480,
+          periodMilliseconds: 5,
+          eventDriven: false,
+          layout: "interleaved",
+          asio: null,
+          endpointVolume: null,
+        },
+      },
+    };
+    expect(inputText(s)).toBe("96 kHz / 20bit（24bit コンテナ）/ 2ch（FLAC）");
+  });
+  it("lists earlier tracks whose check failed", () => {
+    expect(integrityFailuresText(withCheck("passed", 0, [0, 2]))).toContain("1、3 曲目");
+    expect(integrityFailuresText(withCheck("passed"))).toBe("");
   });
 });
 

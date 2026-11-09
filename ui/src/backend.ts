@@ -84,7 +84,7 @@ const fmt24 = (sampleRate: number) => ({
 
 // What a WASAPI exclusive output reports for a track (10 ms periods).
 const mockPath = (t: MockTrack): SignalPath => ({
-  container: t.dsdRate ? "DSF" : "WAV",
+  container: t.dsdRate ? "DSF" : t.name.endsWith(".flac") ? "FLAC" : "WAV",
   processing: false,
   output: {
     api: "wasapiExclusive",
@@ -99,8 +99,8 @@ const mockPath = (t: MockTrack): SignalPath => ({
 
 // Three tracks with a rate change, for working on the page in a browser.
 export const DEMO_QUEUE: MockTrack[] = [
-  { name: "（試験用）01_44k.wav", sampleRate: 44100, seconds: 8 },
-  { name: "（試験用）02_44k.wav", sampleRate: 44100, seconds: 8 },
+  { name: "（試験用）01_44k.flac", sampleRate: 44100, seconds: 8 },
+  { name: "（試験用）02_44k.flac", sampleRate: 44100, seconds: 8 },
   { name: "（試験用）03_96k.wav", sampleRate: 96000, seconds: 8 },
   { name: "（試験用）04_dsd64.dsf", sampleRate: 176400, seconds: 8, dsdRate: 2822400 },
 ];
@@ -129,6 +129,8 @@ export class MockBackend implements Backend {
       dop: t.dsdRate ? { dsdRate: t.dsdRate, container: "DSF" } : null,
       outputFormat: null,
       path: null,
+      // FLAC: pending until the read-ahead has decoded the whole file (shown as passed once playing).
+      integrity: { state: t.name.endsWith(".flac") ? ("pending" as const) : ("notAvailable" as const), decodeErrors: 0 },
       totalFrames: Math.round(t.sampleRate * t.seconds),
       positionFrames: 0,
     };
@@ -143,6 +145,7 @@ export class MockBackend implements Backend {
       outputName: "（模擬）出力デバイス",
       outputFormat: this.status.sourceFormat && { ...this.status.sourceFormat, containerBits: 32 },
       path: mockPath(this.tracks[this.status.queueIndex]),
+      integrity: this.status.integrity.state === "pending" ? { state: "passed", decodeErrors: 0 } : this.status.integrity,
       repack: "widerContainer",
       dropouts: { ...this.status.dropouts, realtimePriority: true },
     });

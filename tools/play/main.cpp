@@ -504,6 +504,23 @@ std::string transitionText(const TrackTransition& t)
                        t.switchMilliseconds);
 }
 
+std::string integrityText(const IntegrityCheck& c)
+{
+    switch (c.state)
+    {
+        case IntegrityState::Passed:  return "MD5 一致（デコードした音声データが、ファイルに記録された値と同じ）";
+        case IntegrityState::Pending: return "照合中（最後まで読んでいない）";
+        case IntegrityState::Skipped: return "照合できない（途中にシークした）";
+        case IntegrityState::Failed:
+            return c.decodeErrors > 0
+                       ? std::format("デコーダーがファイルの中の {} か所でデータの誤りを見つけた（ファイルが壊れている可能性がある）",
+                                     c.decodeErrors)
+                       : "MD5 が一致しない（ファイルが壊れている可能性がある）";
+        case IntegrityState::NotAvailable: return "照合用の値（MD5）がファイルにない";
+    }
+    return {};
+}
+
 // The output part of the path, as the output reported it after opening.
 std::string outputModeText(const SignalPath& p)
 {
@@ -589,7 +606,7 @@ int runQueue(const Options& o)
         }
         else
         {
-            print(std::format("  形式: {}、長さ {}\n", describe(src.format()),
+            print(std::format("  形式: {}（{}）、長さ {}\n", describe(src.format()), src.containerName(),
                               duration(src.totalFrames(), src.format().sampleRate)));
         }
         if (dummy)
@@ -773,6 +790,14 @@ int runQueue(const Options& o)
                       d.total(), d.lateBuffers, d.readStarvations, d.starvedFrames, d.deviceTimeouts));
     print(std::format("再生スレッド: {}\n", d.realtimePriority ? "MMCSS（Pro Audio）で優先度を上げた"
                                                               : "通常の優先度（MMCSS は使っていない）"));
+    print(std::format("ファイルの検証（{} 曲目）: {}\n", s.queueIndex + 1, integrityText(s.integrity)));
+    if (!s.integrityFailures.empty())
+    {
+        std::string list;
+        for (const auto i : s.integrityFailures)
+            list += (list.empty() ? "" : "、") + std::to_string(i + 1);
+        print(std::format("ファイルの検証: {} 曲目は MD5 が一致しなかった（ファイルが壊れている可能性がある）\n", list));
+    }
 
     if (dummy && s.state == PlayerState::Ended)
     {
