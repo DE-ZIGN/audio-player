@@ -32,4 +32,14 @@ void mfWriteAacM4a(const std::filesystem::path& path, const MfPcm& pcm);
 // `bitsPerSample` container bits. Throws std::runtime_error.
 MfPcm mfDecode(const std::filesystem::path& path, std::uint16_t bitsPerSample);
 
+struct MfFloat
+{
+    std::uint32_t sampleRate = 0;
+    std::uint16_t channels = 0;
+    std::vector<float> samples; // interleaved, 1.0 = full scale
+};
+
+// Decodes a file with Media Foundation to 32-bit float (for lossy formats). Throws std::runtime_error.
+MfFloat mfDecodeFloat(const std::filesystem::path& path);
+
 } // namespace ap::test

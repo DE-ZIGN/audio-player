@@ -132,6 +132,47 @@ void writeM4a(const std::filesystem::path& path, const MfPcm& pcm, const GUID& c
 
 } // namespace
 
+MfFloat mfDecodeFloat(const std::filesystem::path& path)
+{
+    MfScope mf;
+    ComPtr<IMFSourceReader> reader;
+    check(MFCreateSourceReaderFromURL(path.c_str(), nullptr, &reader), "MFCreateSourceReaderFromURL");
+    const DWORD audio = static_cast<DWORD>(MF_SOURCE_READER_FIRST_AUDIO_STREAM);
+    ComPtr<IMFMediaType> native;
+    check(reader->GetNativeMediaType(audio, 0, &native), "GetNativeMediaType");
+    UINT32 rate = 0, channels = 0;
+    check(native->GetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, &rate), "native rate");
+    check(native->GetUINT32(MF_MT_AUDIO_NUM_CHANNELS, &channels), "native channels");
+
+    ComPtr<IMFMediaType> want;
+    check(MFCreateMediaType(&want), "MFCreateMediaType");
+    check(want->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio), "SetGUID(major)");
+    check(want->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_Float), "SetGUID(float)");
+    check(reader->SetCurrentMediaType(audio, nullptr, want.Get()), "SetCurrentMediaType (float)");
+
+    MfFloat result{rate, static_cast<std::uint16_t>(channels), {}};
+    for (;;)
+    {
+        DWORD flags = 0;
+        ComPtr<IMFSample> sample;
+        check(reader->ReadSample(audio, 0, nullptr, &flags, nullptr, &sample), "ReadSample");
+        if (sample)
+        {
+            ComPtr<IMFMediaBuffer> buffer;
+            check(sample->ConvertToContiguousBuffer(&buffer), "ConvertToContiguousBuffer");
+            BYTE* p = nullptr;
+            DWORD length = 0;
+            check(buffer->Lock(&p, nullptr, &length), "Lock");
+            const auto* f = reinterpret_cast<const float*>(p);
+            result.samples.insert(result.samples.end(), f, f + length / sizeof(float));
+            buffer->Unlock();
+        }
+        if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
+            break;
+    }
+    return result;
+}
+
 MfPcm mfDecode(const std::filesystem::path& path, std::uint16_t bitsPerSample)
 {
     MfScope mf;

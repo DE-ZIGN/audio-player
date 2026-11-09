@@ -52,17 +52,22 @@ TEST_CASE("Each supported format is recognised by its content", "[engine][audiof
 TEST_CASE("Unknown files are refused with a reason", "[engine][audiofile]")
 {
     ap::test::TempDir dir;
-    const auto mp3ish = dir.write("x.mp3", std::vector<std::uint8_t>{0xFF, 0xFB, 0x90, 0x64, 0, 0, 0, 0, 0, 0, 0, 0});
-    CHECK_THROWS_AS(openAudioFile(mp3ish), UnsupportedAudioFileError);
+    // Formats the player does not read.
+    const auto ogg = dir.write("x.ogg", std::vector<std::uint8_t>{'O', 'g', 'g', 'S', 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+    CHECK_THROWS_AS(openAudioFile(ogg), UnsupportedAudioFileError);
     CHECK_THROWS_AS(openAudioFile(dir.path() / "missing.flac"), UnsupportedAudioFileError);
-    // An ID3 tag that is not followed by FLAC.
-    std::vector<std::uint8_t> id3{'I', 'D', '3', 3, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0xFF, 0xFB, 0x90, 0x64};
+    // An ID3 tag followed by nothing known.
+    std::vector<std::uint8_t> id3{'I', 'D', '3', 3, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 'x', 'y', 'z', 'w'};
     CHECK_THROWS_AS(openAudioFile(dir.write("y.mp3", id3)), UnsupportedAudioFileError);
+    // An MPEG audio header with no audio after it: recognised as MP3, refused by the MP3 reader.
+    const auto mp3ish = dir.write("z.mp3", std::vector<std::uint8_t>{0xFF, 0xFB, 0x90, 0x64, 0, 0, 0, 0, 0, 0, 0, 0});
+    CHECK(detectAudioFile(mp3ish) == AudioFileKind::Mp3);
+    CHECK_THROWS(openAudioFile(mp3ish));
 }
 
 TEST_CASE("The file dialog pattern lists every supported extension", "[engine][audiofile]")
 {
     const std::string p = supportedAudioFilePattern();
-    for (const char* ext : {"*.wav", "*.flac", "*.aif", "*.aiff", "*.aifc", "*.dsf", "*.dff"})
+    for (const char* ext : {"*.wav", "*.flac", "*.aif", "*.aiff", "*.aifc", "*.m4a", "*.mp3", "*.dsf", "*.dff"})
         CHECK(p.find(ext) != std::string::npos);
 }

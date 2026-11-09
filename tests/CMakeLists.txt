@@ -33,13 +33,33 @@ target_compile_definitions(ap_alac_encoder PRIVATE TARGET_OS_WIN32=1)
 target_compile_options(ap_alac_encoder PRIVATE /W0)
 set_target_properties(ap_alac_encoder PROPERTIES FOLDER "tests")
 
+# LAME 3.100 (LGPL), for making MP3 test files with a LAME tag (encoder delay
+# and padding, needed for gapless playback); test-only, not part of the
+# application. LAME has no CMake build: the library is built from its sources
+# with its MSVC configuration header (configMS.h as config.h).
+FetchContent_Declare(lame
+    URL      https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
+    URL_HASH SHA256=ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(lame) # no CMakeLists.txt in LAME: this only downloads it
+file(GLOB AP_LAME_SOURCES "${lame_SOURCE_DIR}/libmp3lame/*.c")
+add_library(ap_lame STATIC ${AP_LAME_SOURCES} "${lame_SOURCE_DIR}/libmp3lame/vector/xmm_quantize_sub.c")
+configure_file("${lame_SOURCE_DIR}/configMS.h" "${CMAKE_CURRENT_BINARY_DIR}/lame_config/config.h" COPYONLY)
+target_include_directories(ap_lame
+    PUBLIC "${lame_SOURCE_DIR}/include"
+    PRIVATE "${lame_SOURCE_DIR}/libmp3lame" "${CMAKE_CURRENT_BINARY_DIR}/lame_config")
+target_compile_definitions(ap_lame PRIVATE HAVE_CONFIG_H _CRT_SECURE_NO_WARNINGS)
+target_compile_options(ap_lame PRIVATE /W0)
+set_target_properties(ap_lame PROPERTIES FOLDER "tests")
+
 add_library(ap_test_support STATIC
     support/wav_reader.cpp
     support/mf_audio.cpp
-    support/alac_m4a_writer.cpp)
+    support/alac_m4a_writer.cpp
+    support/mp3_writer.cpp)
 target_include_directories(ap_test_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/support)
 # Media Foundation: an independent ALAC encoder/decoder for making and checking test files.
-target_link_libraries(ap_test_support PUBLIC mfplat mfreadwrite mfuuid ole32 ap_alac_encoder)
+target_link_libraries(ap_test_support PUBLIC mfplat mfreadwrite mfuuid ole32 ap_alac_encoder ap_lame)
 target_compile_features(ap_test_support PUBLIC cxx_std_20)
 ap_apply_compiler_settings(ap_test_support)
 set_target_properties(ap_test_support PROPERTIES FOLDER "tests")
@@ -69,6 +89,7 @@ target_compile_definitions(ap_engine_unit_tests PRIVATE
     AP_EXPECTED_VERSION_MINOR=${PROJECT_VERSION_MINOR}
     AP_EXPECTED_VERSION_PATCH=${PROJECT_VERSION_PATCH})
 ap_apply_compiler_settings(ap_engine_unit_tests)
+ap_copy_engine_dlls(ap_engine_unit_tests) # before test discovery, which runs the program
 set_target_properties(ap_engine_unit_tests PROPERTIES FOLDER "tests")
 
 catch_discover_tests(ap_engine_unit_tests ${AP_DISCOVER_ARGS}
@@ -88,10 +109,12 @@ if(TARGET ap_signalgen_lib)
         unit/signal_path_test.cpp
         unit/flac_file_source_test.cpp
         unit/audio_file_test.cpp
-        unit/alac_file_source_test.cpp)
+        unit/alac_file_source_test.cpp
+        unit/mp3_file_source_test.cpp)
     target_link_libraries(ap_engine_signal_tests PRIVATE
         ap_engine ap_signalgen_lib ap_test_support ap_asiosdk ole32 Catch2::Catch2WithMain)
     ap_apply_compiler_settings(ap_engine_signal_tests)
+ap_copy_engine_dlls(ap_engine_signal_tests) # before test discovery, which runs the program
     set_target_properties(ap_engine_signal_tests PROPERTIES FOLDER "tests")
 
     catch_discover_tests(ap_engine_signal_tests ${AP_DISCOVER_ARGS}
@@ -99,10 +122,12 @@ if(TARGET ap_signalgen_lib)
 
     # CLAUDE.md chapter 5 acceptance criteria
     add_executable(ap_acceptance_tests
-        acceptance/bitperfect_test.cpp)
+        acceptance/bitperfect_test.cpp
+        acceptance/lossy_test.cpp)
     target_link_libraries(ap_acceptance_tests PRIVATE
         ap_engine ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
     ap_apply_compiler_settings(ap_acceptance_tests)
+ap_copy_engine_dlls(ap_acceptance_tests) # before test discovery, which runs the program
     set_target_properties(ap_acceptance_tests PROPERTIES FOLDER "tests")
 
     catch_discover_tests(ap_acceptance_tests ${AP_DISCOVER_ARGS}
