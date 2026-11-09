@@ -423,6 +423,36 @@ TEST_CASE("MP4: damaged tables are refused, truncated files are handled", "[engi
     }
 }
 
+// Compares our decode of %AP_PROBE_IN% (any ALAC .m4a) with the Windows decoder's
+// (run explicitly: set AP_PROBE_IN, then run "Probe: compare a file with the Windows decoder").
+TEST_CASE("Probe: compare a file with the Windows decoder", "[.probe]")
+{
+    wchar_t* in = nullptr;
+    std::size_t len = 0;
+    if (_wdupenv_s(&in, &len, L"AP_PROBE_IN") != 0 || !in)
+        return;
+    const std::filesystem::path path(in);
+    std::free(in);
+
+    AlacFileSource src(path);
+    const auto ours = readAll(src, 65536);
+    const auto theirs = ap::test::mfDecode(path, src.format().containerBits).data;
+    const std::size_t bpf = src.format().bytesPerFrame();
+    std::size_t firstDiff = SIZE_MAX;
+    for (std::size_t i = 0; i < std::min(ours.size(), theirs.size()); ++i)
+        if (ours[i] != theirs[i])
+        {
+            firstDiff = i;
+            break;
+        }
+    std::printf("ours %zu frames, Windows %zu frames, identical over the common part: %s",
+                ours.size() / bpf, theirs.size() / bpf, firstDiff == SIZE_MAX ? "yes" : "no");
+    if (firstDiff != SIZE_MAX)
+        std::printf(" (first difference at frame %zu)", firstDiff / bpf);
+    std::printf("\n");
+    CHECK(firstDiff == SIZE_MAX);
+}
+
 // Lists what the Windows ALAC encoder accepts (run explicitly with "[.probe]").
 TEST_CASE("Probe: Windows ALAC encoder formats", "[.probe]")
 {
