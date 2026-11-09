@@ -6,6 +6,7 @@
 //   ap_play FILE... [--device N|ID] [--exact-only] [--check]
 //   ap_play FILE... --dummy OUT.raw [--exact-only]
 
+#include <ap/engine/aac_file_source.h>
 #include <ap/engine/aiff_file_source.h>
 #include <ap/engine/alac_file_source.h>
 #include <ap/engine/audio_file.h>
@@ -110,7 +111,7 @@ std::string rejectionText(const FormatCheck& c, const PcmFormat& f)
             return std::format("このデバイスは {} チャンネルに対応していません。", f.channels);
         case FormatRejection::SampleType:
             return f.type == SampleType::Float
-                       ? "このデバイスは浮動小数点の形式に対応していません。MP3 など非可逆の形式は浮動小数点で出てくるため、"
+                       ? "このデバイスは浮動小数点の形式に対応していません。MP3・AAC など非可逆の形式は浮動小数点で出てくるため、"
                          "ディザをかけて整数にする処理経路（M3）ができるまで、このデバイスでは再生できません（勝手に変換はしません）。"
                        : "このデバイスはこの形式（整数 / 浮動小数点）に対応していません。";
         default:
@@ -457,7 +458,7 @@ int listFormats(const Options& o)
         row += std::format("  {:^15}", out.checkFormat(f32).supported ? "○" : "-");
         print(row + "\n");
     }
-    print("（MP3 など非可逆の形式は 32bit 浮動小数点で出てくる。浮動小数点を受け付けないデバイスでは、"
+    print("（MP3・AAC など非可逆の形式は 32bit 浮動小数点で出てくる。浮動小数点を受け付けないデバイスでは、"
           "ディザをかけて整数にする処理経路（M3）ができるまで再生できない）\n");
     return 0;
 }
@@ -913,7 +914,7 @@ int main(int argc, char** argv)
     }
     catch (const UnsupportedAudioFileError& e)
     {
-        printErr(std::string("このファイルは読めません（WAV、FLAC、AIFF、ALAC（.m4a）、MP3、DSF、DFF に対応）: ") + e.what() + "\n");
+        printErr(std::string("このファイルは読めません（WAV、FLAC、AIFF、ALAC・AAC（.m4a）、MP3、DSF、DFF に対応）: ") + e.what() + "\n");
         return 5;
     }
     catch (const FlacFormatError& e)
@@ -934,6 +935,11 @@ int main(int argc, char** argv)
     catch (const Mp4FormatError& e)
     {
         printErr(std::string("このファイルは読めません（MP4）: ") + e.what() + "\n");
+        return 5;
+    }
+    catch (const AacFormatError& e)
+    {
+        printErr(std::string("このファイルは読めません（AAC）: ") + e.what() + "\n");
         return 5;
     }
     catch (const Mp3FormatError& e)

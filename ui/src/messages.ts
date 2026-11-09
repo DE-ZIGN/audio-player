@@ -142,7 +142,7 @@ export function integrityText(s: PlaybackStatus): string {
         ? `デコーダーがファイルの中の ${c.decodeErrors} か所でデータの誤りを見つけました。ファイルが壊れている可能性があります`
         : "MD5 が一致しません。ファイルが壊れている可能性があります";
     case "notAvailable":
-      return "このファイルには照合用の値（MD5）が記録されていません（WAV・AIFF・ALAC・MP3・DSD と、MD5 のない FLAC）";
+      return "このファイルには照合用の値（MD5）が記録されていません（WAV・AIFF・ALAC・MP3・AAC・DSD と、MD5 のない FLAC）";
   }
 }
 
@@ -206,7 +206,7 @@ export function errorText(s: PlaybackStatus): string {
         return `このデバイスは ${fmt?.channels ?? ""} チャンネルに対応していません。`;
       case "sampleType":
         return fmt?.sampleType === "float"
-          ? "このデバイスは浮動小数点の形式に対応していません。MP3 など非可逆の形式は浮動小数点で出てくるため、" +
+          ? "このデバイスは浮動小数点の形式に対応していません。MP3・AAC など非可逆の形式は浮動小数点で出てくるため、" +
               "ディザをかけて整数にする処理（今後追加）ができるまで、このデバイスでは再生できません（勝手に変換はしません）。"
           : "このデバイスはこの形式（整数 / 浮動小数点）に対応していません。";
       default:
