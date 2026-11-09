@@ -6,8 +6,12 @@
 //   ap_play FILE... [--device N|ID] [--exact-only] [--check]
 //   ap_play FILE... --dummy OUT.raw [--exact-only]
 
+#include <ap/engine/aiff_file_source.h>
+#include <ap/engine/alac_file_source.h>
 #include <ap/engine/audio_file.h>
 #include <ap/engine/dsd_source.h>
+#include <ap/engine/flac_file_source.h>
+#include <ap/engine/mp4_reader.h>
 #include <ap/engine/output/asio_output.h>
 #include <ap/engine/output/asio_probe.h>
 #include <ap/engine/output/asio_sample_types.h>
@@ -897,6 +901,36 @@ int main(int argc, char** argv)
     catch (const WavFormatError& e)
     {
         printErr(std::string("このファイルは読めません: ") + e.what() + "\n");
+        return 5;
+    }
+    catch (const UnsupportedAudioFileError& e)
+    {
+        printErr(std::string("このファイルは読めません（WAV、FLAC、AIFF、ALAC（.m4a）、DSF、DFF に対応）: ") + e.what() + "\n");
+        return 5;
+    }
+    catch (const FlacFormatError& e)
+    {
+        printErr(std::string("このファイルは読めません（FLAC）: ") + e.what() + "\n");
+        return 5;
+    }
+    catch (const AiffFormatError& e)
+    {
+        printErr(std::string("このファイルは読めません（AIFF）: ") + e.what() + "\n");
+        return 5;
+    }
+    catch (const AlacFormatError& e)
+    {
+        printErr(std::string("このファイルは読めません（ALAC）: ") + e.what() + "\n");
+        return 5;
+    }
+    catch (const Mp4FormatError& e)
+    {
+        printErr(std::string("このファイルは読めません（MP4）: ") + e.what() + "\n");
+        return 5;
+    }
+    catch (const DsdFormatError& e)
+    {
+        printErr(std::string("このファイルは読めません（DSD）: ") + e.what() + "\n");
         return 5;
     }
     catch (const std::exception& e)
