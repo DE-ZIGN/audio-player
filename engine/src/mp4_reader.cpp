@@ -407,7 +407,54 @@ Mp4AudioTrack readMp4AudioTrack(const std::filesystem::path& path)
             }
         }
     }
+    // iTunes gapless information: moov/udta/meta/ilst/"----" with name "iTunSMPB".
+    if (const auto udta = r.find(moov->body, moov->end, "udta"))
+        if (const auto meta = r.find(udta->body, udta->end, "meta"))
+            if (const auto ilst = r.find(meta->body + 4, meta->end, "ilst")) // meta is a full box
+                for (auto pos = ilst->body; auto item = r.boxAt(pos, ilst->end); pos = item->end)
+                {
+                    if (!item->is("----"))
+                        continue;
+                    const auto name = r.find(item->body, item->end, "name");
+                    const auto data = r.find(item->body, item->end, "data");
+                    if (!name || !data)
+                        continue;
+                    const auto n = r.payload(*name, kMaxSmallBox);
+                    if (n.size() < 4 || std::string(n.begin() + 4, n.end()) != "iTunSMPB")
+                        continue;
+                    const auto d = r.payload(*data, kMaxSmallBox);
+                    if (d.size() > 8)
+                        t.itunSmpb = parseITunSmpb(std::string_view(reinterpret_cast<const char*>(d.data()) + 8, d.size() - 8));
+                }
     return t;
+}
+
+std::optional<Mp4AudioTrack::ITunSmpb> parseITunSmpb(std::string_view text)
+{
+    // Whitespace-separated hexadecimal fields; field 1 = priming, 2 = padding, 3 = original length.
+    std::vector<std::uint64_t> fields;
+    std::size_t i = 0;
+    while (i < text.size() && fields.size() < 4)
+    {
+        while (i < text.size() && (text[i] == ' ' || text[i] == '\0'))
+            ++i;
+        if (i >= text.size())
+            break;
+        std::uint64_t v = 0;
+        std::size_t digits = 0;
+        for (; i < text.size() && text[i] != ' ' && text[i] != '\0'; ++i, ++digits)
+        {
+            const char c = text[i];
+            const int h = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+            if (h < 0 || digits >= 16)
+                return std::nullopt;
+            v = v * 16 + static_cast<std::uint64_t>(h);
+        }
+        fields.push_back(v);
+    }
+    if (fields.size() < 4)
+        return std::nullopt;
+    return Mp4AudioTrack::ITunSmpb{fields[1], fields[2], fields[3]};
 }
 
 } // namespace ap::engine

@@ -230,7 +230,7 @@ TEST_CASE("ALAC seeks to an exact frame", "[engine][alac][seek]")
     CHECK(src.read(buf) == 0u);
 }
 
-TEST_CASE("openAudioFile opens ALAC and refuses AAC with a reason", "[engine][alac][audiofile]")
+TEST_CASE("openAudioFile opens ALAC and AAC .m4a files by their codec", "[engine][alac][audiofile]")
 {
     ap::test::TempDir dir;
     const auto pcm = makePcm(44100, 2, 16, 8000);
@@ -240,15 +240,8 @@ TEST_CASE("openAudioFile opens ALAC and refuses AAC with a reason", "[engine][al
 
     const auto aac = dir.path() / "b.m4a";
     ap::test::mfWriteAacM4a(aac, MfPcm{44100, 2, 16, pcm});
-    try
-    {
-        openAudioFile(aac);
-        FAIL("AAC should be refused for now");
-    }
-    catch (const UnsupportedAudioFileError& e)
-    {
-        CHECK(std::string(e.what()).find("AAC") != std::string::npos);
-    }
+    CHECK(detectAudioFile(aac) == AudioFileKind::Mp4);
+    CHECK(openAudioFile(aac)->containerName() == "AAC");
 }
 
 TEST_CASE("ALAC: hostile configurations are refused before they size anything", "[engine][alac][hardening]")
@@ -451,6 +444,18 @@ TEST_CASE("Probe: compare a file with the Windows decoder", "[.probe]")
         std::printf(" (first difference at frame %zu)", firstDiff / bpf);
     std::printf("\n");
     CHECK(firstDiff == SIZE_MAX);
+}
+
+// Writes a Windows-made AAC file to %AP_PROBE_OUT% for inspection (run with "[.probe]").
+TEST_CASE("Probe: keep a Windows AAC file", "[.probe]")
+{
+    wchar_t* out = nullptr;
+    std::size_t len = 0;
+    if (_wdupenv_s(&out, &len, L"AP_PROBE_OUT") != 0 || !out)
+        return;
+    const std::filesystem::path path(out);
+    std::free(out);
+    ap::test::mfWriteAacM4a(path, MfPcm{44100, 2, 16, makePcm(44100, 2, 16, 4410 * 3 + 123)});
 }
 
 // Lists what the Windows ALAC encoder accepts (run explicitly with "[.probe]").

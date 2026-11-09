@@ -8,8 +8,10 @@
 #include <cstdint>
 #include <filesystem>
 #include <istream>
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace ap::engine {
@@ -42,7 +44,21 @@ struct Mp4AudioTrack
     std::uint64_t editStart = 0;
     std::uint64_t editFrames = 0;
     bool hasEditList = false;
+
+    // iTunes gapless information (udta/meta/ilst "----" item "iTunSMPB"):
+    // encoder priming, padding and the original length, in output samples.
+    struct ITunSmpb
+    {
+        std::uint64_t priming = 0;
+        std::uint64_t padding = 0;
+        std::uint64_t originalFrames = 0;
+    };
+    std::optional<ITunSmpb> itunSmpb;
 };
+
+// Parses the text of an iTunSMPB value (" 00000000 00000840 000001CA 00000000003F31F6 ...").
+// Returns nothing if it is malformed.
+std::optional<Mp4AudioTrack::ITunSmpb> parseITunSmpb(std::string_view text);
 
 // Throws Mp4FormatError.
 Mp4AudioTrack readMp4AudioTrack(const std::filesystem::path& path);

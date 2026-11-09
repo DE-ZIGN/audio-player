@@ -1,5 +1,6 @@
 #include <ap/engine/audio_file.h>
 
+#include <ap/engine/aac_file_source.h>
 #include <ap/engine/aiff_file_source.h>
 #include <ap/engine/alac_file_source.h>
 #include <ap/engine/mp3_file_source.h>
@@ -104,7 +105,7 @@ std::unique_ptr<PcmSource> openAudioFile(const std::filesystem::path& path)
             if (codec == "alac")
                 return std::make_unique<AlacFileSource>(path);
             if (codec == "mp4a")
-                throw UnsupportedAudioFileError("AAC is not supported yet (task 2-4): " + path.string());
+                return std::make_unique<AacFileSource>(path);
             throw UnsupportedAudioFileError("unsupported codec '" + codec + "' in " + path.string());
         }
         case AudioFileKind::Dsf:

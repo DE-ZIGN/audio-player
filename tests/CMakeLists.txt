@@ -56,10 +56,11 @@ add_library(ap_test_support STATIC
     support/wav_reader.cpp
     support/mf_audio.cpp
     support/alac_m4a_writer.cpp
-    support/mp3_writer.cpp)
+    support/mp3_writer.cpp
+    support/m4a_muxer.cpp)
 target_include_directories(ap_test_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/support)
 # Media Foundation: an independent ALAC encoder/decoder for making and checking test files.
-target_link_libraries(ap_test_support PUBLIC mfplat mfreadwrite mfuuid ole32 ap_alac_encoder ap_lame)
+target_link_libraries(ap_test_support PUBLIC mfplat mfreadwrite mfuuid ole32 ap_alac_encoder ap_lame ap_engine)
 target_compile_features(ap_test_support PUBLIC cxx_std_20)
 ap_apply_compiler_settings(ap_test_support)
 set_target_properties(ap_test_support PROPERTIES FOLDER "tests")
@@ -110,7 +111,8 @@ if(TARGET ap_signalgen_lib)
         unit/flac_file_source_test.cpp
         unit/audio_file_test.cpp
         unit/alac_file_source_test.cpp
-        unit/mp3_file_source_test.cpp)
+        unit/mp3_file_source_test.cpp
+        unit/aac_file_source_test.cpp)
     target_link_libraries(ap_engine_signal_tests PRIVATE
         ap_engine ap_signalgen_lib ap_test_support ap_asiosdk ole32 Catch2::Catch2WithMain)
     ap_apply_compiler_settings(ap_engine_signal_tests)

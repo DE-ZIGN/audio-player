@@ -20,7 +20,7 @@ enum class AudioFileKind
     Flac, // also behind ID3v2 tags
     Mp3,  // MPEG audio (Layer I/II/III), also behind ID3v2 tags
     Aiff, // AIFF, AIFC
-    Mp4,  // .m4a / .mp4: ALAC (AAC is task 2-4)
+    Mp4,  // .m4a / .mp4: ALAC or AAC
     Dsf,
     Dff,
 };
