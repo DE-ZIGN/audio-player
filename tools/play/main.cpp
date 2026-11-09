@@ -615,12 +615,16 @@ int runQueue(const Options& o)
             while (const auto n = src.read(buf))
                 inputHash.update(std::span(buf).first(n * src.format().bytesPerFrame()));
         }
-        // Read ahead on a separate thread so the playback thread never waits
-        // for the disk (dropout prevention only).
+        // Devices: read ahead on a separate thread so the playback thread never
+        // waits for the disk (dropout prevention only). Dummy output: read the
+        // file directly. The dummy takes data as fast as it can, not at the
+        // playback rate, so it would outrun the read-ahead, which then fills
+        // silence (as it must for a device); the byte check needs every byte.
         const bool stallHere = i == 0 && o.stallMilliseconds > 0;
         items.push_back({reinterpret_cast<const char*>(path.filename().u8string().c_str()),
-                         [path, stallHere, at = o.stallAtSeconds, ms = o.stallMilliseconds]() -> std::unique_ptr<PcmSource> {
-                             auto src = std::make_unique<PrefetchingSource>(openAudioFile(path));
+                         [path, stallHere, dummy, at = o.stallAtSeconds, ms = o.stallMilliseconds]() -> std::unique_ptr<PcmSource> {
+                             std::unique_ptr<PcmSource> src =
+                                 dummy ? openAudioFile(path) : std::make_unique<PrefetchingSource>(openAudioFile(path));
                              if (!stallHere)
                                  return src;
                              const auto frame = static_cast<std::uint64_t>(at * src->format().sampleRate);
@@ -805,9 +809,10 @@ int runQueue(const Options& o)
         const auto out = toHex(sha256File(fs::path{o.dummy}));
         print(std::format("入力 PCM（全曲をつなげたもの）の SHA-256: {}\n出力の SHA-256:                         {}\n", in, out));
         const bool repacked = s.plan && s.plan->repack != Repack::None;
-        print(in == out ? "一致（ビットパーフェクト、曲の境目に欠けも重なりもなし）\n"
-              : repacked ? "不一致（詰め替えたため。詰め替え前の値は保たれています）\n"
-                         : "不一致\n");
+        print(in == out                      ? "一致（ビットパーフェクト、曲の境目に欠けも重なりもなし）\n"
+              : repacked                     ? "不一致（詰め替えたため。詰め替え前の値は保たれています）\n"
+              : s.dropouts.readStarvations > 0 ? "不一致（読み込みが間に合わず、無音で埋めたため）\n"
+                                             : "不一致\n");
         if (in != out && !repacked)
             return 1;
     }
