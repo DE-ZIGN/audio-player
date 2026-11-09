@@ -1,4 +1,4 @@
-// ap_signalgen: writes test signals as WAV files.
+// ap_signalgen: writes test signals as WAV files (or FLAC when --out ends in .flac).
 //
 //   ap_signalgen isp        --out FILE [common] [--level dB]
 //   ap_signalgen sine       --out FILE [common] [--freq Hz] [--level dB]
@@ -11,6 +11,7 @@
 #include <ap/signalgen/pcm.h>
 #include <ap/signalgen/signals.h>
 #include <ap/signalgen/dsd.h>
+#include <ap/signalgen/flac_writer.h>
 #include <ap/signalgen/wav_writer.h>
 
 #include <windows.h>
@@ -51,6 +52,7 @@ constexpr const char* kUsage =
     "\n"
     "共通: --rate Hz(48000) --bits 16|24|32|f32|f64(24) --channels N(2) --seconds S(1)\n"
     "dBFS はピーク基準（ピークがフルスケールのサイン波 = 0 dBFS）。整数への変換は四捨五入でディザなし。\n"
+    "--out の拡張子が .flac なら FLAC（整数形式のみ、MD5 と 1 秒ごとのシーク表つき）、それ以外は WAV で書き出す。\n"
     "\n"
     "Usage: see the comment at the top of tools/signalgen/src/main.cpp.\n";
 
@@ -220,7 +222,18 @@ Job jobFromArgs(const Args& a, const std::string& signal)
 
 void writeJob(const Job& j, const fs::path& path)
 {
-    writeWav(path, render(j));
+    auto ext = path.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (ext == ".flac")
+    {
+        if (!isInteger(j.format))
+            throw UsageError("FLAC は整数形式（16, 24, 32）だけです");
+        writeFlac(path, render(j));
+    }
+    else
+    {
+        writeWav(path, render(j));
+    }
     const auto text = path.u8string(); // console code page is UTF-8
     std::fwrite(text.data(), 1, text.size(), stdout);
     std::fputc('\n', stdout);

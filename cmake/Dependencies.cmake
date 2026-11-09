@@ -13,6 +13,32 @@ include(FetchContent)
 add_library(ap_asiosdk INTERFACE)
 target_include_directories(ap_asiosdk SYSTEM INTERFACE "${CMAKE_SOURCE_DIR}/third_party/asiosdk/common")
 
+# libFLAC 1.5.0 (official release tarball), BSD-3-Clause (COPYING.Xiph).
+# Only the C library is built: no programs (GPL), libFLAC++, Ogg, tests,
+# examples or docs. The options are set inside a block so they do not leak
+# into this project (FLAC requires CMake >= 3.12, so option() honours them).
+block(SCOPE_FOR VARIABLES)
+    set(BUILD_CXXLIBS OFF)
+    set(BUILD_PROGRAMS OFF)
+    set(BUILD_EXAMPLES OFF)
+    set(BUILD_TESTING OFF)
+    set(BUILD_DOCS OFF)
+    set(BUILD_SHARED_LIBS OFF)
+    set(WITH_OGG OFF)
+    set(INSTALL_MANPAGES OFF)
+    set(INSTALL_PKGCONFIG_MODULES OFF)
+    set(INSTALL_CMAKE_CONFIG_MODULE OFF)
+    set(ENABLE_MULTITHREADING OFF)
+    FetchContent_Declare(flac
+        URL      https://github.com/xiph/flac/releases/download/1.5.0/flac-1.5.0.tar.xz
+        URL_HASH SHA256=f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        SYSTEM
+        EXCLUDE_FROM_ALL)
+    FetchContent_MakeAvailable(flac)
+endblock()
+set_target_properties(FLAC PROPERTIES FOLDER "third_party")
+
 # Microsoft WebView2 SDK 1.0.3485.44 (NuGet package), BSD-3-Clause.
 # JUCE links its static loader (WebView2LoaderStatic.lib); the WebView2
 # runtime itself is the one installed in Windows. JUCE's FindWebView2 looks

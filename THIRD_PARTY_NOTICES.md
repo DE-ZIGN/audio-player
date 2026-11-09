@@ -92,6 +92,20 @@
 
 ---
 
+## libFLAC
+
+- バージョン：1.5.0（公式のソース配布 `flac-1.5.0.tar.xz`、SHA-256 `f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920`）
+- ライセンス：BSD-3-Clause（`COPYING.Xiph`）
+- 配布物：含む（FLAC のデコードに使う。C のライブラリ libFLAC だけを組み込み、`flac` などのコマンドラインのプログラム（GPL）、libFLAC++、Ogg 対応は使わない）
+- 入手先：https://xiph.org/flac/ 、https://github.com/xiph/flac
+- 著作権表示：
+  - Copyright (C) 2000-2009 Josh Coalson
+  - Copyright (C) 2011-2025 Xiph.Org Foundation
+- ライセンス本文：libFLAC の `COPYING.Xiph`
+- テストでは、テスト用の FLAC ファイルを作るために libFLAC のエンコーダーも使う（同じライブラリ）。
+
+---
+
 ## Microsoft WebView2 SDK
 
 - バージョン：1.0.3485.44（NuGet パッケージ `Microsoft.Web.WebView2`）

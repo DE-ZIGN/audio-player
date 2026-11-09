@@ -4,10 +4,12 @@ add_library(ap_signalgen_lib STATIC
     src/pcm.cpp
     src/signals.cpp
     src/wav_writer.cpp
+    src/flac_writer.cpp
     src/dsd.cpp)
 
 target_include_directories(ap_signalgen_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(ap_signalgen_lib PRIVATE FLAC::FLAC)
 target_compile_features(ap_signalgen_lib PUBLIC cxx_std_20)
 ap_apply_compiler_settings(ap_signalgen_lib)
 set_target_properties(ap_signalgen_lib PROPERTIES FOLDER "tools")
