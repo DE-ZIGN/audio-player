@@ -142,7 +142,7 @@ export function integrityText(s: PlaybackStatus): string {
         ? `デコーダーがファイルの中の ${c.decodeErrors} か所でデータの誤りを見つけました。ファイルが壊れている可能性があります`
         : "MD5 が一致しません。ファイルが壊れている可能性があります";
     case "notAvailable":
-      return "このファイルには照合用の値（MD5）が記録されていません（WAV・AIFF・DSD と、MD5 のない FLAC）";
+      return "このファイルには照合用の値（MD5）が記録されていません（WAV・AIFF・ALAC・DSD と、MD5 のない FLAC）";
   }
 }
 

@@ -243,7 +243,7 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
         }
         catch (const std::exception& e)
         {
-            return juce::String::fromUTF8("このファイルは読めません（WAV、FLAC、AIFF、DSF、DFF に対応）: ") + file.getFileName() + " ("
+            return juce::String::fromUTF8("このファイルは読めません（WAV、FLAC、AIFF、ALAC（.m4a）、DSF、DFF に対応）: ") + file.getFileName() + " ("
                  + e.what() + ")";
         }
         // Read ahead on a separate thread so the playback thread never waits
