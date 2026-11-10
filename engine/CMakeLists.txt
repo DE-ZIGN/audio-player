@@ -25,6 +25,7 @@ add_library(ap_engine STATIC
     src/dsp/processing.cpp
     src/dsp/dither.cpp
     src/dsp/volume.cpp
+    src/dsp/true_peak.cpp
     src/output/dummy_output.cpp
     src/output/format_probe.cpp
     src/output/device_selection.cpp

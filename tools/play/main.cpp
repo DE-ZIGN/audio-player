@@ -11,6 +11,7 @@
 #include <ap/engine/alac_file_source.h>
 #include <ap/engine/audio_file.h>
 #include <ap/engine/dsd_source.h>
+#include <ap/engine/dsp/true_peak.h>
 #include <ap/engine/dsp/volume.h>
 #include <ap/engine/flac_file_source.h>
 #include <ap/engine/mp3_file_source.h>
@@ -64,6 +65,7 @@ constexpr const char* kUsage =
     "               [--check]                 再生せず、送る形式だけを確かめる\n"
     "  ap_play FILE... --dummy OUT.raw        デバイスに送るはずのバイト列をファイルに書き、ハッシュを比べる\n"
     "  ap_play FILE... --volume DB            デジタル音量（0 以下の dB。0 で原音経路のまま、下げると処理経路）\n"
+    "  ap_play --analyze FILE...              サンプルピークと True Peak（8 倍オーバーサンプリング）を測る（再生はしない）\n"
     "  ap_play FILE... --volume-at S:DB       再生を始めてから S 秒で音量を DB にする（何回でも指定できる。0 に戻すと原音経路に戻る）\n"
     "\n"
     "複数のファイルは順に再生します。形式が同じなら出力を開き直さずにつなげ（ギャップレス）、\n"
@@ -217,6 +219,7 @@ struct Options
     std::string asioLoad;
     std::string asio;          // --asio N|NAME
     std::string asioProbeOne;  // --asio-probe-one CLSID (child process mode)
+    bool analyze = false;      // --analyze
     double volumeDb = 0.0;     // --volume DB
     std::vector<std::pair<double, double>> volumeAt; // --volume-at S:DB (seconds since play, dB)
 };
@@ -273,6 +276,8 @@ std::optional<Options> parse(int argc, char** argv)
             o.device = value();
         else if (a == "--dummy")
             o.dummy = value();
+        else if (a == "--analyze")
+            o.analyze = true;
         else if (a == "--volume")
             o.volumeDb = parseDb(value());
         else if (a == "--volume-at")
@@ -643,6 +648,57 @@ int exitCodeFor(PlayerErrorKind kind)
     }
 }
 
+std::string dbText(double linear)
+{
+    return linear > 0.0 ? std::format("{:+.2f}", 20.0 * std::log10(linear)) : std::string("-inf");
+}
+
+// --analyze: sample peak and true peak of each file (task 3-3). Nothing is played.
+int analyzeFiles(const Options& o)
+{
+    int worst = 0;
+    double albumTruePeak = 0.0;
+    for (std::size_t i = 0; i < o.files.size(); ++i)
+    {
+        const fs::path path{o.files[i]};
+        print(std::format("{} 曲目: {}\n", i + 1, reinterpret_cast<const char*>(path.filename().u8string().c_str())));
+        try
+        {
+            const auto src = openAudioFile(path);
+            if (src->dop())
+            {
+                print("  DSD の曲です（PCM ではないので True Peak は測りません）\n");
+                continue;
+            }
+            const auto started = std::chrono::steady_clock::now();
+            const auto a = analyzePeaks(*src);
+            const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+            const auto rate = src->format().sampleRate;
+            print(std::format("  形式: {}、長さ {}（解析 {:.2f} 秒）\n", describe(src->format()), duration(a.frames, rate),
+                              seconds));
+            for (std::size_t c = 0; c < a.truePeak.size(); ++c)
+                print(std::format("  チャンネル {}: サンプルピーク {} dBFS、True Peak {} dBTP\n", c + 1,
+                                  dbText(a.samplePeak[c]), dbText(a.truePeak[c])));
+            const bool over = a.truePeakMax > 1.0;
+            const double at = std::max(a.truePeakPosition, 0.0) / rate;
+            print(std::format("  True Peak {} dBTP（サンプルピークより {:.2f} dB 高い、{}:{:06.3f} の位置）{}\n",
+                              dbText(a.truePeakMax),
+                              a.samplePeakMax > 0.0 ? 20.0 * std::log10(a.truePeakMax / a.samplePeakMax) : 0.0,
+                              static_cast<int>(at / 60), std::fmod(at, 60.0),
+                              over ?"  ！ 0 dBTP を超えています（DAC の中でクリップする可能性。ISP セーフで下げられます）" : ""));
+            albumTruePeak = std::max(albumTruePeak, a.truePeakMax);
+        }
+        catch (const std::exception& e)
+        {
+            printErr(std::format("  読めません: {}\n", e.what()));
+            worst = 5;
+        }
+    }
+    if (o.files.size() > 1)
+        print(std::format("全体（アルバム）の True Peak: {} dBTP\n", dbText(albumTruePeak)));
+    return worst;
+}
+
 // Plays the files as a queue (WASAPI, or the dummy output when o.dummy is set).
 int runQueue(const Options& o)
 {
@@ -958,6 +1014,8 @@ int main(int argc, char** argv)
 
         if (o->watch)
             return watchDevices();
+        if (o->analyze)
+            return analyzeFiles(*o);
         return runQueue(*o);
     }
     catch (const FormatNotSupportedError& e)
