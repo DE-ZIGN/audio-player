@@ -24,7 +24,7 @@ ap_play --analyze FILE...               サンプルピークと True Peak（8 �
 ap_play FILE... --replaygain track|album  再生の前に各ファイルを解析し、ReplayGain（-18 LUFS、True Peak が 0 dBTP を超えないように抑える）を処理経路でかける。アルバムは渡したファイル全体
 ap_play FILE... --eq PRESET.txt         パラメトリック EQ（AutoEQ の ParametricEQ.txt、Equalizer APO の書き方）。最小位相、プリアンプは自動（最大のブーストを 0 dB に。ファイルの Preamp は表示だけ）
 ap_play FILE... --compare original|processed [--compare-at S]...  聴き比べ。原音と音作りの両方を作り、音作り側を原音の音量に合わせる（K 特性のエネルギーの比）。最初にどちらを出すかを決め、--compare-at S で S 秒の時点でもう一方に切り替える（5 ms のクロスフェード）。終わりに、合わせたゲイン、出てくる音の音量差、聴き比べ用のリミッターの記録を出す
-ap_play FILE --abx [N] [--eq ...]       ABX（既定 16 回）。キー a/b/x で聴く音を切り替え、1 で「X は A」、2 で「X は B」と答え、q で中断。正解数と p 値は最後にだけ出す（途中で見ると p の意味が崩れるため）。音作り側の音量は、曲全体を同じ設定の別の処理の列で解析して原音に合わせる。コンソールで直接実行する（キーボードで答えるため）。曲が終わる前に答え終わらなければ、--from の位置から流し直す。試聴用の EQ は `tools/play/test-eq.txt`（このプロジェクトで書いたもの。AutoEQ のデータではない）
+ap_play FILE --abx [N] [--from S] [--for S] [--eq ...]  ABX（既定 16 回）。--from S から --for S 秒（既定 30 秒）の区間をくり返し流し、音量合わせもその区間で計算する。キー a/b/x で聴く音を切り替え、1 で「X は A」、2 で「X は B」と答え、q で中断。正解数と p 値は最後にだけ出す（途中で見ると p の意味が崩れるため）。音作り側の音量は、曲全体を同じ設定の別の処理の列で解析して原音に合わせる。コンソールで直接実行する（キーボードで答えるため）。曲が終わる前に答え終わらなければ、--from の位置から流し直す。試聴用の EQ は `tools/play/test-eq.txt`（このプロジェクトで書いたもの。AutoEQ のデータではない）
 ap_play FILE... --isp-safe off|measured|fixed  ISP セーフ。measured は解析した True Peak から -0.5 dBTP 以下になるだけ下げる（ReplayGain や音量で下がった分は差し引く）、fixed は常に -3 dB。off でも解析して、0 dBTP を超える曲を原音経路で鳴らすときに警告する。処理経路では保険のリミッター（-0.3 dBTP）が働き、終わりに働いた回数と量を表示する
 ap_play --asio-list                     ASIO ドライバーの一覧（各ドライバーを別のプロセスで読み込み、形式と使えるレートを表示）
 ap_play FILE... --asio N|NAME           ASIO で順に再生（--asio-list の番号か名前）。レートは曲ごとにドライバーへ設定する

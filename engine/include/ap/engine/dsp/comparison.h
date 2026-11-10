@@ -31,6 +31,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -114,11 +115,14 @@ private:
 
 class ProcessingChain;
 
-// The matching gain for a whole track: reads `source` to the end through
-// `chain` (a separate chain with the same settings as the one that will play,
-// not the playing one) and returns how much the processed side must be lifted
-// to be as loud as the original (dB, K-weighted energies). Throws
-// std::invalid_argument for DoP.
-double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo& track);
+// The matching gain for what will be compared: reads `source` from its
+// current position, to the end or for `frames` frames, through `chain` (a
+// separate chain with the same settings as the one that will play, not the
+// playing one) and returns how much the processed side must be lifted to be as
+// loud as the original (dB, K-weighted energies). With an EQ the answer
+// depends on the music, so it is worked out over the same part that is
+// compared. Throws std::invalid_argument for DoP.
+double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo& track,
+                      std::optional<std::uint64_t> frames = std::nullopt);
 
 } // namespace ap::engine

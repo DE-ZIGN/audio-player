@@ -82,7 +82,8 @@ constexpr const char* kUsage =
     "  ap_play FILE... --compare original|processed  聴き比べ（原音と音作りの両方を作り、音作り側を原音の音量に合わせる）。\n"
     "               [--compare-at S]          最初にどちらを出すか。--compare-at S で S 秒の時点でもう一方に切り替える（5 ms のクロスフェード、何回でも）\n"
     "  ap_play FILE --abx [N] [--eq ...]       ABX（既定 16 回）。キー a/b/x で聴く音を切り替え、1 で「X は A」、2 で「X は B」と答える。\n"
-    "                                         q で中断。正解数と p 値は最後に出す。音作り側の音量は曲全体を解析して原音に合わせる\n"
+    "                                         q で中断。正解数と p 値は最後に出す。--from S から --for S 秒（既定 30 秒）の区間を\n"
+    "                                         くり返し流し、音作り側の音量はその区間を解析して原音に合わせる\n"
     "  ap_play FILE... --isp-safe off|measured|fixed  ISP セーフ（True Peak を -0.5 dBTP 以下に下げる。measured は解析した値から、\n"
     "                                         fixed は常に -3 dB）。off でも解析して、0 dBTP を超える曲を原音経路で鳴らすときに警告する\n"
     "  ap_play FILE... --volume-at S:DB       再生を始めてから S 秒で音量を DB にする（何回でも指定できる。0 に戻すと原音経路に戻る）\n"
@@ -1021,6 +1022,7 @@ int runQueue(const Options& o)
     }
 
     std::optional<AbxTest> abx;
+    std::uint64_t abxFrom = 0, abxLength = 0;
     if (o.abxTrials > 0)
     {
         DWORD consoleMode = 0;
@@ -1031,14 +1033,18 @@ int runQueue(const Options& o)
         }
         print("ABX: 音作り側の音量を原音に合わせるため、曲全体を解析しています…\n");
         const auto src = openAudioFile(fs::path{o.files[0]});
-        // Over the part that is played (from --from to the end; the ABX replays that part).
-        if (o.fromSeconds > 0.0)
-            src->seek(static_cast<std::uint64_t>(o.fromSeconds * src->format().sampleRate));
+        // The ABX repeats one region (from --from, for --for seconds or 30 s); the match is worked out over it.
+        const auto rate = src->format().sampleRate;
+        abxFrom = static_cast<std::uint64_t>(o.fromSeconds * rate);
+        abxLength = static_cast<std::uint64_t>((o.forSeconds > 0.0 ? o.forSeconds : 30.0) * rate);
+        abxLength = std::min<std::uint64_t>(abxLength, src->totalFrames() > abxFrom ? src->totalFrames() - abxFrom : 0);
+        src->seek(abxFrom);
         auto offline = makeStages();
         TrackInfo track{0, items[0].replayGain};
-        const double match = measureMatchDb(*src, *offline.chain, track);
+        const double match = measureMatchDb(*src, *offline.chain, track, abxLength);
         playOptions.processing->comparison().setFixedMatchDb(match);
-        print(std::format("ABX: 音作り側を {:+.2f} dB にして原音の音量に合わせます（流す範囲で計算）\n", match));
+        print(std::format("ABX: {:.1f} 秒から {:.1f} 秒間をくり返し流します。音作り側をこの区間で {:+.2f} dB にして原音の音量に合わせます\n",
+                          o.fromSeconds, static_cast<double>(abxLength) / rate, match));
         if (playOptions.processing->bypassed() && eqBands.empty() && o.volumeDb == 0.0 && o.replayGain == ReplayGainMode::Off
             && o.ispSafe.value_or(IspSafeMode::Off) == IspSafeMode::Off)
             print("ABX: 音作りの設定がないので、A と B は同じ音です（確かめ用の対照）\n");
@@ -1140,7 +1146,7 @@ int runQueue(const Options& o)
                               s.queueIndex + 1, dbText(*s.trackTruePeak)));
         }
         const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startedAt).count();
-        if (o.forSeconds > 0.0 && elapsed >= o.forSeconds)
+        if (o.forSeconds > 0.0 && elapsed >= o.forSeconds && !abx)
         {
             player.stop();
             break;
@@ -1200,12 +1206,14 @@ int runQueue(const Options& o)
             }
             if (s.state == PlayerState::Ended)
             {
-                // The track ended before the last answer: play it again from the start point.
-                player.seek(static_cast<std::uint64_t>(o.fromSeconds * (s.sourceFormat ? s.sourceFormat->sampleRate : 0)));
+                // The track ended before the region did: start the region again.
+                player.seek(abxFrom);
                 player.play();
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 continue;
             }
+            if (s.positionFrames >= abxFrom + abxLength)
+                player.seek(abxFrom); // the end of the region: back to its start (without reopening)
         }
         if (s.state != PlayerState::Playing)
             break;
@@ -1244,8 +1252,11 @@ int runQueue(const Options& o)
         else
             print(std::format("ABX: {} 回中 {} 回で中断したので、結果は出しません（途中の結果で判断すると p の意味が崩れるため）。\n",
                               r.trials, r.answered));
-        print(std::format("  音量差: 最大 {:.2f} dB（基準 0.1 dB）{}\n", r.maxLevelDifferenceDb,
-                          r.levelMatched ? "" : "：基準を超えたので、結果は参考です（音量の違いで聞き分けた可能性がある）"));
+        if (r.levelDifferenceDb)
+            print(std::format("  音量差: {:+.2f} dB（テスト中に流した音全体、基準 0.1 dB）{}\n", *r.levelDifferenceDb,
+                              r.levelMatched ? "" : "：基準を超えたので、結果は参考です（音量の違いで聞き分けた可能性がある）"));
+        else
+            print("  音量差: 測れなかった（流した時間が短すぎる）\n");
     }
     if (o.compare)
     {

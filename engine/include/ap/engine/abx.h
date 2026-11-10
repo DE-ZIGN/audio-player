@@ -12,8 +12,11 @@
 // sided). The wording claims only that: "unlikely to be chance" or "not shown
 // to be distinguishable", never which one sounds better.
 //
-// The loudness of the two must agree within 0.1 dB (CLAUDE.md chapter 5); the
-// largest difference seen during the test is kept with the result.
+// The loudness of the two must agree within 0.1 dB (CLAUDE.md chapter 5). The
+// comparison measures the difference over everything played since its
+// warm-up; the value at the end of the test is kept with the result. (Not the
+// largest value seen: right after the warm-up the measurement covers only a
+// moment and swings.)
 
 #include <ap/engine/dsp/comparison.h>
 
@@ -39,8 +42,8 @@ struct AbxResult
     std::optional<int> correct;   // only when finished
     std::optional<double> pValue; // only when finished
     bool distinguished = false;   // finished and p < 0.05
-    double maxLevelDifferenceDb = 0.0;
-    bool levelMatched = true;     // the largest difference was within 0.1 dB
+    std::optional<double> levelDifferenceDb; // over the test (as last measured); none if never measured
+    bool levelMatched = true;                 // within 0.1 dB (or not measured)
 };
 
 // P(at least `correct` of `trials` by guessing with probability 1/2).
@@ -81,7 +84,7 @@ private:
     std::vector<bool> xIsB_;    // per trial drawn so far
     std::vector<bool> answers_; // per answered trial: correct?
     bool aborted_ = false;
-    double maxLevelDifference_ = 0.0;
+    std::optional<double> levelDifference_;
 };
 
 } // namespace ap::engine

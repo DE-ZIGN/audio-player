@@ -165,7 +165,8 @@ void AbComparison::process(std::span<const double> original, std::span<double> p
     }
 }
 
-double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo& track)
+double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo& track,
+                      std::optional<std::uint64_t> frames)
 {
     if (source.dop())
         throw std::invalid_argument("DoP is not PCM audio");
@@ -193,8 +194,14 @@ double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo
     std::vector<double> original(kChunk * ch), processed(kChunk * ch);
     double eo = 0.0, ep = 0.0;
     ScopedFlushDenormals ftz;
-    while (const std::size_t n = source.read(bytes))
+    std::uint64_t left = frames.value_or(UINT64_MAX);
+    while (left > 0)
     {
+        const std::size_t want = static_cast<std::size_t>(std::min<std::uint64_t>(left, kChunk));
+        const std::size_t n = source.read(std::span(bytes).first(want * f.bytesPerFrame()));
+        if (n == 0)
+            break;
+        left -= n;
         dsp::toDouble(std::span(bytes).first(n * f.bytesPerFrame()), f, std::span(original).first(n * ch));
         std::copy(original.begin(), original.begin() + static_cast<std::ptrdiff_t>(n * ch), processed.begin());
         chain.process(std::span(processed).first(n * ch), ch);
@@ -202,13 +209,13 @@ double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo
         ep += energy(processed, n, stProcessed);
     }
     // The chain's look-ahead: push its last frames out.
-    for (std::size_t left = chain.latencyFrames(); left > 0;)
+    for (std::size_t tail = chain.latencyFrames(); tail > 0;)
     {
-        const std::size_t n = std::min(left, kChunk);
+        const std::size_t n = std::min(tail, kChunk);
         std::fill(processed.begin(), processed.begin() + static_cast<std::ptrdiff_t>(n * ch), 0.0);
         chain.process(std::span(processed).first(n * ch), ch);
         ep += energy(processed, n, stProcessed);
-        left -= n;
+        tail -= n;
     }
     if (!(eo > 1e-20) || !(ep > 1e-20))
         return 0.0;

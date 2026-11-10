@@ -72,7 +72,8 @@ void AbxTest::answer(AbxChoice xIs)
 
 void AbxTest::noteLevelDifference(double db) noexcept
 {
-    maxLevelDifference_ = std::max(maxLevelDifference_, std::abs(db));
+    if (!finished() && !aborted_)
+        levelDifference_ = db;
 }
 
 AbxResult AbxTest::result() const
@@ -82,8 +83,8 @@ AbxResult AbxTest::result() const
     r.answered = static_cast<int>(answers_.size());
     r.aborted = aborted_;
     r.finished = finished();
-    r.maxLevelDifferenceDb = maxLevelDifference_;
-    r.levelMatched = maxLevelDifference_ <= kMaxLevelDifferenceDb;
+    r.levelDifferenceDb = levelDifference_;
+    r.levelMatched = !levelDifference_ || std::abs(*levelDifference_) <= kMaxLevelDifferenceDb;
     if (r.finished)
     {
         r.correct = static_cast<int>(std::count(answers_.begin(), answers_.end(), true));

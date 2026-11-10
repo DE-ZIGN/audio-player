@@ -93,21 +93,27 @@ TEST_CASE("ABX: stopping early gives no result", "[abx]")
     CHECK(t.result().answered == 10);
 }
 
-TEST_CASE("ABX: a level difference over 0.1 dB marks the result", "[abx]")
+TEST_CASE("ABX: the level difference over the test (the last measured) marks the result", "[abx]")
 {
     AbxTest t(2, sequence({true}));
-    t.noteLevelDifference(0.04);
+    t.noteLevelDifference(0.4); // early swing, superseded
     t.noteLevelDifference(-0.08);
     t.answer(AbxChoice::B);
     t.answer(AbxChoice::B);
+    t.noteLevelDifference(0.9); // after the end: ignored
     auto r = t.result();
     CHECK(r.levelMatched);
-    CHECK(std::abs(r.maxLevelDifferenceDb - 0.08) < 1e-12);
+    REQUIRE(r.levelDifferenceDb.has_value());
+    CHECK(*r.levelDifferenceDb == -0.08);
 
     AbxTest u(1, sequence({true}));
     u.noteLevelDifference(-0.3);
     u.answer(AbxChoice::B);
     CHECK_FALSE(u.result().levelMatched);
+
+    AbxTest v(1, sequence({true}));
+    v.answer(AbxChoice::B);
+    CHECK_FALSE(v.result().levelDifferenceDb.has_value()); // never measured
 }
 
 TEST_CASE("ABX: the OS random source gives both sides about equally", "[abx]")
