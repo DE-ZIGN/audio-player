@@ -21,6 +21,7 @@ ap_play FILE... --volume DB             デジタル音量（0 以下の dB）�
 ap_play FILE... --volume-at S:DB        再生を始めてから S 秒で音量を DB にする（何回でも。0 に戻すと原音経路に戻り、出力を開き直す）
 ap_play --analyze FILE...               サンプルピークと True Peak（8 倍オーバーサンプリング）をチャンネルごとに測り、最大の位置と、0 dBTP を超えるかを表示する。ラウドネス（BS.1770、libebur128）と ReplayGain 2.0 の値も出し、複数のファイルならアルバムとしての値も出す（再生はしない）
 ap_play FILE... --replaygain track|album  再生の前に各ファイルを解析し、ReplayGain（-18 LUFS、True Peak が 0 dBTP を超えないように抑える）を処理経路でかける。アルバムは渡したファイル全体
+ap_play FILE... --isp-safe off|measured|fixed  ISP セーフ。measured は解析した True Peak から -0.5 dBTP 以下になるだけ下げる（ReplayGain や音量で下がった分は差し引く）、fixed は常に -3 dB。off でも解析して、0 dBTP を超える曲を原音経路で鳴らすときに警告する。処理経路では保険のリミッター（-0.3 dBTP）が働き、終わりに働いた回数と量を表示する
 ap_play --asio-list                     ASIO ドライバーの一覧（各ドライバーを別のプロセスで読み込み、形式と使えるレートを表示）
 ap_play FILE... --asio N|NAME           ASIO で順に再生（--asio-list の番号か名前）。レートは曲ごとにドライバーへ設定する
 ap_play --env                        実行環境（MSIX パッケージの中かどうか）

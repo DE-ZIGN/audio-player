@@ -24,10 +24,13 @@ add_library(ap_engine STATIC
     src/dsp/sample_convert.cpp
     src/dsp/processing.cpp
     src/dsp/dither.cpp
+    src/dsp/gain_ramp.cpp
     src/dsp/volume.cpp
     src/dsp/true_peak.cpp
     src/dsp/loudness.cpp
     src/dsp/replay_gain.cpp
+    src/dsp/isp_safe.cpp
+    src/dsp/limiter.cpp
     src/output/dummy_output.cpp
     src/output/format_probe.cpp
     src/output/device_selection.cpp

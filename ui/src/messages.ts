@@ -67,7 +67,12 @@ export function inputText(s: PlaybackStatus): string {
   return `${dsdRateName(s.dop.dsdRate)}（${mhz} MHz）/ ${s.sourceFormat.channels}ch（${s.dop.container}）`;
 }
 
-const stageNames: Record<string, string> = { volume: "デジタル音量", replaygain: "ReplayGain" };
+const stageNames: Record<string, string> = {
+  volume: "デジタル音量",
+  replaygain: "ReplayGain",
+  "isp-safe": "ISP セーフ",
+  limiter: "保険のリミッター",
+};
 
 export function processingText(s: PlaybackStatus): string {
   if (s.dop) return "なし（DoP の経路では処理をかけられません）";

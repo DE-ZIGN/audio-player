@@ -66,6 +66,17 @@ private:
     bool finished_ = false;
 };
 
+namespace dsp {
+// The interpolator shared with the safety limiter. `newestFirst` holds the
+// last kTruePeakWindow samples of one channel, newest first; the result is
+// the largest magnitude of the oversampled values between the samples
+// newestFirst[kTruePeakDelay] and newestFirst[kTruePeakDelay - 1] (that is,
+// on [t, t + 1) where t is the sample kTruePeakDelay frames ago).
+inline constexpr int kTruePeakWindow = TruePeakMeter::kTapsPerPhase + 1;
+inline constexpr int kTruePeakDelay = TruePeakMeter::kTapsPerPhase / 2;
+double interpolatedPeak(const double* newestFirst) noexcept;
+} // namespace dsp
+
 // Peaks of a whole source, read from its current position to the end.
 struct PeakAnalysis
 {

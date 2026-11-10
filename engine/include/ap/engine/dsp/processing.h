@@ -9,6 +9,7 @@
 
 #include <ap/engine/track_info.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -38,6 +39,22 @@ public:
     // setting depends on the track, such as ReplayGain. No locks, no allocation.
     virtual void trackStarted(const TrackInfo& /*track*/) noexcept {}
 
+    // The factor by which this stage scales peaks right now (gain stages:
+    // their gain; others: 1). Later stages are told the product of the
+    // earlier ones (setUpstreamGain), e.g. so the ISP-safe gain does not lower
+    // what the volume has already lowered.
+    virtual double peakGain() const noexcept { return 1.0; }
+    virtual void setUpstreamGain(double /*gain*/) noexcept {}
+
+    // A stage that never by itself calls for processing but must run whenever
+    // the processing path is taken (the safety limiter): isIdentity() is true
+    // and this is true.
+    virtual bool runsWhenProcessing() const noexcept { return false; }
+
+    // Frames by which the stage delays its output (look-ahead). play()
+    // compensates, so the output keeps its length and timing.
+    virtual std::size_t latencyFrames() const noexcept { return 0; }
+
     // Processes samples in place: samples.size() is a multiple of channels.
     // Runs on the playback thread (or the ASIO driver's thread): no locks,
     // no allocation, no exceptions.
@@ -53,18 +70,24 @@ public:
     // True when every stage is identity: the direct path is used.
     bool bypassed() const noexcept;
 
-    // Names of the stages that are not identity right now, in order.
+    // Names of the stages that run on the processing path right now, in
+    // order: those that are not identity, and those that always run.
     std::vector<std::string> activeStageNames() const;
+
+    std::size_t latencyFrames() const noexcept;
 
     void prepare(std::uint32_t sampleRate, std::uint16_t channels);
 
-    // Runs the stages that are not identity.
+    // Runs the stages that are not identity (and those that always run).
     void process(std::span<double> samples, std::uint16_t channels) noexcept;
 
     // Tells every stage (identity or not) that a track starts.
     void trackStarted(const TrackInfo& track) noexcept;
 
 private:
+    // Tells each stage the product of the earlier stages' peak gains.
+    void updateUpstreamGains() const noexcept;
+
     std::vector<std::shared_ptr<ProcessingStage>> stages_;
 };
 

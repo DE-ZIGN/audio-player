@@ -15,18 +15,38 @@ ProcessingChain::ProcessingChain(std::vector<std::shared_ptr<ProcessingStage>> s
     std::erase(stages_, nullptr);
 }
 
+void ProcessingChain::updateUpstreamGains() const noexcept
+{
+    double g = 1.0;
+    for (const auto& s : stages_)
+    {
+        s->setUpstreamGain(g);
+        g *= s->peakGain();
+    }
+}
+
 bool ProcessingChain::bypassed() const noexcept
 {
+    updateUpstreamGains();
     return std::all_of(stages_.begin(), stages_.end(), [](const auto& s) { return s->isIdentity(); });
 }
 
 std::vector<std::string> ProcessingChain::activeStageNames() const
 {
+    updateUpstreamGains();
     std::vector<std::string> names;
     for (const auto& s : stages_)
-        if (!s->isIdentity())
+        if (!s->isIdentity() || s->runsWhenProcessing())
             names.push_back(s->name());
     return names;
+}
+
+std::size_t ProcessingChain::latencyFrames() const noexcept
+{
+    std::size_t n = 0;
+    for (const auto& s : stages_)
+        n += s->latencyFrames();
+    return n;
 }
 
 void ProcessingChain::prepare(std::uint32_t sampleRate, std::uint16_t channels)
@@ -37,8 +57,9 @@ void ProcessingChain::prepare(std::uint32_t sampleRate, std::uint16_t channels)
 
 void ProcessingChain::process(std::span<double> samples, std::uint16_t channels) noexcept
 {
+    updateUpstreamGains();
     for (const auto& s : stages_)
-        if (!s->isIdentity())
+        if (!s->isIdentity() || s->runsWhenProcessing())
             s->process(samples, channels);
 }
 

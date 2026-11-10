@@ -3,6 +3,7 @@
 #include <ap/engine/dsp/dither.h>
 #include <ap/engine/dsp/sample_convert.h>
 
+#include <algorithm>
 #include <vector>
 
 namespace ap::engine {
@@ -115,39 +116,75 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
     RenderCallback render;
     std::vector<std::byte> scratch;
     std::vector<double> samples;
+    std::vector<double> pending; // processed samples not yet handed to the output
     dsp::TpdfDither dither; // a fixed seed per session: the same input gives the same output
     if (chain)
     {
         const PcmFormat in = plan.source;
         const PcmFormat out = plan.output;
         dsp::TpdfDither* ditherFor = plan.dither ? &dither : nullptr;
-        render = [&, chain, in, out, ditherFor](std::span<std::byte> dst) {
+        // Stages with look-ahead (the limiter) delay the audio by `latency`
+        // frames. The first `latency` processed frames are dropped and, once
+        // the source ends, `latency` frames of silence push the rest out, so
+        // the output has exactly the source's frames at the source's timing.
+        const std::size_t latency = chain->latencyFrames();
+        render = [&, chain, in, out, ditherFor, latency, toDrop = latency, ended = false,
+                  flushed = false](std::span<std::byte> dst) mutable {
             const std::size_t frames = dst.size() / out.bytesPerFrame();
+            const std::size_t ch = in.channels;
             if (scratch.size() < frames * in.bytesPerFrame())
                 scratch.resize(frames * in.bytesPerFrame()); // first callback only, period size is fixed
-            if (samples.size() < frames * in.channels)
-                samples.resize(frames * in.channels);
+            if (samples.size() < (frames + latency) * ch)
+                samples.resize((frames + latency) * ch);
+            if (pending.capacity() < (2 * frames + 2 * latency) * ch)
+                pending.reserve((2 * frames + 2 * latency) * ch);
 
-            const std::size_t got = source.read(std::span(scratch).first(frames * in.bytesPerFrame()));
-            const std::size_t n = got * in.channels;
-            const auto block = std::span(samples).first(n);
             ScopedFlushDenormals ftz; // may run on a driver's thread: set and restore every time
-            dsp::toDouble(std::span(scratch).first(got * in.bytesPerFrame()), in, block);
-            // Process up to each track start, tell the stages, go on: settings
-            // that depend on the track (ReplayGain) switch at the exact sample.
-            std::size_t from = 0;
-            for (const auto& seg : source.lastReadTracks())
+            auto keep = [&](std::span<const double> block) {
+                std::size_t skip = std::min(toDrop, block.size() / ch);
+                toDrop -= skip;
+                pending.insert(pending.end(), block.begin() + static_cast<std::ptrdiff_t>(skip * ch), block.end());
+            };
+            while (pending.size() < frames * ch && !flushed)
             {
-                const std::size_t at = std::min(seg.frameOffset, got);
-                if (at > from)
-                    chain->process(block.subspan(from * in.channels, (at - from) * in.channels), in.channels);
-                chain->trackStarted(seg.track);
-                from = at;
+                if (!ended)
+                {
+                    const std::size_t got = source.read(std::span(scratch).first(frames * in.bytesPerFrame()));
+                    if (got < frames)
+                        ended = true;
+                    const auto block = std::span(samples).first(got * ch);
+                    dsp::toDouble(std::span(scratch).first(got * in.bytesPerFrame()), in, block);
+                    // Process up to each track start, tell the stages, go on: settings
+                    // that depend on the track (ReplayGain) switch at the exact sample.
+                    std::size_t from = 0;
+                    for (const auto& seg : source.lastReadTracks())
+                    {
+                        const std::size_t at = std::min(seg.frameOffset, got);
+                        if (at > from)
+                            chain->process(block.subspan(from * ch, (at - from) * ch), in.channels);
+                        chain->trackStarted(seg.track);
+                        from = at;
+                    }
+                    if (got > from)
+                        chain->process(block.subspan(from * ch), in.channels);
+                    keep(block);
+                }
+                else
+                {
+                    flushed = true;
+                    if (latency == 0)
+                        break;
+                    const auto block = std::span(samples).first(latency * ch);
+                    std::fill(block.begin(), block.end(), 0.0);
+                    chain->process(block, in.channels);
+                    keep(block);
+                }
             }
-            if (got > from)
-                chain->process(block.subspan(from * in.channels), in.channels);
-            report.overs += dsp::fromDouble(block, out, dst.first(got * out.bytesPerFrame()), ditherFor);
-            return got;
+            const std::size_t n = std::min(frames, pending.size() / ch);
+            report.overs += dsp::fromDouble(std::span(pending).first(n * ch), out, dst.first(n * out.bytesPerFrame()),
+                                            ditherFor);
+            pending.erase(pending.begin(), pending.begin() + static_cast<std::ptrdiff_t>(n * ch));
+            return n;
         };
     }
     else if (plan.repack == Repack::None)

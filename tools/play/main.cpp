@@ -11,6 +11,8 @@
 #include <ap/engine/alac_file_source.h>
 #include <ap/engine/audio_file.h>
 #include <ap/engine/dsd_source.h>
+#include <ap/engine/dsp/isp_safe.h>
+#include <ap/engine/dsp/limiter.h>
 #include <ap/engine/dsp/loudness.h>
 #include <ap/engine/dsp/replay_gain.h>
 #include <ap/engine/dsp/true_peak.h>
@@ -69,6 +71,8 @@ constexpr const char* kUsage =
     "  ap_play FILE... --volume DB            デジタル音量（0 以下の dB。0 で原音経路のまま、下げると処理経路）\n"
     "  ap_play --analyze FILE...              サンプルピーク、True Peak（8 倍オーバーサンプリング）、ラウドネスと ReplayGain を測る（再生はしない）\n"
     "  ap_play FILE... --replaygain track|album  再生の前に各曲を解析し、ReplayGain 2.0（-18 LUFS）を処理経路でかける\n"
+    "  ap_play FILE... --isp-safe off|measured|fixed  ISP セーフ（True Peak を -0.5 dBTP 以下に下げる。measured は解析した値から、\n"
+    "                                         fixed は常に -3 dB）。off でも解析して、0 dBTP を超える曲を原音経路で鳴らすときに警告する\n"
     "  ap_play FILE... --volume-at S:DB       再生を始めてから S 秒で音量を DB にする（何回でも指定できる。0 に戻すと原音経路に戻る）\n"
     "\n"
     "複数のファイルは順に再生します。形式が同じなら出力を開き直さずにつなげ（ギャップレス）、\n"
@@ -224,6 +228,7 @@ struct Options
     std::string asioProbeOne;  // --asio-probe-one CLSID (child process mode)
     bool analyze = false;      // --analyze
     ReplayGainMode replayGain = ReplayGainMode::Off; // --replaygain track|album
+    std::optional<IspSafeMode> ispSafe;              // --isp-safe off|measured|fixed (set: analyse the files)
     double volumeDb = 0.0;     // --volume DB
     std::vector<std::pair<double, double>> volumeAt; // --volume-at S:DB (seconds since play, dB)
 };
@@ -282,6 +287,18 @@ std::optional<Options> parse(int argc, char** argv)
             o.dummy = value();
         else if (a == "--analyze")
             o.analyze = true;
+        else if (a == "--isp-safe")
+        {
+            const auto v = value();
+            if (v == "off")
+                o.ispSafe = IspSafeMode::Off;
+            else if (v == "measured")
+                o.ispSafe = IspSafeMode::Measured;
+            else if (v == "fixed")
+                o.ispSafe = IspSafeMode::Fixed;
+            else
+                throw std::runtime_error("--isp-safe は off、measured、fixed のどれかです");
+        }
         else if (a == "--replaygain")
         {
             const auto v = value();
@@ -625,7 +642,11 @@ std::string processingText(const PlaybackPlan& p, bool dop)
     std::string parts;
     for (const auto& n : p.processingStages)
         parts += (parts.empty() ? "" : "、")
-               + (n == "volume" ? std::string("デジタル音量") : n == "replaygain" ? std::string("ReplayGain") : n);
+               + (n == "volume"       ? std::string("デジタル音量")
+                  : n == "replaygain" ? std::string("ReplayGain")
+                  : n == "isp-safe"   ? std::string("ISP セーフ")
+                  : n == "limiter"    ? std::string("保険のリミッター")
+                                      : n);
     if (p.processingRequired)
         parts += std::string(parts.empty() ? "" : "、") + "浮動小数点の曲を整数にする（デバイスが浮動小数点を受け付けないため）";
     if (p.dither)
@@ -790,12 +811,16 @@ int runQueue(const Options& o)
     replayGain->setMode(o.replayGain);
     auto volume = std::make_shared<VolumeStage>();
     volume->setGainDb(o.volumeDb);
-    // CLAUDE.md chapter 4: ReplayGain first, then the rest.
+    auto ispSafe = std::make_shared<IspSafeStage>();
+    ispSafe->setMode(o.ispSafe.value_or(IspSafeMode::Off));
+    ispSafe->setUseAlbumPeak(o.replayGain == ReplayGainMode::Album);
+    auto limiter = std::make_shared<SafetyLimiter>();
+    // CLAUDE.md chapter 4: ReplayGain, (EQ etc.), ISP-safe gain, safety limiter, then dither.
     const PlaybackOptions playOptions{
         .allowRepack = !o.exactOnly,
         .allowDop = o.allowDop,
         .processing = std::make_shared<ProcessingChain>(
-            std::vector<std::shared_ptr<ProcessingStage>>{replayGain, volume})};
+            std::vector<std::shared_ptr<ProcessingStage>>{replayGain, volume, ispSafe, limiter})};
 
     auto printCheck = [&](std::size_t i, const PcmSource& src, AudioOutput& out) {
         const auto n = planPlayback(src, out, playOptions);
@@ -810,9 +835,9 @@ int runQueue(const Options& o)
         return 0;
     };
 
-    if (o.replayGain != ReplayGainMode::Off)
+    if (o.replayGain != ReplayGainMode::Off || o.ispSafe)
     {
-        print("ReplayGain のために各曲を解析しています…\n");
+        print("各曲を解析しています（ラウドネスと True Peak）…\n");
         std::vector<TrackAnalysis> analyses;
         for (const auto& f : o.files)
         {
@@ -832,9 +857,12 @@ int runQueue(const Options& o)
             const bool albumMode = o.replayGain == ReplayGainMode::Album;
             const double gain = albumMode ? *r.albumGainDb : r.trackGainDb;
             const double peak = albumMode ? *r.albumPeak : r.trackPeak;
-            print(std::format("  {} 曲目: {:.2f} LUFS、{} ゲイン {:+.2f} dB（適用 {:+.2f} dB）\n", i + 1,
-                              analyses[i].integratedLufs, albumMode ? "アルバム" : "トラック", gain,
-                              peakLimitedGainDb(gain, peak)));
+            print(std::format("  {} 曲目: {:.2f} LUFS、True Peak {} dBTP、{} ゲイン {:+.2f} dB（{}）\n", i + 1,
+                              analyses[i].integratedLufs, dbText(analyses[i].peaks.truePeakMax),
+                              albumMode ? "アルバム" : "トラック", gain,
+                              o.replayGain == ReplayGainMode::Off
+                                  ? std::string("ReplayGain はかけない")
+                                  : std::format("適用 {:+.2f} dB", peakLimitedGainDb(gain, peak))));
         }
     }
 
@@ -943,6 +971,7 @@ int runQueue(const Options& o)
 
     std::size_t shownTransitions = 0;
     std::optional<PlaybackPlan> shownPlan;
+    std::optional<std::size_t> warnedTrack;
     PlayerStatus s;
     for (;;)
     {
@@ -958,7 +987,20 @@ int runQueue(const Options& o)
             if (s.path)
                 print(std::format("  出力の方式: {}\n  処理: {}\n", outputModeText(*s.path),
                                   processingText(*s.plan, s.path->dop.has_value())));
+            if (s.plan->processing && ispSafe->mode() != IspSafeMode::Off)
+                print(std::format("  ISP セーフ: {:+.2f} dB（{}）\n", ispSafe->gainDb(),
+                                  ispSafe->mode() == IspSafeMode::Fixed ? "固定"
+                                  : s.trackTruePeak ? "解析した True Peak から"
+                                                    : "解析していない曲なので固定"));
             shownPlan = s.plan;
+        }
+        if (s.plan && !s.plan->processing && s.trackTruePeak && *s.trackTruePeak > 1.0 && warnedTrack != s.queueIndex
+            && !(s.path && s.path->dop))
+        {
+            warnedTrack = s.queueIndex;
+            print(std::format("\r  ！ ISP の警告: {} 曲目の True Peak は {} dBTP（0 dBTP 超え）。原音経路のままなので DAC の中で"
+                              "クリップする可能性があります。--isp-safe measured で下げられます                    \n",
+                              s.queueIndex + 1, dbText(*s.trackTruePeak)));
         }
         const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startedAt).count();
         for (; nextVolumeChange < volumeChanges.size() && volumeChanges[nextVolumeChange].first <= elapsed; ++nextVolumeChange)
@@ -990,6 +1032,12 @@ int runQueue(const Options& o)
     print(std::format("音切れ: {} 回（デバイスへの受け渡しの遅れ {}、ファイルの読み込みの遅れ {}（無音にしたフレーム {}）、"
                       "デバイスの応答なし {}）\n",
                       d.total(), d.lateBuffers, d.readStarvations, d.starvedFrames, d.deviceTimeouts));
+    if (const auto st = limiter->stats(); st.events > 0)
+        print(std::format("保険のリミッター: {} 回働いた（合わせて {:.3f} 秒、最大 {:.2f} dB 下げた）\n", st.events,
+                          static_cast<double>(st.limitedFrames) / (s.sourceFormat ? s.sourceFormat->sampleRate : 1u),
+                          st.maxReductionDb));
+    else if (shownPlan && shownPlan->processing)
+        print("保険のリミッター: 働かなかった\n");
     print(std::format("再生スレッド: {}\n", d.realtimePriority ? "MMCSS（Pro Audio）で優先度を上げた"
                                                               : "通常の優先度（MMCSS は使っていない）"));
     print(std::format("ファイルの検証（{} 曲目）: {}\n", s.queueIndex + 1, integrityText(s.integrity)));

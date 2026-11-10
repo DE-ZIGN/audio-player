@@ -273,6 +273,9 @@ void Player::publishTrackLocked()
     status_.dop = source_ ? source_->dop() : std::nullopt;
     status_.totalFrames = source_ ? source_->totalFrames() : 0;
     container_ = source_ ? source_->containerName() : std::string{};
+    status_.trackTruePeak.reset();
+    if (!queue_.empty() && queue_[index_].replayGain && queue_[index_].replayGain->trackPeak > 0.0)
+        status_.trackTruePeak = queue_[index_].replayGain->trackPeak;
 }
 
 void Player::play()

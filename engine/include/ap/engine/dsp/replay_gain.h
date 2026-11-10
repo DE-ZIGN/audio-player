@@ -8,6 +8,7 @@
 // gain's job (task 3-5). There is no fixed maximum boost: lifting quiet
 // tracks is what ReplayGain is for.
 
+#include <ap/engine/dsp/gain_ramp.h>
 #include <ap/engine/dsp/loudness.h>
 #include <ap/engine/dsp/processing.h>
 #include <ap/engine/track_info.h>
@@ -44,19 +45,23 @@ enum class ReplayGainMode
 class ReplayGainStage final : public ProcessingStage
 {
 public:
-    static constexpr double kRampSeconds = 0.010;
+    static constexpr double kRampSeconds = dsp::GainRamp::kRampSeconds;
 
     void setMode(ReplayGainMode mode) noexcept; // thread-safe
     ReplayGainMode mode() const noexcept { return mode_; }
 
     // The linear gain the current track would get now (after the limit).
-    double targetGain() const noexcept { return target_; }
+    double targetGain() const noexcept { return ramp_.target(); }
 
     std::string name() const override { return "replaygain"; }
-    void prepare(std::uint32_t sampleRate, std::uint16_t channels) override;
-    bool isIdentity() const noexcept override;
+    void prepare(std::uint32_t sampleRate, std::uint16_t) override { ramp_.prepare(sampleRate); }
+    bool isIdentity() const noexcept override { return ramp_.isUnity(); }
+    double peakGain() const noexcept override { return ramp_.target(); }
     void trackStarted(const TrackInfo& track) noexcept override;
-    void process(std::span<double> samples, std::uint16_t channels) noexcept override;
+    void process(std::span<double> samples, std::uint16_t channels) noexcept override
+    {
+        ramp_.apply(samples, channels);
+    }
 
 private:
     void updateTarget() noexcept;
@@ -70,15 +75,7 @@ private:
     std::atomic<double> albumGainDb_{0.0};
     std::atomic<double> albumPeak_{0.0};
 
-    std::atomic<double> target_{1.0};  // linear
-    std::atomic<double> current_{1.0}; // linear, written by the playback thread
-    std::atomic<bool> jump_{false};    // a track started: take the target without a ramp
-
-    // Playback thread only.
-    double rampTarget_ = 1.0;
-    double step_ = 0.0;
-    std::uint32_t rampLeft_ = 0;
-    std::uint32_t rampFrames_ = 480;
+    dsp::GainRamp ramp_;
 };
 
 } // namespace ap::engine

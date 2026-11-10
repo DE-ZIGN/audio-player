@@ -61,6 +61,21 @@ const Phases& phases()
     return table;
 }
 
+double peakOfWindow(const double* w) noexcept
+{
+    const auto& p = phases();
+    double peak = 0.0;
+    for (int k = 0; k < L; ++k)
+    {
+        const double* h = p[static_cast<std::size_t>(k)].data();
+        double y = 0.0;
+        for (int j = 0; j < J; ++j)
+            y += h[j] * w[j];
+        peak = std::max(peak, std::abs(y));
+    }
+    return peak;
+}
+
 double toDb(double x)
 {
     return x > 0.0 ? 20.0 * std::log10(x) : -std::numeric_limits<double>::infinity();
@@ -185,6 +200,13 @@ double TruePeakMeter::truePeakPosition(std::uint16_t channel) const noexcept
 {
     return channels_[channel].truePeakPosition;
 }
+
+namespace dsp {
+double interpolatedPeak(const double* newestFirst) noexcept
+{
+    return peakOfWindow(newestFirst);
+}
+} // namespace dsp
 
 PeakAnalysis analyzePeaks(PcmSource& source)
 {
