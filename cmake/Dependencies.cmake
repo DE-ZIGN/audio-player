@@ -85,6 +85,23 @@ set_target_properties(libmpg123 PROPERTIES FOLDER "third_party")
 FetchContent_GetProperties(mpg123 SOURCE_DIR AP_MPG123_ROOT)
 target_include_directories(libmpg123 SYSTEM INTERFACE "$<BUILD_INTERFACE:${AP_MPG123_ROOT}/src/include>")
 
+# libebur128 1.2.6 (release tag archive), MIT (queue.h: BSD-3-Clause).
+# Loudness by ITU-R BS.1770 / EBU R128 for ReplayGain 2.0 (task 3-4). Only
+# its one source file is built here, as a static library; its own CMake
+# (shared library, tests) is not used. Its peak functions are not used: peaks
+# come from the engine's own True Peak meter (CLAUDE.md chapter 4).
+FetchContent_Declare(ebur128
+    URL      https://github.com/jiixyj/libebur128/archive/refs/tags/v1.2.6.tar.gz
+    URL_HASH SHA256=baa7fc293a3d4651e244d8022ad03ab797ca3c2ad8442c43199afe8059faa613
+    SOURCE_SUBDIR not-used # no CMakeLists.txt there: FetchContent only downloads
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(ebur128)
+add_library(ap_ebur128 STATIC "${ebur128_SOURCE_DIR}/ebur128/ebur128.c")
+target_include_directories(ap_ebur128 SYSTEM PUBLIC "${ebur128_SOURCE_DIR}/ebur128")
+target_include_directories(ap_ebur128 PRIVATE "${ebur128_SOURCE_DIR}/ebur128/queue")
+target_compile_definitions(ap_ebur128 PRIVATE _USE_MATH_DEFINES)
+set_target_properties(ap_ebur128 PROPERTIES FOLDER "third_party")
+
 # Copies the mpg123 DLL next to an executable that uses the engine.
 function(ap_copy_engine_dlls target)
     add_custom_command(TARGET ${target} POST_BUILD

@@ -131,6 +131,20 @@
 
 ---
 
+## libebur128
+
+- バージョン：1.2.6（リリースのタグ `v1.2.6` のソースの配布 `libebur128-1.2.6.tar.gz`、SHA-256 `baa7fc293a3d4651e244d8022ad03ab797ca3c2ad8442c43199afe8059faa613`）
+- ライセンス：MIT（`COPYING`）。同梱の `queue.h`（`ebur128/queue/sys/queue.h`）は BSD-3-Clause（`doc/license/queue.txt`）。R128Scan 由来の部分は MIT（`doc/license/R128Scan.txt`）
+- 配布物：含む（ラウドネスの測定に使う。ReplayGain 2.0。`ebur128/ebur128.c` の1ファイルだけを静的ライブラリとして組み込む。ピークの関数は使わない）
+- 入手先：https://github.com/jiixyj/libebur128 （ソースは上の配布物。変更なし）
+- 著作権表示：
+  - Copyright (c) 2011 Jan Kokemüller
+  - Copyright (C) 2011 Chris Moeller（R128Scan、Portions copyright (c) 2011 Jan Kokemüller）
+  - Copyright (c) 1991, 1993 The Regents of the University of California. All rights reserved.（queue.h）
+- ライセンス本文：libebur128 の `COPYING`、`doc/license/R128Scan.txt`、`doc/license/queue.txt`
+
+---
+
 ## LAME（テスト専用）
 
 - バージョン：3.100（`lame-3.100.tar.gz`、SHA-256 `ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e`）
