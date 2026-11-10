@@ -372,11 +372,24 @@ juce::var PlayerBridge::statusAsVar() const
         bp->setProperty("dummyOutput", v.dummyOutput);
         bp->setProperty("deviceVolume", v.deviceVolume ? juce::var(*v.deviceVolume) : juce::var());
         bp->setProperty("deviceMuted", v.deviceMuted);
+        bp->setProperty("deliveryMismatch", v.deliveryMismatch);
         o->setProperty("bitPerfect", juce::var(bp));
     }
     else
     {
         o->setProperty("bitPerfect", juce::var());
+    }
+    if (s.delivery)
+    {
+        // Frame counts fit a double exactly (a JS number) for any realistic session.
+        auto* dr = new juce::DynamicObject();
+        dr->setProperty("matchedFrames", static_cast<double>(s.delivery->matchedFrames));
+        dr->setProperty("mismatchedFrames", static_cast<double>(s.delivery->mismatchedFrames));
+        o->setProperty("delivery", juce::var(dr));
+    }
+    else
+    {
+        o->setProperty("delivery", juce::var());
     }
 
     auto* ic = new juce::DynamicObject();

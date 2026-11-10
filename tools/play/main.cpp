@@ -747,7 +747,31 @@ std::string bitPerfectLine(const PlayerStatus& s)
         add("聴き比べ中（原音側も値は同じだが処理経路を通る）");
     if (v.dither)
         add("TPDF ディザ");
+    if (v.deliveryMismatch && v.delivery)
+        add(std::format("自己確認で不一致（{} フレーム）", v.delivery->mismatchedFrames));
     return "BIT-PERFECT ではない：" + reasons + device;
+}
+
+// The self-check line (task 4-3), with how far it reaches.
+std::string selfCheckLine(const PlayerStatus& s)
+{
+    if (s.plan && s.plan->processing)
+        return "処理経路では行わない（値を変える経路のため）";
+    if (!s.delivery)
+        return "—";
+    const auto& d = *s.delivery;
+    if (d.mismatchedFrames > 0)
+        return std::format("ドライバーに渡した値が、ファイルから読み出した値と {} フレームで一致しなかった"
+                           "（アプリの不具合の可能性がある）",
+                           d.mismatchedFrames);
+    if (d.matchedFrames == 0)
+        return "まだ比べていない（データを渡す前に終わった）";
+    const double rate = s.plan ? s.plan->output.sampleRate : 0.0;
+    return std::format("ドライバーに渡した値が、ファイルから読み出した値とすべて一致（{} フレーム{}）。"
+                       "確かめられるのはアプリからドライバーまで。ドライバーの中、USB などの転送、DAC の中は確かめられない",
+                       d.matchedFrames,
+                       rate > 0 ? std::format("、{:.1f} 秒分", static_cast<double>(d.matchedFrames) / rate)
+                                : std::string());
 }
 
 std::string playerErrorText(const PlayerStatus& s)
@@ -1331,6 +1355,7 @@ int runQueue(const Options& o)
     print(std::format("再生スレッド: {}\n", d.realtimePriority ? "MMCSS（Pro Audio）で優先度を上げた"
                                                               : "通常の優先度（MMCSS は使っていない）"));
     print(std::format("ファイルの検証（{} 曲目）: {}\n", s.queueIndex + 1, integrityText(s.integrity)));
+    print(std::format("自己確認（最後に出力を開いてから）: {}\n", selfCheckLine(s)));
     if (!s.integrityFailures.empty())
     {
         std::string list;

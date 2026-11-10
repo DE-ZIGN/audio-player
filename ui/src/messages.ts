@@ -105,6 +105,7 @@ export function bitPerfectText(s: PlaybackStatus): string {
   if (v.quantized) reasons.push("浮動小数点の曲を整数に変換");
   if (v.comparison) reasons.push("聴き比べ中（原音側も値は同じだが処理経路を通る）");
   if (v.dither) reasons.push("TPDF ディザ");
+  if (v.deliveryMismatch && s.delivery) reasons.push(`自己確認で不一致（${s.delivery.mismatchedFrames} フレーム）`);
   return `BIT-PERFECT ではありません：${reasons.join("、")}${deviceNote}`;
 }
 
@@ -182,6 +183,32 @@ export function volumeText(path: SignalPath): string {
   return (
     `${percent}%：このデバイスは音量をデバイスの中でかけるため、DAC に届いたあとで信号が変わります。` +
     "原音のまま出すには 100% にしてください（アプリからドライバーまでは原音のままです）"
+  );
+}
+
+function durationText(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const sec = Math.floor(seconds % 60);
+  return m > 0 ? `${m} 分 ${sec} 秒` : `${sec} 秒`;
+}
+
+// The self-check of the direct path (task 4-3), with how far it reaches.
+export function selfCheckText(s: PlaybackStatus): string {
+  if (!s.path) return "—";
+  if (s.path.processing) return "処理経路では行いません（値を変える経路のため。原音経路で、渡した値と読み出した値を比べます）";
+  const d = s.delivery;
+  if (!d) return "—";
+  if (d.mismatchedFrames > 0)
+    return (
+      `ドライバーに渡した値が、ファイルから読み出した値と ${d.mismatchedFrames} フレームで一致しませんでした` +
+      "（アプリの不具合の可能性があります。この出力を開いてから）"
+    );
+  if (d.matchedFrames === 0) return "確認中（最初のデータを渡すと結果が出ます）";
+  const rate = s.outputFormat?.sampleRate ?? 0;
+  const amount = rate > 0 ? `${durationText(d.matchedFrames / rate)}分` : `${d.matchedFrames} フレーム`;
+  return (
+    `ドライバーに渡した値が、ファイルから読み出した値とすべて一致（この出力を開いてから ${amount}）。` +
+    "確かめられるのはアプリからドライバーまでです。ドライバーの中、USB などの転送、DAC の中は確かめられません"
   );
 }
 

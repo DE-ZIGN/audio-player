@@ -2,6 +2,7 @@ import "./style.css";
 import { createBackend, type Backend } from "./backend";
 import {
   bitPerfectText,
+  selfCheckText,
   describeFormat,
   dopNotice,
   inputText,
@@ -36,6 +37,7 @@ const els = {
   priority: $("priority"),
   processing: $("processing"),
   bitPerfect: $("bit-perfect"),
+  selfCheck: $("self-check"),
   dopNote: $("dop-note"),
   state: $("state"),
   position: $("position"),
@@ -80,6 +82,7 @@ function render(s: PlaybackStatus) {
   els.integrityFailures.textContent = failures;
   els.processing.textContent = processingText(s);
   els.bitPerfect.textContent = bitPerfectText(s);
+  els.selfCheck.textContent = selfCheckText(s);
   const note = dopNotice(s);
   els.dopNote.hidden = note === "";
   els.dopNote.textContent = note;

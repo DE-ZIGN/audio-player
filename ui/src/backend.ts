@@ -113,6 +113,7 @@ const mockVerdict = (t: MockTrack): BitPerfectVerdict => ({
   dummyOutput: false,
   deviceVolume: null,
   deviceMuted: false,
+  deliveryMismatch: false,
 });
 
 // Three tracks with a rate change, for working on the page in a browser.
@@ -148,6 +149,7 @@ export class MockBackend implements Backend {
       outputFormat: null,
       path: null,
       bitPerfect: null,
+      delivery: null,
       // FLAC: pending until the read-ahead has decoded the whole file (shown as passed once playing).
       integrity: { state: t.name.endsWith(".flac") ? ("pending" as const) : ("notAvailable" as const), decodeErrors: 0 },
       totalFrames: Math.round(t.sampleRate * t.seconds),
@@ -165,6 +167,7 @@ export class MockBackend implements Backend {
       outputFormat: this.status.sourceFormat && { ...this.status.sourceFormat, containerBits: 32 },
       path: mockPath(this.tracks[this.status.queueIndex]),
       bitPerfect: mockVerdict(this.tracks[this.status.queueIndex]),
+      delivery: { matchedFrames: 0, mismatchedFrames: 0 },
       integrity: this.status.integrity.state === "pending" ? { state: "passed", decodeErrors: 0 } : this.status.integrity,
       repack: "widerContainer",
       dropouts: { ...this.status.dropouts, realtimePriority: true },
@@ -173,7 +176,12 @@ export class MockBackend implements Backend {
       const rate = this.status.sourceFormat?.sampleRate ?? 48000;
       const next = this.status.positionFrames + rate / 10;
       if (next < this.status.totalFrames) {
-        this.update({ ...this.status, positionFrames: next });
+        const d = this.status.delivery;
+        this.update({
+          ...this.status,
+          positionFrames: next,
+          delivery: d && { ...d, matchedFrames: d.matchedFrames + rate / 10 },
+        });
         return;
       }
       const from = this.status.queueIndex;
@@ -190,6 +198,8 @@ export class MockBackend implements Backend {
         outputFormat: { ...fields.sourceFormat, containerBits: 32 },
         path: mockPath(this.tracks[from + 1]),
         bitPerfect: mockVerdict(this.tracks[from + 1]),
+        // A new output session when the format changes; gapless keeps counting.
+        delivery: gapless ? this.status.delivery : { matchedFrames: 0, mismatchedFrames: 0 },
         transitions: [
           ...this.status.transitions,
           {

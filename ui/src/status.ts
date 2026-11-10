@@ -122,6 +122,14 @@ export interface BitPerfectVerdict {
   dummyOutput: boolean;
   deviceVolume: number | null; // the device's own volume (0..1) when not 100%; after the driver
   deviceMuted: boolean;
+  deliveryMismatch: boolean; // the self-check found values in the driver's buffers that differ
+}
+
+// The self-check of the direct path (task 4-3): frames of this output session
+// compared between the values read and what reached the driver's buffers.
+export interface DeliveryResult {
+  matchedFrames: number;
+  mismatchedFrames: number;
 }
 
 export interface PlaybackStatus {
@@ -129,6 +137,7 @@ export interface PlaybackStatus {
   path: SignalPath | null;
   stages: StageState[]; // processing path: the stages running now
   bitPerfect: BitPerfectVerdict | null; // set with path
+  delivery: DeliveryResult | null; // direct path only
   integrity: IntegrityCheck; // of the current track
   integrityFailures: number[]; // queue indices of earlier tracks whose check failed
   dropouts: DropoutCounts;
@@ -151,6 +160,7 @@ export const emptyStatus: PlaybackStatus = {
   path: null,
   stages: [],
   bitPerfect: null,
+  delivery: null,
   integrity: { state: "notAvailable", decodeErrors: 0 },
   integrityFailures: [],
   dropouts: { lateBuffers: 0, deviceTimeouts: 0, readStarvations: 0, starvedFrames: 0, realtimePriority: false },

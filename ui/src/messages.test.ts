@@ -16,6 +16,7 @@ import {
   queueText,
   rateChangeText,
   repackText,
+  selfCheckText,
   stageText,
   stateLabel,
   transitionText,
@@ -389,6 +390,60 @@ describe("errorText", () => {
   });
 });
 
+describe("Self-check (task 4-3)", () => {
+  const direct = (matchedFrames: number, mismatchedFrames: number): PlaybackStatus => ({
+    ...emptyStatus,
+    state: "playing",
+    outputFormat: f(48000, 24, 24),
+    path: { ...emptyStatus.path, processing: false } as SignalPath,
+    delivery: { matchedFrames, mismatchedFrames },
+  });
+
+  it("shows nothing before the output is open", () => {
+    expect(selfCheckText(emptyStatus)).toBe("—");
+  });
+  it("says what matched and how far it reaches (from the application to the driver)", () => {
+    const t = selfCheckText(direct(48000 * 125, 0));
+    expect(t).toContain("一致");
+    expect(t).toContain("2 分 5 秒分");
+    expect(t).toContain("アプリからドライバーまで");
+    expect(t).toContain("DAC の中は確かめられません");
+  });
+  it("is waiting before the first period has been compared", () => {
+    expect(selfCheckText(direct(0, 0))).toContain("確認中");
+  });
+  it("reports a mismatch with the number of frames", () => {
+    const t = selfCheckText(direct(1000, 3));
+    expect(t).toContain("3 フレーム");
+    expect(t).toContain("一致しませんでした");
+  });
+  it("is not done on the processing path, and says why", () => {
+    const s: PlaybackStatus = { ...emptyStatus, path: { processing: true } as SignalPath, delivery: null };
+    expect(selfCheckText(s)).toContain("処理経路");
+  });
+  it("takes BIT-PERFECT away on a mismatch, with the reason", () => {
+    const s: PlaybackStatus = {
+      ...direct(1000, 3),
+      bitPerfect: {
+        bitPerfect: false,
+        quantized: false,
+        dither: false,
+        comparison: false,
+        repacked: false,
+        dop: false,
+        floatSource: false,
+        dummyOutput: false,
+        deviceVolume: null,
+        deviceMuted: false,
+        deliveryMismatch: true,
+      },
+    };
+    const t = bitPerfectText(s);
+    expect(t.startsWith("BIT-PERFECT ではありません")).toBe(true);
+    expect(t).toContain("自己確認で不一致（3 フレーム）");
+  });
+});
+
 describe("BIT-PERFECT (task 4-2)", () => {
   const verdict = (v: Partial<BitPerfectVerdict>): BitPerfectVerdict => ({
     bitPerfect: true,
@@ -401,6 +456,7 @@ describe("BIT-PERFECT (task 4-2)", () => {
     dummyOutput: false,
     deviceVolume: null,
     deviceMuted: false,
+    deliveryMismatch: false,
     ...v,
   });
   const withVerdict = (v: Partial<BitPerfectVerdict>, stages: StageState[] = []): PlaybackStatus => ({
