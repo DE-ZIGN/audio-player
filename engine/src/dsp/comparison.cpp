@@ -67,7 +67,9 @@ void AbComparison::prepare(std::uint32_t sampleRate, std::uint16_t channels, std
     match_.prepare(sampleRate);
     matchDb_ = fixed_ ? fixedDb_.load() : 0.0;
     levelDifferenceDb_ = 0.0;
-    for (auto* k : {&kOriginal_, &kProcessed_, &kOut_})
+    levelReady_ = false;
+    warmUpLeft_ = static_cast<std::uint64_t>(sampleRate * kLevelWarmUpSeconds);
+    for (auto* k : {&kOriginal_, &kProcessed_, &kOut_, &kAligned_})
     {
         designKWeighting(sampleRate, k->shelf, k->highPass);
         k->state.assign(static_cast<std::size_t>(channels) * 8, 0.0);
@@ -113,13 +115,9 @@ void AbComparison::process(std::span<const double> original, std::span<double> p
         }
     }
 
-    // 2. The processed side: matched, then limited; how loud it comes out.
+    // 2. The processed side: matched, then limited.
     match_.apply(processed, channels);
     limiter_.process(processed, channels);
-    for (std::size_t f = 0; f < frames; ++f)
-        kOut_.energy += kOut_.weightedSquare(processed.data() + f * channels, channels);
-    if (kOriginal_.energy > 1e-20 && kOut_.energy > 1e-20)
-        levelDifferenceDb_.store(10.0 * std::log10(kOut_.energy / kOriginal_.energy), std::memory_order_relaxed);
 
     // 3. The original side, delayed to line up, and the crossfade.
     const double target = selected_.load(std::memory_order_relaxed) == ComparisonSide::Processed ? 1.0 : 0.0;
@@ -131,6 +129,17 @@ void AbComparison::process(std::span<const double> original, std::span<double> p
         const double* oldest = delay_.data() + ((delayPos_ + 1) % delayFrames_) * channels;
         for (std::uint16_t c = 0; c < channels; ++c)
             slot[c] = o[c];
+
+        // How loud each side comes out, lined up in time (after the warm-up).
+        const double eOut = kOut_.weightedSquare(p, channels);
+        const double eAligned = kAligned_.weightedSquare(oldest, channels);
+        if (warmUpLeft_ > 0)
+            --warmUpLeft_;
+        else
+        {
+            kOut_.energy += eOut;
+            kAligned_.energy += eAligned;
+        }
 
         if (mix_ < target)
             mix_ = std::min(target, mix_ + mixStep_);
@@ -148,6 +157,11 @@ void AbComparison::process(std::span<const double> original, std::span<double> p
                 p[c] = oldest[c] + (p[c] - oldest[c]) * w;
         }
         delayPos_ = (delayPos_ + 1) % delayFrames_;
+    }
+    if (kAligned_.energy > 1e-20 && kOut_.energy > 1e-20)
+    {
+        levelDifferenceDb_.store(10.0 * std::log10(kOut_.energy / kAligned_.energy), std::memory_order_relaxed);
+        levelReady_.store(true, std::memory_order_relaxed);
     }
 }
 

@@ -61,9 +61,15 @@ public:
     ComparisonSide selected() const noexcept { return selected_; }
     // The gain applied to the processed side now (dB).
     double matchDb() const noexcept { return matchDb_; }
+    static constexpr double kLevelWarmUpSeconds = 3.0;
+
     // The processed side's loudness as it comes out (after the matching gain
-    // and the limiter) minus the original's, since the comparison started (dB).
+    // and the limiter) minus the original's, both lined up in time, from
+    // kLevelWarmUpSeconds after the comparison started (dB). Before that it is
+    // not ready: the first moments (the processed side still delayed, the
+    // filters settling) say nothing about the match.
     double levelDifferenceDb() const noexcept { return levelDifferenceDb_; }
+    bool levelDifferenceReady() const noexcept { return levelReady_; }
     // The comparison's own limiter on the processed side.
     LimiterStats limiterStats() const noexcept { return limiter_.stats(); }
 
@@ -89,11 +95,13 @@ private:
     std::atomic<double> fixedDb_{0.0};
     std::atomic<double> matchDb_{0.0};
     std::atomic<double> levelDifferenceDb_{0.0};
+    std::atomic<bool> levelReady_{false};
 
     std::uint16_t channels_ = 0;
     SafetyLimiter limiter_;
     dsp::GainRamp match_;
-    KWeighting kOriginal_, kProcessed_, kOut_;
+    KWeighting kOriginal_, kProcessed_, kOut_, kAligned_; // kAligned_: the delayed original
+    std::uint64_t warmUpLeft_ = 0;
     std::uint32_t updateEvery_ = 4800;
     std::uint32_t untilUpdate_ = 0;
     // Original side, delayed by the chain's latency plus the comparison limiter's.

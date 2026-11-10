@@ -730,6 +730,22 @@ int exitCodeFor(PlayerErrorKind kind)
     }
 }
 
+// Engine error messages are English with file paths in the ANSI code page
+// (path::string()); the console prints UTF-8.
+std::string fromAnsi(const char* text)
+{
+    const int wn = MultiByteToWideChar(CP_ACP, 0, text, -1, nullptr, 0);
+    if (wn <= 0)
+        return text;
+    std::wstring w(static_cast<std::size_t>(wn), L'\0');
+    MultiByteToWideChar(CP_ACP, 0, text, -1, w.data(), wn);
+    const int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    std::string u(static_cast<std::size_t>(n), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, u.data(), n, nullptr, nullptr);
+    u.resize(static_cast<std::size_t>(n > 0 ? n - 1 : 0));
+    return u;
+}
+
 std::string dbText(double linear)
 {
     return linear > 0.0 ? std::format("{:+.2f}", 20.0 * std::log10(linear)) : std::string("-inf");
@@ -782,7 +798,7 @@ int analyzeFiles(const Options& o)
         }
         catch (const std::exception& e)
         {
-            printErr(std::format("  読めません: {}\n", e.what()));
+            printErr(std::format("  読めません: {}\n", fromAnsi(e.what())));
             worst = 5;
         }
     }
@@ -1015,11 +1031,14 @@ int runQueue(const Options& o)
         }
         print("ABX: 音作り側の音量を原音に合わせるため、曲全体を解析しています…\n");
         const auto src = openAudioFile(fs::path{o.files[0]});
+        // Over the part that is played (from --from to the end; the ABX replays that part).
+        if (o.fromSeconds > 0.0)
+            src->seek(static_cast<std::uint64_t>(o.fromSeconds * src->format().sampleRate));
         auto offline = makeStages();
         TrackInfo track{0, items[0].replayGain};
         const double match = measureMatchDb(*src, *offline.chain, track);
         playOptions.processing->comparison().setFixedMatchDb(match);
-        print(std::format("ABX: 音作り側を {:+.2f} dB にして原音の音量に合わせます\n", match));
+        print(std::format("ABX: 音作り側を {:+.2f} dB にして原音の音量に合わせます（流す範囲で計算）\n", match));
         if (playOptions.processing->bypassed() && eqBands.empty() && o.volumeDb == 0.0 && o.replayGain == ReplayGainMode::Off
             && o.ispSafe.value_or(IspSafeMode::Off) == IspSafeMode::Off)
             print("ABX: 音作りの設定がないので、A と B は同じ音です（確かめ用の対照）\n");
@@ -1144,7 +1163,7 @@ int runQueue(const Options& o)
         if (abx)
         {
             auto& ab = playOptions.processing->comparison();
-            if (s.path && s.path->comparison)
+            if (s.path && s.path->comparison && ab.levelDifferenceReady())
                 abx->noteLevelDifference(ab.levelDifferenceDb());
             while (_kbhit())
             {
@@ -1356,47 +1375,47 @@ int main(int argc, char** argv)
     }
     catch (const WavFormatError& e)
     {
-        printErr(std::string("このファイルは読めません: ") + e.what() + "\n");
+        printErr(std::string("このファイルは読めません: ") + fromAnsi(e.what()) + "\n");
         return 5;
     }
     catch (const UnsupportedAudioFileError& e)
     {
-        printErr(std::string("このファイルは読めません（WAV、FLAC、AIFF、ALAC・AAC（.m4a）、MP3、DSF、DFF に対応）: ") + e.what() + "\n");
+        printErr(std::string("このファイルは読めません（WAV、FLAC、AIFF、ALAC・AAC（.m4a）、MP3、DSF、DFF に対応）: ") + fromAnsi(e.what()) + "\n");
         return 5;
     }
     catch (const FlacFormatError& e)
     {
-        printErr(std::string("このファイルは読めません（FLAC）: ") + e.what() + "\n");
+        printErr(std::string("このファイルは読めません（FLAC）: ") + fromAnsi(e.what()) + "\n");
         return 5;
     }
     catch (const AiffFormatError& e)
     {
-        printErr(std::string("このファイルは読めません（AIFF）: ") + e.what() + "\n");
+        printErr(std::string("このファイルは読めません（AIFF）: ") + fromAnsi(e.what()) + "\n");
         return 5;
     }
     catch (const AlacFormatError& e)
     {
-        printErr(std::string("このファイルは読めません（ALAC）: ") + e.what() + "\n");
+        printErr(std::string("このファイルは読めません（ALAC）: ") + fromAnsi(e.what()) + "\n");
         return 5;
     }
     catch (const Mp4FormatError& e)
     {
-        printErr(std::string("このファイルは読めません（MP4）: ") + e.what() + "\n");
+        printErr(std::string("このファイルは読めません（MP4）: ") + fromAnsi(e.what()) + "\n");
         return 5;
     }
     catch (const AacFormatError& e)
     {
-        printErr(std::string("このファイルは読めません（AAC）: ") + e.what() + "\n");
+        printErr(std::string("このファイルは読めません（AAC）: ") + fromAnsi(e.what()) + "\n");
         return 5;
     }
     catch (const Mp3FormatError& e)
     {
-        printErr(std::string("このファイルは読めません（MP3）: ") + e.what() + "\n");
+        printErr(std::string("このファイルは読めません（MP3）: ") + fromAnsi(e.what()) + "\n");
         return 5;
     }
     catch (const DsdFormatError& e)
     {
-        printErr(std::string("このファイルは読めません（DSD）: ") + e.what() + "\n");
+        printErr(std::string("このファイルは読めません（DSD）: ") + fromAnsi(e.what()) + "\n");
         return 5;
     }
     catch (const std::exception& e)

@@ -192,6 +192,39 @@ TEST_CASE("Comparison: a match worked out for the whole track keeps the loudness
     lp.process(y);
     CAPTURE(match, lo.integratedLufs(), lp.integratedLufs(), chain->comparison().levelDifferenceDb());
     CHECK(std::abs(lp.integratedLufs() - lo.integratedLufs()) < 0.1);
-    CHECK(std::abs(chain->comparison().levelDifferenceDb()) < 0.1);
+    // (levelDifferenceDb covers only what came after its 3 s warm-up, mostly
+    // the high half here, so it is not the whole track's difference.)
     CHECK(chain->comparison().matchDb() == match);
+}
+
+TEST_CASE("Comparison: the level difference is measured lined up in time, after a warm-up", "[dsp][comparison]")
+{
+    // The chain delays the processed side by 500 frames and changes nothing
+    // else: lined up, the two are equally loud, so the difference is 0 dB once
+    // ready, and the delayed start is not counted.
+    AbComparison ab;
+    ab.setFixedMatchDb(0.0); // the measurement alone (a running estimate would count the delay)
+    ab.prepare(48000, 2, 500);
+    std::vector<double> o(48000 * 2 * 2);
+    for (std::size_t i = 0; i < o.size() / 2; ++i)
+        o[2 * i] = o[2 * i + 1] = 0.3 * std::sin(2 * std::numbers::pi * 440 * static_cast<double>(i) / 48000);
+    // The chain's output: the original 500 frames later.
+    std::vector<double> p(o.size(), 0.0);
+    std::copy(o.begin(), o.end() - 1000, p.begin() + 1000);
+    std::vector<double> o1(o.begin(), o.begin() + 48000 * 2), p1(p.begin(), p.begin() + 48000 * 2);
+    ab.process(o1, p1, 2);
+    CHECK_FALSE(ab.levelDifferenceReady()); // 1 s of 3
+    std::vector<double> o2(o.begin() + 48000 * 2, o.end()), p2(p.begin() + 48000 * 2, p.end());
+    ab.process(o2, p2, 2);
+    CHECK_FALSE(ab.levelDifferenceReady()); // 2 s of 3
+    for (int k = 0; k < 2; ++k)
+    {
+        std::vector<double> o3(o2), p3(o2.size());
+        // Keep the delay continuous: the next second's processed side is this second's original, 500 frames late.
+        std::copy(o2.end() - 1000, o2.end(), p3.begin());
+        std::copy(o2.begin(), o2.end() - 1000, p3.begin() + 1000);
+        ab.process(o3, p3, 2);
+    }
+    CHECK(ab.levelDifferenceReady());
+    CHECK(std::abs(ab.levelDifferenceDb()) < 0.01);
 }
