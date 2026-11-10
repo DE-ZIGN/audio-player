@@ -206,6 +206,52 @@ TEST_CASE("AAC: the edit list / iTunSMPB start and length select exactly those d
     CHECK(std::memcmp(out.data(), all.data() + start * 2, out.size() * sizeof(float)) == 0);
 }
 
+// FFmpeg writes the edit list duration in a movie timescale of 1000 by
+// default, rounded down to whole milliseconds, and the exact number of frames
+// in the last packet's time-to-sample entry (found with a real file made by
+// FFmpeg 4.4 through convertio.co: 486,620 frames, edit list 11,034 ms = 486,599).
+TEST_CASE("AAC: an edit list in milliseconds (FFmpeg) still gives the exact length", "[engine][aac][gapless]")
+{
+    const auto rate = GENERATE(44100u, 48000u);
+    const auto padding = GENERATE(std::uint64_t{1}, std::uint64_t{300}, std::uint64_t{1000});
+    CAPTURE(rate, padding);
+    ap::test::TempDir dir;
+    const auto e = encode(dir, "plain.m4a", rate, testSignal(rate, rate * 2));
+    AacFileSource plain(e.plain);
+    const auto all = readAllFloats(plain, 4096);
+
+    const std::uint64_t priming = 1024;
+    const std::uint64_t frames = e.streamFrames - priming - padding;
+    const auto ffmpeg = dir.path() / "ffmpeg.m4a";
+    ap::test::rewriteAacM4aLikeFfmpeg(e.plain, ffmpeg, priming, frames);
+    const auto track = readMp4AudioTrack(ffmpeg);
+    REQUIRE(track.hasEditList);
+    CAPTURE(frames, track.editFrames);
+
+    AacFileSource src(ffmpeg);
+    CHECK(std::string(src.gaplessSource()) == "elst");
+    CHECK(src.totalFrames() == frames);
+    const auto out = readAllFloats(src, 999);
+    REQUIRE(out.size() == frames * 2);
+    CHECK(std::memcmp(out.data(), all.data() + priming * 2, out.size() * sizeof(float)) == 0);
+}
+
+TEST_CASE("AAC: a coarse edit list that really ends earlier is not extended", "[engine][aac][gapless]")
+{
+    // The edit ends 100 ms before the stream: more than one tick of the movie
+    // timescale, so the stream's length is not the edit's length at that resolution.
+    ap::test::TempDir dir;
+    const auto e = encode(dir, "plain.m4a", 44100, testSignal(44100, 44100 * 2));
+    const std::uint64_t frames = e.streamFrames - 4410 - 123;
+    const auto coarse = dir.path() / "coarse.m4a";
+    ap::test::rewriteAacM4a(e.plain, coarse, 0, frames, {}, 1000);
+
+    AacFileSource src(coarse);
+    const std::uint64_t ms = frames * 1000 / 44100; // as written, rounded down
+    CHECK(src.totalFrames() == (ms * 44100 + 500) / 1000);
+    CHECK(src.totalFrames() < frames + 44);
+}
+
 TEST_CASE("AAC: an edit list or iTunSMPB trims priming and padding exactly", "[engine][aac][gapless]")
 {
     const auto rate = GENERATE(44100u, 48000u);

@@ -396,11 +396,25 @@ Mp4AudioTrack readMp4AudioTrack(const std::filesystem::path& path)
                 t.hasEditList = true;
                 t.editStart = std::min<std::uint64_t>(static_cast<std::uint64_t>(mediaTime), t.totalFrames);
                 std::uint64_t frames = t.totalFrames - t.editStart;
-                if (movieTimescale != 0 && duration != 0)
+                if (movieTimescale != 0 && duration != 0 && t.timescale != 0)
                 {
-                    // segment duration is in the movie timescale; convert to media ticks
-                    const long double ticks = static_cast<long double>(duration) * t.timescale / movieTimescale;
-                    frames = std::min<std::uint64_t>(frames, static_cast<std::uint64_t>(ticks + 0.5L));
+                    // The segment duration is in the movie timescale, which may be much
+                    // coarser than the media's: FFmpeg writes 1/1000 s by default, rounded
+                    // down. When the rest of the stream (whose last packet's table entry
+                    // holds the exact frames) has this very duration at that resolution,
+                    // the stream is the exact length; otherwise the edit ends earlier.
+                    const std::uint64_t rest = frames;
+                    // rest * movieTimescale / timescale without overflow
+                    const std::uint64_t whole = rest / t.timescale;
+                    const std::uint64_t part = rest % t.timescale;
+                    const std::uint64_t restFloor = whole * movieTimescale + part * movieTimescale / t.timescale;
+                    const std::uint64_t restRound =
+                        whole * movieTimescale + (part * movieTimescale + t.timescale / 2) / t.timescale;
+                    if (duration != restFloor && duration != restRound)
+                    {
+                        const long double ticks = static_cast<long double>(duration) * t.timescale / movieTimescale;
+                        frames = std::min<std::uint64_t>(frames, static_cast<std::uint64_t>(ticks + 0.5L));
+                    }
                 }
                 t.editFrames = frames;
                 break;

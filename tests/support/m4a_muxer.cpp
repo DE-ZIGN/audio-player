@@ -88,12 +88,17 @@ void writeM4a(const std::filesystem::path& path, const M4aTrack& t)
     std::uint64_t mediaDuration = 0;
     for (const auto f : t.packetFrames)
         mediaDuration += f;
-    const auto duration = static_cast<std::uint32_t>(t.editFrames ? t.editFrames : mediaDuration);
+    const std::uint64_t movieTimescale = t.movieTimescale ? t.movieTimescale : t.timescale;
+    // In the movie timescale, rounded down.
+    const auto toMovie = [&](std::uint64_t mediaTicks) {
+        return static_cast<std::uint32_t>(mediaTicks * movieTimescale / t.timescale);
+    };
+    const auto duration = toMovie(t.editFrames ? t.editFrames : mediaDuration);
 
     Bytes mvhd;
     be32(mvhd, 0);
     be32(mvhd, 0);
-    be32(mvhd, t.timescale);
+    be32(mvhd, static_cast<std::uint32_t>(movieTimescale));
     be32(mvhd, duration);
     be32(mvhd, 0x00010000);
     be16(mvhd, 0x0100);
@@ -181,7 +186,7 @@ void writeM4a(const std::filesystem::path& path, const M4aTrack& t)
     {
         Bytes elst;
         be32(elst, 1);
-        be32(elst, static_cast<std::uint32_t>(t.editFrames));
+        be32(elst, toMovie(t.editFrames));
         be32(elst, static_cast<std::uint32_t>(t.editStart));
         be32(elst, 0x00010000);
         const Bytes edts = box("edts", fullBox("elst", 0, elst));
@@ -223,8 +228,9 @@ void writeM4a(const std::filesystem::path& path, const M4aTrack& t)
         throw std::runtime_error("cannot write " + path.string());
 }
 
-void rewriteAacM4a(const std::filesystem::path& from, const std::filesystem::path& to, std::uint64_t editStart,
-                   std::uint64_t editFrames, const std::string& itunSmpb)
+namespace {
+
+M4aTrack copyAacTrack(const std::filesystem::path& from)
 {
     const auto track = ap::engine::readMp4AudioTrack(from);
     if (track.codec != "mp4a")
@@ -254,9 +260,36 @@ void rewriteAacM4a(const std::filesystem::path& from, const std::filesystem::pat
     const Bytes esds = box("esds", track.config); // config = the esds payload (version/flags + descriptors)
     entry.insert(entry.end(), esds.begin(), esds.end());
     t.sampleEntry = box("mp4a", entry);
+    return t;
+}
+
+} // namespace
+
+void rewriteAacM4a(const std::filesystem::path& from, const std::filesystem::path& to, std::uint64_t editStart,
+                   std::uint64_t editFrames, const std::string& itunSmpb, std::uint32_t movieTimescale)
+{
+    auto t = copyAacTrack(from);
     t.editStart = editStart;
     t.editFrames = editFrames;
     t.itunSmpb = itunSmpb;
+    t.movieTimescale = movieTimescale;
+    writeM4a(to, t);
+}
+
+void rewriteAacM4aLikeFfmpeg(const std::filesystem::path& from, const std::filesystem::path& to, std::uint64_t priming,
+                             std::uint64_t frames, std::uint32_t movieTimescale)
+{
+    auto t = copyAacTrack(from);
+    std::uint64_t before = 0;
+    for (std::size_t i = 0; i + 1 < t.packetFrames.size(); ++i)
+        before += t.packetFrames[i];
+    const std::uint64_t end = priming + frames;
+    if (end <= before || end > before + t.packetFrames.back())
+        throw std::runtime_error("the length must end inside the last packet");
+    t.packetFrames.back() = static_cast<std::uint32_t>(end - before);
+    t.editStart = priming;
+    t.editFrames = frames;
+    t.movieTimescale = movieTimescale;
     writeM4a(to, t);
 }
 
