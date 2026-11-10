@@ -669,10 +669,13 @@ int runQueue(const Options& o)
             return 4;
         }
         const auto& x = probe.details;
-        print(std::format("出力: ASIO: {}（ドライバー名 {}、サンプル形式 {}、バッファー {} フレーム）\n", driver.name,
-                          x.driverName, asio::sampleTypeName(x.sampleType), x.preferredBufferSize));
-        print(std::format("  使えるレート: {}（曲ごとにドライバーへ設定します）、今のレート {:g} kHz\n", ratesText(probe.rates),
-                          x.currentSampleRate / 1000.0));
+        print(std::format("出力: ASIO: {}（ドライバー名 {}、サンプル形式 {}）\n", driver.name, x.driverName,
+                          asio::sampleTypeName(x.sampleType)));
+        // The preferred buffer size belongs to the driver's current rate; some drivers (SSL, FiiO) change it
+        // with the rate, so the size actually used is printed per track ("出力の方式").
+        print(std::format("  使えるレート: {}（曲ごとにドライバーへ設定します）、今のレート {:g} kHz"
+                          "（このレートでのバッファー {} フレーム。レートを変えると変わることがあります）\n",
+                          ratesText(probe.rates), x.currentSampleRate / 1000.0, x.preferredBufferSize));
 
         if (o.checkOnly)
         {
