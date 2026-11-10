@@ -70,6 +70,7 @@ export function inputText(s: PlaybackStatus): string {
 const stageNames: Record<string, string> = {
   volume: "デジタル音量",
   replaygain: "ReplayGain",
+  eq: "パラメトリック EQ",
   "isp-safe": "ISP セーフ",
   limiter: "保険のリミッター",
 };

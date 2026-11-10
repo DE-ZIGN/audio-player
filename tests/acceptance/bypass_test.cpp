@@ -1,6 +1,7 @@
 // CLAUDE.md chapter 5:
 //   EQ 全 0 dB・音作りオフ：バイパスが成立し、原音モードと出力が一致する
 // Task 3-2: 音量 100% で完全バイパス (the real volume stage at 0 dB is in the chain).
+// Task 3-6: the real parametric EQ with every band at 0 dB is in the chain too.
 //
 // Task 3-1 builds the processing path without real stages yet, so "processing
 // off" is a chain whose stages are all identity. The output of that chain must
@@ -9,6 +10,7 @@
 // same input forced through the processing path into 32-bit float (no
 // quantization, so no dither) must come out with exactly the same values.
 
+#include <ap/engine/dsp/eq.h>
 #include <ap/engine/dsp/processing.h>
 #include <ap/engine/dsp/volume.h>
 #include <ap/engine/output/dummy_output.h>
@@ -79,6 +81,17 @@ std::string playToHash(const std::filesystem::path& in, const std::filesystem::p
     return toHex(sha256File(out));
 }
 
+// EQ 全 0 dB: an AutoEQ-like set of bands, every gain at 0 dB.
+std::shared_ptr<EqStage> flatEq()
+{
+    auto eq = std::make_shared<EqStage>();
+    eq->setBands({{EqFilterType::LowShelf, 105, 0.0, 0.7},
+                  {EqFilterType::Peak, 300, 0.0, 1.2},
+                  {EqFilterType::Peak, 2900, 0.0, 2.0},
+                  {EqFilterType::HighShelf, 10000, 0.0, 0.7}});
+    return eq;
+}
+
 std::vector<std::uint8_t> readAll(const std::filesystem::path& p)
 {
     std::ifstream f(p, std::ios::binary);
@@ -102,7 +115,7 @@ TEST_CASE("Processing off: bypass holds and the output equals the direct path", 
     const auto neutralHash = playToHash(
         in, dir.path() / "neutral.raw",
         std::make_shared<ProcessingChain>(std::vector<std::shared_ptr<ProcessingStage>>{
-            std::make_shared<VolumeStage>(), std::make_shared<NeutralStage>(), std::make_shared<NeutralStage>()}),
+            flatEq(), std::make_shared<VolumeStage>(), std::make_shared<NeutralStage>(), std::make_shared<NeutralStage>()}),
         neutral);
 
     CHECK_FALSE(neutral.processing);

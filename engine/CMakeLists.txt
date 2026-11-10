@@ -31,6 +31,7 @@ add_library(ap_engine STATIC
     src/dsp/replay_gain.cpp
     src/dsp/isp_safe.cpp
     src/dsp/limiter.cpp
+    src/dsp/eq.cpp
     src/output/dummy_output.cpp
     src/output/format_probe.cpp
     src/output/device_selection.cpp

@@ -88,7 +88,8 @@ add_executable(ap_engine_unit_tests
     unit/volume_test.cpp
     unit/true_peak_test.cpp
     unit/replay_gain_test.cpp
-    unit/isp_safe_test.cpp)
+    unit/isp_safe_test.cpp
+    unit/eq_test.cpp)
 
 target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine ap_test_support Catch2::Catch2WithMain)
 target_compile_definitions(ap_engine_unit_tests PRIVATE

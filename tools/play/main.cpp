@@ -11,6 +11,7 @@
 #include <ap/engine/alac_file_source.h>
 #include <ap/engine/audio_file.h>
 #include <ap/engine/dsd_source.h>
+#include <ap/engine/dsp/eq.h>
 #include <ap/engine/dsp/isp_safe.h>
 #include <ap/engine/dsp/limiter.h>
 #include <ap/engine/dsp/loudness.h>
@@ -71,6 +72,8 @@ constexpr const char* kUsage =
     "  ap_play FILE... --volume DB            デジタル音量（0 以下の dB。0 で原音経路のまま、下げると処理経路）\n"
     "  ap_play --analyze FILE...              サンプルピーク、True Peak（8 倍オーバーサンプリング）、ラウドネスと ReplayGain を測る（再生はしない）\n"
     "  ap_play FILE... --replaygain track|album  再生の前に各曲を解析し、ReplayGain 2.0（-18 LUFS）を処理経路でかける\n"
+    "  ap_play FILE... --eq PRESET.txt        パラメトリック EQ（AutoEQ の ParametricEQ.txt、Equalizer APO の書き方）。\n"
+    "                                         最小位相、プリアンプは自動（最大のブーストを 0 dB にする）\n"
     "  ap_play FILE... --isp-safe off|measured|fixed  ISP セーフ（True Peak を -0.5 dBTP 以下に下げる。measured は解析した値から、\n"
     "                                         fixed は常に -3 dB）。off でも解析して、0 dBTP を超える曲を原音経路で鳴らすときに警告する\n"
     "  ap_play FILE... --volume-at S:DB       再生を始めてから S 秒で音量を DB にする（何回でも指定できる。0 に戻すと原音経路に戻る）\n"
@@ -230,6 +233,7 @@ struct Options
     ReplayGainMode replayGain = ReplayGainMode::Off; // --replaygain track|album
     std::optional<IspSafeMode> ispSafe;              // --isp-safe off|measured|fixed (set: analyse the files)
     double volumeDb = 0.0;     // --volume DB
+    std::string eqPreset;      // --eq FILE
     std::vector<std::pair<double, double>> volumeAt; // --volume-at S:DB (seconds since play, dB)
 };
 
@@ -311,6 +315,8 @@ std::optional<Options> parse(int argc, char** argv)
             else
                 throw std::runtime_error("--replaygain は track、album、off のどれかです");
         }
+        else if (a == "--eq")
+            o.eqPreset = value();
         else if (a == "--volume")
             o.volumeDb = parseDb(value());
         else if (a == "--volume-at")
@@ -645,6 +651,7 @@ std::string processingText(const PlaybackPlan& p, bool dop)
                + (n == "volume"       ? std::string("デジタル音量")
                   : n == "replaygain" ? std::string("ReplayGain")
                   : n == "isp-safe"   ? std::string("ISP セーフ")
+                  : n == "eq"         ? std::string("パラメトリック EQ")
                   : n == "limiter"    ? std::string("保険のリミッター")
                                       : n);
     if (p.processingRequired)
@@ -809,6 +816,16 @@ int runQueue(const Options& o)
 
     auto replayGain = std::make_shared<ReplayGainStage>();
     replayGain->setMode(o.replayGain);
+    auto eq = std::make_shared<EqStage>();
+    if (!o.eqPreset.empty())
+    {
+        const auto preset = loadEqPreset(fs::path{o.eqPreset});
+        for (const auto& w : preset.warnings)
+            print("  EQ: " + w + "\n");
+        eq->setBands(preset.bands);
+        print(std::format("  EQ: {} バンド（ファイルのプリアンプ {}、こちらでは自動で決める）\n", preset.bands.size(),
+                          preset.filePreampDb ? std::format("{:+.1f} dB", *preset.filePreampDb) : std::string("なし")));
+    }
     auto volume = std::make_shared<VolumeStage>();
     volume->setGainDb(o.volumeDb);
     auto ispSafe = std::make_shared<IspSafeStage>();
@@ -820,7 +837,7 @@ int runQueue(const Options& o)
         .allowRepack = !o.exactOnly,
         .allowDop = o.allowDop,
         .processing = std::make_shared<ProcessingChain>(
-            std::vector<std::shared_ptr<ProcessingStage>>{replayGain, volume, ispSafe, limiter})};
+            std::vector<std::shared_ptr<ProcessingStage>>{replayGain, eq, volume, ispSafe, limiter})};
 
     auto printCheck = [&](std::size_t i, const PcmSource& src, AudioOutput& out) {
         const auto n = planPlayback(src, out, playOptions);
@@ -987,6 +1004,11 @@ int runQueue(const Options& o)
             if (s.path)
                 print(std::format("  出力の方式: {}\n  処理: {}\n", outputModeText(*s.path),
                                   processingText(*s.plan, s.path->dop.has_value())));
+            if (s.plan->processing && !eq->isIdentity())
+                print(std::format("  EQ: プリアンプ {:+.2f} dB（自動）{}\n", eq->preampDb(),
+                                  eq->skippedBands() ? std::format("、このレートでは使えないバンド {} 個を飛ばした",
+                                                                   eq->skippedBands())
+                                                     : std::string()));
             if (s.plan->processing && ispSafe->mode() != IspSafeMode::Off)
                 print(std::format("  ISP セーフ: {:+.2f} dB（{}）\n", ispSafe->gainDb(),
                                   ispSafe->mode() == IspSafeMode::Fixed ? "固定"
