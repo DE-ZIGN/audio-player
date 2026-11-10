@@ -142,3 +142,4 @@ packaging/ MSIX の設定
 | `competitor-research.md` | 競合調査（初期）と高音質化アプローチの5系統 |
 | `ir-candidates.md` | 同梱する IR の候補と試聴手順（フェーズ2） |
 | `phase1-tasks.md` | フェーズ1の作業分解と進み具合 |
+| `original-tech-candidates.md` | 独自技術の候補（自己校正 DPD など）の評価とシミュレーションでの確認 |
