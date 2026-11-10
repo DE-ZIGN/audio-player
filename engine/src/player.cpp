@@ -21,7 +21,10 @@ struct DopNotAllowed
 class Player::QueueReader final : public PcmSource
 {
 public:
-    explicit QueueReader(Player& p) : p_(p), format_(p.source_->format()), dop_(p.source_->dop().has_value()) {}
+    explicit QueueReader(Player& p) : p_(p), format_(p.source_->format()), dop_(p.source_->dop().has_value())
+    {
+        segments_.reserve(8); // no allocation on the playback thread
+    }
 
     const PcmFormat& format() const noexcept override { return format_; }
     std::uint64_t totalFrames() const noexcept override { return p_.source_->totalFrames(); }
@@ -29,11 +32,19 @@ public:
     bool seek(std::uint64_t frame) override { return p_.source_->seek(frame); }
     // A session never mixes DoP and PCM (see read()), so the current track decides.
     std::optional<DopInfo> dop() const override { return p_.source_->dop(); }
+    std::span<const TrackSegment> lastReadTracks() const override { return segments_; }
 
     std::size_t read(std::span<std::byte> dst) override
     {
+        segments_.clear();
         if (p_.stopRequested_)
             return 0;
+        if (first_)
+        {
+            // The session's first data: the track it starts with.
+            first_ = false;
+            segments_.push_back({0, p_.trackInfo(p_.index_)});
+        }
 
         if (p_.reopenPending_)
         {
@@ -89,7 +100,16 @@ public:
 
             // A change between PCM and DoP is never joined, even at the same PCM format:
             // the output is reopened so the DoP check applies and the DAC can switch modes.
-            if (!(next->format() == format_) || next->dop().has_value() != dop_)
+            bool reopen = !(next->format() == format_) || next->dop().has_value() != dop_;
+            // A direct session cannot take a track that needs processing (e.g.
+            // its ReplayGain): reopen for the processing path at the boundary.
+            if (!reopen && !dop_ && p_.sessionPlan_ && !p_.sessionPlan_->processing)
+                if (auto* chain = p_.options_.processing.get())
+                {
+                    chain->trackStarted(p_.trackInfo(p_.index_ + 1));
+                    reopen = !chain->bypassed();
+                }
+            if (reopen)
             {
                 p_.pendingNext_ = std::move(next);
                 p_.dataEndedAt_ = std::chrono::steady_clock::now();
@@ -112,6 +132,8 @@ public:
                 p_.status_.transitions.push_back(t);
                 p_.startLoadingNextLocked();
             }
+            if (segments_.size() < segments_.capacity())
+                segments_.push_back({got, p_.trackInfo(p_.index_)});
             got += p_.source_->read(dst.subspan(got * bpf));
             p_.position_ = p_.source_->position();
         }
@@ -122,6 +144,8 @@ private:
     Player& p_;
     PcmFormat format_;
     bool dop_ = false;
+    bool first_ = true;
+    std::vector<TrackSegment> segments_;
 };
 
 Player::Player(OutputFactory outputFactory, PlaybackOptions options)
@@ -207,6 +231,15 @@ bool Player::openCurrentLocked()
     position_ = 0;
     publishTrackLocked();
     return true;
+}
+
+TrackInfo Player::trackInfo(std::size_t index) const
+{
+    TrackInfo t;
+    t.queueIndex = index;
+    if (index < queue_.size())
+        t.replayGain = queue_[index].replayGain;
+    return t;
 }
 
 void Player::startLoadingNextLocked()
@@ -414,6 +447,10 @@ void Player::threadMain()
         {
             if (source_->dop() && !options_.allowDop)
                 throw DopNotAllowed{};
+            // Stages that depend on the track (ReplayGain) take the starting
+            // track's values first: they decide whether this session is processed.
+            if (options_.processing)
+                options_.processing->trackStarted(trackInfo(index_));
             QueueReader reader(*this);
             ap::engine::play(reader, *output, options);
             sessionPlan_.reset();

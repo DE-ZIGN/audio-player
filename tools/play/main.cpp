@@ -11,6 +11,8 @@
 #include <ap/engine/alac_file_source.h>
 #include <ap/engine/audio_file.h>
 #include <ap/engine/dsd_source.h>
+#include <ap/engine/dsp/loudness.h>
+#include <ap/engine/dsp/replay_gain.h>
 #include <ap/engine/dsp/true_peak.h>
 #include <ap/engine/dsp/volume.h>
 #include <ap/engine/flac_file_source.h>
@@ -65,7 +67,8 @@ constexpr const char* kUsage =
     "               [--check]                 再生せず、送る形式だけを確かめる\n"
     "  ap_play FILE... --dummy OUT.raw        デバイスに送るはずのバイト列をファイルに書き、ハッシュを比べる\n"
     "  ap_play FILE... --volume DB            デジタル音量（0 以下の dB。0 で原音経路のまま、下げると処理経路）\n"
-    "  ap_play --analyze FILE...              サンプルピークと True Peak（8 倍オーバーサンプリング）を測る（再生はしない）\n"
+    "  ap_play --analyze FILE...              サンプルピーク、True Peak（8 倍オーバーサンプリング）、ラウドネスと ReplayGain を測る（再生はしない）\n"
+    "  ap_play FILE... --replaygain track|album  再生の前に各曲を解析し、ReplayGain 2.0（-18 LUFS）を処理経路でかける\n"
     "  ap_play FILE... --volume-at S:DB       再生を始めてから S 秒で音量を DB にする（何回でも指定できる。0 に戻すと原音経路に戻る）\n"
     "\n"
     "複数のファイルは順に再生します。形式が同じなら出力を開き直さずにつなげ（ギャップレス）、\n"
@@ -220,6 +223,7 @@ struct Options
     std::string asio;          // --asio N|NAME
     std::string asioProbeOne;  // --asio-probe-one CLSID (child process mode)
     bool analyze = false;      // --analyze
+    ReplayGainMode replayGain = ReplayGainMode::Off; // --replaygain track|album
     double volumeDb = 0.0;     // --volume DB
     std::vector<std::pair<double, double>> volumeAt; // --volume-at S:DB (seconds since play, dB)
 };
@@ -278,6 +282,18 @@ std::optional<Options> parse(int argc, char** argv)
             o.dummy = value();
         else if (a == "--analyze")
             o.analyze = true;
+        else if (a == "--replaygain")
+        {
+            const auto v = value();
+            if (v == "track")
+                o.replayGain = ReplayGainMode::Track;
+            else if (v == "album")
+                o.replayGain = ReplayGainMode::Album;
+            else if (v == "off")
+                o.replayGain = ReplayGainMode::Off;
+            else
+                throw std::runtime_error("--replaygain は track、album、off のどれかです");
+        }
         else if (a == "--volume")
             o.volumeDb = parseDb(value());
         else if (a == "--volume-at")
@@ -608,7 +624,8 @@ std::string processingText(const PlaybackPlan& p, bool dop)
         return "なし（原音経路：音量・変換・ディザをかけない）";
     std::string parts;
     for (const auto& n : p.processingStages)
-        parts += (parts.empty() ? "" : "、") + (n == "volume" ? std::string("デジタル音量") : n);
+        parts += (parts.empty() ? "" : "、")
+               + (n == "volume" ? std::string("デジタル音量") : n == "replaygain" ? std::string("ReplayGain") : n);
     if (p.processingRequired)
         parts += std::string(parts.empty() ? "" : "、") + "浮動小数点の曲を整数にする（デバイスが浮動小数点を受け付けないため）";
     if (p.dither)
@@ -658,6 +675,7 @@ int analyzeFiles(const Options& o)
 {
     int worst = 0;
     double albumTruePeak = 0.0;
+    std::vector<TrackAnalysis> tracks;
     for (std::size_t i = 0; i < o.files.size(); ++i)
     {
         const fs::path path{o.files[i]};
@@ -671,7 +689,9 @@ int analyzeFiles(const Options& o)
                 continue;
             }
             const auto started = std::chrono::steady_clock::now();
-            const auto a = analyzePeaks(*src);
+            tracks.push_back(analyzeTrack(*src));
+            const auto& t = tracks.back();
+            const auto& a = t.peaks;
             const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
             const auto rate = src->format().sampleRate;
             print(std::format("  形式: {}、長さ {}（解析 {:.2f} 秒）\n", describe(src->format()), duration(a.frames, rate),
@@ -687,6 +707,13 @@ int analyzeFiles(const Options& o)
                               static_cast<int>(at / 60), std::fmod(at, 60.0),
                               over ?"  ！ 0 dBTP を超えています（DAC の中でクリップする可能性。ISP セーフで下げられます）" : ""));
             albumTruePeak = std::max(albumTruePeak, a.truePeakMax);
+            const double gain = replayGainDb(t.integratedLufs);
+            const double limited = peakLimitedGainDb(gain, a.truePeakMax);
+            print(std::format("  ラウドネス {} LUFS、ReplayGain（トラック）{:+.2f} dB{}\n",
+                              std::isfinite(t.integratedLufs) ? std::format("{:.2f}", t.integratedLufs) : std::string("-inf"),
+                              gain,
+                              limited < gain ? std::format("（True Peak を 0 dBTP 以下に保つため {:+.2f} dB に抑える）", limited)
+                                             : std::string()));
         }
         catch (const std::exception& e)
         {
@@ -695,7 +722,18 @@ int analyzeFiles(const Options& o)
         }
     }
     if (o.files.size() > 1)
+    {
         print(std::format("全体（アルバム）の True Peak: {} dBTP\n", dbText(albumTruePeak)));
+        if (!tracks.empty())
+        {
+            const auto album = analyzeAlbum(tracks);
+            const double gain = replayGainDb(album.integratedLufs);
+            const double limited = peakLimitedGainDb(gain, album.truePeak);
+            print(std::format("全体（アルバム）のラウドネス {:.2f} LUFS、ReplayGain（アルバム）{:+.2f} dB{}\n",
+                              album.integratedLufs, gain,
+                              limited < gain ? std::format("（{:+.2f} dB に抑える）", limited) : std::string()));
+        }
+    }
     return worst;
 }
 
@@ -748,12 +786,16 @@ int runQueue(const Options& o)
                          }});
     }
 
+    auto replayGain = std::make_shared<ReplayGainStage>();
+    replayGain->setMode(o.replayGain);
     auto volume = std::make_shared<VolumeStage>();
     volume->setGainDb(o.volumeDb);
+    // CLAUDE.md chapter 4: ReplayGain first, then the rest.
     const PlaybackOptions playOptions{
         .allowRepack = !o.exactOnly,
         .allowDop = o.allowDop,
-        .processing = std::make_shared<ProcessingChain>(std::vector<std::shared_ptr<ProcessingStage>>{volume})};
+        .processing = std::make_shared<ProcessingChain>(
+            std::vector<std::shared_ptr<ProcessingStage>>{replayGain, volume})};
 
     auto printCheck = [&](std::size_t i, const PcmSource& src, AudioOutput& out) {
         const auto n = planPlayback(src, out, playOptions);
@@ -767,6 +809,34 @@ int runQueue(const Options& o)
                                              : "詰め替え " + repackText(*n.plan)));
         return 0;
     };
+
+    if (o.replayGain != ReplayGainMode::Off)
+    {
+        print("ReplayGain のために各曲を解析しています…\n");
+        std::vector<TrackAnalysis> analyses;
+        for (const auto& f : o.files)
+        {
+            const auto src = openAudioFile(fs::path{f});
+            if (src->dop())
+                analyses.push_back({});
+            else
+                analyses.push_back(analyzeTrack(*src));
+        }
+        const auto album = analyzeAlbum(analyses);
+        for (std::size_t i = 0; i < items.size(); ++i)
+        {
+            if (!analyses[i].meter)
+                continue;
+            items[i].replayGain = makeReplayGain(analyses[i], &album);
+            const auto& r = *items[i].replayGain;
+            const bool albumMode = o.replayGain == ReplayGainMode::Album;
+            const double gain = albumMode ? *r.albumGainDb : r.trackGainDb;
+            const double peak = albumMode ? *r.albumPeak : r.trackPeak;
+            print(std::format("  {} 曲目: {:.2f} LUFS、{} ゲイン {:+.2f} dB（適用 {:+.2f} dB）\n", i + 1,
+                              analyses[i].integratedLufs, albumMode ? "アルバム" : "トラック", gain,
+                              peakLimitedGainDb(gain, peak)));
+        }
+    }
 
     Player::OutputFactory factory;
     if (dummy)

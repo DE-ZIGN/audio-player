@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ap/engine/pcm_format.h>
+#include <ap/engine/track_info.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -81,6 +82,10 @@ public:
     // Checksum verification of the decoded samples. Thread-safe: may be
     // called while another thread reads (e.g. the read-ahead).
     virtual IntegrityCheck integrity() const { return {}; }
+
+    // For sources that join tracks (the player's queue): the tracks that
+    // started within the data of the last read(), in order. Empty otherwise.
+    virtual std::span<const TrackSegment> lastReadTracks() const { return {}; }
 };
 
 // Holds all PCM bytes in memory.

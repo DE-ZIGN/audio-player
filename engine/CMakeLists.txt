@@ -26,6 +26,8 @@ add_library(ap_engine STATIC
     src/dsp/dither.cpp
     src/dsp/volume.cpp
     src/dsp/true_peak.cpp
+    src/dsp/loudness.cpp
+    src/dsp/replay_gain.cpp
     src/output/dummy_output.cpp
     src/output/format_probe.cpp
     src/output/device_selection.cpp
@@ -35,7 +37,7 @@ add_library(ap_engine STATIC
     src/output/asio_probe.cpp
     src/output/wasapi_exclusive_output.cpp)
 
-target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt user32 advapi32 ap_asiosdk FLAC::FLAC ap_alac libmpg123 mfplat mfuuid)
+target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt user32 advapi32 ap_asiosdk FLAC::FLAC ap_alac libmpg123 ap_ebur128 mfplat mfuuid)
 
 target_include_directories(ap_engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)

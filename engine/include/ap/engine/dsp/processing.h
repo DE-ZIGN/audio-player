@@ -7,6 +7,8 @@
 // Full bypass: when every stage reports isIdentity(), playback uses the direct
 // path and the processing code is not run at all (CLAUDE.md chapter 4).
 
+#include <ap/engine/track_info.h>
+
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -31,6 +33,11 @@ public:
     // volume at 100%). Must be cheap and thread-safe: it decides the bypass.
     virtual bool isIdentity() const noexcept = 0;
 
+    // A track starts at the next sample passed to process() (and once before
+    // an output session, for the track it starts with). For stages whose
+    // setting depends on the track, such as ReplayGain. No locks, no allocation.
+    virtual void trackStarted(const TrackInfo& /*track*/) noexcept {}
+
     // Processes samples in place: samples.size() is a multiple of channels.
     // Runs on the playback thread (or the ASIO driver's thread): no locks,
     // no allocation, no exceptions.
@@ -53,6 +60,9 @@ public:
 
     // Runs the stages that are not identity.
     void process(std::span<double> samples, std::uint16_t channels) noexcept;
+
+    // Tells every stage (identity or not) that a track starts.
+    void trackStarted(const TrackInfo& track) noexcept;
 
 private:
     std::vector<std::shared_ptr<ProcessingStage>> stages_;

@@ -19,7 +19,8 @@ ap_play FILE... --inject-stall S:MS     1 曲目の S 秒の時点で再生ス�
 ap_play FILE... --dop                   DSD（.dsf/.dff）を DoP で送る。DoP に対応した DAC のときだけ使う（対応していないと大きなノイズになる）
 ap_play FILE... --volume DB             デジタル音量（0 以下の dB）。0 なら原音経路のまま、下げると処理経路
 ap_play FILE... --volume-at S:DB        再生を始めてから S 秒で音量を DB にする（何回でも。0 に戻すと原音経路に戻り、出力を開き直す）
-ap_play --analyze FILE...               サンプルピークと True Peak（8 倍オーバーサンプリング）をチャンネルごとに測り、最大の位置と、0 dBTP を超えるかを表示する（再生はしない）
+ap_play --analyze FILE...               サンプルピークと True Peak（8 倍オーバーサンプリング）をチャンネルごとに測り、最大の位置と、0 dBTP を超えるかを表示する。ラウドネス（BS.1770、libebur128）と ReplayGain 2.0 の値も出し、複数のファイルならアルバムとしての値も出す（再生はしない）
+ap_play FILE... --replaygain track|album  再生の前に各ファイルを解析し、ReplayGain（-18 LUFS、True Peak が 0 dBTP を超えないように抑える）を処理経路でかける。アルバムは渡したファイル全体
 ap_play --asio-list                     ASIO ドライバーの一覧（各ドライバーを別のプロセスで読み込み、形式と使えるレートを表示）
 ap_play FILE... --asio N|NAME           ASIO で順に再生（--asio-list の番号か名前）。レートは曲ごとにドライバーへ設定する
 ap_play --env                        実行環境（MSIX パッケージの中かどうか）

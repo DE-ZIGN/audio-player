@@ -133,7 +133,19 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
             const auto block = std::span(samples).first(n);
             ScopedFlushDenormals ftz; // may run on a driver's thread: set and restore every time
             dsp::toDouble(std::span(scratch).first(got * in.bytesPerFrame()), in, block);
-            chain->process(block, in.channels);
+            // Process up to each track start, tell the stages, go on: settings
+            // that depend on the track (ReplayGain) switch at the exact sample.
+            std::size_t from = 0;
+            for (const auto& seg : source.lastReadTracks())
+            {
+                const std::size_t at = std::min(seg.frameOffset, got);
+                if (at > from)
+                    chain->process(block.subspan(from * in.channels, (at - from) * in.channels), in.channels);
+                chain->trackStarted(seg.track);
+                from = at;
+            }
+            if (got > from)
+                chain->process(block.subspan(from * in.channels), in.channels);
             report.overs += dsp::fromDouble(block, out, dst.first(got * out.bytesPerFrame()), ditherFor);
             return got;
         };

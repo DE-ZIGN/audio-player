@@ -4,6 +4,7 @@
 #include <ap/engine/pcm_source.h>
 #include <ap/engine/playback.h>
 #include <ap/engine/signal_path.h>
+#include <ap/engine/track_info.h>
 
 #include <atomic>
 #include <chrono>
@@ -27,6 +28,7 @@ struct QueueItem
 {
     std::string name; // display name (UTF-8)
     std::function<std::unique_ptr<PcmSource>()> open;
+    std::optional<ReplayGainInfo> replayGain; // measured values (from the library); none: no gain
 };
 
 enum class TransitionKind
@@ -160,6 +162,7 @@ private:
     void startLoadingNextLocked(); // opens queue_[index_ + 1] in the background
     void publishTrackLocked();     // copies the current track's facts into status_
     void retireSourceLocked();     // adds the current source's dropout counters to the totals
+    TrackInfo trackInfo(std::size_t index) const;
 
     OutputFactory outputFactory_;
     PlaybackOptions options_;

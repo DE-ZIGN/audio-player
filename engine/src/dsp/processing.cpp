@@ -42,6 +42,12 @@ void ProcessingChain::process(std::span<double> samples, std::uint16_t channels)
             s->process(samples, channels);
 }
 
+void ProcessingChain::trackStarted(const TrackInfo& track) noexcept
+{
+    for (const auto& s : stages_)
+        s->trackStarted(track);
+}
+
 ScopedFlushDenormals::ScopedFlushDenormals() noexcept : saved_(_mm_getcsr())
 {
     _mm_setcsr(saved_ | kFlushToZero | kDenormalsAreZero);
