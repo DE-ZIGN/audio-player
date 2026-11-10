@@ -135,6 +135,33 @@ describe("DoP texts", () => {
     expect(processingText(dopStatus)).toContain("DoP の経路では処理をかけられません");
     expect(processingText({ ...dopStatus, dop: null })).toContain("原音経路");
   });
+  it("describes the processing path: stages, quantization of float tracks, dither", () => {
+    const base = { ...dopStatus, dop: null };
+    const path = (p: Partial<SignalPath>): SignalPath => ({
+      container: "MP3",
+      processing: true,
+      processingStages: [],
+      processingRequired: false,
+      dither: true,
+      output: {
+        api: "wasapiExclusive",
+        periodFrames: 480,
+        periodMilliseconds: 10,
+        eventDriven: true,
+        layout: "interleaved",
+        asio: null,
+        endpointVolume: null,
+      },
+      ...p,
+    });
+    const quantized = processingText({ ...base, path: path({ processingRequired: true }) });
+    expect(quantized).toContain("浮動小数点の曲を整数にする");
+    expect(quantized).toContain("TPDF ディザ");
+    expect(quantized).not.toContain("原音経路");
+    const volume = processingText({ ...base, path: path({ processingStages: ["volume"] }) });
+    expect(volume).toContain("デジタル音量");
+    expect(processingText({ ...base, path: path({ dither: false }) })).not.toContain("ディザ");
+  });
   it("warns about DACs without DoP", () => {
     const t = dopNotice(dopStatus);
     expect(t).toContain("176.4 kHz");
@@ -147,6 +174,9 @@ describe("output path texts", () => {
   const wasapi: SignalPath = {
     container: "WAV",
     processing: false,
+    processingStages: [],
+    processingRequired: false,
+    dither: false,
     output: {
       api: "wasapiExclusive",
       periodFrames: 960,
@@ -253,6 +283,9 @@ describe("integrity texts", () => {
       path: {
         container: "FLAC",
         processing: false,
+        processingStages: [],
+        processingRequired: false,
+        dither: false,
         output: {
           api: "dummy",
           periodFrames: 480,
@@ -324,11 +357,12 @@ describe("errorText", () => {
     const t = errorText(withError({ kind: "formatNotSupported", reason: "sampleRate", acceptedRates: [] }));
     expect(t).not.toContain("今受け付けるのは");
   });
-  it("explains why a float source (MP3) does not play on an integer-only device, without converting", () => {
-    const t = errorText({ ...withError({ kind: "formatNotSupported", reason: "sampleType" }), sourceFormat: f(44100, 32, 32, "float") });
-    expect(t).toContain("浮動小数点");
-    expect(t).toContain("ディザ");
-    expect(t).toContain("変換はしません");
+  // Float sources on integer-only devices are quantized with dither (task 3-2) and do not
+  // reach this error; an integer source on a float-only device is refused, not converted.
+  it("explains why an integer source does not play on a float-only device, without converting", () => {
+    const t = errorText({ ...withError({ kind: "formatNotSupported", reason: "sampleType" }), sourceFormat: f(44100, 24, 24) });
+    expect(t).toContain("浮動小数点だけ");
+    expect(t).toContain("変換しない");
   });
   it("explains a device held by another application", () => {
     expect(errorText(withError({ kind: "output", outputError: "deviceInUse" }))).toContain("他のアプリ");

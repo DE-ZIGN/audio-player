@@ -119,6 +119,12 @@ juce::var pathVar(const SignalPath& p)
     auto* o = new juce::DynamicObject();
     o->setProperty("container", juce::String(p.container));
     o->setProperty("processing", p.processing);
+    juce::Array<juce::var> stages;
+    for (const auto& n : p.processingStages)
+        stages.add(juce::String(n));
+    o->setProperty("processingStages", stages);
+    o->setProperty("processingRequired", p.processingRequired);
+    o->setProperty("dither", p.dither);
 
     const auto& out = p.output;
     auto* d = new juce::DynamicObject();

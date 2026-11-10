@@ -15,7 +15,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstring>
 #include <fstream>
 #include <iterator>
@@ -126,6 +128,25 @@ std::vector<std::byte> dopBytes(int frames)
     return data;
 }
 
+template <typename T>
+std::vector<T> decode(const std::vector<std::byte>& b)
+{
+    std::vector<T> v(b.size() / sizeof(T));
+    std::memcpy(v.data(), b.data(), v.size() * sizeof(T));
+    return v;
+}
+
+// Largest difference between two integer sequences, in their own LSB.
+template <typename A, typename B>
+double maxDiff(const std::vector<A>& a, const std::vector<B>& b, double scaleB = 1.0)
+{
+    REQUIRE(a.size() == b.size());
+    double m = 0;
+    for (std::size_t i = 0; i < a.size(); ++i)
+        m = std::max(m, std::abs(static_cast<double>(a[i]) - static_cast<double>(b[i]) * scaleB));
+    return m;
+}
+
 std::shared_ptr<ProcessingChain> chainOf(std::vector<std::shared_ptr<ProcessingStage>> stages)
 {
     return std::make_shared<ProcessingChain>(std::move(stages));
@@ -226,30 +247,34 @@ TEST_CASE("The processing path with no change to the samples gives back the same
     PlaybackOptions options;
     options.processing = chainOf({forced});
 
-    SECTION("into the same format")
+    SECTION("into float (no quantization, no dither): exactly the same values")
+    {
+        MemoryPcmSource src(intFormat(16, 16), data);
+        DummyOutput out(dummy(dir.path() / "o.raw", [](const PcmFormat& f) { return f.type == SampleType::Float; }));
+        const auto report = play(src, out, options);
+        CHECK(report.plan.processing);
+        CHECK(report.plan.processingStages == std::vector<std::string>{"test-forced"});
+        CHECK(report.plan.output == float32());
+        CHECK_FALSE(report.plan.dither);
+        CHECK(maxDiff(decode<float>(readFile(dir.path() / "o.raw")), decode<std::int16_t>(data), 1.0 / 32768.0) == 0.0);
+    }
+    SECTION("into the same integer format: dithered, within 1 LSB")
     {
         MemoryPcmSource src(intFormat(16, 16), data);
         DummyOutput out(dummy(dir.path() / "o.raw", [](const PcmFormat& f) { return f == intFormat(16, 16); }));
         const auto report = play(src, out, options);
-        CHECK(report.plan.processing);
-        CHECK(report.plan.processingStages == std::vector<std::string>{"test-forced"});
         CHECK(report.plan.output == intFormat(16, 16));
+        CHECK(report.plan.dither);
         CHECK(report.overs == 0u);
-        CHECK(readFile(dir.path() / "o.raw") == data);
+        CHECK(maxDiff(decode<std::int16_t>(readFile(dir.path() / "o.raw")), decode<std::int16_t>(data)) <= 1.0);
     }
-    SECTION("into 32-bit: each 16-bit value in the upper bits, the low bits zero")
+    SECTION("into 32-bit: the 16-bit value in the upper bits, dithered at 32-bit resolution")
     {
         MemoryPcmSource src(intFormat(16, 16), data);
         DummyOutput out(dummy(dir.path() / "o.raw"));
         const auto report = play(src, out, options);
         CHECK(report.plan.output == intFormat(32, 32));
-        std::vector<std::byte> expected;
-        for (std::size_t i = 0; i < data.size(); i += 2)
-        {
-            expected.insert(expected.end(), {std::byte{0}, std::byte{0}});
-            expected.insert(expected.end(), {data[i], data[i + 1]});
-        }
-        CHECK(readFile(dir.path() / "o.raw") == expected);
+        CHECK(maxDiff(decode<std::int32_t>(readFile(dir.path() / "o.raw")), decode<std::int16_t>(data), 65536.0) <= 1.0);
     }
     SECTION("float into float")
     {
@@ -273,7 +298,8 @@ TEST_CASE("An active stage changes the samples", "[dsp][path]")
     std::vector<std::byte> bytes(v.size() * 2);
     std::memcpy(bytes.data(), v.data(), bytes.size());
     MemoryPcmSource src(intFormat(16, 16), bytes);
-    DummyOutput out(dummy(dir.path() / "o.raw", [](const PcmFormat& f) { return f == intFormat(16, 16); }));
+    // Float output: the result is exact (no quantization, no dither).
+    DummyOutput out(dummy(dir.path() / "o.raw", [](const PcmFormat& f) { return f.type == SampleType::Float; }));
     auto gain = std::make_shared<GainStage>(0.5);
     PlaybackOptions options;
     options.processing = chainOf({gain});
@@ -281,10 +307,8 @@ TEST_CASE("An active stage changes the samples", "[dsp][path]")
     const auto report = play(src, out, options);
     CHECK(report.plan.processing);
     CHECK(gain->prepared == 1);
-    const auto got = readFile(dir.path() / "o.raw");
-    std::vector<std::int16_t> r(got.size() / 2);
-    std::memcpy(r.data(), got.data(), got.size());
-    CHECK(r == std::vector<std::int16_t>{8192, -8192, 500, -500});
+    CHECK(decode<float>(readFile(dir.path() / "o.raw"))
+          == std::vector<float>{8192 / 32768.0f, -8192 / 32768.0f, 500 / 32768.0f, -500 / 32768.0f});
 }
 
 TEST_CASE("Stages run with flush-to-zero and denormals-are-zero and the state is restored", "[dsp][path]")
@@ -384,8 +408,8 @@ TEST_CASE("Same-format tracks stay gapless through the processing path", "[dsp][
     const auto b = ramp16(1111);
     PlaybackOptions options;
     options.processing = chainOf({std::make_shared<ForcedStage>()});
-    // Only 16-bit accepted: the processing path gives back the same bytes.
-    Player player(dummyFactory(dir.path() / "o.raw", [](const PcmFormat& f) { return f == intFormat(16, 16); }),
+    // Float output: no dither, so the output is exactly the input, joined.
+    Player player(dummyFactory(dir.path() / "o.raw", [](const PcmFormat& f) { return f.type == SampleType::Float; }),
                   options);
 
     player.setQueue({memoryTrack(intFormat(16, 16), a), memoryTrack(intFormat(16, 16), b)});
@@ -396,9 +420,10 @@ TEST_CASE("Same-format tracks stay gapless through the processing path", "[dsp][
     CHECK(s.state == PlayerState::Ended);
     REQUIRE(s.transitions.size() == 1);
     CHECK(s.transitions[0].kind == TransitionKind::Gapless);
-    auto expected = a;
-    expected.insert(expected.end(), b.begin(), b.end());
-    CHECK(readFile(dir.path() / "o.raw") == expected);
+    auto expected = decode<std::int16_t>(a);
+    const auto bv = decode<std::int16_t>(b);
+    expected.insert(expected.end(), bv.begin(), bv.end());
+    CHECK(maxDiff(decode<float>(readFile(dir.path() / "o.raw")), expected, 1.0 / 32768.0) == 0.0);
 }
 
 TEST_CASE("Player never processes a DoP track", "[dsp][player][dop]")

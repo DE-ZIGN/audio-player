@@ -1,5 +1,8 @@
 #include <ap/engine/dsp/sample_convert.h>
 
+#include <ap/engine/dsp/dither.h>
+
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstring>
@@ -59,7 +62,8 @@ void toDouble(std::span<const std::byte> src, const PcmFormat& format, std::span
     }
 }
 
-std::uint64_t fromDouble(std::span<const double> src, const PcmFormat& format, std::span<std::byte> dst)
+std::uint64_t fromDouble(std::span<const double> src, const PcmFormat& format, std::span<std::byte> dst,
+                         TpdfDither* dither)
 {
     const unsigned bytes = format.bytesPerSample();
     assert(dst.size() >= src.size() * bytes);
@@ -107,18 +111,14 @@ std::uint64_t fromDouble(std::span<const double> src, const PcmFormat& format, s
             q = 0.0;
             ++overs;
         }
-        else if (q > maxCode)
+        else
         {
             // Values that round to the largest code anyway are not counted.
-            if (q > maxCode + 0.5)
+            if (q > maxCode + 0.5 || q < minCode - 0.5)
                 ++overs;
-            q = maxCode;
-        }
-        else if (q < minCode)
-        {
-            if (q < minCode - 0.5)
-                ++overs;
-            q = minCode;
+            if (dither)
+                q += dither->next();
+            q = std::clamp(q, minCode, maxCode);
         }
         // Default rounding mode: to nearest, ties to even.
         const auto code = static_cast<std::int64_t>(std::nearbyint(q));

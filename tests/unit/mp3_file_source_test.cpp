@@ -394,7 +394,9 @@ TEST_CASE("MP3 tracks join gaplessly in the player", "[engine][mp3][gapless]")
     CHECK(bestLag(b, second, 2, 1200) == 0);
 }
 
-TEST_CASE("An integer-only output refuses MP3 with the reason, no conversion", "[engine][mp3]")
+// Task 3-2: MP3 decodes to float, which has no integer original; an output
+// without float gets it quantized with TPDF dither on the processing path.
+TEST_CASE("An integer-only output plays MP3 quantized with dither on the processing path", "[engine][mp3]")
 {
     ap::test::TempDir dir;
     ap::test::writeMp3(dir.path() / "x.mp3", 44100, 2, testSignal(44100, 2, 4410));
@@ -406,9 +408,16 @@ TEST_CASE("An integer-only output refuses MP3 with the reason, no conversion", "
     player.play();
     player.waitUntilIdle();
     const auto s = player.status();
-    CHECK(s.state == PlayerState::Error);
-    CHECK(s.error.kind == PlayerErrorKind::FormatNotSupported);
-    CHECK(s.error.formatCheck.reason == FormatRejection::SampleType);
+    CHECK(s.state == PlayerState::Ended);
+    REQUIRE(s.path.has_value());
+    CHECK(s.path->processing);
+    CHECK(s.path->processingRequired);
+    CHECK(s.path->dither);
+    CHECK(s.path->processingStages.empty());
+    CHECK(s.path->output.format.type == SampleType::Int);
+    CHECK(s.path->output.format.containerBits == 32);
+    CHECK(s.totalFrames == 4410u);
+    CHECK(std::filesystem::file_size(dir.path() / "out.raw") == 4410u * 2 * 4);
 }
 
 TEST_CASE("openAudioFile opens MP3 by content, with or without ID3v2, and Japanese paths", "[engine][mp3][audiofile]")

@@ -28,6 +28,10 @@ struct SignalPath
     // stages that were active when the output was opened.
     bool processing = false;
     std::vector<std::string> processingStages;
+    // The source could not be sent as it is (a float source on an output
+    // without float), so it went through the processing path to be quantized.
+    bool processingRequired = false;
+    bool dither = false; // TPDF dither when quantizing to the output format
 
     // Delivery: a lossless container repack (values unchanged), then the output.
     Repack repack = Repack::None;

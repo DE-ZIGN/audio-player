@@ -1,5 +1,6 @@
 #include <ap/engine/playback.h>
 
+#include <ap/engine/dsp/dither.h>
 #include <ap/engine/dsp/sample_convert.h>
 
 #include <vector>
@@ -67,22 +68,43 @@ NegotiationResult negotiateProcessing(const PcmFormat& source, AudioOutput& outp
     return result;
 }
 
-PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOptions& options)
+NegotiationResult planPlayback(const PcmSource& source, AudioOutput& output, const PlaybackOptions& options)
 {
     // Full bypass: no chain, every stage identity, or DoP (never processed).
-    ProcessingChain* chain = options.processing.get();
-    if (chain && (chain->bypassed() || source.dop()))
-        chain = nullptr;
+    const bool dop = source.dop().has_value();
+    const ProcessingChain* chain = options.processing.get();
+    const bool active = !dop && chain && !chain->bypassed();
 
-    const auto negotiation = chain ? negotiateProcessing(source.format(), output)
-                                   : negotiate(source.format(), output, options.allowRepack);
+    auto n = active ? negotiateProcessing(source.format(), output)
+                    : negotiate(source.format(), output, options.allowRepack);
+    // A float source has no integer original: when the output takes no float,
+    // it is quantized (with dither) on the processing path. An integer source
+    // the output cannot take is refused, never converted.
+    const bool floatRefused = !dop && source.format().type == SampleType::Float && !n.exactCheck.supported
+                           && n.exactCheck.reason == FormatRejection::SampleType;
+    if (!active && !n.plan && floatRefused)
+        n = negotiateProcessing(source.format(), output);
+    if (n.plan && n.plan->processing)
+    {
+        n.plan->processingStages = active ? chain->activeStageNames() : std::vector<std::string>{};
+        n.plan->processingRequired = floatRefused;
+        n.plan->dither = n.plan->output.type == SampleType::Int;
+    }
+    return n;
+}
+
+PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOptions& options)
+{
+    const auto negotiation = planPlayback(source, output, options);
     if (!negotiation.plan)
         throw FormatNotSupportedError(source.format(), negotiation.exactCheck);
 
-    PlaybackPlan plan = *negotiation.plan;
-    if (chain)
+    const PlaybackPlan plan = *negotiation.plan;
+    ProcessingChain none;
+    ProcessingChain* chain = nullptr;
+    if (plan.processing)
     {
-        plan.processingStages = chain->activeStageNames();
+        chain = options.processing ? options.processing.get() : &none;
         chain->prepare(plan.output.sampleRate, plan.output.channels);
     }
     output.open(plan.output);
@@ -93,11 +115,13 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
     RenderCallback render;
     std::vector<std::byte> scratch;
     std::vector<double> samples;
+    dsp::TpdfDither dither; // a fixed seed per session: the same input gives the same output
     if (chain)
     {
         const PcmFormat in = plan.source;
         const PcmFormat out = plan.output;
-        render = [&, chain, in, out](std::span<std::byte> dst) {
+        dsp::TpdfDither* ditherFor = plan.dither ? &dither : nullptr;
+        render = [&, chain, in, out, ditherFor](std::span<std::byte> dst) {
             const std::size_t frames = dst.size() / out.bytesPerFrame();
             if (scratch.size() < frames * in.bytesPerFrame())
                 scratch.resize(frames * in.bytesPerFrame()); // first callback only, period size is fixed
@@ -110,7 +134,7 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
             ScopedFlushDenormals ftz; // may run on a driver's thread: set and restore every time
             dsp::toDouble(std::span(scratch).first(got * in.bytesPerFrame()), in, block);
             chain->process(block, in.channels);
-            report.overs += dsp::fromDouble(block, out, dst.first(got * out.bytesPerFrame()));
+            report.overs += dsp::fromDouble(block, out, dst.first(got * out.bytesPerFrame()), ditherFor);
             return got;
         };
     }

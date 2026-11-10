@@ -345,7 +345,9 @@ TEST_CASE("AAC tracks with trimming information join gaplessly in the player", "
     CHECK(bestLag(eb.original, second, -1200, 1200) == 0);
 }
 
-TEST_CASE("An integer-only output refuses AAC with the float reason", "[engine][aac]")
+// Task 3-2: AAC decodes to float, which has no integer original; an output
+// without float gets it quantized with TPDF dither on the processing path.
+TEST_CASE("An integer-only output plays AAC quantized with dither on the processing path", "[engine][aac]")
 {
     ap::test::TempDir dir;
     const auto e = encode(dir, "x.m4a", 44100, testSignal(44100, 4410));
@@ -356,7 +358,14 @@ TEST_CASE("An integer-only output refuses AAC with the float reason", "[engine][
     player.setQueue({{"x", [p = e.plain] { return openAudioFile(p); }}});
     player.play();
     player.waitUntilIdle();
-    CHECK(player.status().error.formatCheck.reason == FormatRejection::SampleType);
+    const auto s = player.status();
+    CHECK(s.state == PlayerState::Ended);
+    REQUIRE(s.path.has_value());
+    CHECK(s.path->processing);
+    CHECK(s.path->processingRequired);
+    CHECK(s.path->dither);
+    CHECK(s.path->output.format.type == SampleType::Int);
+    CHECK(s.path->output.format.containerBits == 32);
 }
 
 TEST_CASE("AAC: damaged files never crash", "[engine][aac][hardening]")

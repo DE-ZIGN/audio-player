@@ -23,6 +23,8 @@ add_library(ap_engine STATIC
     src/sha256.cpp
     src/dsp/sample_convert.cpp
     src/dsp/processing.cpp
+    src/dsp/dither.cpp
+    src/dsp/volume.cpp
     src/output/dummy_output.cpp
     src/output/format_probe.cpp
     src/output/device_selection.cpp

@@ -4,7 +4,7 @@
 
 ## ap_play（S1 の試作プレイヤー）
 
-WAV・FLAC・AIFF・ALAC（と DSF/DFF を DoP で）を整数のまま、MP3・AAC を 32bit 浮動小数点のまま、排他 WASAPI（イベント駆動）か ASIO で再生する。音量、変換、ディザはかけない。形式はファイルの中身で判断する。FLAC は最後まで読んだときに MD5 を照合し、終わりに結果を表示する。
+WAV・FLAC・AIFF・ALAC（と DSF/DFF を DoP で）を整数のまま、MP3・AAC を 32bit 浮動小数点のまま、排他 WASAPI（イベント駆動）か ASIO で再生する。既定は原音経路で、音量、変換、ディザはかけない。`--volume` で音量を下げたときと、浮動小数点の曲を浮動小数点を受け付けないデバイスで鳴らすときだけ、64bit の処理経路を通して TPDF ディザをかけ、デバイスが受け付けるいちばん細かい整数にする。形式はファイルの中身で判断する。FLAC は最後まで読んだときに MD5 を照合し、終わりに結果を表示する。
 ビルドすると `build/vs2022/tools/play/<Debug|Release>/ap_play.exe` ができる。
 
 ```
@@ -17,6 +17,8 @@ ap_play FILE... --dummy OUT.raw         デバイスに送るはずのバイト�
 ap_play FILE... --stress N              N 個のスレッドで CPU に負荷をかけながら再生し、音切れの回数を表示する
 ap_play FILE... --inject-stall S:MS     1 曲目の S 秒の時点で再生スレッドを MS ミリ秒止める（音切れの検出の確認用）
 ap_play FILE... --dop                   DSD（.dsf/.dff）を DoP で送る。DoP に対応した DAC のときだけ使う（対応していないと大きなノイズになる）
+ap_play FILE... --volume DB             デジタル音量（0 以下の dB）。0 なら原音経路のまま、下げると処理経路
+ap_play FILE... --volume-at S:DB        再生を始めてから S 秒で音量を DB にする（何回でも。0 に戻すと原音経路に戻り、出力を開き直す）
 ap_play --asio-list                     ASIO ドライバーの一覧（各ドライバーを別のプロセスで読み込み、形式と使えるレートを表示）
 ap_play FILE... --asio N|NAME           ASIO で順に再生（--asio-list の番号か名前）。レートは曲ごとにドライバーへ設定する
 ap_play --env                        実行環境（MSIX パッケージの中かどうか）

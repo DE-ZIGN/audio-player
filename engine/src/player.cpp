@@ -46,6 +46,20 @@ public:
             p_.status_.transitions.push_back(t);
         }
 
+        // Processing switched on or off while playing (e.g. the volume left or
+        // returned to 100%): end this session so the output is reopened at the
+        // current position for the other path. DoP is never processed.
+        if (const auto* chain = p_.options_.processing.get(); chain && !dop_ && p_.sessionPlan_)
+        {
+            const bool wanted = p_.sessionPlan_->processingRequired || !chain->bypassed();
+            if (wanted != p_.sessionPlan_->processing)
+            {
+                p_.pathChangePending_ = true;
+                p_.dataEndedAt_ = std::chrono::steady_clock::now();
+                return 0;
+            }
+        }
+
         const std::int64_t target = p_.pendingSeek_.exchange(-1);
         if (target >= 0)
             p_.source_->seek(static_cast<std::uint64_t>(target));
@@ -337,6 +351,8 @@ PlayerStatus Player::status() const
         path.dop = s.dop;
         path.processing = s.plan->processing;
         path.processingStages = s.plan->processingStages;
+        path.processingRequired = s.plan->processingRequired;
+        path.dither = s.plan->dither;
         path.repack = s.plan->repack;
         path.output = *outputPath_;
         s.path = std::move(path);
@@ -384,6 +400,7 @@ void Player::threadMain()
                 std::lock_guard lock(mutex_);
                 status_.plan = plan;
                 outputPath_ = reported;
+                sessionPlan_ = plan;
             }
             // open() clears an earlier stop request inside the output; re-issue it.
             if (stopRequested_)
@@ -399,6 +416,23 @@ void Player::threadMain()
                 throw DopNotAllowed{};
             QueueReader reader(*this);
             ap::engine::play(reader, *output, options);
+            sessionPlan_.reset();
+
+            if (pathChangePending_)
+            {
+                // Same track, same position: reopen for the other path.
+                pathChangePending_ = false;
+                if (stopRequested_)
+                    break;
+                TrackTransition t;
+                t.fromIndex = index_;
+                t.toIndex = index_;
+                t.kind = TransitionKind::ProcessingChanged;
+                t.fromFormat = source_->format();
+                t.toFormat = source_->format();
+                reopenPending_ = t;
+                continue;
+            }
 
             if (pendingNext_)
             {
@@ -473,6 +507,8 @@ void Player::threadMain()
     }
     activeOutput_ = nullptr;
     reopenPending_.reset();
+    pathChangePending_ = false;
+    sessionPlan_.reset();
     if (error.kind != PlayerErrorKind::None)
     {
         status_.state = PlayerState::Error;

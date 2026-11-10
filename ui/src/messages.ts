@@ -67,10 +67,16 @@ export function inputText(s: PlaybackStatus): string {
   return `${dsdRateName(s.dop.dsdRate)}（${mhz} MHz）/ ${s.sourceFormat.channels}ch（${s.dop.container}）`;
 }
 
+const stageNames: Record<string, string> = { volume: "デジタル音量" };
+
 export function processingText(s: PlaybackStatus): string {
-  return s.dop
-    ? "なし（DoP の経路では処理をかけられません）"
-    : "なし（原音経路：音量・変換・ディザをかけません）";
+  if (s.dop) return "なし（DoP の経路では処理をかけられません）";
+  const p = s.path;
+  if (!p || !p.processing) return "なし（原音経路：音量・変換・ディザをかけません）";
+  const parts = p.processingStages.map((n) => stageNames[n] ?? n);
+  if (p.processingRequired) parts.push("浮動小数点の曲を整数にする（このデバイスは浮動小数点を受け付けないため）");
+  if (p.dither) parts.push("TPDF ディザ");
+  return `あり（64bit 浮動小数点の処理経路：${parts.join("、")}）`;
 }
 
 export function dopNotice(s: PlaybackStatus): string {
@@ -205,9 +211,8 @@ export function errorText(s: PlaybackStatus): string {
       case "channels":
         return `このデバイスは ${fmt?.channels ?? ""} チャンネルに対応していません。`;
       case "sampleType":
-        return fmt?.sampleType === "float"
-          ? "このデバイスは浮動小数点の形式に対応していません。MP3・AAC など非可逆の形式は浮動小数点で出てくるため、" +
-              "ディザをかけて整数にする処理（今後追加）ができるまで、このデバイスでは再生できません（勝手に変換はしません）。"
+        return fmt?.sampleType === "int"
+          ? "このデバイスは整数の形式に対応していません（浮動小数点だけ）。原音経路では変換しないため、この曲は再生できません。"
           : "このデバイスはこの形式（整数 / 浮動小数点）に対応していません。";
       default:
         return "このデバイスはこの形式に対応していません。";

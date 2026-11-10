@@ -24,6 +24,11 @@ struct PlaybackPlan
     // converted to `output`. False means the direct (bit-perfect) path.
     bool processing = false;
     std::vector<std::string> processingStages; // stages that were active at the start
+    // The direct path cannot take the source at all: a float source (MP3,
+    // AAC, float WAV) on an output without float. Such a track goes through
+    // the processing path even with every stage at identity.
+    bool processingRequired = false;
+    bool dither = false; // TPDF dither when quantizing (processing path, integer output)
 };
 
 struct NegotiationResult
@@ -52,11 +57,19 @@ struct PlaybackOptions
     bool allowDop = false;
     // Processing stages (task 3-1). Null or bypassed(): the direct path. DoP
     // is never processed. Whether the chain is bypassed is decided when the
-    // output is opened.
+    // output is opened; Player reopens the output when that changes.
     std::shared_ptr<ProcessingChain> processing;
     // Called on the playback thread after the output has been opened, before data flows.
     std::function<void(const PlaybackPlan&)> onStart;
 };
+
+// The plan play() would use now for `source` on `output`: the direct path
+// (unchanged or losslessly repacked) when options.processing is null or
+// bypassed and the output takes the format, otherwise the processing path.
+// A float source the output cannot take goes to the processing path to be
+// quantized; an integer source is refused (never converted). DoP is never
+// processed. Does not open the output.
+NegotiationResult planPlayback(const PcmSource& source, AudioOutput& output, const PlaybackOptions& options);
 
 struct PlaybackReport
 {
@@ -85,8 +98,9 @@ private:
 
 // Direct path (bit-perfect): source bytes -> (optional lossless repack) -> output.
 // No volume, no conversion, no dither.
-// Processing path (options.processing active, not DoP): source -> 64-bit
-// float -> stages -> output format (see negotiateProcessing).
+// Processing path (options.processing active, or a float source the output
+// cannot take; never DoP): source -> 64-bit float -> stages -> output format
+// (see negotiateProcessing), with TPDF dither when the output is integer.
 // Blocks until playback ends.
 // Throws FormatNotSupportedError or OutputException.
 PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOptions& options = {});

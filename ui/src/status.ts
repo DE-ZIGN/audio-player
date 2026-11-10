@@ -78,7 +78,10 @@ export interface EndpointVolume {
 // Facts about the path that are not elsewhere in the status. Set once the output is open.
 export interface SignalPath {
   container: string; // "WAV", "DSF", "DFF"
-  processing: boolean; // phase 1: always false (direct path)
+  processing: boolean; // false: the direct path (bit-perfect); true: the 64-bit processing path
+  processingStages: string[]; // active stages when the output opened, e.g. ["volume"]
+  processingRequired: boolean; // a float source on an output without float: quantized
+  dither: boolean; // TPDF dither when quantizing
   output: {
     api: OutputApi;
     periodFrames: number;

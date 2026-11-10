@@ -11,6 +11,7 @@
 #include <ap/engine/alac_file_source.h>
 #include <ap/engine/audio_file.h>
 #include <ap/engine/dsd_source.h>
+#include <ap/engine/dsp/volume.h>
 #include <ap/engine/flac_file_source.h>
 #include <ap/engine/mp3_file_source.h>
 #include <ap/engine/mp4_reader.h>
@@ -31,8 +32,10 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <exception>
 #include <filesystem>
@@ -60,6 +63,8 @@ constexpr const char* kUsage =
     "               [--exact-only]            コンテナの詰め替え（24bit → 32bit コンテナなど）もしない\n"
     "               [--check]                 再生せず、送る形式だけを確かめる\n"
     "  ap_play FILE... --dummy OUT.raw        デバイスに送るはずのバイト列をファイルに書き、ハッシュを比べる\n"
+    "  ap_play FILE... --volume DB            デジタル音量（0 以下の dB。0 で原音経路のまま、下げると処理経路）\n"
+    "  ap_play FILE... --volume-at S:DB       再生を始めてから S 秒で音量を DB にする（何回でも指定できる。0 に戻すと原音経路に戻る）\n"
     "\n"
     "複数のファイルは順に再生します。形式が同じなら出力を開き直さずにつなげ（ギャップレス）、\n"
     "形式が違えば開き直して、切り替えにかかった時間を表示します。\n"
@@ -69,7 +74,9 @@ constexpr const char* kUsage =
     "                                         オプションも使える。レートは曲ごとにドライバーへ設定する）\n"
     "  ap_play --asio-load N|all              ASIO ドライバーを読み込めるか試す（再生はしない）\n"
     "\n"
-    "原音経路です。音量、変換、ディザはかけません。デバイスが受け付けない形式は再生せず、理由を表示します。\n";
+    "既定は原音経路です（音量、変換、ディザをかけない）。--volume で音量を下げたときと、浮動小数点の曲（MP3・AAC）を\n"
+    "浮動小数点を受け付けないデバイスで鳴らすときだけ、64bit の処理経路を通して TPDF ディザをかけて整数にします。\n"
+    "整数の曲でデバイスが受け付けない形式は、変換せずに理由を表示します。\n";
 
 void print(const std::string& s)
 {
@@ -110,9 +117,8 @@ std::string rejectionText(const FormatCheck& c, const PcmFormat& f)
         case FormatRejection::Channels:
             return std::format("このデバイスは {} チャンネルに対応していません。", f.channels);
         case FormatRejection::SampleType:
-            return f.type == SampleType::Float
-                       ? "このデバイスは浮動小数点の形式に対応していません。MP3・AAC など非可逆の形式は浮動小数点で出てくるため、"
-                         "ディザをかけて整数にする処理経路（M3）ができるまで、このデバイスでは再生できません（勝手に変換はしません）。"
+            return f.type == SampleType::Int
+                       ? "このデバイスは整数の形式に対応していません（浮動小数点だけ）。原音経路では変換しないため、この曲は再生できません。"
                        : "このデバイスはこの形式（整数 / 浮動小数点）に対応していません。";
         default:
             return std::format("このデバイスはこの形式に対応していません（0x{:08X}）。",
@@ -211,7 +217,17 @@ struct Options
     std::string asioLoad;
     std::string asio;          // --asio N|NAME
     std::string asioProbeOne;  // --asio-probe-one CLSID (child process mode)
+    double volumeDb = 0.0;     // --volume DB
+    std::vector<std::pair<double, double>> volumeAt; // --volume-at S:DB (seconds since play, dB)
 };
+
+double parseDb(const std::string& v)
+{
+    const double db = std::stod(v);
+    if (db > 0.0)
+        throw std::runtime_error("音量は 0 dB 以下で指定してください（デジタル音量は上げられません）");
+    return db;
+}
 
 std::optional<Options> parse(int argc, char** argv)
 {
@@ -257,6 +273,16 @@ std::optional<Options> parse(int argc, char** argv)
             o.device = value();
         else if (a == "--dummy")
             o.dummy = value();
+        else if (a == "--volume")
+            o.volumeDb = parseDb(value());
+        else if (a == "--volume-at")
+        {
+            const auto v = value();
+            const auto colon = v.find(':');
+            if (colon == std::string::npos)
+                throw std::runtime_error("--volume-at は 秒:dB で指定してください（例 5:-6）");
+            o.volumeAt.emplace_back(std::stod(v.substr(0, colon)), parseDb(v.substr(colon + 1)));
+        }
         else if (a == "--exact-only")
             o.exactOnly = true;
         else if (a == "--check")
@@ -459,7 +485,7 @@ int listFormats(const Options& o)
         print(row + "\n");
     }
     print("（MP3・AAC など非可逆の形式は 32bit 浮動小数点で出てくる。浮動小数点を受け付けないデバイスでは、"
-          "ディザをかけて整数にする処理経路（M3）ができるまで再生できない）\n");
+          "処理経路で TPDF ディザをかけて整数にして送る）\n");
     return 0;
 }
 
@@ -508,6 +534,10 @@ private:
 
 std::string transitionText(const TrackTransition& t)
 {
+    if (t.kind == TransitionKind::ProcessingChanged)
+        return std::format("{} 曲目: 処理経路と原音経路の切り替え（音量などが変わったため、今の位置で出力を開き直した。"
+                           "データが途切れてから続きを送り始めるまで約 {:.0f} ms）",
+                           t.fromIndex + 1, t.switchMilliseconds);
     if (t.kind == TransitionKind::Gapless)
         return std::format("{} → {} 曲目: ギャップレス（形式が同じなので出力を開き直さずにつなげた）", t.fromIndex + 1,
                            t.toIndex + 1);
@@ -563,6 +593,22 @@ std::string outputModeText(const SignalPath& p)
             return "ダミー出力（ファイルに書き出すだけ）・1 回に " + period;
     }
     return {};
+}
+
+std::string processingText(const PlaybackPlan& p, bool dop)
+{
+    if (dop)
+        return "なし（DoP の経路では処理をかけられない）";
+    if (!p.processing)
+        return "なし（原音経路：音量・変換・ディザをかけない）";
+    std::string parts;
+    for (const auto& n : p.processingStages)
+        parts += (parts.empty() ? "" : "、") + (n == "volume" ? std::string("デジタル音量") : n);
+    if (p.processingRequired)
+        parts += std::string(parts.empty() ? "" : "、") + "浮動小数点の曲を整数にする（デバイスが浮動小数点を受け付けないため）";
+    if (p.dither)
+        parts += std::string(parts.empty() ? "" : "、") + "TPDF ディザ";
+    return "あり（64bit 浮動小数点の処理経路：" + parts + "）";
 }
 
 std::string playerErrorText(const PlayerStatus& s)
@@ -646,6 +692,26 @@ int runQueue(const Options& o)
                          }});
     }
 
+    auto volume = std::make_shared<VolumeStage>();
+    volume->setGainDb(o.volumeDb);
+    const PlaybackOptions playOptions{
+        .allowRepack = !o.exactOnly,
+        .allowDop = o.allowDop,
+        .processing = std::make_shared<ProcessingChain>(std::vector<std::shared_ptr<ProcessingStage>>{volume})};
+
+    auto printCheck = [&](std::size_t i, const PcmSource& src, AudioOutput& out) {
+        const auto n = planPlayback(src, out, playOptions);
+        if (!n.plan)
+        {
+            print(std::format("  {} 曲目: 再生できません: {}\n", i + 1, rejectionText(n.exactCheck, src.format())));
+            return 3;
+        }
+        print(std::format("  {} 曲目: 送る形式 {}、{}\n", i + 1, describe(n.plan->output),
+                          n.plan->processing ? "処理 " + processingText(*n.plan, false)
+                                             : "詰め替え " + repackText(*n.plan)));
+        return 0;
+    };
+
     Player::OutputFactory factory;
     if (dummy)
     {
@@ -682,19 +748,7 @@ int runQueue(const Options& o)
             AsioOutput out("ASIO: " + driver.name, AsioOutput::factoryFor(driver));
             int worst = 0;
             for (std::size_t i = 0; i < o.files.size(); ++i)
-            {
-                const auto opened = openAudioFile(fs::path{o.files[i]});
-                const auto& src = *opened;
-                const auto n = negotiate(src.format(), out, !o.exactOnly);
-                if (n.plan)
-                    print(std::format("  {} 曲目: 送る形式 {}、詰め替え {}\n", i + 1, describe(n.plan->output),
-                                      repackText(*n.plan)));
-                else
-                {
-                    print(std::format("  {} 曲目: 再生できません: {}\n", i + 1, rejectionText(n.exactCheck, src.format())));
-                    worst = 3;
-                }
-            }
+                worst = std::max(worst, printCheck(i, *openAudioFile(fs::path{o.files[i]}), out));
             return worst;
         }
         factory = [driver] {
@@ -713,25 +767,15 @@ int runQueue(const Options& o)
         {
             int worst = 0;
             for (std::size_t i = 0; i < o.files.size(); ++i)
-            {
-                const auto opened = openAudioFile(fs::path{o.files[i]});
-                const auto& src = *opened;
-                const auto n = negotiate(src.format(), probe, !o.exactOnly);
-                if (n.plan)
-                    print(std::format("  {} 曲目: 送る形式 {}、詰め替え {}\n", i + 1, describe(n.plan->output),
-                                      repackText(*n.plan)));
-                else
-                {
-                    print(std::format("  {} 曲目: 再生できません: {}\n", i + 1, rejectionText(n.exactCheck, src.format())));
-                    worst = 3;
-                }
-            }
+                worst = std::max(worst, printCheck(i, *openAudioFile(fs::path{o.files[i]}), probe));
             return worst;
         }
         factory = [id] { return std::make_unique<WasapiExclusiveOutput>(id); };
     }
 
-    Player player(factory, PlaybackOptions{.allowRepack = !o.exactOnly, .allowDop = o.allowDop});
+    Player player(factory, playOptions);
+    if (o.volumeDb < 0.0)
+        print(std::format("  音量: {:.1f} dB（デジタル音量。処理経路を通ります）\n", o.volumeDb));
     player.setQueue(std::move(items));
     if (player.status().state == PlayerState::Error)
     {
@@ -766,6 +810,10 @@ int runQueue(const Options& o)
     } stressGuard{stopStress, stress};
 
     player.play();
+    const auto startedAt = std::chrono::steady_clock::now();
+    std::size_t nextVolumeChange = 0;
+    auto volumeChanges = o.volumeAt;
+    std::sort(volumeChanges.begin(), volumeChanges.end());
 
     std::size_t shownTransitions = 0;
     std::optional<PlaybackPlan> shownPlan;
@@ -775,15 +823,23 @@ int runQueue(const Options& o)
         s = player.status();
         for (; shownTransitions < s.transitions.size(); ++shownTransitions)
             print("\r  " + transitionText(s.transitions[shownTransitions]) + "                    \n");
-        if (s.plan && (!shownPlan || !(shownPlan->output == s.plan->output)))
+        if (s.plan && (!shownPlan || !(shownPlan->output == s.plan->output) || shownPlan->processing != s.plan->processing))
         {
-            print(std::format("\r  送る形式: {}、詰め替え: {}                    \n", describe(s.plan->output),
-                              repackText(*s.plan)));
+            print(s.plan->processing
+                      ? std::format("\r  送る形式: {}（処理経路で作った値）                    \n", describe(s.plan->output))
+                      : std::format("\r  送る形式: {}、詰め替え: {}                    \n", describe(s.plan->output),
+                                    repackText(*s.plan)));
             if (s.path)
                 print(std::format("  出力の方式: {}\n  処理: {}\n", outputModeText(*s.path),
-                                  s.path->dop ? "なし（DoP の経路では処理をかけられない）"
-                                              : "なし（原音経路：音量・変換・ディザをかけない）"));
+                                  processingText(*s.plan, s.path->dop.has_value())));
             shownPlan = s.plan;
+        }
+        const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startedAt).count();
+        for (; nextVolumeChange < volumeChanges.size() && volumeChanges[nextVolumeChange].first <= elapsed; ++nextVolumeChange)
+        {
+            volume->setGainDb(volumeChanges[nextVolumeChange].second);
+            print(std::format("\r  {:.1f} 秒: 音量を {:.1f} dB にした                              \n", elapsed,
+                              volumeChanges[nextVolumeChange].second));
         }
         if (s.state != PlayerState::Playing)
             break;
@@ -825,11 +881,15 @@ int runQueue(const Options& o)
         const auto out = toHex(sha256File(fs::path{o.dummy}));
         print(std::format("入力 PCM（全曲をつなげたもの）の SHA-256: {}\n出力の SHA-256:                         {}\n", in, out));
         const bool repacked = s.plan && s.plan->repack != Repack::None;
+        const bool processed = (s.plan && s.plan->processing)
+                            || std::any_of(s.transitions.begin(), s.transitions.end(),
+                                           [](const auto& t) { return t.kind == TransitionKind::ProcessingChanged; });
         print(in == out                      ? "一致（ビットパーフェクト、曲の境目に欠けも重なりもなし）\n"
+              : processed                    ? "不一致（処理経路を通したため。音量やディザで値が変わるので、一致しないのが正しい）\n"
               : repacked                     ? "不一致（詰め替えたため。詰め替え前の値は保たれています）\n"
               : s.dropouts.readStarvations > 0 ? "不一致（読み込みが間に合わず、無音で埋めたため）\n"
                                              : "不一致\n");
-        if (in != out && !repacked)
+        if (in != out && !repacked && !processed)
             return 1;
     }
     return exitCodeFor(s.error.kind);

@@ -1,14 +1,16 @@
 // CLAUDE.md chapter 5:
 //   EQ 全 0 dB・音作りオフ：バイパスが成立し、原音モードと出力が一致する
+// Task 3-2: 音量 100% で完全バイパス (the real volume stage at 0 dB is in the chain).
 //
 // Task 3-1 builds the processing path without real stages yet, so "processing
 // off" is a chain whose stages are all identity. The output of that chain must
 // be the output of the direct path (原音モード), byte for byte, and the path
 // must be recorded as not processed. As a check of the conversions alone, the
-// same input forced through the processing path into its own format must also
-// come out unchanged.
+// same input forced through the processing path into 32-bit float (no
+// quantization, so no dither) must come out with exactly the same values.
 
 #include <ap/engine/dsp/processing.h>
+#include <ap/engine/dsp/volume.h>
 #include <ap/engine/output/dummy_output.h>
 #include <ap/engine/playback.h>
 #include <ap/engine/sha256.h>
@@ -20,6 +22,11 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
+
+#include <cmath>
+#include <cstring>
+#include <fstream>
+#include <iterator>
 
 using namespace ap::engine;
 namespace sg = ap::signalgen;
@@ -72,6 +79,12 @@ std::string playToHash(const std::filesystem::path& in, const std::filesystem::p
     return toHex(sha256File(out));
 }
 
+std::vector<std::uint8_t> readAll(const std::filesystem::path& p)
+{
+    std::ifstream f(p, std::ios::binary);
+    return {std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
+}
+
 } // namespace
 
 TEST_CASE("Processing off: bypass holds and the output equals the direct path", "[acceptance][bypass]")
@@ -89,19 +102,40 @@ TEST_CASE("Processing off: bypass holds and the output equals the direct path", 
     const auto neutralHash = playToHash(
         in, dir.path() / "neutral.raw",
         std::make_shared<ProcessingChain>(std::vector<std::shared_ptr<ProcessingStage>>{
-            std::make_shared<NeutralStage>(), std::make_shared<NeutralStage>()}),
+            std::make_shared<VolumeStage>(), std::make_shared<NeutralStage>(), std::make_shared<NeutralStage>()}),
         neutral);
 
     CHECK_FALSE(neutral.processing);
     CHECK(neutral.output == direct.output);
     CHECK(neutralHash == directHash);
 
-    // The processing path itself, into the source format: int -> double -> int is exact.
-    const PcmFormat sourceFormat = direct.source;
-    const auto forcedHash = playToHash(
-        in, dir.path() / "forced.raw",
-        std::make_shared<ProcessingChain>(std::vector<std::shared_ptr<ProcessingStage>>{std::make_shared<ForcedStage>()}),
-        forced, [sourceFormat](const PcmFormat& f) { return f == sourceFormat; });
-    CHECK(forced.processing);
-    CHECK(forcedHash == directHash);
+    // The processing path itself, into 32-bit float: int -> double -> float is
+    // exact for 16 and 24 bits (a float holds 24 bits of mantissa).
+    if (format != sg::SampleFormat::Int32)
+    {
+        playToHash(in, dir.path() / "forced.raw",
+                   std::make_shared<ProcessingChain>(
+                       std::vector<std::shared_ptr<ProcessingStage>>{std::make_shared<ForcedStage>()}),
+                   forced, [](const PcmFormat& f) { return f.type == SampleType::Float; });
+        CHECK(forced.processing);
+        CHECK_FALSE(forced.dither);
+        const auto directBytes = readAll(dir.path() / "direct.raw");
+        const auto forcedBytes = readAll(dir.path() / "forced.raw");
+        const unsigned bytes = direct.source.bytesPerSample();
+        REQUIRE(forcedBytes.size() / 4 == directBytes.size() / bytes);
+        const double scale = std::ldexp(1.0, -(static_cast<int>(direct.source.containerBits) - 1));
+        bool same = true;
+        for (std::size_t i = 0; i < forcedBytes.size() / 4; ++i)
+        {
+            std::uint32_t u = 0;
+            for (unsigned k = 0; k < bytes; ++k)
+                u |= static_cast<std::uint32_t>(directBytes[i * bytes + k]) << (8 * k);
+            const unsigned shift = 32 - bytes * 8;
+            const auto code = static_cast<std::int32_t>(u << shift) >> shift;
+            float f;
+            std::memcpy(&f, &forcedBytes[i * 4], 4);
+            same = same && f == static_cast<float>(code * scale);
+        }
+        CHECK(same);
+    }
 }

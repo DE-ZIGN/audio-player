@@ -86,6 +86,9 @@ const fmt24 = (sampleRate: number) => ({
 const mockPath = (t: MockTrack): SignalPath => ({
   container: t.dsdRate ? "DSF" : t.name.endsWith(".flac") ? "FLAC" : "WAV",
   processing: false,
+  processingStages: [],
+  processingRequired: false,
+  dither: false,
   output: {
     api: "wasapiExclusive",
     periodFrames: t.sampleRate / 100,

@@ -15,6 +15,8 @@
 
 namespace ap::engine::dsp {
 
+class TpdfDither;
+
 // Converts dst.size() samples of `format` from src (little-endian, interleaved).
 void toDouble(std::span<const std::byte> src, const PcmFormat& format, std::span<double> dst);
 
@@ -22,12 +24,15 @@ void toDouble(std::span<const std::byte> src, const PcmFormat& format, std::span
 // could not be represented: integer values beyond the code range after
 // rounding (+1.0 is one step above the largest code), float values beyond
 // +-1.0, and NaN.
-//  - Integer: rounds to the nearest code of validBits (ties to even), clamps
-//    to the code range, leaves the low (containerBits - validBits) bits zero.
-//    No dither here: the quantizer adds it before this step (task 3-2).
+//  - Integer: adds `dither` (TPDF, +-1 LSB of validBits) when given, rounds to
+//    the nearest code of validBits (ties to even), clamps to the code range,
+//    leaves the low (containerBits - validBits) bits zero. Overs are counted
+//    from the value before dither.
 //  - Float: converts (32-bit: to the nearest float) without clamping; a DAC
-//    that takes float decides how to handle values beyond full scale.
+//    that takes float decides how to handle values beyond full scale. Never
+//    dithered.
 //  - NaN becomes 0.
-std::uint64_t fromDouble(std::span<const double> src, const PcmFormat& format, std::span<std::byte> dst);
+std::uint64_t fromDouble(std::span<const double> src, const PcmFormat& format, std::span<std::byte> dst,
+                         TpdfDither* dither = nullptr);
 
 } // namespace ap::engine::dsp

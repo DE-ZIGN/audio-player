@@ -33,6 +33,10 @@ enum class TransitionKind
 {
     Gapless,  // same format: the next track's first frame follows the last frame directly
     Reopened, // different format: the output was drained, closed and opened again
+    // Within one track (fromIndex == toIndex): processing was switched on or
+    // off while playing (e.g. the volume left or returned to 100%), so the
+    // output was reopened at the current position for the other path.
+    ProcessingChanged,
 };
 
 struct TrackTransition
@@ -179,6 +183,8 @@ private:
     std::string loadError_;                  // next track failed to open
     bool loadFailed_ = false;
     std::optional<TrackTransition> reopenPending_; // recorded at the first read after reopening
+    bool pathChangePending_ = false;               // the session ended to switch processing on or off
+    std::optional<PlaybackPlan> sessionPlan_;      // of the running output session
     std::chrono::steady_clock::time_point dataEndedAt_;
 
     // Dropout totals from sources and outputs that are gone (guarded by mutex_).
