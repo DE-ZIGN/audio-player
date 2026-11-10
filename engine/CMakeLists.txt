@@ -20,6 +20,7 @@ add_library(ap_engine STATIC
     src/repack.cpp
     src/playback.cpp
     src/player.cpp
+    src/abx.cpp
     src/sha256.cpp
     src/dsp/sample_convert.cpp
     src/dsp/processing.cpp

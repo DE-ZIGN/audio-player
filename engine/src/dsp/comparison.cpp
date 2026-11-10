@@ -1,8 +1,13 @@
 #include <ap/engine/dsp/comparison.h>
 
+#include <ap/engine/dsp/processing.h>
+#include <ap/engine/dsp/sample_convert.h>
+
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <optional>
+#include <stdexcept>
 
 namespace ap::engine {
 
@@ -58,9 +63,9 @@ void AbComparison::prepare(std::uint32_t sampleRate, std::uint16_t channels, std
 {
     channels_ = channels;
     limiter_.prepare(sampleRate, channels);
-    match_.setTarget(1.0);
+    match_.setTarget(fixed_ ? std::pow(10.0, fixedDb_ / 20.0) : 1.0);
     match_.prepare(sampleRate);
-    matchDb_ = 0.0;
+    matchDb_ = fixed_ ? fixedDb_.load() : 0.0;
     levelDifferenceDb_ = 0.0;
     for (auto* k : {&kOriginal_, &kProcessed_, &kOut_})
     {
@@ -92,7 +97,13 @@ void AbComparison::process(std::span<const double> original, std::span<double> p
         if (--untilUpdate_ == 0)
         {
             untilUpdate_ = updateEvery_;
-            if (kOriginal_.energy > 1e-20 && kProcessed_.energy > 1e-20)
+            if (fixed_.load(std::memory_order_relaxed))
+            {
+                const double db = fixedDb_.load(std::memory_order_relaxed);
+                matchDb_.store(db, std::memory_order_relaxed);
+                match_.setTarget(std::pow(10.0, db / 20.0));
+            }
+            else if (kOriginal_.energy > 1e-20 && kProcessed_.energy > 1e-20)
             {
                 const double db =
                     std::clamp(10.0 * std::log10(kOriginal_.energy / kProcessed_.energy), -kMaxMatchDb, kMaxMatchDb);
@@ -138,6 +149,56 @@ void AbComparison::process(std::span<const double> original, std::span<double> p
         }
         delayPos_ = (delayPos_ + 1) % delayFrames_;
     }
+}
+
+double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo& track)
+{
+    if (source.dop())
+        throw std::invalid_argument("DoP is not PCM audio");
+    const PcmFormat f = source.format();
+    const std::uint16_t ch = f.channels;
+    std::array<double, 5> shelf{}, highPass{};
+    designKWeighting(f.sampleRate, shelf, highPass);
+    std::vector<double> stOriginal(static_cast<std::size_t>(ch) * 8, 0.0), stProcessed(stOriginal);
+    auto energy = [&](const std::vector<double>& x, std::size_t frames, std::vector<double>& st) {
+        double e = 0.0;
+        for (std::size_t i = 0; i < frames; ++i)
+            for (std::uint16_t c = 0; c < ch; ++c)
+            {
+                double* s4 = st.data() + static_cast<std::size_t>(c) * 8;
+                const double y = runBiquad(highPass, s4 + 4, runBiquad(shelf, s4, x[i * ch + c]));
+                e += y * y;
+            }
+        return e;
+    };
+
+    chain.trackStarted(track);
+    chain.prepare(f.sampleRate, ch);
+    constexpr std::size_t kChunk = 8192;
+    std::vector<std::byte> bytes(kChunk * f.bytesPerFrame());
+    std::vector<double> original(kChunk * ch), processed(kChunk * ch);
+    double eo = 0.0, ep = 0.0;
+    ScopedFlushDenormals ftz;
+    while (const std::size_t n = source.read(bytes))
+    {
+        dsp::toDouble(std::span(bytes).first(n * f.bytesPerFrame()), f, std::span(original).first(n * ch));
+        std::copy(original.begin(), original.begin() + static_cast<std::ptrdiff_t>(n * ch), processed.begin());
+        chain.process(std::span(processed).first(n * ch), ch);
+        eo += energy(original, n, stOriginal);
+        ep += energy(processed, n, stProcessed);
+    }
+    // The chain's look-ahead: push its last frames out.
+    for (std::size_t left = chain.latencyFrames(); left > 0;)
+    {
+        const std::size_t n = std::min(left, kChunk);
+        std::fill(processed.begin(), processed.begin() + static_cast<std::ptrdiff_t>(n * ch), 0.0);
+        chain.process(std::span(processed).first(n * ch), ch);
+        ep += energy(processed, n, stProcessed);
+        left -= n;
+    }
+    if (!(eo > 1e-20) || !(ep > 1e-20))
+        return 0.0;
+    return std::clamp(10.0 * std::log10(eo / ep), -AbComparison::kMaxMatchDb, AbComparison::kMaxMatchDb);
 }
 
 } // namespace ap::engine

@@ -2,6 +2,8 @@
 // the player enters and leaves it.
 
 #include <ap/engine/dsp/comparison.h>
+#include <ap/engine/dsp/eq.h>
+#include <ap/engine/dsp/loudness.h>
 #include <ap/engine/dsp/volume.h>
 #include <ap/engine/output/dummy_output.h>
 #include <ap/engine/player.h>
@@ -12,6 +14,8 @@
 
 #include <cmath>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <numbers>
 
 using namespace ap::engine;
@@ -128,4 +132,66 @@ TEST_CASE("Player: entering and leaving the comparison reopens the output", "[ds
     REQUIRE(s.path.has_value());
     CHECK_FALSE(s.path->comparison);
     CHECK_FALSE(s.path->processing); // back to bit-perfect
+}
+
+TEST_CASE("Comparison: a match worked out for the whole track keeps the loudness when the music changes", "[dsp][comparison]")
+{
+    // The first half is mostly low notes, the second mostly high ones; a high
+    // shelf boost changes the loudness of the halves differently, so a running
+    // estimate moves, while the whole track's match is one fixed value.
+    const std::uint32_t rate = 48000;
+    std::vector<float> v(rate * 8 * 2);
+    for (std::size_t i = 0; i < v.size() / 2; ++i)
+    {
+        const double t = static_cast<double>(i) / rate;
+        const double low = 0.3 * std::sin(2 * std::numbers::pi * 150 * t);
+        const double high = 0.3 * std::sin(2 * std::numbers::pi * 6000 * t);
+        const double x = i < v.size() / 4 ? low + 0.05 * high : 0.05 * low + high;
+        v[2 * i] = v[2 * i + 1] = static_cast<float>(x);
+    }
+    std::vector<std::byte> bytes(v.size() * 4);
+    std::memcpy(bytes.data(), v.data(), bytes.size());
+    const PcmFormat f{rate, 2, 32, 32, SampleType::Float, 0x3};
+
+    auto makeChain = [] {
+        auto eq = std::make_shared<EqStage>();
+        eq->setBands({{EqFilterType::HighShelf, 3000, 6.0, 0.7}});
+        auto vol = std::make_shared<VolumeStage>();
+        vol->setGainDb(-4.0);
+        return std::make_shared<ProcessingChain>(std::vector<std::shared_ptr<ProcessingStage>>{eq, vol});
+    };
+    MemoryPcmSource measured(f, bytes);
+    auto offline = makeChain();
+    const double match = measureMatchDb(measured, *offline, TrackInfo{});
+
+    // Play the processed side with that match and compare the whole output's loudness with the original's.
+    auto chain = makeChain();
+    chain->setComparing(true);
+    chain->comparison().select(ComparisonSide::Processed);
+    chain->comparison().setFixedMatchDb(match);
+    ap::test::TempDir dir;
+    MemoryPcmSource src(f, bytes);
+    DummyOutput out({.path = dir.path() / "o.raw", .periodFrames = {480},
+                     .accepts = [](const PcmFormat& g) { return g.type == SampleType::Float; }});
+    PlaybackOptions options;
+    options.processing = chain;
+    play(src, out, options);
+
+    std::ifstream in(dir.path() / "o.raw", std::ios::binary);
+    std::vector<char> raw{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+    std::vector<double> y(raw.size() / 4);
+    for (std::size_t i = 0; i < y.size(); ++i)
+    {
+        float s;
+        std::memcpy(&s, raw.data() + i * 4, 4);
+        y[i] = s;
+    }
+    LoudnessMeter lo(rate, 2), lp(rate, 2);
+    std::vector<double> x(v.begin(), v.end());
+    lo.process(x);
+    lp.process(y);
+    CAPTURE(match, lo.integratedLufs(), lp.integratedLufs(), chain->comparison().levelDifferenceDb());
+    CHECK(std::abs(lp.integratedLufs() - lo.integratedLufs()) < 0.1);
+    CHECK(std::abs(chain->comparison().levelDifferenceDb()) < 0.1);
+    CHECK(chain->comparison().matchDb() == match);
 }

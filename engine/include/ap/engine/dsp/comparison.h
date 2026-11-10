@@ -25,6 +25,8 @@
 
 #include <ap/engine/dsp/gain_ramp.h>
 #include <ap/engine/dsp/limiter.h>
+#include <ap/engine/pcm_source.h>
+#include <ap/engine/track_info.h>
 
 #include <array>
 #include <atomic>
@@ -48,6 +50,14 @@ public:
 
     // Thread-safe.
     void select(ComparisonSide side) noexcept { selected_ = side; }
+    // A matching gain worked out beforehand for the whole track (see
+    // measureMatchDb), used instead of the running estimate: with an EQ the
+    // running estimate moves while the music changes. nullopt: running estimate.
+    void setFixedMatchDb(std::optional<double> db) noexcept
+    {
+        fixedDb_ = db.value_or(0.0);
+        fixed_ = db.has_value();
+    }
     ComparisonSide selected() const noexcept { return selected_; }
     // The gain applied to the processed side now (dB).
     double matchDb() const noexcept { return matchDb_; }
@@ -75,6 +85,8 @@ private:
     };
 
     std::atomic<ComparisonSide> selected_{ComparisonSide::Processed};
+    std::atomic<bool> fixed_{false};
+    std::atomic<double> fixedDb_{0.0};
     std::atomic<double> matchDb_{0.0};
     std::atomic<double> levelDifferenceDb_{0.0};
 
@@ -91,5 +103,14 @@ private:
     double mix_ = 1.0; // 0 = original, 1 = processed
     double mixStep_ = 0.0;
 };
+
+class ProcessingChain;
+
+// The matching gain for a whole track: reads `source` to the end through
+// `chain` (a separate chain with the same settings as the one that will play,
+// not the playing one) and returns how much the processed side must be lifted
+// to be as loud as the original (dB, K-weighted energies). Throws
+// std::invalid_argument for DoP.
+double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo& track);
 
 } // namespace ap::engine

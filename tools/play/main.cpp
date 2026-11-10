@@ -7,6 +7,7 @@
 //   ap_play FILE... --dummy OUT.raw [--exact-only]
 
 #include <ap/engine/aac_file_source.h>
+#include <ap/engine/abx.h>
 #include <ap/engine/aiff_file_source.h>
 #include <ap/engine/alac_file_source.h>
 #include <ap/engine/audio_file.h>
@@ -38,9 +39,11 @@
 #include "environment_probe.h"
 
 #include <windows.h>
+#include <conio.h>
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -78,6 +81,8 @@ constexpr const char* kUsage =
     "                                         最小位相、プリアンプは自動（最大のブーストを 0 dB にする）\n"
     "  ap_play FILE... --compare original|processed  聴き比べ（原音と音作りの両方を作り、音作り側を原音の音量に合わせる）。\n"
     "               [--compare-at S]          最初にどちらを出すか。--compare-at S で S 秒の時点でもう一方に切り替える（5 ms のクロスフェード、何回でも）\n"
+    "  ap_play FILE --abx [N] [--eq ...]       ABX（既定 16 回）。キー a/b/x で聴く音を切り替え、1 で「X は A」、2 で「X は B」と答える。\n"
+    "                                         q で中断。正解数と p 値は最後に出す。音作り側の音量は曲全体を解析して原音に合わせる\n"
     "  ap_play FILE... --isp-safe off|measured|fixed  ISP セーフ（True Peak を -0.5 dBTP 以下に下げる。measured は解析した値から、\n"
     "                                         fixed は常に -3 dB）。off でも解析して、0 dBTP を超える曲を原音経路で鳴らすときに警告する\n"
     "  ap_play FILE... --volume-at S:DB       再生を始めてから S 秒で音量を DB にする（何回でも指定できる。0 に戻すと原音経路に戻る）\n"
@@ -242,6 +247,7 @@ struct Options
     std::string eqPreset;      // --eq FILE
     std::optional<ComparisonSide> compare; // --compare original|processed (the side to start with)
     std::vector<double> compareAt;         // --compare-at S (switch sides)
+    int abxTrials = 0;                     // --abx [N] (0: no ABX)
     std::vector<std::pair<double, double>> volumeAt; // --volume-at S:DB (seconds since play, dB)
 };
 
@@ -332,6 +338,12 @@ std::optional<Options> parse(int argc, char** argv)
                 o.compare = ComparisonSide::Processed;
             else
                 throw std::runtime_error("--compare は original か processed です");
+        }
+        else if (a == "--abx")
+        {
+            o.abxTrials = AbxTest::kDefaultTrials;
+            if (i + 1 < argc && std::isdigit(static_cast<unsigned char>(argv[i + 1][0])))
+                o.abxTrials = std::max(1, std::stoi(argv[++i]));
         }
         else if (a == "--compare-at")
             o.compareAt.push_back(std::stod(value()));
@@ -839,31 +851,49 @@ int runQueue(const Options& o)
                          }});
     }
 
-    auto replayGain = std::make_shared<ReplayGainStage>();
-    replayGain->setMode(o.replayGain);
-    auto eq = std::make_shared<EqStage>();
+    std::vector<EqBand> eqBands;
     if (!o.eqPreset.empty())
     {
         const auto preset = loadEqPreset(fs::path{o.eqPreset});
         for (const auto& w : preset.warnings)
             print("  EQ: " + w + "\n");
-        eq->setBands(preset.bands);
+        eqBands = preset.bands;
         print(std::format("  EQ: {} バンド（ファイルのプリアンプ {}、こちらでは自動で決める）\n", preset.bands.size(),
                           preset.filePreampDb ? std::format("{:+.1f} dB", *preset.filePreampDb) : std::string("なし")));
     }
-    auto volume = std::make_shared<VolumeStage>();
-    volume->setGainDb(o.volumeDb);
-    auto ispSafe = std::make_shared<IspSafeStage>();
-    ispSafe->setMode(o.ispSafe.value_or(IspSafeMode::Off));
-    ispSafe->setUseAlbumPeak(o.replayGain == ReplayGainMode::Album);
-    auto limiter = std::make_shared<SafetyLimiter>();
-    // CLAUDE.md chapter 4: ReplayGain, (EQ etc.), ISP-safe gain, safety limiter, then dither.
-    const PlaybackOptions playOptions{
-        .allowRepack = !o.exactOnly,
-        .allowDop = o.allowDop,
-        .processing = std::make_shared<ProcessingChain>(
-            std::vector<std::shared_ptr<ProcessingStage>>{replayGain, eq, volume, ispSafe, limiter})};
-    if (o.compare)
+    struct Stages
+    {
+        std::shared_ptr<ReplayGainStage> replayGain = std::make_shared<ReplayGainStage>();
+        std::shared_ptr<EqStage> eq = std::make_shared<EqStage>();
+        std::shared_ptr<VolumeStage> volume = std::make_shared<VolumeStage>();
+        std::shared_ptr<IspSafeStage> ispSafe = std::make_shared<IspSafeStage>();
+        std::shared_ptr<SafetyLimiter> limiter = std::make_shared<SafetyLimiter>();
+        std::shared_ptr<ProcessingChain> chain;
+    };
+    auto makeStages = [&] {
+        Stages st;
+        st.replayGain->setMode(o.replayGain);
+        st.eq->setBands(eqBands);
+        st.volume->setGainDb(o.volumeDb);
+        st.ispSafe->setMode(o.ispSafe.value_or(IspSafeMode::Off));
+        st.ispSafe->setUseAlbumPeak(o.replayGain == ReplayGainMode::Album);
+        // CLAUDE.md chapter 4: ReplayGain, (EQ etc.), ISP-safe gain, safety limiter, then dither.
+        st.chain = std::make_shared<ProcessingChain>(
+            std::vector<std::shared_ptr<ProcessingStage>>{st.replayGain, st.eq, st.volume, st.ispSafe, st.limiter});
+        return st;
+    };
+    const Stages stages = makeStages();
+    const auto& eq = stages.eq;
+    const auto& volume = stages.volume;
+    const auto& ispSafe = stages.ispSafe;
+    const auto& limiter = stages.limiter;
+    const PlaybackOptions playOptions{.allowRepack = !o.exactOnly, .allowDop = o.allowDop, .processing = stages.chain};
+    if (o.abxTrials > 0)
+    {
+        playOptions.processing->setComparing(true);
+        playOptions.processing->comparison().select(ComparisonSide::Original);
+    }
+    else if (o.compare)
     {
         playOptions.processing->setComparing(true);
         playOptions.processing->comparison().select(*o.compare);
@@ -972,6 +1002,31 @@ int runQueue(const Options& o)
             return worst;
         }
         factory = [id] { return std::make_unique<WasapiExclusiveOutput>(id); };
+    }
+
+    std::optional<AbxTest> abx;
+    if (o.abxTrials > 0)
+    {
+        DWORD consoleMode = 0;
+        if (!GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &consoleMode))
+        {
+            printErr("ABX はキーボードで答えるので、コンソール（ターミナル）で直接実行してください。\n");
+            return 2;
+        }
+        print("ABX: 音作り側の音量を原音に合わせるため、曲全体を解析しています…\n");
+        const auto src = openAudioFile(fs::path{o.files[0]});
+        auto offline = makeStages();
+        TrackInfo track{0, items[0].replayGain};
+        const double match = measureMatchDb(*src, *offline.chain, track);
+        playOptions.processing->comparison().setFixedMatchDb(match);
+        print(std::format("ABX: 音作り側を {:+.2f} dB にして原音の音量に合わせます\n", match));
+        if (playOptions.processing->bypassed() && eqBands.empty() && o.volumeDb == 0.0 && o.replayGain == ReplayGainMode::Off
+            && o.ispSafe.value_or(IspSafeMode::Off) == IspSafeMode::Off)
+            print("ABX: 音作りの設定がないので、A と B は同じ音です（確かめ用の対照）\n");
+        abx.emplace(o.abxTrials);
+        print(std::format("ABX: {} 回。a = A（原音）、b = B（音作り）、x = X を聴く。1 = 「X は A」、2 = 「X は B」と答える。q で中断。\n"
+                          "     正解数と p 値は最後に出します。いまは A を聴いています。\n",
+                          abx->trials()));
     }
 
     Player player(factory, playOptions);
@@ -1086,6 +1141,53 @@ int runQueue(const Options& o)
             print(std::format("\r  {:.1f} 秒: 音量を {:.1f} dB にした                              \n", elapsed,
                               volumeChanges[nextVolumeChange].second));
         }
+        if (abx)
+        {
+            auto& ab = playOptions.processing->comparison();
+            if (s.path && s.path->comparison)
+                abx->noteLevelDifference(ab.levelDifferenceDb());
+            while (_kbhit())
+            {
+                const int key = std::tolower(_getch());
+                const auto choose = [&](AbxChoice c, const char* name) {
+                    ab.select(abx->sideFor(c));
+                    print(std::format("\r  {} 回目: {} を聴いています                                        \n", abx->trial(), name));
+                };
+                if (key == 'a')
+                    choose(AbxChoice::A, "A（原音）");
+                else if (key == 'b')
+                    choose(AbxChoice::B, "B（音作り）");
+                else if (key == 'x')
+                    choose(AbxChoice::X, "X");
+                else if (key == '1' || key == '2')
+                {
+                    const int t = abx->trial();
+                    abx->answer(key == '1' ? AbxChoice::A : AbxChoice::B);
+                    print(std::format("\r  {} 回目: 「X は {}」と答えました                                  \n", t, key == '1' ? "A" : "B"));
+                    if (!abx->finished())
+                        print(std::format("  {} 回目: X が入れ替わりました（聴いている音はそのまま）\n", abx->trial()));
+                }
+                else if (key == 'q')
+                {
+                    abx->abort();
+                    print("\r  中断しました                                                    \n");
+                }
+            }
+            if (abx->finished() || abx->result().aborted)
+            {
+                player.stop();
+                s = player.status();
+                break;
+            }
+            if (s.state == PlayerState::Ended)
+            {
+                // The track ended before the last answer: play it again from the start point.
+                player.seek(static_cast<std::uint64_t>(o.fromSeconds * (s.sourceFormat ? s.sourceFormat->sampleRate : 0)));
+                player.play();
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
+            }
+        }
         if (s.state != PlayerState::Playing)
             break;
         const auto rate = s.sourceFormat ? s.sourceFormat->sampleRate : 1u;
@@ -1109,6 +1211,23 @@ int runQueue(const Options& o)
     print(std::format("音切れ: {} 回（デバイスへの受け渡しの遅れ {}、ファイルの読み込みの遅れ {}（無音にしたフレーム {}）、"
                       "デバイスの応答なし {}）\n",
                       d.total(), d.lateBuffers, d.readStarvations, d.starvedFrames, d.deviceTimeouts));
+    if (abx)
+    {
+        const auto r = abx->result();
+        if (r.finished)
+        {
+            print(std::format("ABX の結果: {} 回中 {} 回正解、p = {:.4f}（当てずっぽうでこれ以上当たる確率）\n", r.trials, *r.correct,
+                              *r.pValue));
+            print(r.distinguished
+                      ? "  p < 0.05：偶然とは考えにくい結果です。A と B の違いを聞き分けられた可能性が高いと言えます。\n"
+                      : "  p >= 0.05：偶然でも十分に起こりうる結果です。聞き分けられたとは言えません（違いがないという意味ではありません）。\n");
+        }
+        else
+            print(std::format("ABX: {} 回中 {} 回で中断したので、結果は出しません（途中の結果で判断すると p の意味が崩れるため）。\n",
+                              r.trials, r.answered));
+        print(std::format("  音量差: 最大 {:.2f} dB（基準 0.1 dB）{}\n", r.maxLevelDifferenceDb,
+                          r.levelMatched ? "" : "：基準を超えたので、結果は参考です（音量の違いで聞き分けた可能性がある）"));
+    }
     if (o.compare)
     {
         const auto& ab = playOptions.processing->comparison();

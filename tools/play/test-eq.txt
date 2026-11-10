@@ -1,0 +1,5 @@
+# A test EQ for listening checks (written for this project, not AutoEQ data).
+Preamp: -5.8 dB
+Filter 1: ON LSC Fc 105 Hz Gain 5.5 dB Q 0.70
+Filter 2: ON PK Fc 2900 Hz Gain 3.0 dB Q 2.0
+Filter 3: ON HSC Fc 10000 Hz Gain -4.0 dB Q 0.70
