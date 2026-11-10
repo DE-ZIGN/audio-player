@@ -261,6 +261,83 @@ TEST_CASE("AAC: the decoded stream matches Windows' own file reader", "[engine][
     CHECK(peak < 1e-6);
 }
 
+// Checks a real AAC .m4a (%AP_PROBE_IN%) and, when %AP_PROBE_WAV% names the
+// 16-bit stereo WAV it was made from, whether the trimming gives exactly the
+// original length at offset 0: the only way to see that the Windows decoder's
+// output starts where the encoder's priming count (iTunSMPB 2112, FFmpeg's
+// edit list 1024) assumes. Run with "[.probe]".
+TEST_CASE("Probe: a real AAC against Windows' reader and its source WAV", "[.probe]")
+{
+    auto env = [](const wchar_t* name) -> std::filesystem::path {
+        wchar_t* v = nullptr;
+        std::size_t len = 0;
+        if (_wdupenv_s(&v, &len, name) != 0 || !v)
+            return {};
+        std::filesystem::path p(v);
+        std::free(v);
+        return p;
+    };
+    const auto m4a = env(L"AP_PROBE_IN");
+    if (m4a.empty())
+        return;
+    const auto track = readMp4AudioTrack(m4a);
+    std::printf("track: %u Hz, %u ch, %zu packets, %llu frames in the stream\n", track.sampleRate, track.channels,
+                track.packets.size(), static_cast<unsigned long long>(track.totalFrames));
+    if (track.hasEditList)
+        std::printf("edit list: start %llu, %llu frames\n", static_cast<unsigned long long>(track.editStart),
+                    static_cast<unsigned long long>(track.editFrames));
+    else
+        std::printf("edit list: none\n");
+    if (track.itunSmpb)
+        std::printf("iTunSMPB: priming %llu, padding %llu, original %llu frames\n",
+                    static_cast<unsigned long long>(track.itunSmpb->priming),
+                    static_cast<unsigned long long>(track.itunSmpb->padding),
+                    static_cast<unsigned long long>(track.itunSmpb->originalFrames));
+    else
+        std::printf("iTunSMPB: none\n");
+
+    AacFileSource src(m4a);
+    REQUIRE(src.format().channels == 2);
+    const auto ours = readAllFloats(src, 4096);
+    std::printf("ours: %s, trimming from \"%s\", %llu frames after trimming, decoder errors %u\n",
+                describe(src.format()).c_str(), src.gaplessSource(), static_cast<unsigned long long>(src.totalFrames()),
+                src.integrity().decodeErrors);
+
+    const auto theirs = ap::test::mfDecodeFloat(m4a);
+    const long lag = bestLag(ours, theirs.samples, -4096, 4096);
+    std::printf("Windows' own reader: %zu frames, offset %ld frames from ours\n", theirs.samples.size() / 2, lag);
+
+    const auto wavPath = env(L"AP_PROBE_WAV");
+    if (wavPath.empty())
+        return;
+    auto wav = openAudioFile(wavPath);
+    REQUIRE(wav->format().containerBits == 16);
+    REQUIRE(wav->format().channels == 2);
+    std::vector<float> original;
+    std::vector<std::byte> buf(65536 * wav->format().bytesPerFrame());
+    while (const auto k = wav->read(buf))
+    {
+        const auto* s = reinterpret_cast<const std::int16_t*>(buf.data());
+        for (std::size_t i = 0; i < k * 2; ++i)
+            original.push_back(static_cast<float>(s[i] / 32768.0));
+    }
+    const long wlag = bestLag(original, ours, -4096, 4096);
+    std::vector<float> aligned;
+    for (std::size_t i = 0; i < original.size(); ++i)
+    {
+        const long j = static_cast<long>(i) + wlag * 2;
+        aligned.push_back(j >= 0 && static_cast<std::size_t>(j) < ours.size() ? ours[static_cast<std::size_t>(j)] : 0.0f);
+    }
+    float peak = 0;
+    for (auto v : ours)
+        peak = std::max(peak, std::abs(v));
+    std::printf("source WAV: %zu frames; AAC is %lld frames longer (negative: shorter); offset %ld frames; SNR %.1f dB; "
+                "AAC peak %.3f (%.2f dBFS)\n",
+                original.size() / 2,
+                static_cast<long long>(ours.size() / 2) - static_cast<long long>(original.size() / 2), wlag,
+                snrDb(original, aligned), peak, 20 * std::log10(peak + 1e-30));
+}
+
 TEST_CASE("AAC: values beyond full scale (measured)", "[engine][aac][clip]")
 {
     // A square wave near full scale: the decoded waveform overshoots. Whether

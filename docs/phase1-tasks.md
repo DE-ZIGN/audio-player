@@ -50,7 +50,7 @@
 | 2-1 | FLAC（MD5 照合つき）、WAV、AIFF | CC | 各形式でハッシュ一致 | ☑ 自動テストと、手持ちの音源（8ファイル）でのハッシュ一致・実機再生（下の「記録」） |
 | 2-2 | ALAC | CC | ハッシュ一致 | ☑ 自動テスト（AddressSanitizer を含む）と、iTunes・FFmpeg・Apple Music の実ファイルでの一致と実機再生（下の「記録」） |
 | 2-3 | MP3（mpg123、浮動小数点、LAME タグのギャップレス） | CC | リファレンスとの差が許容範囲、境目の欠けなし | ☑ 自動テスト、手持ちの MP3 での確認、実機での再生（3-2 で、FiiO KA11）（下の「記録」） |
-| 2-4 | AAC（Media Foundation、iTunSMPB のギャップレス） | CC | 同上 | ◐ 自動テストは完了。Apple・FFmpeg 製の AAC での確認（U）と、実機での再生（M3）が残り（下の「記録」） |
+| 2-4 | AAC（Media Foundation、iTunSMPB のギャップレス） | CC | 同上 | ◐ 自動テスト、iTunes 製の AAC での確認、実機での再生は完了。FFmpeg 製（.m4a）での確認が残り（下の「記録」） |
 
 ### M3 処理経路
 
@@ -382,6 +382,11 @@
 - **要実機確認**：
   - **Apple（iTunes / ミュージック）や FFmpeg で作った AAC**（iTunSMPB の priming は 2112、FFmpeg の elst は 1024 が普通）を、元の WAV と比べて、長さがちょうどで、ずれが 0 になるかを確かめる。Windows のデコーダーの出力の始まりが、これらのエンコーダーの priming の数え方と合っているかは、この確認でしか分からない。
   - 実際に鳴らすのは、M3 で処理経路ができてから。
+- **確認（2026-11-10）**：
+  - プローブ（`ap_engine_signal_tests "Probe: a real AAC against Windows' reader and its source WAV"`、`AP_PROBE_IN` に .m4a、`AP_PROBE_WAV` に元の 16bit WAV）を足した。
+  - **iTunes で作った AAC**（`16-441 -AAC - iTunes.m4a`、元は 11 秒の 16bit WAV）：edit list なし、iTunSMPB はプライミング 2112・余り 740・元の長さ 486,620 フレーム。iTunSMPB で削った結果は 486,620 フレームで、**元の WAV と長さの差 0、ずれ 0**。SN 比 31.7 dB（2-3 の MP3 の 31.9 dB と同じくらい）、ピーク −3.07 dBFS、デコードのエラー 0。Windows のデコーダーの出力の始まりが Apple の priming の数え方と合っていることが分かった。Windows 自身のファイル読み込み（Media Foundation）は iTunSMPB を使わないので、頭に 2112 フレーム多く出る（こちらの読み込みとのずれ 2112）。
+  - 同じファイルを KA11 で再生（3-2 の処理経路で 32bit 整数・TPDF ディザ）：普通に聞こえた（ユーザーが確認）。音切れ 0 回。
+  - FFmpeg で作ったものは ADTS（`.aac`、MP4 に入っていない）だった。ADTS には頭と末尾を削る情報を入れる場所がないので、どのプレーヤーでも正確な長さにはできない。今は .m4a だけに対応（`.aac` は読めないと表示する）。FFmpeg 製は `.m4a` で書き出したもの（`ffmpeg -i in.wav -c:a aac out.m4a`、edit list でプライミング 1024 を書く）で確かめる（U）。ADTS の .aac を読めるようにするかは、必要になったら決める。
 
 ### 3-1：64bit の処理経路と完全バイパスの判定（2026-11-10）
 
