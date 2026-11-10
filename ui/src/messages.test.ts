@@ -404,8 +404,9 @@ describe("Self-check (task 4-3)", () => {
   });
   it("says what matched and how far it reaches (from the application to the driver)", () => {
     const t = selfCheckText(direct(48000 * 125, 0));
-    expect(t).toContain("一致");
-    expect(t).toContain("2 分 5 秒分");
+    // The period first, the same structure as the mismatch sentence.
+    expect(t.startsWith("この出力を開いてから 2 分 5 秒分、ドライバーに渡した値はすべて")).toBe(true);
+    expect(t).toContain("一致しました");
     expect(t).toContain("アプリからドライバーまで");
     expect(t).toContain("DAC の中は確かめられません");
   });
@@ -414,8 +415,10 @@ describe("Self-check (task 4-3)", () => {
   });
   it("reports a mismatch with the number of frames", () => {
     const t = selfCheckText(direct(1000, 3));
-    expect(t).toContain("3 フレーム");
-    expect(t).toContain("一致しませんでした");
+    expect(t.startsWith("この出力を開いてから、ドライバーに渡した値のうち 3 フレーム分")).toBe(true);
+    expect(t).toContain("1 フレーム＝全チャンネル 1 組の値"); // what a frame is
+    expect(t).toContain("違っていました");
+    expect(t).toContain("アプリの不具合と考えられます");
   });
   it("is not done on the processing path, and says why", () => {
     const s: PlaybackStatus = { ...emptyStatus, path: { processing: true } as SignalPath, delivery: null };

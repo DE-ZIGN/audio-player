@@ -200,14 +200,14 @@ export function selfCheckText(s: PlaybackStatus): string {
   if (!d) return "—";
   if (d.mismatchedFrames > 0)
     return (
-      `ドライバーに渡した値が、ファイルから読み出した値と ${d.mismatchedFrames} フレームで一致しませんでした` +
-      "（アプリの不具合の可能性があります。この出力を開いてから）"
+      `この出力を開いてから、ドライバーに渡した値のうち ${d.mismatchedFrames} フレーム分` +
+      "（1 フレーム＝全チャンネル 1 組の値）が、ファイルから読み出した値と違っていました。アプリの不具合と考えられます"
     );
   if (d.matchedFrames === 0) return "確認中（最初のデータを渡すと結果が出ます）";
   const rate = s.outputFormat?.sampleRate ?? 0;
-  const amount = rate > 0 ? `${durationText(d.matchedFrames / rate)}分` : `${d.matchedFrames} フレーム`;
+  const amount = rate > 0 ? `${durationText(d.matchedFrames / rate)}分` : `${d.matchedFrames} フレーム分`;
   return (
-    `ドライバーに渡した値が、ファイルから読み出した値とすべて一致（この出力を開いてから ${amount}）。` +
+    `この出力を開いてから ${amount}、ドライバーに渡した値はすべて、ファイルから読み出した値と一致しました。` +
     "確かめられるのはアプリからドライバーまでです。ドライバーの中、USB などの転送、DAC の中は確かめられません"
   );
 }

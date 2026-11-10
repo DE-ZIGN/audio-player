@@ -761,17 +761,17 @@ std::string selfCheckLine(const PlayerStatus& s)
         return "—";
     const auto& d = *s.delivery;
     if (d.mismatchedFrames > 0)
-        return std::format("ドライバーに渡した値が、ファイルから読み出した値と {} フレームで一致しなかった"
-                           "（アプリの不具合の可能性がある）",
+        return std::format("ドライバーに渡した値のうち {} フレーム分（1 フレーム＝全チャンネル 1 組の値）が、"
+                           "ファイルから読み出した値と違っていた。アプリの不具合と考えられる",
                            d.mismatchedFrames);
     if (d.matchedFrames == 0)
         return "まだ比べていない（データを渡す前に終わった）";
     const double rate = s.plan ? s.plan->output.sampleRate : 0.0;
-    return std::format("ドライバーに渡した値が、ファイルから読み出した値とすべて一致（{} フレーム{}）。"
+    return std::format("{}（{} フレーム）、ドライバーに渡した値はすべて、ファイルから読み出した値と一致した。"
                        "確かめられるのはアプリからドライバーまで。ドライバーの中、USB などの転送、DAC の中は確かめられない",
-                       d.matchedFrames,
-                       rate > 0 ? std::format("、{:.1f} 秒分", static_cast<double>(d.matchedFrames) / rate)
-                                : std::string());
+                       rate > 0 ? std::format("{:.1f} 秒分", static_cast<double>(d.matchedFrames) / rate)
+                                : std::string("全部"),
+                       d.matchedFrames);
 }
 
 std::string playerErrorText(const PlayerStatus& s)
