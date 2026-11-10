@@ -1,5 +1,6 @@
 #include <ap/engine/output/wasapi_exclusive_output.h>
 
+#include <ap/engine/output/delivery_check.h>
 #include <ap/engine/output/format_probe.h>
 
 #include <windows.h>
@@ -398,6 +399,9 @@ RunStats WasapiExclusiveOutput::run(const RenderCallback& render)
             std::memset(data + frames * bpf, 0, (d.bufferFrames - frames) * bpf);
             ended = true;
         }
+        if (deliveryCheck_ && frames > 0) // the data as it is in the device's buffer
+            deliveryCheck_->deliveredInterleaved(std::span(reinterpret_cast<const std::byte*>(data), frames * bpf),
+                                                 d.format, frames);
         check(d.renderClient->ReleaseBuffer(d.bufferFrames, frames == 0 ? AUDCLNT_BUFFERFLAGS_SILENT : 0),
               "IAudioRenderClient::ReleaseBuffer");
     };

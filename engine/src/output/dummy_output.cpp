@@ -1,6 +1,7 @@
 #include <ap/engine/output/dummy_output.h>
 
 #include <ap/engine/output/deadline_tracker.h>
+#include <ap/engine/output/delivery_check.h>
 #include <ap/engine/output/format_probe.h>
 
 #include <algorithm>
@@ -90,6 +91,8 @@ RunStats DummyOutput::run(const RenderCallback& render)
         stats.periodMilliseconds = 1000.0 * static_cast<double>(period) / format_.sampleRate;
 
         const std::size_t frames = render(std::span(buffer).first(period * bpf));
+        if (deliveryCheck_ && frames > 0)
+            deliveryCheck_->deliveredInterleaved(std::span(buffer).first(frames * bpf), format_, frames);
         out.write(reinterpret_cast<const char*>(buffer.data()), static_cast<std::streamsize>(frames * bpf));
         if (!out)
             throw OutputException(OutputError::DeviceError, "write failed: " + options_.path.string());

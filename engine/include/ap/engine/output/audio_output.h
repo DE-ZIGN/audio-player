@@ -13,6 +13,8 @@
 
 namespace ap::engine {
 
+class DeliveryCheck;
+
 // Why an output cannot take a format. The output layer never converts: a
 // format is either accepted exactly or rejected with one of these reasons.
 enum class FormatRejection
@@ -169,6 +171,14 @@ public:
     virtual void requestStop() noexcept = 0;
 
     virtual void close() noexcept = 0;
+
+    // The bit-perfect self-check (task 4-3): while set, run() reports what it
+    // wrote into the driver's buffers for every period with data. Set before
+    // run(), cleared after it.
+    void setDeliveryCheck(DeliveryCheck* check) noexcept { deliveryCheck_ = check; }
+
+protected:
+    DeliveryCheck* deliveryCheck_ = nullptr;
 };
 
 } // namespace ap::engine

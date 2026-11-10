@@ -36,6 +36,7 @@ add_library(ap_engine STATIC
     src/dsp/eq.cpp
     src/dsp/comparison.cpp
     src/output/dummy_output.cpp
+    src/output/delivery_check.cpp
     src/output/format_probe.cpp
     src/output/device_selection.cpp
     src/output/device_watcher.cpp

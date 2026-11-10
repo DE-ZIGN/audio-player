@@ -151,6 +151,8 @@ private:
 Player::Player(OutputFactory outputFactory, PlaybackOptions options)
     : outputFactory_(std::move(outputFactory)), options_(std::move(options))
 {
+    if (!options_.deliveryCheck)
+        options_.deliveryCheck = std::make_shared<DeliveryCheck>(); // the self-check always runs on the direct path
 }
 
 Player::~Player()
@@ -394,7 +396,9 @@ PlayerStatus Player::status() const
         path.output = *outputPath_;
         if (path.processing && options_.processing)
             s.stages = options_.processing->activeStageStates();
-        s.bitPerfect = judgeBitPerfect(path, s.stages); // from the complete path
+        if (!path.processing && options_.deliveryCheck)
+            s.delivery = options_.deliveryCheck->result();
+        s.bitPerfect = judgeBitPerfect(path, s.stages, s.delivery); // from the complete path
         s.path = std::move(path);
     }
     return s;

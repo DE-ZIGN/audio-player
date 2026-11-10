@@ -12,8 +12,11 @@
 // What happens after the driver is shown as notes, not as reasons: a volume
 // the device applies itself (the endpoint volume) changes the signal inside
 // the DAC.
+// The self-check (task 4-3) compares what the output wrote into the driver's
+// buffers with the values read; a difference takes BIT-PERFECT away.
 
 #include <ap/engine/dsp/processing.h>
+#include <ap/engine/output/delivery_check.h>
 #include <ap/engine/signal_path.h>
 
 #include <optional>
@@ -31,6 +34,10 @@ struct BitPerfectVerdict
     bool quantized = false;         // a float source made integer for the output
     bool dither = false;
     bool comparison = false;        // the listening comparison (its original side keeps values only)
+    bool deliveryMismatch = false;  // the self-check found values in the driver's buffers that differ
+
+    // The self-check of the direct path: frames compared so far in this output session.
+    std::optional<DeliveryResult> delivery;
 
     // Notes that do not change the verdict.
     bool repacked = false;        // lossless container change (values unchanged)
@@ -41,6 +48,7 @@ struct BitPerfectVerdict
     bool deviceMuted = false;
 };
 
-BitPerfectVerdict judgeBitPerfect(const SignalPath& path, std::span<const StageState> stages);
+BitPerfectVerdict judgeBitPerfect(const SignalPath& path, std::span<const StageState> stages,
+                                  std::optional<DeliveryResult> delivery = std::nullopt);
 
 } // namespace ap::engine

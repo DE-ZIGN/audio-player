@@ -117,6 +117,7 @@ if(TARGET ap_signalgen_lib)
         unit/player_queue_test.cpp
         unit/player_dropout_test.cpp
         unit/asio_output_test.cpp
+        unit/delivery_check_test.cpp
         unit/dsd_signal_test.cpp
         unit/signal_path_test.cpp
         unit/flac_file_source_test.cpp

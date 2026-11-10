@@ -108,6 +108,9 @@ struct PlayerStatus
     std::vector<StageState> stages;
     // Set with `path`: BIT-PERFECT or not, and why (task 4-2).
     std::optional<BitPerfectVerdict> bitPerfect;
+    // The direct path's self-check (task 4-3): frames of this output session
+    // compared between the values read and what reached the driver's buffers.
+    std::optional<DeliveryResult> delivery;
     std::string outputName;
     std::uint64_t positionFrames = 0; // within the current track
     std::uint64_t totalFrames = 0;    // of the current track

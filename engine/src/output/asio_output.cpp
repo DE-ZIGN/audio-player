@@ -1,6 +1,7 @@
 #include <ap/engine/output/asio_output.h>
 
 #include <ap/engine/output/asio_sample_types.h>
+#include <ap/engine/output/delivery_check.h>
 #include <ap/engine/output/format_probe.h>
 
 #include <windows.h>
@@ -190,6 +191,7 @@ struct AsioOutput::Impl
 
     // Run state (bufferSwitch runs on the driver's thread).
     const RenderCallback* render = nullptr;
+    DeliveryCheck* deliveryCheck = nullptr;
     HANDLE done = nullptr;
     std::atomic<bool> stop{false};
     std::atomic<bool> ended{false};
@@ -248,10 +250,11 @@ void AsioOutput::Impl::onBufferSwitch(long index)
     const std::size_t bpf = format.bytesPerFrame();
     const std::size_t n = static_cast<std::size_t>(bufferSize);
     const bool wasEnded = ended.load(std::memory_order_relaxed);
+    std::size_t frames = 0;
 
     if (!wasEnded && !stop.load(std::memory_order_relaxed) && render)
     {
-        const std::size_t frames = (*render)(std::span(scratch).first(n * bpf));
+        frames = (*render)(std::span(scratch).first(n * bpf));
         framesRendered += frames;
         if (frames < n)
         {
@@ -265,6 +268,8 @@ void AsioOutput::Impl::onBufferSwitch(long index)
     }
 
     asio::deinterleave(sampleType, format, scratch, n, channelPtrs[index & 1]);
+    if (deliveryCheck && frames > 0) // the data as it is in the driver's channel buffers
+        deliveryCheck->deliveredAsio(sampleType, std::span(channelPtrs[index & 1]).first(format.channels), frames);
     if (useOutputReady)
         driver->outputReady();
     ++switches;
@@ -557,6 +562,7 @@ RunStats AsioOutput::run(const RenderCallback& render)
         throw OutputException(OutputError::DeviceError, "ASIO output is not open");
 
     d.render = &render;
+    d.deliveryCheck = deliveryCheck_;
     d.ended = false;
     d.resetRequested = false;
     d.drainSwitches = 0;

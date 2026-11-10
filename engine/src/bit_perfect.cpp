@@ -2,7 +2,8 @@
 
 namespace ap::engine {
 
-BitPerfectVerdict judgeBitPerfect(const SignalPath& path, std::span<const StageState> stages)
+BitPerfectVerdict judgeBitPerfect(const SignalPath& path, std::span<const StageState> stages,
+                                  std::optional<DeliveryResult> delivery)
 {
     BitPerfectVerdict v;
     v.dop = path.dop.has_value();
@@ -23,7 +24,9 @@ BitPerfectVerdict judgeBitPerfect(const SignalPath& path, std::span<const StageS
         v.comparison = path.comparison;
         return v;
     }
-    v.bitPerfect = true;
+    v.delivery = delivery;
+    v.deliveryMismatch = delivery && delivery->mismatchedFrames > 0;
+    v.bitPerfect = !v.deliveryMismatch;
     v.repacked = path.repack != Repack::None;
     v.floatSource = path.source.type == SampleType::Float;
     return v;

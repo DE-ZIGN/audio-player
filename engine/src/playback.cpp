@@ -102,6 +102,9 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
         throw FormatNotSupportedError(source.format(), negotiation.exactCheck);
 
     const PlaybackPlan plan = *negotiation.plan;
+    DeliveryCheck* check = plan.processing ? nullptr : options.deliveryCheck.get();
+    if (check)
+        check->reset(); // before onStart: a status read then shows this session's counts
     ProcessingChain none;
     ProcessingChain* chain = nullptr;
     if (plan.processing)
@@ -190,7 +193,13 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
     }
     else if (plan.repack == Repack::None)
     {
-        render = [&source](std::span<std::byte> dst) { return source.read(dst); };
+        const PcmFormat in = plan.source;
+        render = [&source, check, in](std::span<std::byte> dst) {
+            const std::size_t got = source.read(dst);
+            if (check)
+                check->read(dst.first(got * in.bytesPerFrame()), in, got); // before the output touches it
+            return got;
+        };
     }
     else
     {
@@ -199,26 +208,32 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
         const std::uint32_t srcBpf = plan.source.bytesPerFrame();
         const std::uint32_t dstBpf = plan.output.bytesPerFrame();
         const std::uint32_t channels = plan.source.channels;
-        render = [&, srcBps, dstBps, srcBpf, dstBpf, channels](std::span<std::byte> dst) {
+        const PcmFormat in = plan.source;
+        render = [&, srcBps, dstBps, srcBpf, dstBpf, channels, check, in](std::span<std::byte> dst) {
             const std::size_t frames = dst.size() / dstBpf;
             if (scratch.size() < frames * srcBpf)
                 scratch.resize(frames * srcBpf); // first callback only, period size is fixed
             const std::size_t got = source.read(std::span(scratch).first(frames * srcBpf));
+            if (check)
+                check->read(std::span(scratch).first(got * srcBpf), in, got); // the values as read, before the repack
             repackSamples(scratch, srcBps, dst, dstBps, got * channels);
             return got;
         };
     }
 
     report.plan = plan;
+    output.setDeliveryCheck(check);
     try
     {
         report.stats = output.run(render);
     }
     catch (...)
     {
+        output.setDeliveryCheck(nullptr);
         output.close();
         throw;
     }
+    output.setDeliveryCheck(nullptr);
     output.close();
     return report;
 }

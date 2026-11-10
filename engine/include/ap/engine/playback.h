@@ -2,6 +2,7 @@
 
 #include <ap/engine/dsp/processing.h>
 #include <ap/engine/output/audio_output.h>
+#include <ap/engine/output/delivery_check.h>
 #include <ap/engine/pcm_source.h>
 #include <ap/engine/repack.h>
 
@@ -60,6 +61,10 @@ struct PlaybackOptions
     // is never processed. Whether the chain is bypassed is decided when the
     // output is opened; Player reopens the output when that changes.
     std::shared_ptr<ProcessingChain> processing;
+    // The bit-perfect self-check (task 4-3). Direct path only: reset at the
+    // start of the session, then every period's values read are compared with
+    // what the output wrote into the driver's buffers.
+    std::shared_ptr<DeliveryCheck> deliveryCheck;
     // Called on the playback thread after the output has been opened, before data flows.
     std::function<void(const PlaybackPlan&)> onStart;
 };
