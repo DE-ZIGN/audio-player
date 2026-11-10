@@ -17,6 +17,7 @@ ap_play FILE... --dummy OUT.raw         デバイスに送るはずのバイト�
 ap_play FILE... --stress N              N 個のスレッドで CPU に負荷をかけながら再生し、音切れの回数を表示する
 ap_play FILE... --inject-stall S:MS     1 曲目の S 秒の時点で再生スレッドを MS ミリ秒止める（音切れの検出の確認用）
 ap_play FILE... --dop                   DSD（.dsf/.dff）を DoP で送る。DoP に対応した DAC のときだけ使う（対応していないと大きなノイズになる）
+ap_play FILE... --from S [--for S]      1 曲目の S 秒の位置から再生し、--for S なら再生を始めてから S 秒（実時間）で止める（実機での試聴用）
 ap_play FILE... --volume DB             デジタル音量（0 以下の dB）。0 なら原音経路のまま、下げると処理経路
 ap_play FILE... --volume-at S:DB        再生を始めてから S 秒で音量を DB にする（何回でも。0 に戻すと原音経路に戻り、出力を開き直す）
 ap_play --analyze FILE...               サンプルピークと True Peak（8 倍オーバーサンプリング）をチャンネルごとに測り、最大の位置と、0 dBTP を超えるかを表示する。ラウドネス（BS.1770、libebur128）と ReplayGain 2.0 の値も出し、複数のファイルならアルバムとしての値も出す（再生はしない）

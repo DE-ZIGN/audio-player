@@ -70,6 +70,7 @@ constexpr const char* kUsage =
     "               [--exact-only]            コンテナの詰め替え（24bit → 32bit コンテナなど）もしない\n"
     "               [--check]                 再生せず、送る形式だけを確かめる\n"
     "  ap_play FILE... --dummy OUT.raw        デバイスに送るはずのバイト列をファイルに書き、ハッシュを比べる\n"
+    "  ap_play FILE... --from S [--for S]     1 曲目の S 秒から再生する。--for S は S 秒で止める（実機での試聴用）\n"
     "  ap_play FILE... --volume DB            デジタル音量（0 以下の dB。0 で原音経路のまま、下げると処理経路）\n"
     "  ap_play --analyze FILE...              サンプルピーク、True Peak（8 倍オーバーサンプリング）、ラウドネスと ReplayGain を測る（再生はしない）\n"
     "  ap_play FILE... --replaygain track|album  再生の前に各曲を解析し、ReplayGain 2.0（-18 LUFS）を処理経路でかける\n"
@@ -235,6 +236,8 @@ struct Options
     bool analyze = false;      // --analyze
     ReplayGainMode replayGain = ReplayGainMode::Off; // --replaygain track|album
     std::optional<IspSafeMode> ispSafe;              // --isp-safe off|measured|fixed (set: analyse the files)
+    double fromSeconds = 0.0;  // --from S (first track)
+    double forSeconds = 0.0;   // --for S (stop after; 0 = to the end)
     double volumeDb = 0.0;     // --volume DB
     std::string eqPreset;      // --eq FILE
     std::optional<ComparisonSide> compare; // --compare original|processed (the side to start with)
@@ -334,6 +337,10 @@ std::optional<Options> parse(int argc, char** argv)
             o.compareAt.push_back(std::stod(value()));
         else if (a == "--eq")
             o.eqPreset = value();
+        else if (a == "--from")
+            o.fromSeconds = std::max(0.0, std::stod(value()));
+        else if (a == "--for")
+            o.forSeconds = std::max(0.0, std::stod(value()));
         else if (a == "--volume")
             o.volumeDb = parseDb(value());
         else if (a == "--volume-at")
@@ -1003,6 +1010,11 @@ int runQueue(const Options& o)
         }
     } stressGuard{stopStress, stress};
 
+    if (o.fromSeconds > 0.0 && player.status().sourceFormat)
+    {
+        player.seek(static_cast<std::uint64_t>(o.fromSeconds * player.status().sourceFormat->sampleRate));
+        print(std::format("  {:.1f} 秒の位置から再生します\n", o.fromSeconds));
+    }
     player.play();
     const auto startedAt = std::chrono::steady_clock::now();
     std::size_t nextVolumeChange = 0;
@@ -1054,6 +1066,11 @@ int runQueue(const Options& o)
                               s.queueIndex + 1, dbText(*s.trackTruePeak)));
         }
         const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startedAt).count();
+        if (o.forSeconds > 0.0 && elapsed >= o.forSeconds)
+        {
+            player.stop();
+            break;
+        }
         for (; o.compare && nextCompareChange < compareChanges.size() && compareChanges[nextCompareChange] <= elapsed;
              ++nextCompareChange)
         {
