@@ -30,6 +30,12 @@ ReplayGainInfo makeReplayGain(const TrackAnalysis& track, const AlbumAnalysis* a
     return info;
 }
 
+std::optional<double> ReplayGainStage::displayGainDb() const noexcept
+{
+    const double g = ramp_.target();
+    return g == 1.0 ? 0.0 : 20.0 * std::log10(g);
+}
+
 void ReplayGainStage::setMode(ReplayGainMode mode) noexcept
 {
     mode_ = mode;

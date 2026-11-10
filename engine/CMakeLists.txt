@@ -21,6 +21,7 @@ add_library(ap_engine STATIC
     src/playback.cpp
     src/player.cpp
     src/abx.cpp
+    src/bit_perfect.cpp
     src/sha256.cpp
     src/dsp/sample_convert.cpp
     src/dsp/processing.cpp

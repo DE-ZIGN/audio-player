@@ -3,7 +3,7 @@
 // server opened directly) a mock backend simulates playback so the page can
 // be worked on without the app.
 
-import { emptyStatus, type PlaybackStatus, type SignalPath } from "./status";
+import { emptyStatus, type BitPerfectVerdict, type PlaybackStatus, type SignalPath } from "./status";
 
 export interface OpenResult {
   ok: boolean;
@@ -89,6 +89,7 @@ const mockPath = (t: MockTrack): SignalPath => ({
   processingStages: [],
   processingRequired: false,
   dither: false,
+  comparison: false,
   output: {
     api: "wasapiExclusive",
     periodFrames: t.sampleRate / 100,
@@ -98,6 +99,20 @@ const mockPath = (t: MockTrack): SignalPath => ({
     asio: null,
     endpointVolume: { scalar: 1, muted: false, hardware: false },
   },
+});
+
+// The direct path: bit-perfect (DoP for DSD).
+const mockVerdict = (t: MockTrack): BitPerfectVerdict => ({
+  bitPerfect: true,
+  quantized: false,
+  dither: false,
+  comparison: false,
+  repacked: true, // the mock device takes 24-bit in a 32-bit container (as the repack field says)
+  dop: t.dsdRate !== undefined,
+  floatSource: false,
+  dummyOutput: false,
+  deviceVolume: null,
+  deviceMuted: false,
 });
 
 // Three tracks with a rate change, for working on the page in a browser.
@@ -132,6 +147,7 @@ export class MockBackend implements Backend {
       dop: t.dsdRate ? { dsdRate: t.dsdRate, container: "DSF" } : null,
       outputFormat: null,
       path: null,
+      bitPerfect: null,
       // FLAC: pending until the read-ahead has decoded the whole file (shown as passed once playing).
       integrity: { state: t.name.endsWith(".flac") ? ("pending" as const) : ("notAvailable" as const), decodeErrors: 0 },
       totalFrames: Math.round(t.sampleRate * t.seconds),
@@ -148,6 +164,7 @@ export class MockBackend implements Backend {
       outputName: "（模擬）出力デバイス",
       outputFormat: this.status.sourceFormat && { ...this.status.sourceFormat, containerBits: 32 },
       path: mockPath(this.tracks[this.status.queueIndex]),
+      bitPerfect: mockVerdict(this.tracks[this.status.queueIndex]),
       integrity: this.status.integrity.state === "pending" ? { state: "passed", decodeErrors: 0 } : this.status.integrity,
       repack: "widerContainer",
       dropouts: { ...this.status.dropouts, realtimePriority: true },
@@ -172,6 +189,7 @@ export class MockBackend implements Backend {
         ...fields,
         outputFormat: { ...fields.sourceFormat, containerBits: 32 },
         path: mockPath(this.tracks[from + 1]),
+        bitPerfect: mockVerdict(this.tracks[from + 1]),
         transitions: [
           ...this.status.transitions,
           {

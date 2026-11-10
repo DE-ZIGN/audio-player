@@ -32,7 +32,8 @@ export interface PlaybackError {
   acceptedRates: number[];
 }
 
-export type TransitionKind = "gapless" | "reopened";
+// processingChanged: within one track, processing was switched on or off (e.g. the volume left 100%).
+export type TransitionKind = "gapless" | "reopened" | "processingChanged";
 
 export interface TrackTransition {
   fromIndex: number;
@@ -82,6 +83,7 @@ export interface SignalPath {
   processingStages: string[]; // active stages when the output opened, e.g. ["volume"]
   processingRequired: boolean; // a float source on an output without float: quantized
   dither: boolean; // TPDF dither when quantizing
+  comparison: boolean; // the listening comparison (A/B, ABX)
   output: {
     api: OutputApi;
     periodFrames: number;
@@ -101,9 +103,32 @@ export interface IntegrityCheck {
   decodeErrors: number; // problems the decoder reported in the file
 }
 
+// A stage running on the processing path now, with the level it applies.
+export interface StageState {
+  name: string; // "volume", "replaygain", "eq", "isp-safe", "limiter", "comparison"
+  gainDb: number | "-inf" | null; // the EQ's: its automatic preamp
+}
+
+// The BIT-PERFECT judgement made by the engine from the facts of the path
+// (from the application to the driver).
+export interface BitPerfectVerdict {
+  bitPerfect: boolean;
+  quantized: boolean; // a float source made integer for the output
+  dither: boolean;
+  comparison: boolean;
+  repacked: boolean; // container widened, values unchanged
+  dop: boolean;
+  floatSource: boolean; // the decoded values of a lossy source, as they are
+  dummyOutput: boolean;
+  deviceVolume: number | null; // the device's own volume (0..1) when not 100%; after the driver
+  deviceMuted: boolean;
+}
+
 export interface PlaybackStatus {
   state: PlayerState;
   path: SignalPath | null;
+  stages: StageState[]; // processing path: the stages running now
+  bitPerfect: BitPerfectVerdict | null; // set with path
   integrity: IntegrityCheck; // of the current track
   integrityFailures: number[]; // queue indices of earlier tracks whose check failed
   dropouts: DropoutCounts;
@@ -124,6 +149,8 @@ export interface PlaybackStatus {
 export const emptyStatus: PlaybackStatus = {
   state: "empty",
   path: null,
+  stages: [],
+  bitPerfect: null,
   integrity: { state: "notAvailable", decodeErrors: 0 },
   integrityFailures: [],
   dropouts: { lateBuffers: 0, deviceTimeouts: 0, readStarvations: 0, starvedFrames: 0, realtimePriority: false },

@@ -392,6 +392,9 @@ PlayerStatus Player::status() const
         path.comparison = s.plan->comparison;
         path.repack = s.plan->repack;
         path.output = *outputPath_;
+        if (path.processing && options_.processing)
+            s.stages = options_.processing->activeStageStates();
+        s.bitPerfect = judgeBitPerfect(path, s.stages); // from the complete path
         s.path = std::move(path);
     }
     return s;

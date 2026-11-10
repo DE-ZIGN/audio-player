@@ -100,6 +100,7 @@ public:
     void prepare(std::uint32_t sampleRate, std::uint16_t channels) override;
     // Flat, and any crossfade towards flat has finished (no sudden removal of the filters).
     bool isIdentity() const noexcept override { return flat_ && settled_; }
+    std::optional<double> displayGainDb() const noexcept override { return preampDb(); } // the automatic preamp
     void process(std::span<double> samples, std::uint16_t channels) noexcept override;
 
 private:

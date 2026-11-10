@@ -1,7 +1,7 @@
 // User-facing text (Japanese first). Describes what the player does; never
 // claims that something sounds better.
 
-import type { DropoutCounts, FormatInfo, PlaybackStatus, PlayerState, SignalPath, TrackTransition } from "./status";
+import type { DropoutCounts, FormatInfo, PlaybackStatus, PlayerState, SignalPath, StageState, TrackTransition } from "./status";
 
 function rateText(rate: number): string {
   return `${Number((rate / 1000).toFixed(3))} kHz`;
@@ -47,6 +47,11 @@ export function queueText(s: PlaybackStatus): string {
 export function transitionText(t: TrackTransition): string {
   const tracks = `${t.fromIndex + 1} → ${t.toIndex + 1} 曲目`;
   if (t.kind === "gapless") return `${tracks}：ギャップレス（形式が同じなので出力を開き直さずにつなげました）`;
+  if (t.kind === "processingChanged")
+    return (
+      `${t.fromIndex + 1} 曲目：処理経路と原音経路の切り替え（音量などが変わったため、今の位置で出力を開き直しました。` +
+      `約 ${Math.round(t.switchMilliseconds)} ms）`
+    );
   return (
     `${tracks}：形式の切り替え ${describeFormat(t.fromFormat)} → ${describeFormat(t.toFormat)}` +
     `（出力を開き直しました。前の曲のデータが途切れてから次の曲を送り始めるまで約 ${Math.round(t.switchMilliseconds)} ms）`
@@ -73,13 +78,54 @@ const stageNames: Record<string, string> = {
   eq: "パラメトリック EQ",
   "isp-safe": "ISP セーフ",
   limiter: "保険のリミッター",
+  comparison: "聴き比べ",
 };
+
+// The BIT-PERFECT line (CLAUDE.md chapter 8): shown only when the engine
+// judged it from the facts of the path; otherwise why not, with the values
+// (e.g. "DIGITAL VOL -6.0 dB").
+export function bitPerfectText(s: PlaybackStatus): string {
+  const v = s.bitPerfect;
+  if (!v) return "—";
+  const deviceNote =
+    v.deviceVolume !== null
+      ? `。デバイス側の音量 ${v.deviceMuted ? "ミュート" : `${Math.round(v.deviceVolume * 100)}%`}：DAC に届いたあとで信号が変わります（この判定はドライバーまで）`
+      : "";
+  if (v.bitPerfect) {
+    const notes: string[] = [];
+    if (v.dop) notes.push("DSD を DoP でそのまま");
+    if (v.repacked) notes.push("コンテナの詰め替えあり、値は同じ");
+    if (v.floatSource) notes.push("非可逆の曲をデコードした値のまま");
+    if (v.dummyOutput) notes.push("ダミー出力（ファイル）");
+    return `BIT-PERFECT（アプリからドライバーまで値をそのまま${notes.length ? "。" + notes.join("、") : ""}）${deviceNote}`;
+  }
+  const reasons = s.stages
+    .filter((st) => st.name !== "limiter" && st.name !== "comparison")
+    .map((st) => (st.name === "volume" && st.gainDb !== null ? `DIGITAL VOL ${dbText(st.gainDb)}` : stageText(st)));
+  if (v.quantized) reasons.push("浮動小数点の曲を整数に変換");
+  if (v.comparison) reasons.push("聴き比べ中（原音側も値は同じだが処理経路を通る）");
+  if (v.dither) reasons.push("TPDF ディザ");
+  return `BIT-PERFECT ではありません：${reasons.join("、")}${deviceNote}`;
+}
+
+function dbText(db: number | "-inf"): string {
+  if (db === "-inf") return "-∞ dB";
+  return `${db > 0 ? "+" : ""}${db.toFixed(1)} dB`;
+}
+
+// One stage with its current value, e.g. "デジタル音量 -6.0 dB".
+export function stageText(st: StageState): string {
+  const name = stageNames[st.name] ?? st.name;
+  if (st.gainDb === null) return name;
+  if (st.name === "eq") return `${name}（プリアンプ ${dbText(st.gainDb)}）`;
+  return `${name} ${dbText(st.gainDb)}`;
+}
 
 export function processingText(s: PlaybackStatus): string {
   if (s.dop) return "なし（DoP の経路では処理をかけられません）";
   const p = s.path;
   if (!p || !p.processing) return "なし（原音経路：音量・変換・ディザをかけません）";
-  const parts = p.processingStages.map((n) => stageNames[n] ?? n);
+  const parts = s.stages.length > 0 ? s.stages.map(stageText) : p.processingStages.map((n) => stageNames[n] ?? n);
   if (p.processingRequired) parts.push("浮動小数点の曲を整数にする（このデバイスは浮動小数点を受け付けないため）");
   if (p.dither) parts.push("TPDF ディザ");
   return `あり（64bit 浮動小数点の処理経路：${parts.join("、")}）`;

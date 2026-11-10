@@ -29,6 +29,7 @@ public:
     // True at 0 dB once any ramp towards it has finished.
     bool isIdentity() const noexcept override { return ramp_.isUnity(); }
     double peakGain() const noexcept override { return ramp_.target(); }
+    std::optional<double> displayGainDb() const noexcept override { return gainDb(); }
     void process(std::span<double> samples, std::uint16_t channels) noexcept override
     {
         ramp_.apply(samples, channels);

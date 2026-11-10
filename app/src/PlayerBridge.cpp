@@ -1,5 +1,6 @@
 #include "PlayerBridge.h"
 
+#include <cmath>
 #include <ap/engine/output/wasapi_exclusive_output.h>
 #include <ap/engine/audio_file.h>
 #include <ap/engine/prefetching_source.h>
@@ -125,6 +126,7 @@ juce::var pathVar(const SignalPath& p)
     o->setProperty("processingStages", stages);
     o->setProperty("processingRequired", p.processingRequired);
     o->setProperty("dither", p.dither);
+    o->setProperty("comparison", p.comparison);
 
     const auto& out = p.output;
     auto* d = new juce::DynamicObject();
@@ -310,7 +312,9 @@ juce::var PlayerBridge::statusAsVar() const
         auto* to = new juce::DynamicObject();
         to->setProperty("fromIndex", static_cast<int>(t.fromIndex));
         to->setProperty("toIndex", static_cast<int>(t.toIndex));
-        to->setProperty("kind", t.kind == TransitionKind::Gapless ? "gapless" : "reopened");
+        to->setProperty("kind", t.kind == TransitionKind::Gapless             ? "gapless"
+                                : t.kind == TransitionKind::ProcessingChanged ? "processingChanged"
+                                                                              : "reopened");
         to->setProperty("fromFormat", formatVar(t.fromFormat));
         to->setProperty("toFormat", formatVar(t.toFormat));
         to->setProperty("switchMilliseconds", t.switchMilliseconds);
@@ -341,6 +345,39 @@ juce::var PlayerBridge::statusAsVar() const
     o->setProperty("repack", s.plan ? toString(s.plan->repack) : "none");
     o->setProperty("outputName", juce::String::fromUTF8(s.outputName.c_str()));
     o->setProperty("path", s.path ? pathVar(*s.path) : juce::var());
+
+    // The stages running now with their values, and the BIT-PERFECT judgement (task 4-2).
+    juce::Array<juce::var> stages;
+    for (const auto& st : s.stages)
+    {
+        auto* so = new juce::DynamicObject();
+        so->setProperty("name", juce::String(st.name));
+        so->setProperty("gainDb", st.gainDb && std::isfinite(*st.gainDb) ? juce::var(*st.gainDb)
+                                  : st.gainDb                             ? juce::var("-inf")
+                                                                          : juce::var());
+        stages.add(juce::var(so));
+    }
+    o->setProperty("stages", stages);
+    if (s.bitPerfect)
+    {
+        const auto& v = *s.bitPerfect;
+        auto* bp = new juce::DynamicObject();
+        bp->setProperty("bitPerfect", v.bitPerfect);
+        bp->setProperty("quantized", v.quantized);
+        bp->setProperty("dither", v.dither);
+        bp->setProperty("comparison", v.comparison);
+        bp->setProperty("repacked", v.repacked);
+        bp->setProperty("dop", v.dop);
+        bp->setProperty("floatSource", v.floatSource);
+        bp->setProperty("dummyOutput", v.dummyOutput);
+        bp->setProperty("deviceVolume", v.deviceVolume ? juce::var(*v.deviceVolume) : juce::var());
+        bp->setProperty("deviceMuted", v.deviceMuted);
+        o->setProperty("bitPerfect", juce::var(bp));
+    }
+    else
+    {
+        o->setProperty("bitPerfect", juce::var());
+    }
 
     auto* ic = new juce::DynamicObject();
     ic->setProperty("state", toString(s.integrity.state));

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ap/engine/bit_perfect.h>
 #include <ap/engine/output/audio_output.h>
 #include <ap/engine/pcm_source.h>
 #include <ap/engine/playback.h>
@@ -103,6 +104,10 @@ struct PlayerStatus
     // The current track's path (input, processing, output), set once the
     // output has been opened and the output reported what it does.
     std::optional<SignalPath> path;
+    // Processing path only: the stages running now and their current values.
+    std::vector<StageState> stages;
+    // Set with `path`: BIT-PERFECT or not, and why (task 4-2).
+    std::optional<BitPerfectVerdict> bitPerfect;
     std::string outputName;
     std::uint64_t positionFrames = 0; // within the current track
     std::uint64_t totalFrames = 0;    // of the current track

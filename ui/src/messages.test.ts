@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bitPerfectText,
   describeFormat,
   dopNotice,
   dsdRateName,
@@ -15,11 +16,19 @@ import {
   queueText,
   rateChangeText,
   repackText,
+  stageText,
   stateLabel,
   transitionText,
   volumeText,
 } from "./messages";
-import { emptyStatus, type FormatInfo, type PlaybackStatus, type SignalPath } from "./status";
+import {
+  emptyStatus,
+  type BitPerfectVerdict,
+  type FormatInfo,
+  type PlaybackStatus,
+  type SignalPath,
+  type StageState,
+} from "./status";
 
 const f = (rate: number, container: number, valid: number, type: "int" | "float" = "int"): FormatInfo => ({
   sampleRate: rate,
@@ -143,6 +152,7 @@ describe("DoP texts", () => {
       processingStages: [],
       processingRequired: false,
       dither: true,
+      comparison: false,
       output: {
         api: "wasapiExclusive",
         periodFrames: 480,
@@ -177,6 +187,7 @@ describe("output path texts", () => {
     processingStages: [],
     processingRequired: false,
     dither: false,
+    comparison: false,
     output: {
       api: "wasapiExclusive",
       periodFrames: 960,
@@ -286,6 +297,7 @@ describe("integrity texts", () => {
         processingStages: [],
         processingRequired: false,
         dither: false,
+        comparison: false,
         output: {
           api: "dummy",
           periodFrames: 480,
@@ -374,5 +386,115 @@ describe("errorText", () => {
   });
   it("explains disabled exclusive mode", () => {
     expect(errorText(withError({ kind: "output", outputError: "exclusiveModeNotAllowed" }))).toContain("排他的に制御");
+  });
+});
+
+describe("BIT-PERFECT (task 4-2)", () => {
+  const verdict = (v: Partial<BitPerfectVerdict>): BitPerfectVerdict => ({
+    bitPerfect: true,
+    quantized: false,
+    dither: false,
+    comparison: false,
+    repacked: false,
+    dop: false,
+    floatSource: false,
+    dummyOutput: false,
+    deviceVolume: null,
+    deviceMuted: false,
+    ...v,
+  });
+  const withVerdict = (v: Partial<BitPerfectVerdict>, stages: StageState[] = []): PlaybackStatus => ({
+    ...emptyStatus,
+    bitPerfect: verdict(v),
+    stages,
+  });
+
+  it("shows nothing before the output is open", () => {
+    expect(bitPerfectText(emptyStatus)).toBe("—");
+  });
+  it("says BIT-PERFECT on the direct path, up to the driver", () => {
+    const t = bitPerfectText(withVerdict({}));
+    expect(t.startsWith("BIT-PERFECT（")).toBe(true);
+    expect(t).toContain("ドライバーまで");
+  });
+  it("keeps BIT-PERFECT for a container repack and DoP, with a note", () => {
+    expect(bitPerfectText(withVerdict({ repacked: true }))).toContain("コンテナの詰め替えあり、値は同じ");
+    expect(bitPerfectText(withVerdict({ dop: true }))).toContain("DoP");
+    expect(bitPerfectText(withVerdict({ floatSource: true }))).toContain("デコードした値のまま");
+  });
+  it("notes the device's own volume as after the driver", () => {
+    const t = bitPerfectText(withVerdict({ deviceVolume: 0.37 }));
+    expect(t.startsWith("BIT-PERFECT")).toBe(true);
+    expect(t).toContain("デバイス側の音量 37%");
+    expect(bitPerfectText(withVerdict({ deviceVolume: 0.5, deviceMuted: true }))).toContain("ミュート");
+  });
+  it("is not BIT-PERFECT with the digital volume, and says DIGITAL VOL with the value", () => {
+    const t = bitPerfectText(
+      withVerdict({ bitPerfect: false, dither: true }, [
+        { name: "volume", gainDb: -6 },
+        { name: "limiter", gainDb: null },
+      ]),
+    );
+    expect(t.startsWith("BIT-PERFECT ではありません")).toBe(true);
+    expect(t).toContain("DIGITAL VOL -6.0 dB");
+    expect(t).not.toContain("リミッター"); // the safety limiter is not a reason by itself
+    expect(t).toContain("TPDF ディザ");
+  });
+  it("lists ReplayGain, the EQ's preamp and ISP-safe with their values", () => {
+    const t = bitPerfectText(
+      withVerdict({ bitPerfect: false, dither: true }, [
+        { name: "replaygain", gainDb: -5.56 },
+        { name: "eq", gainDb: -5.49 },
+        { name: "isp-safe", gainDb: -3.46 },
+      ]),
+    );
+    expect(t).toContain("ReplayGain -5.6 dB");
+    expect(t).toContain("パラメトリック EQ（プリアンプ -5.5 dB）");
+    expect(t).toContain("ISP セーフ -3.5 dB");
+  });
+  it("names a float source made integer, the comparison, and mute", () => {
+    expect(bitPerfectText(withVerdict({ bitPerfect: false, quantized: true, dither: true }))).toContain(
+      "浮動小数点の曲を整数に変換",
+    );
+    expect(bitPerfectText(withVerdict({ bitPerfect: false, comparison: true }, [{ name: "comparison", gainDb: null }]))).toContain(
+      "聴き比べ中",
+    );
+    expect(stageText({ name: "volume", gainDb: "-inf" })).toBe("デジタル音量 -∞ dB");
+  });
+  it("shows the processing stages with their current values", () => {
+    const s: PlaybackStatus = {
+      ...emptyStatus,
+      path: {
+        container: "FLAC",
+        processing: true,
+        processingStages: ["volume"],
+        processingRequired: false,
+        dither: true,
+        comparison: false,
+        output: {
+          api: "wasapiExclusive",
+          periodFrames: 480,
+          periodMilliseconds: 10,
+          eventDriven: true,
+          layout: "interleaved",
+          asio: null,
+          endpointVolume: null,
+        },
+      },
+      stages: [{ name: "volume", gainDb: -12 }],
+    };
+    expect(processingText(s)).toContain("デジタル音量 -12.0 dB");
+  });
+  it("describes a switch between the direct and the processing path within a track", () => {
+    const t = transitionText({
+      fromIndex: 0,
+      toIndex: 0,
+      kind: "processingChanged",
+      fromFormat: f(48000, 16, 16),
+      toFormat: f(48000, 16, 16),
+      switchMilliseconds: 24.6,
+    });
+    expect(t).toContain("1 曲目：処理経路と原音経路の切り替え");
+    expect(t).toContain("約 25 ms");
   });
 });

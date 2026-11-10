@@ -699,6 +699,57 @@ std::string processingText(const PlaybackPlan& p, bool dop)
     return "あり（64bit 浮動小数点の処理経路：" + parts + "）";
 }
 
+// The BIT-PERFECT line (task 4-2), from the engine's judgement.
+std::string bitPerfectLine(const PlayerStatus& s)
+{
+    if (!s.bitPerfect)
+        return "—";
+    const auto& v = *s.bitPerfect;
+    std::string device;
+    if (v.deviceVolume)
+        device = std::format("。デバイス側の音量 {}：DAC に届いたあとで信号が変わる（この判定はドライバーまで）",
+                             v.deviceMuted ? std::string("ミュート") : std::format("{:.0f}%", *v.deviceVolume * 100));
+    const auto db = [](double x) { return std::isfinite(x) ? std::format("{:+.1f} dB", x) : std::string("-∞ dB"); };
+    if (v.bitPerfect)
+    {
+        std::string notes;
+        const auto add = [&](const char* n) { notes += (notes.empty() ? "。" : "、") + std::string(n); };
+        if (v.dop)
+            add("DSD を DoP でそのまま");
+        if (v.repacked)
+            add("コンテナの詰め替えあり、値は同じ");
+        if (v.floatSource)
+            add("非可逆の曲をデコードした値のまま");
+        if (v.dummyOutput)
+            add("ダミー出力（ファイル）");
+        return "BIT-PERFECT（アプリからドライバーまで値をそのまま" + notes + "）" + device;
+    }
+    std::string reasons;
+    const auto add = [&](const std::string& r) { reasons += (reasons.empty() ? "" : "、") + r; };
+    for (const auto& st : v.stages)
+    {
+        if (st.name == "limiter" || st.name == "comparison")
+            continue;
+        if (st.name == "volume" && st.gainDb)
+            add("DIGITAL VOL " + db(*st.gainDb));
+        else if (st.name == "replaygain" && st.gainDb)
+            add("ReplayGain " + db(*st.gainDb));
+        else if (st.name == "eq" && st.gainDb)
+            add("パラメトリック EQ（プリアンプ " + db(*st.gainDb) + "）");
+        else if (st.name == "isp-safe" && st.gainDb)
+            add("ISP セーフ " + db(*st.gainDb));
+        else
+            add(st.name);
+    }
+    if (v.quantized)
+        add("浮動小数点の曲を整数に変換");
+    if (v.comparison)
+        add("聴き比べ中（原音側も値は同じだが処理経路を通る）");
+    if (v.dither)
+        add("TPDF ディザ");
+    return "BIT-PERFECT ではない：" + reasons + device;
+}
+
 std::string playerErrorText(const PlayerStatus& s)
 {
     const auto& e = s.error;
@@ -1125,6 +1176,7 @@ int runQueue(const Options& o)
             if (s.path)
                 print(std::format("  出力の方式: {}\n  処理: {}\n", outputModeText(*s.path),
                                   processingText(*s.plan, s.path->dop.has_value())));
+            print("  " + bitPerfectLine(s) + "\n");
             if (s.plan->processing && !eq->isIdentity())
                 print(std::format("  EQ: プリアンプ {:+.2f} dB（自動）{}\n", eq->preampDb(),
                                   eq->skippedBands() ? std::format("、このレートでは使えないバンド {} 個を飛ばした",

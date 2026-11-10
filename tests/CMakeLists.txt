@@ -91,7 +91,8 @@ add_executable(ap_engine_unit_tests
     unit/isp_safe_test.cpp
     unit/eq_test.cpp
     unit/comparison_test.cpp
-    unit/abx_test.cpp)
+    unit/abx_test.cpp
+    unit/bit_perfect_test.cpp)
 
 target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine ap_test_support Catch2::Catch2WithMain)
 target_compile_definitions(ap_engine_unit_tests PRIVATE

@@ -50,6 +50,18 @@ std::vector<std::string> ProcessingChain::activeStageNames() const
     return names;
 }
 
+std::vector<StageState> ProcessingChain::activeStageStates() const
+{
+    updateUpstreamGains();
+    std::vector<StageState> states;
+    for (const auto& s : stages_)
+        if (!s->isIdentity() || s->runsWhenProcessing())
+            states.push_back({s->name(), s->displayGainDb()});
+    if (comparingRequested_)
+        states.push_back({"comparison", std::nullopt});
+    return states;
+}
+
 std::size_t ProcessingChain::latencyFrames() const noexcept
 {
     std::size_t n = 0;

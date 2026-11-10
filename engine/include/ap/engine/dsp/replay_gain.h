@@ -57,6 +57,7 @@ public:
     void prepare(std::uint32_t sampleRate, std::uint16_t) override { ramp_.prepare(sampleRate); }
     bool isIdentity() const noexcept override { return ramp_.isUnity(); }
     double peakGain() const noexcept override { return ramp_.target(); }
+    std::optional<double> displayGainDb() const noexcept override;
     void trackStarted(const TrackInfo& track) noexcept override;
     void process(std::span<double> samples, std::uint16_t channels) noexcept override
     {

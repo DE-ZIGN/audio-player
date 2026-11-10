@@ -14,11 +14,21 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
 
 namespace ap::engine {
+
+// What a stage is doing now, for the path display (task 4-2).
+struct StageState
+{
+    std::string name;             // as ProcessingStage::name()
+    std::optional<double> gainDb; // the level it applies now (gain stages; the EQ's preamp), if any
+
+    bool operator==(const StageState&) const = default;
+};
 
 class ProcessingStage
 {
@@ -46,6 +56,8 @@ public:
     // earlier ones (setUpstreamGain), e.g. so the ISP-safe gain does not lower
     // what the volume has already lowered.
     virtual double peakGain() const noexcept { return 1.0; }
+    // For the path display: the level it applies now, in dB (nullopt: none to show).
+    virtual std::optional<double> displayGainDb() const noexcept { return std::nullopt; }
     virtual void setUpstreamGain(double /*gain*/) noexcept {}
 
     // A stage that never by itself calls for processing but must run whenever
@@ -90,6 +102,10 @@ public:
     std::vector<std::string> activeStageNames() const;
 
     std::size_t latencyFrames() const noexcept;
+
+    // The stages that run on the processing path now, with their values
+    // (thread-safe; for the display), and the comparison when it is on.
+    std::vector<StageState> activeStageStates() const;
 
     void prepare(std::uint32_t sampleRate, std::uint16_t channels);
 
