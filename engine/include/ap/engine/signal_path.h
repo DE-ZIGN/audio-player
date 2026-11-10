@@ -11,6 +11,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace ap::engine {
 
@@ -21,9 +22,12 @@ struct SignalPath
     PcmFormat source;           // DoP: the 24-bit PCM that carries the DSD
     std::optional<DopInfo> dop; // set when DSD is sent as DoP
 
-    // Processing. Phase 1 has only the direct path: no volume, conversion,
-    // resampling or dither. The processing stages are added with M3.
+    // Processing. False: the direct path (no volume, conversion, resampling
+    // or dither). True: the samples went through 64-bit processing and were
+    // converted to output.format (task 3-1); processingStages lists the
+    // stages that were active when the output was opened.
     bool processing = false;
+    std::vector<std::string> processingStages;
 
     // Delivery: a lossless container repack (values unchanged), then the output.
     Repack repack = Repack::None;

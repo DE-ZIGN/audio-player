@@ -81,7 +81,9 @@ add_executable(ap_engine_unit_tests
     unit/asio_probe_test.cpp
     unit/dsd_source_test.cpp
     unit/dop_source_test.cpp
-    unit/aiff_file_source_test.cpp)
+    unit/aiff_file_source_test.cpp
+    unit/sample_convert_test.cpp
+    unit/processing_test.cpp)
 
 target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine ap_test_support Catch2::Catch2WithMain)
 target_compile_definitions(ap_engine_unit_tests PRIVATE
@@ -125,7 +127,8 @@ ap_copy_engine_dlls(ap_engine_signal_tests) # before test discovery, which runs 
     # CLAUDE.md chapter 5 acceptance criteria
     add_executable(ap_acceptance_tests
         acceptance/bitperfect_test.cpp
-        acceptance/lossy_test.cpp)
+        acceptance/lossy_test.cpp
+        acceptance/bypass_test.cpp)
     target_link_libraries(ap_acceptance_tests PRIVATE
         ap_engine ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
     ap_apply_compiler_settings(ap_acceptance_tests)

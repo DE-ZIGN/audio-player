@@ -21,6 +21,8 @@ add_library(ap_engine STATIC
     src/playback.cpp
     src/player.cpp
     src/sha256.cpp
+    src/dsp/sample_convert.cpp
+    src/dsp/processing.cpp
     src/output/dummy_output.cpp
     src/output/format_probe.cpp
     src/output/device_selection.cpp

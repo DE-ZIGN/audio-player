@@ -1,12 +1,16 @@
 #pragma once
 
+#include <ap/engine/dsp/processing.h>
 #include <ap/engine/output/audio_output.h>
 #include <ap/engine/pcm_source.h>
 #include <ap/engine/repack.h>
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 namespace ap::engine {
 
@@ -15,7 +19,11 @@ struct PlaybackPlan
 {
     PcmFormat source;
     PcmFormat output;
-    Repack repack = Repack::None;
+    Repack repack = Repack::None; // direct path only
+    // Processing path: the samples go through 64-bit processing and are
+    // converted to `output`. False means the direct (bit-perfect) path.
+    bool processing = false;
+    std::vector<std::string> processingStages; // stages that were active at the start
 };
 
 struct NegotiationResult
@@ -29,12 +37,23 @@ struct NegotiationResult
 // changes sample rate, channel count or sample values.
 NegotiationResult negotiate(const PcmFormat& source, AudioOutput& output, bool allowRepack);
 
+// Picks the output format for the processing path: the same sample rate and
+// channels as the source (never changed), with the most resolution the output
+// accepts: 32-bit integer, 24-bit in a 32-bit container, packed 24-bit,
+// 16-bit, then 32-bit float (only for outputs that take no integer format).
+// The plan has processing = true; exactCheck is the check of the source format.
+NegotiationResult negotiateProcessing(const PcmFormat& source, AudioOutput& output);
+
 struct PlaybackOptions
 {
     bool allowRepack = true;
     // DoP is sent only when enabled for the output: a DAC without DoP turns
     // it into loud noise, and whether a DAC decodes DoP cannot be detected.
     bool allowDop = false;
+    // Processing stages (task 3-1). Null or bypassed(): the direct path. DoP
+    // is never processed. Whether the chain is bypassed is decided when the
+    // output is opened.
+    std::shared_ptr<ProcessingChain> processing;
     // Called on the playback thread after the output has been opened, before data flows.
     std::function<void(const PlaybackPlan&)> onStart;
 };
@@ -43,6 +62,7 @@ struct PlaybackReport
 {
     PlaybackPlan plan;
     RunStats stats;
+    std::uint64_t overs = 0; // processing path: samples the output format could not represent (clamped)
 };
 
 // Thrown when no acceptable output format exists. reason() explains why the
@@ -63,8 +83,11 @@ private:
     FormatCheck check_;
 };
 
-// Bit-perfect path: source bytes -> (optional lossless repack) -> output.
-// No volume, no conversion, no dither. Blocks until playback ends.
+// Direct path (bit-perfect): source bytes -> (optional lossless repack) -> output.
+// No volume, no conversion, no dither.
+// Processing path (options.processing active, not DoP): source -> 64-bit
+// float -> stages -> output format (see negotiateProcessing).
+// Blocks until playback ends.
 // Throws FormatNotSupportedError or OutputException.
 PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOptions& options = {});
 

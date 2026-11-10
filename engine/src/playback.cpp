@@ -1,5 +1,7 @@
 #include <ap/engine/playback.h>
 
+#include <ap/engine/dsp/sample_convert.h>
+
 #include <vector>
 
 namespace ap::engine {
@@ -30,20 +32,89 @@ NegotiationResult negotiate(const PcmFormat& source, AudioOutput& output, bool a
     return result;
 }
 
+NegotiationResult negotiateProcessing(const PcmFormat& source, AudioOutput& output)
+{
+    NegotiationResult result;
+    result.exactCheck = output.checkFormat(source);
+    // Without the right rate or channel count no sample format helps; the
+    // rate is never converted (the resampler is phase 2).
+    if (!result.exactCheck.supported
+        && (result.exactCheck.reason == FormatRejection::SampleRate
+            || result.exactCheck.reason == FormatRejection::Channels))
+        return result;
+
+    auto with = [&](std::uint16_t container, std::uint16_t valid, SampleType type) {
+        PcmFormat f = source;
+        f.containerBits = container;
+        f.validBits = valid;
+        f.type = type;
+        return f;
+    };
+    const PcmFormat candidates[] = {
+        with(32, 32, SampleType::Int), with(32, 24, SampleType::Int), with(24, 24, SampleType::Int),
+        with(16, 16, SampleType::Int), with(32, 32, SampleType::Float),
+    };
+    for (const auto& c : candidates)
+    {
+        if (output.checkFormat(c).supported)
+        {
+            PlaybackPlan plan{source, c, Repack::None};
+            plan.processing = true;
+            result.plan = plan;
+            return result;
+        }
+    }
+    return result;
+}
+
 PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOptions& options)
 {
-    const auto negotiation = negotiate(source.format(), output, options.allowRepack);
+    // Full bypass: no chain, every stage identity, or DoP (never processed).
+    ProcessingChain* chain = options.processing.get();
+    if (chain && (chain->bypassed() || source.dop()))
+        chain = nullptr;
+
+    const auto negotiation = chain ? negotiateProcessing(source.format(), output)
+                                   : negotiate(source.format(), output, options.allowRepack);
     if (!negotiation.plan)
         throw FormatNotSupportedError(source.format(), negotiation.exactCheck);
 
-    const PlaybackPlan plan = *negotiation.plan;
+    PlaybackPlan plan = *negotiation.plan;
+    if (chain)
+    {
+        plan.processingStages = chain->activeStageNames();
+        chain->prepare(plan.output.sampleRate, plan.output.channels);
+    }
     output.open(plan.output);
     if (options.onStart)
         options.onStart(plan);
 
+    PlaybackReport report;
     RenderCallback render;
     std::vector<std::byte> scratch;
-    if (plan.repack == Repack::None)
+    std::vector<double> samples;
+    if (chain)
+    {
+        const PcmFormat in = plan.source;
+        const PcmFormat out = plan.output;
+        render = [&, chain, in, out](std::span<std::byte> dst) {
+            const std::size_t frames = dst.size() / out.bytesPerFrame();
+            if (scratch.size() < frames * in.bytesPerFrame())
+                scratch.resize(frames * in.bytesPerFrame()); // first callback only, period size is fixed
+            if (samples.size() < frames * in.channels)
+                samples.resize(frames * in.channels);
+
+            const std::size_t got = source.read(std::span(scratch).first(frames * in.bytesPerFrame()));
+            const std::size_t n = got * in.channels;
+            const auto block = std::span(samples).first(n);
+            ScopedFlushDenormals ftz; // may run on a driver's thread: set and restore every time
+            dsp::toDouble(std::span(scratch).first(got * in.bytesPerFrame()), in, block);
+            chain->process(block, in.channels);
+            report.overs += dsp::fromDouble(block, out, dst.first(got * out.bytesPerFrame()));
+            return got;
+        };
+    }
+    else if (plan.repack == Repack::None)
     {
         render = [&source](std::span<std::byte> dst) { return source.read(dst); };
     }
@@ -64,7 +135,6 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
         };
     }
 
-    PlaybackReport report;
     report.plan = plan;
     try
     {

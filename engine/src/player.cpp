@@ -27,6 +27,8 @@ public:
     std::uint64_t totalFrames() const noexcept override { return p_.source_->totalFrames(); }
     std::uint64_t position() const noexcept override { return p_.source_->position(); }
     bool seek(std::uint64_t frame) override { return p_.source_->seek(frame); }
+    // A session never mixes DoP and PCM (see read()), so the current track decides.
+    std::optional<DopInfo> dop() const override { return p_.source_->dop(); }
 
     std::size_t read(std::span<std::byte> dst) override
     {
@@ -333,7 +335,8 @@ PlayerStatus Player::status() const
         path.container = container_;
         path.source = *s.sourceFormat;
         path.dop = s.dop;
-        path.processing = false; // phase 1: the direct path only
+        path.processing = s.plan->processing;
+        path.processingStages = s.plan->processingStages;
         path.repack = s.plan->repack;
         path.output = *outputPath_;
         s.path = std::move(path);
