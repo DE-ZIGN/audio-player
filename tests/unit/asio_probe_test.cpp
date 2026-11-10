@@ -2,6 +2,12 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <windows.h>
+
+#include <chrono>
+#include <future>
+#include <thread>
+
 using namespace ap::engine;
 
 TEST_CASE("ASIO probe results survive the round trip through one line", "[engine][asio]")
@@ -57,4 +63,37 @@ TEST_CASE("ASIO probe of a process that hangs is reported as TimedOut", "[engine
     const auto r = probeAsioDriverIsolated(L"C:\\Windows\\System32\\cmd.exe", L"/c ping -n 6 127.0.0.1 >nul",
                                            std::chrono::milliseconds(500));
     CHECK(r.status == AsioProbeResult::Status::TimedOut);
+}
+
+TEST_CASE("ASIO probe: the probe process gets only its own pipe, not the caller's handles", "[engine][asio]")
+{
+    // A caller's inheritable pipe (like the stdout pipe a shell gives ap_play).
+    // If the probe process inherited its write end, reading would wait until
+    // the probe process ends; a shell reading ap_play's output then waits for
+    // a probe process that is left over (seen on 2026-11-10).
+    SECURITY_ATTRIBUTES sa{sizeof(sa), nullptr, TRUE};
+    HANDLE readEnd = nullptr;
+    HANDLE writeEnd = nullptr;
+    REQUIRE(CreatePipe(&readEnd, &writeEnd, &sa, 0));
+
+    using clock = std::chrono::steady_clock;
+    const auto start = clock::now();
+    auto probe = std::async(std::launch::async, [] {
+        return probeAsioDriverIsolated(L"C:\\Windows\\System32\\cmd.exe", L"/c ping -n 3 127.0.0.1 >nul",
+                                       std::chrono::seconds(10));
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(300)); // the probe process is running now
+    CloseHandle(writeEnd);
+    const auto readFrom = clock::now();
+    char c = 0;
+    DWORD n = 0;
+    const BOOL got = ReadFile(readEnd, &c, 1, &n, nullptr); // ends at once when no one else holds the write end
+    const auto readTook = clock::now() - readFrom;
+    CloseHandle(readEnd);
+    probe.get();
+    const auto probeTook = clock::now() - start;
+
+    CHECK_FALSE(got);
+    CHECK(readTook < std::chrono::milliseconds(1000));
+    CHECK(probeTook > std::chrono::milliseconds(1500)); // the probe process really was running meanwhile
 }

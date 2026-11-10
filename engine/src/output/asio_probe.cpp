@@ -5,6 +5,7 @@
 #include <format>
 #include <sstream>
 #include <thread>
+#include <vector>
 
 namespace ap::engine {
 
@@ -152,36 +153,59 @@ AsioProbeResult probeAsioDriverIsolated(const std::filesystem::path& executable,
     }
     SetHandleInformation(readEnd, HANDLE_FLAG_INHERIT, 0);
 
-    STARTUPINFOW si{};
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESTDHANDLES;
-    si.hStdOutput = writeEnd;
-    si.hStdError = writeEnd;
-    si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-    PROCESS_INFORMATION pi{};
-
-    // A job, so that on a timeout the probe and anything it started are ended together.
+    // A job, so that on a timeout the probe and anything it started are ended
+    // together, and so that the probe ends with this process (the job's only
+    // handle is ours: when this process ends at any moment, the job closes).
     HANDLE job = CreateJobObjectW(nullptr, nullptr);
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
     limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    if (job && !SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof(limits)))
+    {
+        CloseHandle(job);
+        job = nullptr;
+    }
+
+    // The probe process inherits only the pipe it answers on (not this
+    // process's other inheritable handles, such as a shell's stdout pipe), and
+    // is in the job from its creation: there is no moment in which this process
+    // could end and leave the probe behind.
+    SIZE_T attrSize = 0;
+    InitializeProcThreadAttributeList(nullptr, 2, 0, &attrSize);
+    std::vector<std::byte> attrBuffer(attrSize);
+    auto* attrs = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(attrBuffer.data());
+    bool attrsReady = InitializeProcThreadAttributeList(attrs, 2, 0, &attrSize) != FALSE;
+    const bool attrsInitialized = attrsReady;
+    attrsReady = attrsReady && UpdateProcThreadAttribute(attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &writeEnd,
+                                                         sizeof(writeEnd), nullptr, nullptr);
     if (job)
-        SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof(limits));
+        attrsReady = attrsReady &&
+                     UpdateProcThreadAttribute(attrs, 0, PROC_THREAD_ATTRIBUTE_JOB_LIST, &job, sizeof(job), nullptr, nullptr);
+
+    STARTUPINFOEXW si{};
+    si.StartupInfo.cb = sizeof(si);
+    si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+    si.StartupInfo.hStdOutput = writeEnd;
+    si.StartupInfo.hStdError = writeEnd;
+    si.StartupInfo.hStdInput = nullptr; // the probe reads nothing
+    si.lpAttributeList = attrs;
+    PROCESS_INFORMATION pi{};
 
     std::wstring commandLine = L"\"" + executable.wstring() + L"\" " + arguments;
-    const BOOL created = CreateProcessW(executable.c_str(), commandLine.data(), nullptr, nullptr, TRUE,
-                                        CREATE_NO_WINDOW | CREATE_SUSPENDED, nullptr, nullptr, &si, &pi);
+    const BOOL created = attrsReady && CreateProcessW(executable.c_str(), commandLine.data(), nullptr, nullptr, TRUE,
+                                                      CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT, nullptr, nullptr,
+                                                      &si.StartupInfo, &pi);
+    const DWORD createError = GetLastError();
+    if (attrsInitialized)
+        DeleteProcThreadAttributeList(attrs);
     CloseHandle(writeEnd);
     if (!created)
     {
         CloseHandle(readEnd);
         if (job)
             CloseHandle(job);
-        failed.message = std::format("cannot start the probe process (error {})", GetLastError());
+        failed.message = std::format("cannot start the probe process (error {})", createError);
         return failed;
     }
-    if (job)
-        AssignProcessToJobObject(job, pi.hProcess);
-    ResumeThread(pi.hThread);
 
     // Read the child's output on a separate thread so a full pipe never blocks it.
     std::string output;
