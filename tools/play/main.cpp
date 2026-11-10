@@ -1031,7 +1031,7 @@ int runQueue(const Options& o)
             printErr("ABX はキーボードで答えるので、コンソール（ターミナル）で直接実行してください。\n");
             return 2;
         }
-        print("ABX: 音作り側の音量を原音に合わせるため、曲全体を解析しています…\n");
+        print("ABX: 音作り側の音量を原音に合わせるため、くり返す区間を解析しています…\n");
         const auto src = openAudioFile(fs::path{o.files[0]});
         // The ABX repeats one region (from --from, for --for seconds or 30 s); the match is worked out over it.
         const auto rate = src->format().sampleRate;
