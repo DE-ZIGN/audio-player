@@ -63,7 +63,7 @@ public:
         if (const auto* chain = p_.options_.processing.get(); chain && !dop_ && p_.sessionPlan_)
         {
             const bool wanted = p_.sessionPlan_->processingRequired || !chain->bypassed();
-            if (wanted != p_.sessionPlan_->processing)
+            if (wanted != p_.sessionPlan_->processing || chain->comparing() != p_.sessionPlan_->comparison)
             {
                 p_.pathChangePending_ = true;
                 p_.dataEndedAt_ = std::chrono::steady_clock::now();
@@ -389,6 +389,7 @@ PlayerStatus Player::status() const
         path.processingStages = s.plan->processingStages;
         path.processingRequired = s.plan->processingRequired;
         path.dither = s.plan->dither;
+        path.comparison = s.plan->comparison;
         path.repack = s.plan->repack;
         path.output = *outputPath_;
         s.path = std::move(path);

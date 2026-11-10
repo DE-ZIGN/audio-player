@@ -89,7 +89,8 @@ add_executable(ap_engine_unit_tests
     unit/true_peak_test.cpp
     unit/replay_gain_test.cpp
     unit/isp_safe_test.cpp
-    unit/eq_test.cpp)
+    unit/eq_test.cpp
+    unit/comparison_test.cpp)
 
 target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine ap_test_support Catch2::Catch2WithMain)
 target_compile_definitions(ap_engine_unit_tests PRIVATE
@@ -137,7 +138,8 @@ ap_copy_engine_dlls(ap_engine_signal_tests) # before test discovery, which runs 
         acceptance/bypass_test.cpp
         acceptance/true_peak_test.cpp
         acceptance/loudness_test.cpp
-        acceptance/isp_safe_test.cpp)
+        acceptance/isp_safe_test.cpp
+        acceptance/comparison_test.cpp)
     target_link_libraries(ap_acceptance_tests PRIVATE
         ap_engine ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
     ap_apply_compiler_settings(ap_acceptance_tests)

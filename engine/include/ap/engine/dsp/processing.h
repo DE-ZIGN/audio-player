@@ -9,6 +9,8 @@
 
 #include <ap/engine/track_info.h>
 
+#include <atomic>
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -61,11 +63,24 @@ public:
     virtual void process(std::span<double> samples, std::uint16_t channels) noexcept = 0;
 };
 
+class AbComparison;
+
 // Stages in their fixed order (CLAUDE.md chapter 4).
 class ProcessingChain
 {
 public:
     explicit ProcessingChain(std::vector<std::shared_ptr<ProcessingStage>> stages = {});
+    ~ProcessingChain();
+    ProcessingChain(const ProcessingChain&) = delete;
+    ProcessingChain& operator=(const ProcessingChain&) = delete;
+
+    // Listening comparison (task 3-7): while on, the processing path is taken
+    // and the output is the original or the processed sound, switched with a
+    // crossfade (see AbComparison). Thread-safe; the player reopens the output
+    // when it changes.
+    void setComparing(bool on) noexcept { comparingRequested_ = on; }
+    bool comparing() const noexcept { return comparingRequested_; }
+    AbComparison& comparison() noexcept { return *comparison_; }
 
     // True when every stage is identity: the direct path is used.
     bool bypassed() const noexcept;
@@ -89,6 +104,11 @@ private:
     void updateUpstreamGains() const noexcept;
 
     std::vector<std::shared_ptr<ProcessingStage>> stages_;
+    std::atomic<bool> comparingRequested_{false};
+    std::unique_ptr<AbComparison> comparison_;
+    // Playback thread only.
+    bool comparingNow_ = false; // fixed for an output session at prepare()
+    std::vector<double> original_;
 };
 
 // Sets flush-to-zero and denormals-are-zero for the current thread and

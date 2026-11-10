@@ -11,6 +11,7 @@
 #include <ap/engine/alac_file_source.h>
 #include <ap/engine/audio_file.h>
 #include <ap/engine/dsd_source.h>
+#include <ap/engine/dsp/comparison.h>
 #include <ap/engine/dsp/eq.h>
 #include <ap/engine/dsp/isp_safe.h>
 #include <ap/engine/dsp/limiter.h>
@@ -74,6 +75,8 @@ constexpr const char* kUsage =
     "  ap_play FILE... --replaygain track|album  再生の前に各曲を解析し、ReplayGain 2.0（-18 LUFS）を処理経路でかける\n"
     "  ap_play FILE... --eq PRESET.txt        パラメトリック EQ（AutoEQ の ParametricEQ.txt、Equalizer APO の書き方）。\n"
     "                                         最小位相、プリアンプは自動（最大のブーストを 0 dB にする）\n"
+    "  ap_play FILE... --compare original|processed  聴き比べ（原音と音作りの両方を作り、音作り側を原音の音量に合わせる）。\n"
+    "               [--compare-at S]          最初にどちらを出すか。--compare-at S で S 秒の時点でもう一方に切り替える（5 ms のクロスフェード、何回でも）\n"
     "  ap_play FILE... --isp-safe off|measured|fixed  ISP セーフ（True Peak を -0.5 dBTP 以下に下げる。measured は解析した値から、\n"
     "                                         fixed は常に -3 dB）。off でも解析して、0 dBTP を超える曲を原音経路で鳴らすときに警告する\n"
     "  ap_play FILE... --volume-at S:DB       再生を始めてから S 秒で音量を DB にする（何回でも指定できる。0 に戻すと原音経路に戻る）\n"
@@ -234,6 +237,8 @@ struct Options
     std::optional<IspSafeMode> ispSafe;              // --isp-safe off|measured|fixed (set: analyse the files)
     double volumeDb = 0.0;     // --volume DB
     std::string eqPreset;      // --eq FILE
+    std::optional<ComparisonSide> compare; // --compare original|processed (the side to start with)
+    std::vector<double> compareAt;         // --compare-at S (switch sides)
     std::vector<std::pair<double, double>> volumeAt; // --volume-at S:DB (seconds since play, dB)
 };
 
@@ -315,6 +320,18 @@ std::optional<Options> parse(int argc, char** argv)
             else
                 throw std::runtime_error("--replaygain は track、album、off のどれかです");
         }
+        else if (a == "--compare")
+        {
+            const auto v = value();
+            if (v == "original")
+                o.compare = ComparisonSide::Original;
+            else if (v == "processed")
+                o.compare = ComparisonSide::Processed;
+            else
+                throw std::runtime_error("--compare は original か processed です");
+        }
+        else if (a == "--compare-at")
+            o.compareAt.push_back(std::stod(value()));
         else if (a == "--eq")
             o.eqPreset = value();
         else if (a == "--volume")
@@ -652,6 +669,7 @@ std::string processingText(const PlaybackPlan& p, bool dop)
                   : n == "replaygain" ? std::string("ReplayGain")
                   : n == "isp-safe"   ? std::string("ISP セーフ")
                   : n == "eq"         ? std::string("パラメトリック EQ")
+                  : n == "comparison" ? std::string("聴き比べ")
                   : n == "limiter"    ? std::string("保険のリミッター")
                                       : n);
     if (p.processingRequired)
@@ -838,6 +856,11 @@ int runQueue(const Options& o)
         .allowDop = o.allowDop,
         .processing = std::make_shared<ProcessingChain>(
             std::vector<std::shared_ptr<ProcessingStage>>{replayGain, eq, volume, ispSafe, limiter})};
+    if (o.compare)
+    {
+        playOptions.processing->setComparing(true);
+        playOptions.processing->comparison().select(*o.compare);
+    }
 
     auto printCheck = [&](std::size_t i, const PcmSource& src, AudioOutput& out) {
         const auto n = planPlayback(src, out, playOptions);
@@ -985,6 +1008,12 @@ int runQueue(const Options& o)
     std::size_t nextVolumeChange = 0;
     auto volumeChanges = o.volumeAt;
     std::sort(volumeChanges.begin(), volumeChanges.end());
+    auto compareChanges = o.compareAt;
+    std::sort(compareChanges.begin(), compareChanges.end());
+    std::size_t nextCompareChange = 0;
+    auto sideText = [](ComparisonSide side) {
+        return side == ComparisonSide::Original ? "原音（値は同じ、この経路ではビットパーフェクトではない）" : "音作り";
+    };
 
     std::size_t shownTransitions = 0;
     std::optional<PlaybackPlan> shownPlan;
@@ -1025,6 +1054,15 @@ int runQueue(const Options& o)
                               s.queueIndex + 1, dbText(*s.trackTruePeak)));
         }
         const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startedAt).count();
+        for (; o.compare && nextCompareChange < compareChanges.size() && compareChanges[nextCompareChange] <= elapsed;
+             ++nextCompareChange)
+        {
+            auto& ab = playOptions.processing->comparison();
+            const auto next = ab.selected() == ComparisonSide::Original ? ComparisonSide::Processed : ComparisonSide::Original;
+            ab.select(next);
+            print(std::format("\r  {:.1f} 秒: 聴き比べ → {}（音作り側の音量合わせ {:+.2f} dB）                    \n", elapsed,
+                              sideText(next), ab.matchDb()));
+        }
         for (; nextVolumeChange < volumeChanges.size() && volumeChanges[nextVolumeChange].first <= elapsed; ++nextVolumeChange)
         {
             volume->setGainDb(volumeChanges[nextVolumeChange].second);
@@ -1054,6 +1092,18 @@ int runQueue(const Options& o)
     print(std::format("音切れ: {} 回（デバイスへの受け渡しの遅れ {}、ファイルの読み込みの遅れ {}（無音にしたフレーム {}）、"
                       "デバイスの応答なし {}）\n",
                       d.total(), d.lateBuffers, d.readStarvations, d.starvedFrames, d.deviceTimeouts));
+    if (o.compare)
+    {
+        const auto& ab = playOptions.processing->comparison();
+        const auto st = ab.limiterStats();
+        const double diff = ab.levelDifferenceDb();
+        print(std::format("聴き比べ: 最後は{}、音作り側の音量合わせ {:+.2f} dB、出てくる音の音量差 {:+.2f} dB{}、聴き比べ用のリミッター {}\n",
+                          sideText(ab.selected()), ab.matchDb(), diff,
+                          std::abs(diff) > 0.1 ? "（0.1 dB を超えている。原音のピークが高く、音作り側を同じ音量にすると上限を超えるため）"
+                                               : "",
+                          st.events ? std::format("{} 回働いた（最大 {:.2f} dB）", st.events, st.maxReductionDb)
+                                    : std::string("働かなかった")));
+    }
     if (const auto st = limiter->stats(); st.events > 0)
         print(std::format("保険のリミッター: {} 回働いた（合わせて {:.3f} 秒、最大 {:.2f} dB 下げた）\n", st.events,
                           static_cast<double>(st.limitedFrames) / (s.sourceFormat ? s.sourceFormat->sampleRate : 1u),

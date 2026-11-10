@@ -90,6 +90,7 @@ NegotiationResult planPlayback(const PcmSource& source, AudioOutput& output, con
         n.plan->processingStages = active ? chain->activeStageNames() : std::vector<std::string>{};
         n.plan->processingRequired = floatRefused;
         n.plan->dither = n.plan->output.type == SampleType::Int;
+        n.plan->comparison = active && chain->comparing();
     }
     return n;
 }

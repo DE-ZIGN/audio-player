@@ -32,6 +32,9 @@ struct SignalPath
     // without float), so it went through the processing path to be quantized.
     bool processingRequired = false;
     bool dither = false; // TPDF dither when quantizing to the output format
+    // Listening comparison: the output is the original or the processed sound
+    // (the original side keeps its values but is not bit-perfect here).
+    bool comparison = false;
 
     // Delivery: a lossless container repack (values unchanged), then the output.
     Repack repack = Repack::None;

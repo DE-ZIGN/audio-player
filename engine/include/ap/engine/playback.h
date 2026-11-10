@@ -29,6 +29,7 @@ struct PlaybackPlan
     // the processing path even with every stage at identity.
     bool processingRequired = false;
     bool dither = false; // TPDF dither when quantizing (processing path, integer output)
+    bool comparison = false; // listening comparison (task 3-7): original or processed, crossfaded
 };
 
 struct NegotiationResult
