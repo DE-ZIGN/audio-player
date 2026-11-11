@@ -16,7 +16,8 @@ add_library(ap_library STATIC
     src/tag_importer.cpp
     src/search.cpp
     src/history.cpp
-    src/analysis.cpp)
+    src/analysis.cpp
+    src/browse.cpp)
 
 target_link_libraries(ap_library PUBLIC ap_engine PRIVATE ap_sqlite tag normaliz bcrypt)
 

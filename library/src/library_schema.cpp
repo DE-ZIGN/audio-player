@@ -199,6 +199,32 @@ DROP TABLE track_analysis;
 ALTER TABLE track_analysis_new RENAME TO track_analysis;
 )sql";
 
+constexpr std::string_view kV7 = R"sql(
+-- What the track list shows and sorts by (task 6-1), kept with the search
+-- index (filled by the application from the shown values; built again when
+-- the search form changes). title is the file name when there is no tag.
+CREATE TABLE track_display (
+    track_id      INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+    title         TEXT NOT NULL,
+    artist        TEXT NOT NULL,  -- all artists, " / " between them
+    album         TEXT NOT NULL,
+    album_artist  TEXT NOT NULL,  -- the album artist, or the first artist
+    album_key     TEXT,           -- album artist and album (as the analysis groups them); NULL: no album
+    track_no      INTEGER,
+    disc_no       INTEGER,
+    year          TEXT,
+    title_sort    TEXT NOT NULL,  -- in the search form (kana, width, case folded)
+    artist_sort   TEXT NOT NULL,
+    album_sort    TEXT NOT NULL
+);
+CREATE INDEX track_display_title ON track_display (title_sort);
+CREATE INDEX track_display_artist ON track_display (artist_sort, album_sort, disc_no, track_no);
+CREATE INDEX track_display_album ON track_display (album_sort, disc_no, track_no);
+CREATE INDEX track_display_album_key ON track_display (album_key);
+-- Built on the next opening (the search index version changes with it).
+UPDATE library_meta SET value = '0' WHERE key = 'search_index';
+)sql";
+
 constexpr Migration kMigrations[] = {
     {1, "files, tracks, three layers of values, analysis, provenance findings, plays", kV1},
     {2, "files.needs_read", kV2},
@@ -206,6 +232,7 @@ constexpr Migration kMigrations[] = {
     {4, "library_meta, track_search (FTS5 trigram)", kV4},
     {5, "plays.counted; read again for fingerprints", kV5},
     {6, "track_analysis with status, error and album_key", kV6},
+    {7, "track_display for the track list", kV7},
 };
 
 } // namespace

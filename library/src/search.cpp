@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <map>
 #include <cwctype>
 
 namespace ap::library {
@@ -148,11 +149,13 @@ void LibraryDb::refreshSearch(std::int64_t track)
         file = path.substr(slash == std::string::npos ? 0 : slash + 1);
     }
     std::array<std::string, 4> text;
+    std::map<std::string, std::vector<std::string>> shown; // field -> values, for track_display
     auto values = db.prepare("SELECT field, value FROM track_values WHERE track_id = ? ORDER BY field, idx");
     values.bind(1, track);
     while (values.step())
     {
         const auto field = values.text(0);
+        shown[field].push_back(values.text(1));
         for (std::size_t g = 0; g < groups().size(); ++g)
             if (std::find(groups()[g].fields.begin(), groups()[g].fields.end(), field) != groups()[g].fields.end())
             {
@@ -171,6 +174,57 @@ void LibraryDb::refreshSearch(std::int64_t track)
         .bind(5, text[3])
         .bind(6, normalizeForSearch(file))
         .run();
+
+    // What the track list shows and sorts by (browse.h).
+    auto first = [&](const char* f) { return shown.count(f) ? shown[f].front() : std::string(); };
+    auto all = [&](const char* f) {
+        std::string s;
+        if (shown.count(f))
+            for (const auto& v : shown[f])
+                s += (s.empty() ? "" : " / ") + v;
+        return s;
+    };
+    auto leadingNumber = [](const std::string& s) -> std::optional<std::int64_t> {
+        std::int64_t n = 0;
+        std::size_t i = 0;
+        while (i < s.size() && s[i] == ' ')
+            ++i;
+        const auto start = i;
+        while (i < s.size() && s[i] >= '0' && s[i] <= '9' && i - start < 9)
+            n = n * 10 + (s[i++] - '0');
+        return i > start ? std::optional<std::int64_t>(n) : std::nullopt; // "3/12" is 3
+    };
+    std::string title = first("title");
+    if (title.empty())
+    {
+        const auto dot = file.find_last_of('.');
+        title = dot == std::string::npos || dot == 0 ? file : file.substr(0, dot); // no tags: the file name
+    }
+    const std::string artist = all("artist");
+    const std::string album = first("album");
+    std::string albumArtist = first("albumartist");
+    if (albumArtist.empty())
+        albumArtist = first("artist");
+    const std::string date = first("date");
+    const auto trackNo = leadingNumber(first("tracknumber"));
+    const auto discNo = leadingNumber(first("discnumber"));
+    auto disp = db.prepare("INSERT OR REPLACE INTO track_display (track_id, title, artist, album, album_artist, album_key, "
+                           "track_no, disc_no, year, title_sort, artist_sort, album_sort) "
+                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    disp.bind(1, track).bind(2, title).bind(3, artist).bind(4, album).bind(5, albumArtist);
+    if (album.empty())
+        disp.bindNull(6);
+    else
+        disp.bind(6, albumArtist + '\x1F' + album); // as the analysis groups albums (analysis.h)
+    disp.bind(7, trackNo).bind(8, discNo);
+    if (date.size() >= 4)
+        disp.bind(9, date.substr(0, 4));
+    else
+        disp.bindNull(9);
+    disp.bind(10, normalizeForSearch(title))
+        .bind(11, normalizeForSearch(artist))
+        .bind(12, normalizeForSearch(album.empty() ? std::string() : albumArtist + ' ' + album))
+        .run();
     tx.commit();
 }
 
@@ -180,7 +234,7 @@ void LibraryDb::ensureSearchIndex()
     if (st.step() && st.text(0) == std::to_string(kSearchIndexVersion))
         return;
     Database::Transaction tx(db_);
-    db_.exec("DELETE FROM track_search");
+    db_.exec("DELETE FROM track_search; DELETE FROM track_display;");
     std::vector<std::int64_t> tracks;
     {
         auto all = db_.prepare("SELECT id FROM tracks");
@@ -195,7 +249,7 @@ void LibraryDb::ensureSearchIndex()
     tx.commit();
 }
 
-std::vector<std::int64_t> searchTracks(LibraryDb& lib, std::string_view query, std::size_t limit)
+std::optional<SearchFilter> searchFilter(std::string_view query)
 {
     std::vector<std::string> longWords, shortWords;
     {
@@ -213,7 +267,7 @@ std::vector<std::int64_t> searchTracks(LibraryDb& lib, std::string_view query, s
         }
     }
     if (longWords.empty() && shortWords.empty())
-        return {};
+        return std::nullopt;
 
     // Words of 3+ characters through the trigram index, each as a quoted
     // phrase (FTS5 syntax characters inside are plain text).
@@ -231,30 +285,36 @@ std::vector<std::int64_t> searchTracks(LibraryDb& lib, std::string_view query, s
         match += (match.empty() ? "" : " ") + phrase;
     }
 
-    std::string sql = "SELECT rowid FROM track_search WHERE ";
-    int param = 1;
-    std::vector<std::string> binds;
+    SearchFilter f;
     if (!match.empty())
     {
-        sql += "track_search MATCH ?" + std::to_string(param++);
-        binds.push_back(match);
+        f.where = "track_search MATCH ?";
+        f.binds.push_back(match);
+        f.ranked = true;
     }
     for (const auto& w : shortWords)
     {
         // Shorter words are looked for in the indexed text, column by column.
-        const auto p = "?" + std::to_string(param++);
-        sql += binds.empty() ? "" : " AND ";
-        sql += "(instr(title, " + p + ") > 0 OR instr(artists, " + p + ") > 0 OR instr(album, " + p
-             + ") > 0 OR instr(other, " + p + ") > 0 OR instr(file, " + p + ") > 0)";
-        binds.push_back(w);
+        f.where += f.where.empty() ? "" : " AND ";
+        f.where += "(instr(title, ?) > 0 OR instr(artists, ?) > 0 OR instr(album, ?) > 0 OR instr(other, ?) > 0 "
+                   "OR instr(file, ?) > 0)";
+        for (int k = 0; k < 5; ++k)
+            f.binds.push_back(w);
     }
-    sql += match.empty() ? " ORDER BY rowid" : " ORDER BY rank";
-    sql += " LIMIT ?" + std::to_string(param);
+    return f;
+}
 
-    auto st = lib.database().prepare(sql);
-    for (std::size_t i = 0; i < binds.size(); ++i)
-        st.bind(static_cast<int>(i + 1), std::string_view(binds[i]));
-    st.bind(param, static_cast<std::int64_t>(std::min<std::size_t>(limit, INT64_MAX)));
+std::vector<std::int64_t> searchTracks(LibraryDb& lib, std::string_view query, std::size_t limit)
+{
+    const auto f = searchFilter(query);
+    if (!f)
+        return {};
+    auto st = lib.database().prepare("SELECT rowid FROM track_search WHERE " + f->where
+                                     + (f->ranked ? " ORDER BY rank" : " ORDER BY rowid") + " LIMIT ?");
+    int i = 1;
+    for (const auto& b : f->binds)
+        st.bind(i++, std::string_view(b));
+    st.bind(i, static_cast<std::int64_t>(std::min<std::size_t>(limit, INT64_MAX)));
     std::vector<std::int64_t> ids;
     while (st.step())
         ids.push_back(st.integer(0));
