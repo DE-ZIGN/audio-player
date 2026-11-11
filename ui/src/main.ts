@@ -239,9 +239,12 @@ function render(s: PlaybackStatus) {
   const rate = s.sourceFormat?.sampleRate ?? 0;
   const loaded = s.state !== "empty";
 
-  els.state.textContent = stateLabel(s.state);
-  els.play.disabled = !loaded || s.state === "playing";
-  els.stop.disabled = s.state !== "playing";
+  // Stopped part-way is a pause (the play button goes on from there).
+  els.state.textContent = s.state === "stopped" && s.positionFrames > 0 ? "一時停止中" : stateLabel(s.state);
+  // One button plays and pauses (task 6-2): usable whenever something is loaded.
+  els.play.disabled = !loaded;
+  // Stop (back to the start of the track): also from a pause, not when already there.
+  els.stop.disabled = !loaded || (s.state !== "playing" && s.positionFrames === 0);
   els.seek.disabled = !loaded || s.totalFrames === 0;
 
   els.duration.textContent = formatTime(s.totalFrames, rate);
