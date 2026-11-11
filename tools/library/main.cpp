@@ -8,6 +8,7 @@
 //
 // The music files are only read.
 
+#include <ap/library/history.h>
 #include <ap/library/library_db.h>
 #include <ap/library/scanner.h>
 #include <ap/library/search.h>
@@ -86,8 +87,18 @@ int scan(const fs::path& folder, const fs::path& db)
     const auto t0 = GetTickCount64();
     const auto r = Scanner(lib).scanRoot(root);
     const auto t1 = GetTickCount64();
-    const auto tags = TagImporter(lib).readPending();
+    auto tags = TagImporter(lib).readPending();
+    // Moved from another drive: the old track takes the new file (task 5-5).
+    const auto relinked = relinkMovedTracks(lib);
+    if (!relinked.empty())
+    {
+        const auto again = TagImporter(lib).readPending();
+        tags.read += again.read;
+        tags.failed += again.failed;
+    }
     const auto t2 = GetTickCount64();
+    for (const auto& m : relinked)
+        print("  別のドライブへの移動（同じ曲として付け直した）: " + utf8(m.from) + " → " + utf8(m.to) + "\n");
 
     print(std::format("比較（{:.2f} 秒）: 追加 {}、変更 {}、見つからない {}、戻った {}、移動・改名 {}、変化なし {}、読めない {}\n",
                       (t1 - t0) / 1000.0, r.added.size(), r.changed.size(), r.missing.size(), r.returned.size(),
