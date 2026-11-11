@@ -112,10 +112,12 @@ const char* toString(MeterState s)
     return "idle";
 }
 
-// A level in dB (dBTP or LUFS), to 0.01 dB; "-inf" for silence.
+// A level in dB (dBTP or LUFS), unrounded: the page rounds once for display
+// (rounding here too gave -19.95 -> "-19.9" where -19.954 should show "-20.0").
+// "-inf" for silence.
 juce::var levelVar(double db)
 {
-    return std::isfinite(db) ? juce::var(std::round(db * 100.0) / 100.0) : juce::var("-inf");
+    return std::isfinite(db) ? juce::var(db) : juce::var("-inf");
 }
 
 juce::var peaksVar(const std::vector<double>& linear)

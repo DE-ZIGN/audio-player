@@ -132,7 +132,7 @@ export interface DeliveryResult {
   mismatchedFrames: number;
 }
 
-// A level in dB (dBTP or LUFS) to 0.01 dB, or "-inf" for silence.
+// A level in dB (dBTP or LUFS), unrounded (the page rounds for display), or "-inf" for silence.
 export type Level = number | "-inf";
 
 // The meters on what goes to the output (task 4-4): the values handed to the
