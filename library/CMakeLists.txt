@@ -6,7 +6,8 @@ add_library(ap_library STATIC
     src/sqlite.cpp
     src/migration.cpp
     src/library_schema.cpp
-    src/library_db.cpp)
+    src/library_db.cpp
+    src/scanner.cpp)
 
 target_link_libraries(ap_library PRIVATE ap_sqlite)
 

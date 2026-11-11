@@ -93,7 +93,8 @@ public:
     // Copies the whole database to `target` (overwritten) with SQLite's online backup.
     void backupTo(const std::filesystem::path& target);
 
-    // Rolled back on destruction unless committed.
+    // Rolled back on destruction unless committed. Inside another transaction
+    // it is a savepoint: its own part is undone, the outer one goes on.
     class Transaction
     {
     public:
@@ -105,6 +106,7 @@ public:
 
     private:
         Database& db_;
+        bool nested_ = false;
         bool done_ = false;
     };
 

@@ -229,20 +229,24 @@ void Database::backupTo(const std::filesystem::path& target)
         throw SqliteError(rc, "backup: " + msg);
 }
 
-Database::Transaction::Transaction(Database& db) : db_(db)
+Database::Transaction::Transaction(Database& db) : db_(db), nested_(sqlite3_get_autocommit(db.handle()) == 0)
 {
-    db_.exec("BEGIN IMMEDIATE");
+    db_.exec(nested_ ? "SAVEPOINT nested" : "BEGIN IMMEDIATE");
 }
 
 Database::Transaction::~Transaction()
 {
-    if (!done_)
+    if (done_)
+        return;
+    if (nested_)
+        sqlite3_exec(db_.handle(), "ROLLBACK TO nested; RELEASE nested", nullptr, nullptr, nullptr);
+    else
         sqlite3_exec(db_.handle(), "ROLLBACK", nullptr, nullptr, nullptr);
 }
 
 void Database::Transaction::commit()
 {
-    db_.exec("COMMIT");
+    db_.exec(nested_ ? "RELEASE nested" : "COMMIT");
     done_ = true;
 }
 

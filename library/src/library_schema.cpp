@@ -131,8 +131,16 @@ CREATE TABLE plays (
 CREATE INDEX plays_track ON plays (track_id);
 )sql";
 
+constexpr std::string_view kV2 = R"sql(
+-- Files whose tags are to be read (again): added, or changed on disk (task
+-- 5-2). Reading them is task 5-3. Files already in the library are read once.
+ALTER TABLE files ADD COLUMN needs_read INTEGER NOT NULL DEFAULT 1 CHECK (needs_read IN (0, 1));
+CREATE INDEX files_needs_read ON files (id) WHERE needs_read = 1;
+)sql";
+
 constexpr Migration kMigrations[] = {
     {1, "files, tracks, three layers of values, analysis, provenance findings, plays", kV1},
+    {2, "files.needs_read", kV2},
 };
 
 } // namespace
