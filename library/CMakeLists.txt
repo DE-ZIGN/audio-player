@@ -7,7 +7,9 @@ add_library(ap_library STATIC
     src/migration.cpp
     src/library_schema.cpp
     src/library_db.cpp
-    src/scanner.cpp)
+    src/scanner.cpp
+    src/folder_watcher.cpp
+    src/library_monitor.cpp)
 
 target_link_libraries(ap_library PRIVATE ap_sqlite)
 
