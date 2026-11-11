@@ -13,11 +13,10 @@ export type Theme = "amber" | "bluegray";
 
 export interface PlayRequest {
   ids: number[];
-  names: string[];
-  artists: string[];
-  seconds: (number | null)[];
   start: number;
 }
+
+export type Enqueue = (ids: number[], where: "next" | "end") => void;
 
 const PAGE = 200;
 const ROW_H = 30;
@@ -96,10 +95,17 @@ export class LibraryView {
     error: $("error"),
   };
 
+  private readonly menu = $("menu");
+
   constructor(
     private readonly backend: Backend,
     private readonly onPlay: (req: PlayRequest) => void,
+    private readonly onEnqueue: Enqueue,
   ) {
+    // The context menu closes on any click elsewhere, Escape, or scrolling.
+    document.addEventListener("click", () => this.hideMenu());
+    document.addEventListener("keydown", (e) => e.key === "Escape" && this.hideMenu());
+    document.addEventListener("scroll", () => this.hideMenu(), true);
     this.els.search.addEventListener("input", () => {
       clearTimeout(this.searchTimer);
       this.searchTimer = setTimeout(() => {
@@ -379,6 +385,15 @@ export class LibraryView {
         if (i === this.selected) row.classList.add("selected");
         row.addEventListener("click", () => this.select(i));
         row.addEventListener("dblclick", () => void this.playFrom(i));
+        row.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          this.select(i);
+          this.showMenu(e, [
+            ["ここから再生", () => void this.playFrom(i)],
+            ["次に再生", () => this.onEnqueue([r.id], "next")],
+            ["キューの最後に追加", () => this.onEnqueue([r.id], "end")],
+          ]);
+        });
       }
       rows.push(row);
     }
@@ -426,6 +441,14 @@ export class LibraryView {
         el.append(img, title, sub);
         el.title = `${a.album} — ${a.artist}（${a.tracks} 曲）`;
         el.addEventListener("click", () => this.show("album", a));
+        el.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          this.showMenu(e, [
+            ["アルバムを再生", async () => this.onPlay({ ids: await this.albumIds(a), start: 0 })],
+            ["アルバムを次に再生", async () => this.onEnqueue(await this.albumIds(a), "next")],
+            ["アルバムをキューの最後に追加", async () => this.onEnqueue(await this.albumIds(a), "end")],
+          ]);
+        });
       }
       tiles.push(el);
     }
@@ -465,6 +488,36 @@ export class LibraryView {
     }
   }
 
+  private async albumIds(a: AlbumRow): Promise<number[]> {
+    const page = await this.backend.library.tracks({ albumKey: a.key, offset: 0, limit: 2000 });
+    return page.rows.filter((r) => r.present).map((r) => r.id);
+  }
+
+  private showMenu(e: MouseEvent, items: [string, () => void][]) {
+    this.menu.replaceChildren(
+      ...items.map(([label, action]) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        b.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          this.hideMenu();
+          action();
+        });
+        return b;
+      }),
+    );
+    this.menu.hidden = false;
+    const w = this.menu.offsetWidth;
+    const h = this.menu.offsetHeight;
+    this.menu.style.left = `${Math.min(e.clientX, window.innerWidth - w - 4)}px`;
+    this.menu.style.top = `${Math.min(e.clientY, window.innerHeight - h - 4)}px`;
+  }
+
+  private hideMenu() {
+    this.menu.hidden = true;
+  }
+
   // Plays from row i: an album whole (from that track), or the list from that row on.
   private async playFrom(i: number) {
     const lib = this.backend.library;
@@ -481,13 +534,7 @@ export class LibraryView {
     if (rows.length === 0) return this.showError("再生できる曲がありません（ファイルが見つかりません）");
     const clicked = album ? page.rows[i] : page.rows[0];
     const start = Math.max(0, rows.findIndex((r) => r.id === clicked?.id));
-    this.onPlay({
-      ids: rows.map((r) => r.id),
-      names: rows.map((r) => r.title),
-      artists: rows.map((r) => r.artist),
-      seconds: rows.map((r) => r.seconds),
-      start,
-    });
+    this.onPlay({ ids: rows.map((r) => r.id), start });
   }
 
   setPlaying(id: number | null) {

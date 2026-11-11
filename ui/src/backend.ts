@@ -16,6 +16,19 @@ import type {
 } from "./library";
 import { MockLibrary } from "./mockLibrary";
 
+// The play queue as the app holds it (task 6-2). id 0: not from the library.
+export interface QueueItemInfo {
+  id: number;
+  name: string;
+  artist: string;
+  seconds: number | null;
+}
+
+export interface QueueInfo {
+  version: number;
+  items: QueueItemInfo[];
+}
+
 export interface OpenResult {
   ok: boolean;
   cancelled?: boolean;
@@ -31,6 +44,7 @@ export interface LibraryApi {
   albums(q: AlbumQuery): Promise<Page<AlbumRow>>;
   counts(): Promise<LibraryCounts>;
   play(ids: number[], start: number): Promise<ActionResult>; // these tracks as the queue
+  replaceUpcoming(ids: number[]): Promise<void>; // these tracks after the current one
   coverUrl(trackId: number): string;
   onChanged(listener: (c: LibraryCounts) => void): void;
 }
@@ -43,6 +57,9 @@ export interface Backend {
   stop(): Promise<void>;
   seek(frame: number): Promise<void>;
   getStatus(): Promise<PlaybackStatus>;
+  playAt(index: number): Promise<void>;
+  getQueue(): Promise<QueueInfo>;
+  setVolume(db: number | "-inf"): Promise<void>;
   uiReady(): Promise<void>;
   selfTestResult(result: { ok: boolean; log: string[] }): Promise<void>;
   onStatus(listener: (status: PlaybackStatus) => void): void;
@@ -91,6 +108,9 @@ class AppLibrary implements LibraryApi {
   async play(ids: number[], start: number) {
     return ((await this.fn("libraryPlay")(ids, start)) as ActionResult | null) ?? { ok: false };
   }
+  async replaceUpcoming(ids: number[]) {
+    await this.fn("libraryReplaceUpcoming")(ids);
+  }
   coverUrl(trackId: number) {
     return `${this.coverBase}${trackId}.jpg`;
   }
@@ -123,6 +143,15 @@ class AppBackend implements Backend {
   }
   async getStatus() {
     return (await this.fn("getStatus")()) as PlaybackStatus;
+  }
+  async playAt(index: number) {
+    await this.fn("playAt")(index);
+  }
+  async getQueue() {
+    return ((await this.fn("getQueue")()) as QueueInfo | null) ?? { version: 0, items: [] };
+  }
+  async setVolume(db: number | "-inf") {
+    await this.fn("setVolume")(db);
   }
   async uiReady() {
     await this.fn("uiReady")();
@@ -220,6 +249,9 @@ export class MockBackend implements Backend {
   private status: PlaybackStatus = { ...emptyStatus };
   private listeners: ((s: PlaybackStatus) => void)[] = [];
   private timer: ReturnType<typeof setInterval> | undefined;
+  private queueItems: QueueItemInfo[] = [];
+  private queueVersion = 0;
+  private volumeDb: number | "-inf" = 0;
 
   constructor(
     private tracks: MockTrack[] = [{ name: "（試験用）sine_96k_24bit.wav", sampleRate: 96000, seconds: 30 }],
@@ -236,25 +268,76 @@ export class MockBackend implements Backend {
       coverUrl: (id) => lib.coverUrl(id),
       onChanged: (l) => lib.onChanged(l),
       play: async (ids, start) => {
-        const tracks = ids.flatMap((id) => {
+        const found = ids.flatMap((id) => {
           const t = lib.track(id);
-          return t ? [{ name: t.title, sampleRate: t.sampleRate ?? 44100, seconds: t.seconds ?? 200 }] : [];
+          return t ? [t] : [];
         });
-        if (tracks.length === 0) return { ok: false, message: "再生できる曲がありません" };
+        if (found.length === 0) return { ok: false, message: "再生できる曲がありません" };
         this.halt();
-        this.tracks = tracks;
-        const i = Math.min(start, tracks.length - 1);
-        this.update({ ...emptyStatus, state: "stopped", queueLength: tracks.length, ...this.trackFields(i) });
+        this.tracks = found.map((t) => ({ name: t.title, sampleRate: t.sampleRate ?? 44100, seconds: t.seconds ?? 200 }));
+        this.setQueueItems(found.map((t) => ({ id: t.id, name: t.title, artist: t.artist, seconds: t.seconds })));
+        const i = Math.min(start, found.length - 1);
+        this.update({ ...this.withQueue(emptyStatus), state: "stopped", ...this.trackFields(i) });
         await this.play();
         return { ok: true };
+      },
+      replaceUpcoming: async (ids) => {
+        const cur = this.status.queueIndex;
+        const found = ids.flatMap((id) => {
+          const t = lib.track(id);
+          return t ? [t] : [];
+        });
+        this.tracks = [
+          ...this.tracks.slice(0, cur + 1),
+          ...found.map((t) => ({ name: t.title, sampleRate: t.sampleRate ?? 44100, seconds: t.seconds ?? 200 })),
+        ];
+        this.setQueueItems([
+          ...this.queueItems.slice(0, cur + 1),
+          ...found.map((t) => ({ id: t.id, name: t.title, artist: t.artist, seconds: t.seconds })),
+        ]);
+        this.update(this.withQueue(this.status));
       },
     };
   }
 
   async openFile(): Promise<OpenResult> {
     this.halt();
-    this.update({ ...emptyStatus, state: "stopped", queueLength: this.tracks.length, ...this.trackFields(0) });
+    this.setQueueItems(this.tracks.map((t) => ({ id: 0, name: t.name, artist: "", seconds: t.seconds })));
+    this.update({ ...this.withQueue(emptyStatus), state: "stopped", ...this.trackFields(0) });
     return { ok: true };
+  }
+
+  private setQueueItems(items: QueueItemInfo[]) {
+    this.queueItems = items;
+    this.queueVersion++;
+  }
+
+  private withQueue(s: PlaybackStatus): PlaybackStatus {
+    return { ...s, queueLength: this.queueItems.length, queueVersion: this.queueVersion, volumeDb: this.volumeDb };
+  }
+
+  async playAt(index: number) {
+    if (index < 0 || index >= this.tracks.length) return;
+    const wasPlaying = this.status.state === "playing";
+    this.halt();
+    this.update({ ...this.status, ...this.trackFields(index), state: "stopped" });
+    if (wasPlaying) await this.play();
+  }
+
+  async getQueue() {
+    return { version: this.queueVersion, items: this.queueItems.map((i) => ({ ...i })) };
+  }
+
+  async setVolume(db: number | "-inf") {
+    this.volumeDb = db === "-inf" ? db : Math.min(0, db);
+    const processing = this.volumeDb !== 0;
+    const s = this.status;
+    this.update({
+      ...this.withQueue(s),
+      stages: processing ? [{ name: "volume", gainDb: this.volumeDb }] : [],
+      path: s.path && { ...s.path, processing },
+      bitPerfect: s.bitPerfect && { ...s.bitPerfect, bitPerfect: !processing, dither: processing },
+    });
   }
 
   private trackFields(index: number) {

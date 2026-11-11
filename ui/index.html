@@ -20,15 +20,20 @@
           <div class="now-sub"><span id="now-artist"></span><span class="queue" id="queue"></span></div>
         </div>
         <div class="transport">
-          <button id="prev" type="button" class="icon" title="前の曲" aria-label="前の曲" disabled>⏮</button>
-          <button id="play" type="button" class="icon primary" title="再生" aria-label="再生" disabled>▶</button>
-          <button id="stop" type="button" class="icon" title="停止" aria-label="停止" disabled>■</button>
+          <button id="prev" type="button" class="icon" title="前の曲（3 秒より先なら曲の頭へ）" aria-label="前の曲" disabled>⏮</button>
+          <button id="play" type="button" class="icon primary play" title="再生 / 一時停止（スペース）" aria-label="再生" disabled>▶</button>
+          <button id="stop" type="button" class="icon" title="停止（曲の頭へ戻る）" aria-label="停止" disabled>■</button>
           <button id="next" type="button" class="icon" title="次の曲" aria-label="次の曲" disabled>⏭</button>
         </div>
         <div class="seek">
           <span class="time" id="position">0:00</span>
           <input id="seek" type="range" min="0" max="1000" value="0" step="1" disabled aria-label="再生位置" />
           <span class="time" id="duration">0:00</span>
+        </div>
+        <div class="volume-box" title="デジタル音量。100% なら処理をしない（原音経路、BIT-PERFECT になりうる）。下げると 64bit の処理経路を通ります">
+          <button id="mute" type="button" class="icon small plain" aria-label="ミュート">🔊</button>
+          <input id="vol-slider" type="range" min="0" max="1000" value="1000" step="1" aria-label="音量" />
+          <span id="vol-label" class="vol-label">100%</span>
         </div>
         <div class="levels" title="出力に渡す値の True Peak（直近 0.1 秒）。正確な値は「出力の確認」で">
           <div class="level"><span>L</span><div class="bar"><div class="fill" id="level-l"></div></div></div>
@@ -96,7 +101,10 @@
       </main>
 
       <aside class="queue-panel">
-        <h2>再生キュー</h2>
+        <div class="queue-head">
+          <h2>再生キュー</h2>
+          <button id="queue-clear" type="button" class="link" title="今の曲より後を消す">この先を消す</button>
+        </div>
         <div class="queue-count" id="queue-count">—</div>
         <ol class="queue-list" id="queue-list"></ol>
       </aside>
@@ -109,6 +117,9 @@
         <span id="backend-kind" class="backend-kind"></span>
       </footer>
     </div>
+
+    <!-- 曲の右クリックのメニュー -->
+    <div id="menu" class="menu" role="menu" hidden></div>
 
     <!-- 出力の確認（簡易版。経路図とメーターの画面は 6-4） -->
     <dialog id="output-dialog" class="output-dialog">

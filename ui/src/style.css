@@ -257,6 +257,62 @@ button.link {
   color: var(--warn);
 }
 
+/* The play button: a little lift (still flat: no texture). */
+button.play {
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+button.icon.plain {
+  background: none;
+  border-color: transparent;
+}
+.volume-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 170px;
+  min-width: 110px;
+}
+.volume-box input {
+  flex: 1;
+  min-width: 50px;
+  accent-color: var(--accent);
+}
+.vol-label {
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 50px;
+  font-variant-numeric: tabular-nums;
+}
+.vol-label.changed {
+  color: var(--warn);
+}
+
+/* --- context menu ------------------------------------------------------- */
+.menu {
+  position: fixed;
+  z-index: 10;
+  min-width: 200px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 6px 10px;
+}
+.menu button:hover {
+  background: var(--accent-soft);
+}
+
 /* --- side bar ----------------------------------------------------------- */
 .sidebar {
   grid-area: side;
@@ -585,6 +641,30 @@ button.link {
   font-size: 18px;
   font-weight: 600;
 }
+.queue-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.queue-list li .q-remove {
+  visibility: hidden;
+  background: none;
+  border: none;
+  padding: 0 4px;
+  color: var(--muted);
+}
+.queue-list li:hover .q-remove {
+  visibility: visible;
+}
+.queue-list li.past {
+  color: var(--muted);
+}
+.queue-list li.drop-before {
+  box-shadow: 0 -2px 0 var(--accent) inset;
+}
+.queue-list li[draggable="true"] {
+  cursor: grab;
+}
 .queue-count {
   font-size: 12px;
   color: var(--muted);
@@ -599,7 +679,7 @@ button.link {
 }
 .queue-list li {
   display: grid;
-  grid-template-columns: 26px 1fr auto;
+  grid-template-columns: 26px 1fr auto 20px;
   gap: 6px;
   padding: 6px 4px;
   border-bottom: 1px solid var(--line);

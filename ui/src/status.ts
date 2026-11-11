@@ -171,6 +171,8 @@ export interface PlaybackStatus {
   fileName: string; // name of the current track
   queueIndex: number;
   queueLength: number;
+  queueVersion: number; // changes when the queue's tracks change (fetch them with getQueue)
+  volumeDb: number | "-inf"; // the digital volume (0: 100%)
   transitions: TrackTransition[]; // most recent last (the app sends the last few)
   sourceFormat: FormatInfo | null;
   outputFormat: FormatInfo | null;
@@ -195,6 +197,8 @@ export const emptyStatus: PlaybackStatus = {
   fileName: "",
   queueIndex: 0,
   queueLength: 0,
+  queueVersion: 0,
+  volumeDb: 0,
   transitions: [],
   sourceFormat: null,
   outputFormat: null,

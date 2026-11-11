@@ -1,5 +1,6 @@
 import "./style.css";
-import { createBackend, type Backend } from "./backend";
+import { createBackend, type Backend, type QueueInfo } from "./backend";
+import { afterInsert, afterMove, afterRemove, dbToSlider, sliderToDb, volumeLabel, type Db } from "./queueOps";
 import { countsText } from "./libraryFormat";
 import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
 import { lengthText } from "./libraryFormat";
@@ -54,6 +55,10 @@ const els = {
   outputClose: $<HTMLButtonElement>("output-close"),
   queueCount: $("queue-count"),
   queueList: $("queue-list"),
+  queueClear: $<HTMLButtonElement>("queue-clear"),
+  volSlider: $<HTMLInputElement>("vol-slider"),
+  volLabel: $("vol-label"),
+  mute: $<HTMLButtonElement>("mute"),
   counts: $("counts"),
   statusDot: $("status-dot"),
   transitions: $("transitions"),
@@ -87,10 +92,15 @@ const SEEK_STEPS = 1000;
 let dragging = false;
 let current: PlaybackStatus | null = null;
 
-// What was asked to play from the library (the status knows only names and indices).
-let queue: PlayRequest | null = null;
+// The play queue as the app holds it (task 6-2), fetched when its version changes.
+let queue: QueueInfo = { version: -1, items: [] };
+let queueFetching = false;
 let library: LibraryView | null = null;
 let backend: Backend;
+let volumeDragging = false;
+let unmutedDb: Db = 0;
+
+const queueIds = () => queue.items.map((i) => i.id);
 
 function levelWidth(db: number | "-inf" | undefined): number {
   if (db === undefined || db === "-inf") return 0;
@@ -98,10 +108,11 @@ function levelWidth(db: number | "-inf" | undefined): number {
 }
 
 function renderTopBar(s: PlaybackStatus) {
-  const id = queue && s.queueIndex < queue.ids.length ? queue.ids[s.queueIndex] : null;
+  const item = queue.items[s.queueIndex];
+  const id = item && item.id > 0 ? item.id : null;
   const loaded = s.state !== "empty";
   els.fileName.textContent = loaded ? s.fileName : "曲を選んでください";
-  els.nowArtist.textContent = queue && loaded ? queue.artists[s.queueIndex] ?? "" : "";
+  els.nowArtist.textContent = loaded ? item?.artist ?? "" : "";
   const cover = id !== null ? backend.library.coverUrl(id) : "";
   if (els.nowCover.dataset.src !== cover) {
     els.nowCover.dataset.src = cover;
@@ -131,49 +142,96 @@ function renderTopBar(s: PlaybackStatus) {
     }),
   );
 
-  const hasQueue = !!queue && loaded;
-  els.prev.disabled = !hasQueue || s.queueIndex <= 0;
-  els.next.disabled = !hasQueue || s.queueIndex + 1 >= (queue?.ids.length ?? 0);
+  els.prev.disabled = !loaded;
+  els.next.disabled = !loaded || s.queueIndex + 1 >= s.queueLength;
+  const playing = s.state === "playing";
+  els.play.textContent = playing ? "❚❚" : "▶";
+  els.play.title = playing ? "一時停止（スペース）" : "再生（スペース）";
+  els.play.setAttribute("aria-label", playing ? "一時停止" : "再生");
+
+  // The volume as the app has it (unless the slider is being moved).
+  if (!volumeDragging) els.volSlider.value = String(Math.round(dbToSlider(s.volumeDb) * 1000));
+  els.volLabel.textContent = volumeLabel(s.volumeDb);
+  els.volLabel.classList.toggle("changed", s.volumeDb !== 0);
+  els.mute.textContent = s.volumeDb === "-inf" ? "🔇" : "🔊";
 }
+
+let drawnQueue = { version: -2, index: -1, state: "" };
+let dragFrom = -1;
 
 function renderQueue(s: PlaybackStatus) {
   const loaded = s.state !== "empty";
-  if (!queue) {
-    els.queueCount.textContent = loaded ? `${s.queueLength} 曲（ファイルを開いて再生）` : "—";
-    els.queueList.replaceChildren();
-    return;
+  if (s.queueVersion !== queue.version && !queueFetching) {
+    queueFetching = true;
+    void backend.getQueue().then((q) => {
+      queue = q;
+      queueFetching = false;
+      if (current) render(current);
+    });
   }
-  els.queueCount.textContent = `${queue.ids.length} 曲`;
-  const items = els.queueList.children;
-  if (items.length !== queue.ids.length) {
-    els.queueList.replaceChildren(
-      ...queue.names.map((name, i) => {
-        const li = document.createElement("li");
-        const no = document.createElement("span");
-        no.className = "q-no";
-        no.textContent = String(i + 1);
-        const n = document.createElement("span");
-        n.className = "q-name";
-        n.textContent = name;
-        n.title = `${name}${queue!.artists[i] ? ` — ${queue!.artists[i]}` : ""}`;
-        const t = document.createElement("span");
-        t.className = "q-time";
-        t.textContent = lengthText(queue!.seconds[i]);
-        li.append(no, n, t);
-        li.addEventListener("dblclick", () => void playRequest({ ...queue!, start: i }));
-        return li;
-      }),
-    );
-  }
-  for (let i = 0; i < items.length; i++) {
-    const li = items[i] as HTMLElement;
-    const now = loaded && i === s.queueIndex;
-    if (li.classList.contains("current") !== now) {
+  const fromFiles = queue.items.some((i) => i.id === 0);
+  els.queueCount.textContent = !loaded
+    ? "—"
+    : `${queue.items.length} 曲${fromFiles ? "（ファイルを開いて再生）" : ""}・あと ${Math.max(0, queue.items.length - s.queueIndex - 1)} 曲`;
+  els.queueClear.disabled = !loaded || s.queueIndex + 1 >= queue.items.length || fromFiles;
+  if (drawnQueue.version === queue.version && drawnQueue.index === s.queueIndex && drawnQueue.state === s.state) return;
+  drawnQueue = { version: queue.version, index: s.queueIndex, state: s.state };
+
+  els.queueList.replaceChildren(
+    ...queue.items.map((item, i) => {
+      const li = document.createElement("li");
+      const now = loaded && i === s.queueIndex;
       li.classList.toggle("current", now);
-      (li.firstElementChild as HTMLElement).textContent = now && s.state === "playing" ? "▶" : String(i + 1);
-      if (now) li.scrollIntoView({ block: "nearest" });
-    }
-  }
+      li.classList.toggle("past", loaded && i < s.queueIndex);
+      const no = document.createElement("span");
+      no.className = "q-no";
+      no.textContent = now && s.state === "playing" ? "▶" : String(i + 1);
+      const n = document.createElement("span");
+      n.className = "q-name";
+      n.textContent = item.name;
+      n.title = `${item.name}${item.artist ? ` — ${item.artist}` : ""}`;
+      const t = document.createElement("span");
+      t.className = "q-time";
+      t.textContent = lengthText(item.seconds);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "q-remove";
+      remove.textContent = "×";
+      remove.title = "キューから外す";
+      const upcoming = loaded && i > s.queueIndex && !fromFiles;
+      remove.hidden = !upcoming;
+      remove.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const next = afterRemove(queueIds(), s.queueIndex, i);
+        if (next) void backend.library.replaceUpcoming(next);
+      });
+      li.append(no, n, t, remove);
+      li.addEventListener("dblclick", () => void backend.playAt(i));
+      if (upcoming) {
+        // Drag to reorder what comes next.
+        li.draggable = true;
+        li.addEventListener("dragstart", (e) => {
+          dragFrom = i;
+          e.dataTransfer?.setData("text/plain", String(i));
+        });
+        li.addEventListener("dragover", (e) => {
+          if (dragFrom < 0) return;
+          e.preventDefault();
+          li.classList.add("drop-before");
+        });
+        li.addEventListener("dragleave", () => li.classList.remove("drop-before"));
+        li.addEventListener("drop", (e) => {
+          e.preventDefault();
+          li.classList.remove("drop-before");
+          const next = afterMove(queueIds(), s.queueIndex, dragFrom, i);
+          dragFrom = -1;
+          if (next) void backend.library.replaceUpcoming(next);
+        });
+      }
+      if (now) requestAnimationFrame(() => li.scrollIntoView({ block: "nearest" }));
+      return li;
+    }),
+  );
 }
 
 function render(s: PlaybackStatus) {
@@ -214,7 +272,7 @@ function render(s: PlaybackStatus) {
     ? describeFormat(s.outputFormat) + (rateChange ? `（${rateChange}）` : "")
     : "—";
   els.repack.textContent = s.outputFormat ? repackText(s) : "—";
-  els.queue.textContent = queue ? "" : queueText(s);
+  els.queue.textContent = queue.items.some((i) => i.id > 0) ? "" : queueText(s);
   const started = s.outputFormat !== null;
   els.dropouts.textContent = started ? dropoutText(s.dropouts) : "—";
   els.priority.textContent = started ? priorityText(s.dropouts.realtimePriority) : "—";
@@ -245,8 +303,6 @@ function render(s: PlaybackStatus) {
 }
 
 async function playRequest(req: PlayRequest) {
-  queue = req;
-  els.queueList.replaceChildren(); // drawn again for the new queue
   const r = await backend.library.play(req.ids, req.start);
   if (!r.ok && r.message) {
     els.error.hidden = false;
@@ -254,6 +310,36 @@ async function playRequest(req: PlayRequest) {
     els.error.textContent = r.message;
   }
   render(await backend.getStatus());
+}
+
+// "Play next" and "add to the end" (task 6-2): the tracks after the current
+// one are replaced; the current track plays on.
+async function enqueue(ids: number[], where: "next" | "end") {
+  if (ids.length === 0) return;
+  const loaded = current !== null && current.state !== "empty";
+  if (!loaded || queue.items.length === 0) return playRequest({ ids, start: 0 });
+  if (queue.items.some((i) => i.id === 0)) {
+    els.error.hidden = false;
+    els.error.dataset.from = "action";
+    els.error.textContent = "ファイルを開いて再生している列には、ライブラリの曲を足せません（ライブラリから再生し直してください）";
+    return;
+  }
+  await backend.library.replaceUpcoming(afterInsert(queueIds(), current!.queueIndex, ids, where));
+}
+
+async function togglePlay() {
+  if (!current || current.state === "empty") return;
+  if (current.state === "playing") await backend.stop(); // a pause: the position stays
+  else await backend.play();
+}
+
+function setVolume(db: Db) {
+  void backend.setVolume(db);
+  try {
+    localStorage.setItem("volumeDb", String(db));
+  } catch {
+    // not kept
+  }
 }
 
 function seekTarget(): number {
@@ -266,7 +352,11 @@ async function main() {
   backend = await createBackend();
   els.backendKind.textContent = backend.kind === "mock" ? "模擬エンジン（ブラウザー単体で表示中）" : "";
 
-  library = new LibraryView(backend, (req) => void playRequest(req));
+  library = new LibraryView(
+    backend,
+    (req) => void playRequest(req),
+    (ids, where) => void enqueue(ids, where),
+  );
   backend.onStatus(render);
   backend.library.onChanged((c) => {
     els.counts.textContent = countsText(c);
@@ -285,13 +375,52 @@ async function main() {
       els.error.dataset.from = "action";
       els.error.textContent = r.message;
     }
-    if (r.ok) queue = null; // a file queue, not the library's
     render(await backend.getStatus());
   });
-  els.play.addEventListener("click", () => void backend.play());
-  els.stop.addEventListener("click", () => void backend.stop());
-  els.prev.addEventListener("click", () => queue && current && void playRequest({ ...queue, start: current.queueIndex - 1 }));
-  els.next.addEventListener("click", () => queue && current && void playRequest({ ...queue, start: current.queueIndex + 1 }));
+  els.play.addEventListener("click", () => void togglePlay());
+  els.stop.addEventListener("click", async () => {
+    await backend.stop();
+    await backend.seek(0);
+  });
+  els.prev.addEventListener("click", () => {
+    if (!current) return;
+    const rate = current.sourceFormat?.sampleRate ?? 0;
+    // Past the first 3 seconds: back to the start of this track; else the previous one.
+    if (rate > 0 && current.positionFrames > rate * 3) void backend.seek(0);
+    else if (current.queueIndex > 0) void backend.playAt(current.queueIndex - 1);
+    else void backend.seek(0);
+  });
+  els.next.addEventListener("click", () => current && void backend.playAt(current.queueIndex + 1));
+  els.queueClear.addEventListener("click", () => void backend.library.replaceUpcoming([]));
+  document.addEventListener("keydown", (e) => {
+    const t = e.target as HTMLElement;
+    if (e.code !== "Space" || ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(t.tagName)) return;
+    e.preventDefault();
+    void togglePlay();
+  });
+
+  // The digital volume: 100% (top) is no processing; the last setting is kept.
+  els.volSlider.addEventListener("input", () => {
+    volumeDragging = true;
+    const db = sliderToDb(Number(els.volSlider.value) / 1000);
+    els.volLabel.textContent = volumeLabel(db);
+    setVolume(db);
+  });
+  els.volSlider.addEventListener("change", () => (volumeDragging = false));
+  els.mute.addEventListener("click", () => {
+    const now = current?.volumeDb ?? 0;
+    if (now === "-inf") setVolume(unmutedDb === "-inf" ? 0 : unmutedDb);
+    else {
+      unmutedDb = now;
+      setVolume("-inf");
+    }
+  });
+  try {
+    const saved = localStorage.getItem("volumeDb");
+    if (saved !== null) setVolume(saved === "-inf" ? "-inf" : Math.min(0, Number(saved) || 0));
+  } catch {
+    // no storage: 100%
+  }
   els.output.addEventListener("click", () => els.outputDialog.showModal());
   els.outputClose.addEventListener("click", () => els.outputDialog.close());
 
