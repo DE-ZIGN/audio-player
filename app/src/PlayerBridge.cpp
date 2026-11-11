@@ -235,7 +235,12 @@ juce::var formatVar(const PcmFormat& f)
 PlayerBridge::PlayerBridge(Player::OutputFactory outputFactory, bool allowDop)
     : player_(outputFactory ? std::move(outputFactory)
                             : Player::OutputFactory([] { return std::make_unique<WasapiExclusiveOutput>(); }),
-              PlaybackOptions{.allowRepack = true, .allowDop = allowDop})
+              PlaybackOptions{.allowRepack = true,
+                              .allowDop = allowDop,
+                              // The digital volume (task 6-2). At 0 dB the chain is bypassed:
+                              // the direct, bit-perfect path (task 3-2).
+                              .processing = std::make_shared<ProcessingChain>(
+                                  std::vector<std::shared_ptr<ProcessingStage>>{volume_})})
 {
     startTimerHz(10);
 }
@@ -270,6 +275,38 @@ juce::WebBrowserComponent::Options PlayerBridge::registerFunctions(juce::WebBrow
             done(true);
         })
         .withNativeFunction("getStatus", [this](Args, Completion done) { done(statusAsVar()); })
+        .withNativeFunction("playAt", [this](Args args, Completion done) {
+            if (!args.isEmpty())
+                player_.playAt(static_cast<std::size_t>(std::max<juce::int64>(0, static_cast<juce::int64>(args[0]))));
+            pushStatus(true);
+            done(true);
+        })
+        .withNativeFunction("getQueue", [this](Args, Completion done) {
+            juce::Array<juce::var> items;
+            for (const auto& m : queueMeta_)
+            {
+                auto* o = new juce::DynamicObject();
+                o->setProperty("id", static_cast<juce::int64>(m.id));
+                o->setProperty("name", juce::String::fromUTF8(m.name.c_str()));
+                o->setProperty("artist", juce::String::fromUTF8(m.artist.c_str()));
+                o->setProperty("seconds", m.seconds ? juce::var(*m.seconds) : juce::var());
+                items.add(juce::var(o));
+            }
+            auto* q = new juce::DynamicObject();
+            q->setProperty("version", queueVersion_);
+            q->setProperty("items", items);
+            done(juce::var(q));
+        })
+        .withNativeFunction("setVolume", [this](Args args, Completion done) {
+            if (!args.isEmpty())
+            {
+                const auto& v = args[0];
+                const double db = v.isString() ? -HUGE_VAL : static_cast<double>(v);
+                volume_->setGainDb(std::isnan(db) ? 0.0 : std::min(0.0, db));
+            }
+            pushStatus(true);
+            done(true);
+        })
         .withNativeFunction("uiReady", [this](Args, Completion done) {
             done(true);
             if (onUiReady)
@@ -315,6 +352,10 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
                              return std::make_unique<PrefetchingSource>(openAudioFile(path));
                          }});
     }
+    queueMeta_.clear();
+    for (const auto& file : files)
+        queueMeta_.push_back({0, file.getFileName().toStdString(), {}, std::nullopt});
+    ++queueVersion_;
 
     player_.setQueue(std::move(items));
     pushStatus(true);
@@ -324,18 +365,38 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
     return {};
 }
 
+QueueItem PlayerBridge::itemFor(const QueueFile& f)
+{
+    auto path = f.path;
+    return QueueItem{f.name, [path] { return std::make_unique<PrefetchingSource>(openAudioFile(path)); }, f.replayGain};
+}
+
+void PlayerBridge::replaceUpcoming(std::vector<QueueFile> files)
+{
+    const auto current = player_.status().queueIndex;
+    std::vector<QueueItem> items;
+    for (const auto& f : files)
+        items.push_back(itemFor(f));
+    player_.replaceUpcoming(std::move(items));
+    if (queueMeta_.size() > current + 1)
+        queueMeta_.resize(current + 1);
+    for (auto& f : files)
+        queueMeta_.push_back({f.libraryId, std::move(f.name), std::move(f.artist), f.seconds});
+    ++queueVersion_;
+    pushStatus(true);
+}
+
 juce::String PlayerBridge::playQueue(std::vector<QueueFile> files, std::size_t start)
 {
     std::vector<QueueItem> items;
-    for (auto& f : files)
-    {
-        auto path = f.path;
-        items.push_back(QueueItem{std::move(f.name),
-                                  [path] { return std::make_unique<PrefetchingSource>(openAudioFile(path)); },
-                                  f.replayGain});
-    }
+    for (const auto& f : files)
+        items.push_back(itemFor(f));
     if (items.empty())
         return juce::String::fromUTF8("再生する曲がありません");
+    queueMeta_.clear();
+    for (auto& f : files)
+        queueMeta_.push_back({f.libraryId, std::move(f.name), std::move(f.artist), f.seconds});
+    ++queueVersion_;
     player_.setQueue(std::move(items), std::min(start, files.size() - 1));
     auto s = player_.status();
     if (s.state == PlayerState::Error)
@@ -381,6 +442,9 @@ juce::var PlayerBridge::statusAsVar() const
     o->setProperty("fileName", juce::String::fromUTF8(s.trackName.c_str()));
     o->setProperty("queueIndex", static_cast<int>(s.queueIndex));
     o->setProperty("queueLength", static_cast<int>(s.queueLength));
+    o->setProperty("queueVersion", queueVersion_);
+    const double vol = volume_->gainDb();
+    o->setProperty("volumeDb", std::isfinite(vol) ? juce::var(vol) : juce::var("-inf"));
 
     juce::Array<juce::var> transitions;
     const std::size_t first = s.transitions.size() > 5 ? s.transitions.size() - 5 : 0;
@@ -510,6 +574,12 @@ void PlayerBridge::pushStatus(bool force)
 
 void PlayerBridge::timerCallback()
 {
+    if (onPoll)
+    {
+        const auto s = player_.status();
+        const auto id = s.queueIndex < queueMeta_.size() ? queueMeta_[s.queueIndex].id : 0;
+        onPoll(s, id);
+    }
     pushStatus(false);
 }
 

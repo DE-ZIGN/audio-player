@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ap/engine/dsp/volume.h>
 #include <ap/engine/player.h>
 
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -20,6 +21,9 @@ namespace ap::app {
 //   play(), stop(), seek(frame)
 //   getStatus()  returns the current status object
 //   uiReady()    the page has finished starting up
+//   playAt(i)    goes to queue track i (task 6-2)
+//   getQueue()   { version, items: [{ id, name, artist, seconds }] }; id 0: not from the library
+//   setVolume(dB) the digital volume (0 = 100%: no processing, bit-perfect; "-inf" mutes)
 // Event (C++ -> JavaScript): "playbackStatus" with the status object,
 // sent at most 10 times per second and only when it changed.
 class PlayerBridge final : private juce::Timer
@@ -49,8 +53,17 @@ public:
         std::string name;
         std::filesystem::path path;
         std::optional<ap::engine::ReplayGainInfo> replayGain;
+        std::int64_t libraryId = 0; // 0: not from the library
+        std::string artist;
+        std::optional<double> seconds;
     };
     juce::String playQueue(std::vector<QueueFile> files, std::size_t start);
+    // Replaces the tracks after the current one; the current track plays on (task 6-2).
+    void replaceUpcoming(std::vector<QueueFile> files);
+
+    // Looked at 10 times a second with the library id of the current track
+    // (0: none or not from the library), for counting plays (task 6-2).
+    std::function<void(const ap::engine::PlayerStatus&, std::int64_t libraryId)> onPoll;
 
     juce::var statusAsVar() const;
 
@@ -58,6 +71,17 @@ private:
     void timerCallback() override;
     void openFileAsync(juce::WebBrowserComponent::NativeFunctionCompletion completion);
     void pushStatus(bool force);
+    static ap::engine::QueueItem itemFor(const QueueFile& f);
+
+    struct QueueMeta
+    {
+        std::int64_t id = 0;
+        std::string name, artist;
+        std::optional<double> seconds;
+    };
+    std::shared_ptr<ap::engine::VolumeStage> volume_ = std::make_shared<ap::engine::VolumeStage>();
+    std::vector<QueueMeta> queueMeta_; // parallel to the player's queue
+    int queueVersion_ = 0;
 
     ap::engine::Player player_;
     juce::WebBrowserComponent* browser_ = nullptr;

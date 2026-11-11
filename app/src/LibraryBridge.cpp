@@ -119,8 +119,8 @@ juce::var page(const juce::Array<juce::var>& rows, std::size_t total)
 
 } // namespace
 
-LibraryBridge::LibraryBridge(juce::File folder, PlayQueue playQueue)
-    : folder_(std::move(folder)), playQueue_(std::move(playQueue))
+LibraryBridge::LibraryBridge(juce::File folder, PlayQueue playQueue, ReplaceUpcoming replaceUpcoming)
+    : folder_(std::move(folder)), playQueue_(std::move(playQueue)), replaceUpcoming_(std::move(replaceUpcoming))
 {
     folder_.createDirectory();
     databaseFile_ = fs::path(folder_.getChildFile("library.db").getFullPathName().toWideCharPointer());
@@ -146,7 +146,57 @@ LibraryBridge::LibraryBridge(juce::File folder, PlayQueue playQueue)
 LibraryBridge::~LibraryBridge()
 {
     stopTimer();
+    record(plays_.finish()); // the play going on when the app closes
     monitor_.reset();
+}
+
+void LibraryBridge::observe(const ap::engine::PlayerStatus& s, std::int64_t libraryId)
+{
+    const auto rate = s.sourceFormat ? s.sourceFormat->sampleRate : 0u;
+    record(plays_.observe({libraryId, s.positionFrames, s.totalFrames, rate,
+                           s.state == ap::engine::PlayerState::Playing, nowUnixMs()}));
+}
+
+void LibraryBridge::record(const std::vector<std::pair<std::int64_t, PlayRecord>>& plays)
+{
+    if (!db_)
+        return;
+    for (const auto& [id, play] : plays)
+    {
+        try
+        {
+            recordPlay(*db_, id, play);
+        }
+        catch (const std::exception&)
+        {
+            // A play that cannot be written (the track was removed meanwhile) is let go.
+        }
+    }
+}
+
+std::vector<LibraryBridge::QueueEntry> LibraryBridge::entriesFor(const juce::var& idList)
+{
+    std::vector<QueueEntry> entries;
+    if (const auto* ids = idList.getArray())
+        for (const auto& idVar : *ids)
+        {
+            const auto id = static_cast<juce::int64>(idVar);
+            auto st = db_->database().prepare(
+                "SELECT f.path, d.title, d.artist, t.frames * 1.0 / COALESCE(t.sample_rate, t.dsd_rate) "
+                "FROM tracks AS t JOIN files AS f ON f.id = t.file_id "
+                "JOIN track_display AS d ON d.track_id = t.id WHERE t.id = ? AND f.present = 1");
+            st.bind(1, static_cast<std::int64_t>(id));
+            if (!st.step())
+                continue;
+            const auto p = st.text(0);
+            QueueEntry e{st.text(1), fs::path(std::u8string(p.begin(), p.end())), replayGainOf(*db_, id)};
+            e.id = id;
+            e.artist = st.text(2);
+            if (!st.isNull(3))
+                e.seconds = st.real(3);
+            entries.push_back(std::move(e));
+        }
+    return entries;
 }
 
 void LibraryBridge::restartMonitor()
@@ -269,23 +319,12 @@ juce::WebBrowserComponent::Options LibraryBridge::registerFunctions(juce::WebBro
             return page(rows, p.total);
         }))
         .withNativeFunction("libraryCounts", [this](Args, Completion done) { done(counts()); })
+        .withNativeFunction("libraryReplaceUpcoming", guarded([this](Args args) {
+            replaceUpcoming_(entriesFor(args.isEmpty() ? juce::var() : args[0]));
+            return juce::var(true);
+        }))
         .withNativeFunction("libraryPlay", guarded([this](Args args) {
-            std::vector<QueueEntry> entries;
-            if (args.size() >= 1)
-                if (const auto* ids = args[0].getArray())
-                    for (const auto& idVar : *ids)
-                    {
-                        const auto id = static_cast<juce::int64>(idVar);
-                        auto st = db_->database().prepare(
-                            "SELECT f.path, d.title FROM tracks AS t JOIN files AS f ON f.id = t.file_id "
-                            "JOIN track_display AS d ON d.track_id = t.id WHERE t.id = ? AND f.present = 1");
-                        st.bind(1, static_cast<std::int64_t>(id));
-                        if (!st.step())
-                            continue;
-                        const auto p = st.text(0);
-                        entries.push_back({st.text(1), fs::path(std::u8string(p.begin(), p.end())),
-                                           replayGainOf(*db_, id)});
-                    }
+            auto entries = entriesFor(args.isEmpty() ? juce::var() : args[0]);
             const auto start = args.size() >= 2 ? static_cast<std::size_t>(std::max(0, static_cast<int>(args[1]))) : 0;
             auto* o = new juce::DynamicObject();
             if (entries.empty())

@@ -28,17 +28,26 @@ ap::engine::Player::OutputFactory outputFactoryFor(const MainOptions& o)
     };
 }
 
+std::vector<PlayerBridge::QueueFile> toFiles(std::vector<LibraryBridge::QueueEntry> entries)
+{
+    std::vector<PlayerBridge::QueueFile> files;
+    for (auto& e : entries)
+        files.push_back({std::move(e.name), std::move(e.path), e.replayGain, e.id, std::move(e.artist), e.seconds});
+    return files;
+}
+
 } // namespace
 
 MainComponent::MainComponent(MainOptions options)
     : options_(std::move(options)), bridge_(outputFactoryFor(options_), options_.allowDop),
-      library_(options_.libraryFolder, [this](std::vector<LibraryBridge::QueueEntry> entries, std::size_t start) {
-          std::vector<PlayerBridge::QueueFile> files;
-          for (auto& e : entries)
-              files.push_back({std::move(e.name), std::move(e.path), e.replayGain});
-          return bridge_.playQueue(std::move(files), start);
-      })
+      library_(
+          options_.libraryFolder,
+          [this](std::vector<LibraryBridge::QueueEntry> entries, std::size_t start) {
+              return bridge_.playQueue(toFiles(std::move(entries)), start);
+          },
+          [this](std::vector<LibraryBridge::QueueEntry> entries) { bridge_.replaceUpcoming(toFiles(std::move(entries))); })
 {
+    bridge_.onPoll = [this](const ap::engine::PlayerStatus& s, std::int64_t id) { library_.observe(s, id); };
     setSize(1280, 800); // the library view (task 6-1): a list, the side bar and the queue side by side
     bridge_.onUiReady = options_.onUiReady;
     bridge_.onSelfTestResult = options_.onSelfTestResult;

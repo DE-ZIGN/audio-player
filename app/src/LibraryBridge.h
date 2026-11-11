@@ -1,6 +1,8 @@
 #pragma once
 
+#include <ap/engine/player.h>
 #include <ap/engine/track_info.h>
+#include <ap/library/history.h>
 #include <ap/library/library_db.h>
 #include <ap/library/library_monitor.h>
 
@@ -31,6 +33,8 @@ namespace ap::app {
 //   libraryAlbums(query)     { rows, total }; query { search, sort, descending, offset, limit }
 //   libraryCounts()          { tracks, missing, albums, toMeasure, scanning }
 //   libraryPlay(ids, start)  plays these tracks as the queue, from ids[start]
+//   libraryReplaceUpcoming(ids)  these tracks after the current one (task 6-2)
+// Plays are counted from what the player reports (observe(), task 6-2).
 // Event (C++ -> JavaScript): "libraryChanged" with the counts, when they change
 // (looked at once a second).
 class LibraryBridge final : private juce::Timer
@@ -41,11 +45,18 @@ public:
         std::string name; // shown while playing
         std::filesystem::path path;
         std::optional<ap::engine::ReplayGainInfo> replayGain;
+        std::int64_t id = 0;
+        std::string artist;
+        std::optional<double> seconds;
     };
     using PlayQueue = std::function<juce::String(std::vector<QueueEntry>, std::size_t start)>;
+    using ReplaceUpcoming = std::function<void(std::vector<QueueEntry>)>;
 
     // `folder` holds the database and the cover cache; created when missing.
-    LibraryBridge(juce::File folder, PlayQueue playQueue);
+    LibraryBridge(juce::File folder, PlayQueue playQueue, ReplaceUpcoming replaceUpcoming);
+
+    // What the player reports, 10 times a second, with the current track's library id.
+    void observe(const ap::engine::PlayerStatus& status, std::int64_t libraryId);
     ~LibraryBridge() override;
 
     juce::WebBrowserComponent::Options registerFunctions(juce::WebBrowserComponent::Options options);
@@ -62,11 +73,15 @@ private:
     void restartMonitor();
     void addFolderAsync(juce::WebBrowserComponent::NativeFunctionCompletion completion);
     juce::var counts();
+    std::vector<QueueEntry> entriesFor(const juce::var& ids);
+    void record(const std::vector<std::pair<std::int64_t, ap::library::PlayRecord>>& plays);
 
     juce::File folder_;
     std::filesystem::path databaseFile_;
     std::filesystem::path coverCache_;
     PlayQueue playQueue_;
+    ReplaceUpcoming replaceUpcoming_;
+    ap::library::PlayCounter plays_;
     std::unique_ptr<ap::library::LibraryDb> db_; // the screen's connection (message thread)
     std::unique_ptr<ap::library::LibraryMonitor> monitor_;
     juce::WebBrowserComponent* browser_ = nullptr;
