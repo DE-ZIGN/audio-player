@@ -1,0 +1,17 @@
+{
+  "language": "japanese",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -X utf8 \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_japanese_reply.py\"",
+            "timeout": 20,
+            "statusMessage": "返答が日本語かを確認中"
+          }
+        ]
+      }
+    ]
+  }
+}
