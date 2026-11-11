@@ -17,6 +17,8 @@ target_sources(ap_app PRIVATE
     src/MainComponent.h
     src/PlayerBridge.cpp
     src/PlayerBridge.h
+    src/LibraryBridge.cpp
+    src/LibraryBridge.h
     src/UiResources.cpp
     src/UiResources.h)
 
@@ -32,6 +34,7 @@ target_compile_definitions(ap_app PRIVATE
 target_link_libraries(ap_app
     PRIVATE
         ap_engine
+        ap_library
         juce::juce_core
         juce::juce_events
         juce::juce_graphics

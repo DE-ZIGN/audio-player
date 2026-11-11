@@ -324,6 +324,30 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
     return {};
 }
 
+juce::String PlayerBridge::playQueue(std::vector<QueueFile> files, std::size_t start)
+{
+    std::vector<QueueItem> items;
+    for (auto& f : files)
+    {
+        auto path = f.path;
+        items.push_back(QueueItem{std::move(f.name),
+                                  [path] { return std::make_unique<PrefetchingSource>(openAudioFile(path)); },
+                                  f.replayGain});
+    }
+    if (items.empty())
+        return juce::String::fromUTF8("再生する曲がありません");
+    player_.setQueue(std::move(items), std::min(start, files.size() - 1));
+    auto s = player_.status();
+    if (s.state == PlayerState::Error)
+    {
+        pushStatus(true);
+        return juce::String::fromUTF8("ファイルを開けませんでした: ") + juce::String::fromUTF8(s.error.detail.c_str());
+    }
+    player_.play();
+    pushStatus(true);
+    return {};
+}
+
 void PlayerBridge::openFileAsync(juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     chooser_ = std::make_unique<juce::FileChooser>(juce::String::fromUTF8("音声ファイルを開く（複数選べます）"),

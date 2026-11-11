@@ -4,7 +4,11 @@
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
+#include <filesystem>
 #include <functional>
+#include <optional>
+#include <string>
+#include <vector>
 #include <memory>
 
 namespace ap::app {
@@ -36,6 +40,17 @@ public:
     // string on success, else a Japanese message.
     juce::String loadFiles(juce::Array<juce::File> files);
     juce::String load(const juce::File& file);
+
+    // Plays tracks from the library as the queue, from `start` (task 6-1).
+    // Each carries its measured ReplayGain values (task 5-6). Returns an empty
+    // string on success, else a Japanese message.
+    struct QueueFile
+    {
+        std::string name;
+        std::filesystem::path path;
+        std::optional<ap::engine::ReplayGainInfo> replayGain;
+    };
+    juce::String playQueue(std::vector<QueueFile> files, std::size_t start);
 
     juce::var statusAsVar() const;
 

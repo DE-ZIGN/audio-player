@@ -1,5 +1,6 @@
 #pragma once
 
+#include "LibraryBridge.h"
 #include "PlayerBridge.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -17,6 +18,8 @@ struct MainOptions
     juce::File uiRoot;
     // Send DSD files as DoP (only for DACs that decode DoP; until the settings screen in 6-3).
     bool allowDop = false;
+    // Holds the library database and the cover cache (task 6-1).
+    juce::File libraryFolder;
     // Called once the page has started and talked to the bridge.
     std::function<void()> onUiReady;
 
@@ -39,6 +42,7 @@ public:
 private:
     MainOptions options_;
     PlayerBridge bridge_;
+    LibraryBridge library_;
     std::unique_ptr<juce::WebBrowserComponent> browser_;
     juce::String problem_; // shown instead of the UI when it cannot be loaded
 

@@ -31,7 +31,13 @@ ap::engine::Player::OutputFactory outputFactoryFor(const MainOptions& o)
 } // namespace
 
 MainComponent::MainComponent(MainOptions options)
-    : options_(std::move(options)), bridge_(outputFactoryFor(options_), options_.allowDop)
+    : options_(std::move(options)), bridge_(outputFactoryFor(options_), options_.allowDop),
+      library_(options_.libraryFolder, [this](std::vector<LibraryBridge::QueueEntry> entries, std::size_t start) {
+          std::vector<PlayerBridge::QueueFile> files;
+          for (auto& e : entries)
+              files.push_back({std::move(e.name), std::move(e.path), e.replayGain});
+          return bridge_.playQueue(std::move(files), start);
+      })
 {
     setSize(900, 620);
     bridge_.onUiReady = options_.onUiReady;
@@ -57,10 +63,13 @@ MainComponent::MainComponent(MainOptions options)
                                         .withStatusBarDisabled())
             .withNativeIntegrationEnabled()
             .withKeepPageLoadedWhenBrowserIsHidden()
-            .withResourceProvider([root = options_.uiRoot](const juce::String& url) {
+            .withResourceProvider([this, root = options_.uiRoot](const juce::String& url) {
+                if (auto art = library_.provideResource(url))
+                    return art; // album covers
                 return provideUiResource(root, url);
             });
     browserOptions = bridge_.registerFunctions(browserOptions);
+    browserOptions = library_.registerFunctions(browserOptions);
 
     if (!juce::WebBrowserComponent::areOptionsSupported(browserOptions))
     {
@@ -79,6 +88,7 @@ MainComponent::MainComponent(MainOptions options)
 
     browser_ = std::make_unique<juce::WebBrowserComponent>(browserOptions);
     bridge_.attach(browser_.get());
+    library_.attach(browser_.get());
     addAndMakeVisible(*browser_);
     resized(); // setSize() above ran before the browser existed
     juce::String url = useDevServer ? options_.devServerUrl : juce::WebBrowserComponent::getResourceProviderRoot();

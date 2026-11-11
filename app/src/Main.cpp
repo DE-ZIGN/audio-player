@@ -64,6 +64,9 @@ private:
 //   --dev-server[=URL]  load the UI from the Vite dev server (default http://localhost:5173/)
 //   --ui-dir=PATH       load the built UI from PATH instead of <exe dir>/ui
 //   --allow-dop         send DSD files as DoP (only for DACs that decode DoP)
+//   --library-dir=PATH  keep the library database and the cover cache in PATH
+//                       (default: %LOCALAPPDATA%\<app name>; a fresh temporary
+//                       one in self-test mode)
 //   --smoke-test        start, wait until the UI reports ready, then quit
 //                       (exit code 0; 1 if the UI did not become ready in time)
 //   --self-test=WAV     the page plays/seeks/stops WAV through the bridge into a
@@ -86,6 +89,9 @@ public:
         options.uiRoot = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
                              .getParentDirectory()
                              .getChildFile("ui");
+        options.libraryFolder = juce::File::getSpecialLocation(juce::File::windowsLocalAppData)
+                                    .getChildFile(JUCE_APPLICATION_NAME_STRING);
+        bool libraryGiven = false;
         for (auto arg : args)
         {
             arg = arg.unquoted();
@@ -99,10 +105,23 @@ public:
                 options.allowDop = true;
             else if (arg.startsWith("--ui-dir="))
                 options.uiRoot = juce::File(value);
+            else if (arg.startsWith("--library-dir="))
+            {
+                options.libraryFolder = juce::File(value);
+                libraryGiven = true;
+            }
             else if (arg.startsWith("--self-test="))
                 options.selfTestWav = juce::File(value);
             else if (arg.startsWith("--self-test-output="))
                 options.selfTestOutput = juce::File(value);
+        }
+
+        if ((options.selfTestWav != juce::File{} || smokeTest_) && !libraryGiven)
+        {
+            // The self-test and the smoke test never touch the user's library.
+            options.libraryFolder = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                                        .getChildFile("ap_app_self_test_library");
+            options.libraryFolder.deleteRecursively();
         }
 
         if (options.selfTestWav != juce::File{})
