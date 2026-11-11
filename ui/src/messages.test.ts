@@ -11,6 +11,11 @@ import {
   formatTime,
   integrityFailuresText,
   integrityText,
+  meterIntegratedText,
+  meterLoudnessText,
+  meterNote,
+  meterPeakText,
+  meterTrackPeakText,
   outputModeText,
   priorityText,
   queueText,
@@ -26,6 +31,7 @@ import {
   emptyStatus,
   type BitPerfectVerdict,
   type FormatInfo,
+  type MeterReading,
   type PlaybackStatus,
   type SignalPath,
   type StageState,
@@ -555,5 +561,83 @@ describe("BIT-PERFECT (task 4-2)", () => {
     });
     expect(t).toContain("1 曲目：処理経路と原音経路の切り替え");
     expect(t).toContain("約 25 ms");
+  });
+});
+
+describe("Meters (task 4-4)", () => {
+  const reading = (r: Partial<MeterReading> = {}): MeterReading => ({
+    channels: 2,
+    truePeakRecent: [-3.24, -4.06],
+    truePeakMax: [-0.52, -0.71],
+    momentaryLufs: -14.23,
+    shortTermLufs: -15.01,
+    integratedLufs: -14.76,
+    trackFrames: 48000 * 35,
+    ...r,
+  });
+  const meter = (state: "idle" | "measuring" | "notPcm", r: MeterReading | null, extra = {}): PlaybackStatus => ({
+    ...emptyStatus,
+    state: state === "idle" ? "stopped" : "playing",
+    queueIndex: 0,
+    outputFormat: f(48000, 24, 24),
+    meter: { state, queueIndex: 0, droppedFrames: 0, reading: r, ...extra },
+  });
+
+  it("shows nothing before anything was measured", () => {
+    expect(meterPeakText(emptyStatus)).toBe("—");
+    expect(meterTrackPeakText(emptyStatus)).toBe("—");
+    expect(meterLoudnessText(emptyStatus)).toBe("—");
+    expect(meterIntegratedText(emptyStatus)).toBe("—");
+  });
+  it("shows the true peak per channel, now and the track's maximum", () => {
+    const s = meter("measuring", reading());
+    expect(meterPeakText(s)).toBe("L -3.2 / R -4.1 dBTP");
+    expect(meterTrackPeakText(s)).toBe("L -0.5 / R -0.7 dBTP");
+  });
+  it("says when the track's true peak went above 0 dBTP", () => {
+    const s = meter("measuring", reading({ truePeakMax: [2.96, -0.1] }));
+    expect(meterTrackPeakText(s)).toBe("L +3.0 / R -0.1 dBTP（0 dBTP を超えています）");
+  });
+  it("shows mono and more than two channels", () => {
+    expect(meterPeakText(meter("measuring", reading({ channels: 1, truePeakRecent: [-6] })))).toBe("-6.0 dBTP");
+    expect(meterPeakText(meter("measuring", reading({ channels: 3, truePeakRecent: [-1, -2, "-inf"] })))).toBe(
+      "1: -1.0 / 2: -2.0 / 3: -∞ dBTP",
+    );
+  });
+  it("shows the momentary and short-term loudness, and the integrated loudness with how much of the track", () => {
+    const s = meter("measuring", reading());
+    expect(meterLoudnessText(s)).toBe("瞬時 -14.2 LUFS ／ 短時間 -15.0 LUFS");
+    expect(meterIntegratedText(s)).toBe("-14.8 LUFS（この曲の 35 秒分）");
+  });
+  it("explains an integrated loudness that has not appeared yet", () => {
+    const s = meter("measuring", reading({ integratedLufs: "-inf", trackFrames: 4800 }));
+    expect(meterIntegratedText(s)).toContain("測定中");
+  });
+  it("keeps the track's values but not the moving ones when stopped", () => {
+    const s = meter("idle", reading());
+    expect(meterPeakText(s)).toBe("—");
+    expect(meterLoudnessText(s)).toBe("—");
+    expect(meterTrackPeakText(s)).toBe("L -0.5 / R -0.7 dBTP");
+    expect(meterIntegratedText(s)).toContain("-14.8 LUFS");
+  });
+  it("does not show the previous track's values as the new track's", () => {
+    const s = { ...meter("measuring", reading()), queueIndex: 1 };
+    expect(meterTrackPeakText(s)).toBe("—");
+    expect(meterIntegratedText(s)).toBe("—");
+    expect(meterPeakText(s)).toBe("L -3.2 / R -4.1 dBTP"); // what is being heard now
+  });
+  it("says DoP is not measured and why", () => {
+    const s = meter("notPcm", reading());
+    expect(meterPeakText(s)).toContain("DoP の経路では測りません");
+    expect(meterTrackPeakText(s)).toBe("—");
+    expect(meterLoudnessText(s)).toBe("—");
+  });
+  it("says what is measured, that it does not change the sound, and what could not be measured", () => {
+    expect(meterNote(meter("measuring", reading()))).toBe(
+      "出力に渡す値を測っています（処理経路では処理の後の値）。測るだけで、音は変えません",
+    );
+    const t = meterNote(meter("measuring", reading(), { droppedFrames: 48000 * 2 }));
+    expect(t).toContain("2 秒分を測れませんでした（音には影響しません）");
+    expect(meterNote(meter("measuring", reading(), { droppedFrames: 1024 }))).toContain("1024 フレーム分");
   });
 });

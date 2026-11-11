@@ -24,9 +24,11 @@ export function expectedViewportFromQuery(search: string): ExpectedViewport | nu
   return q.has("w") && q.has("h") && Number.isFinite(w) && Number.isFinite(h) ? { width: w, height: h } : null;
 }
 
+// The window's inner size includes a scrollbar (clientWidth would not): a
+// page taller than the web view still fills it.
 const documentViewport = (): ExpectedViewport => ({
-  width: document.documentElement.clientWidth,
-  height: document.documentElement.clientHeight,
+  width: window.innerWidth,
+  height: window.innerHeight,
 });
 
 export async function runSelfTest(
@@ -82,12 +84,29 @@ export async function runSelfTest(
     await waitFor("playing with progress", (s) => s.state === "playing" && s.positionFrames > 0, 5000);
     log.push("playing, position advances (event)");
 
+    // The meters (task 4-4) arrive through the bridge while playing.
+    const measuring = await waitFor(
+      "meter values while playing",
+      (s) => s.meter.state === "measuring" && s.meter.reading !== null && s.meter.reading.momentaryLufs !== "-inf",
+      5000,
+    );
+    log.push(`meter: momentary ${measuring.meter.reading!.momentaryLufs} LUFS`);
+
     await backend.seek(total / 2);
     const rate = latest.sourceFormat?.sampleRate || 48000;
     const remainingMs = ((total / 2) / rate) * 1000;
     const ended = await waitFor("end after seek", (s) => s.state === "ended", remainingMs + 5000);
     if (ended.positionFrames !== total) throw new Error(`end position ${ended.positionFrames} != ${total}`);
     log.push("seek to half, played to the end");
+
+    // After the end the track's values stay: every frame measured (none skipped).
+    const m = (await waitFor("meter idle after the end", (s) => s.meter.state === "idle" && s.meter.reading !== null, 5000))
+      .meter;
+    const r = m.reading!;
+    if (m.droppedFrames !== 0) throw new Error(`meter skipped ${m.droppedFrames} frames`);
+    if (r.truePeakMax.some((v) => v === "-inf") || r.integratedLufs === "-inf")
+      throw new Error(`meter has no values: ${JSON.stringify(r)}`);
+    log.push(`meter after the end: true peak max ${r.truePeakMax.join(" / ")} dBTP, integrated ${r.integratedLufs} LUFS`);
 
     await backend.play();
     await waitFor(

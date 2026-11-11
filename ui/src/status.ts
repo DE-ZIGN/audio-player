@@ -132,12 +132,38 @@ export interface DeliveryResult {
   mismatchedFrames: number;
 }
 
+// A level in dB (dBTP or LUFS) to 0.01 dB, or "-inf" for silence.
+export type Level = number | "-inf";
+
+// The meters on what goes to the output (task 4-4): the values handed to the
+// output layer, after processing on the processing path.
+export interface MeterReading {
+  channels: number;
+  truePeakRecent: Level[]; // dBTP per channel, about the last 0.1 s
+  truePeakMax: Level[]; // dBTP per channel, since the track started
+  momentaryLufs: Level; // 400 ms
+  shortTermLufs: Level; // 3 s
+  integratedLufs: Level; // since the track started (gated)
+  trackFrames: number; // measured since the track started
+}
+
+// idle: no output session (the last values are kept); notPcm: DoP, not measured.
+export type MeterState = "idle" | "measuring" | "notPcm";
+
+export interface MeterStatus {
+  state: MeterState;
+  queueIndex: number; // the track the reading's track values belong to
+  droppedFrames: number; // not measured because the meter fell behind (the sound is not affected)
+  reading: MeterReading | null;
+}
+
 export interface PlaybackStatus {
   state: PlayerState;
   path: SignalPath | null;
   stages: StageState[]; // processing path: the stages running now
   bitPerfect: BitPerfectVerdict | null; // set with path
   delivery: DeliveryResult | null; // direct path only
+  meter: MeterStatus;
   integrity: IntegrityCheck; // of the current track
   integrityFailures: number[]; // queue indices of earlier tracks whose check failed
   dropouts: DropoutCounts;
@@ -161,6 +187,7 @@ export const emptyStatus: PlaybackStatus = {
   stages: [],
   bitPerfect: null,
   delivery: null,
+  meter: { state: "idle", queueIndex: 0, droppedFrames: 0, reading: null },
   integrity: { state: "notAvailable", decodeErrors: 0 },
   integrityFailures: [],
   dropouts: { lateBuffers: 0, deviceTimeouts: 0, readStarvations: 0, starvedFrames: 0, realtimePriority: false },

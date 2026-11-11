@@ -101,6 +101,58 @@ const char* toString(SampleLayout l)
     return "interleaved";
 }
 
+const char* toString(MeterState s)
+{
+    switch (s)
+    {
+        case MeterState::Idle: return "idle";
+        case MeterState::Measuring: return "measuring";
+        case MeterState::NotPcm: return "notPcm";
+    }
+    return "idle";
+}
+
+// A level in dB (dBTP or LUFS), to 0.01 dB; "-inf" for silence.
+juce::var levelVar(double db)
+{
+    return std::isfinite(db) ? juce::var(std::round(db * 100.0) / 100.0) : juce::var("-inf");
+}
+
+juce::var peaksVar(const std::vector<double>& linear)
+{
+    juce::Array<juce::var> a;
+    for (const double x : linear)
+        a.add(levelVar(x > 0.0 ? 20.0 * std::log10(x) : -HUGE_VAL));
+    return a;
+}
+
+// The meters on what goes to the output (task 4-4).
+juce::var meterVar(const MeterStatus& m)
+{
+    auto* o = new juce::DynamicObject();
+    o->setProperty("state", toString(m.state));
+    o->setProperty("queueIndex", static_cast<int>(m.queueIndex));
+    o->setProperty("droppedFrames", static_cast<double>(m.droppedFrames));
+    if (m.reading)
+    {
+        const auto& r = *m.reading;
+        auto* ro = new juce::DynamicObject();
+        ro->setProperty("channels", static_cast<int>(r.channels));
+        ro->setProperty("truePeakRecent", peaksVar(r.truePeakRecent));
+        ro->setProperty("truePeakMax", peaksVar(r.truePeakMax));
+        ro->setProperty("momentaryLufs", levelVar(r.momentaryLufs));
+        ro->setProperty("shortTermLufs", levelVar(r.shortTermLufs));
+        ro->setProperty("integratedLufs", levelVar(r.integratedLufs));
+        ro->setProperty("trackFrames", static_cast<double>(r.trackFrames));
+        o->setProperty("reading", juce::var(ro));
+    }
+    else
+    {
+        o->setProperty("reading", juce::var());
+    }
+    return juce::var(o);
+}
+
 const char* toString(IntegrityState s)
 {
     switch (s)
@@ -391,6 +443,8 @@ juce::var PlayerBridge::statusAsVar() const
     {
         o->setProperty("delivery", juce::var());
     }
+
+    o->setProperty("meter", meterVar(s.meter));
 
     auto* ic = new juce::DynamicObject();
     ic->setProperty("state", toString(s.integrity.state));

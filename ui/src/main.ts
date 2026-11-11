@@ -12,6 +12,11 @@ import {
   formatTime,
   integrityFailuresText,
   integrityText,
+  meterIntegratedText,
+  meterLoudnessText,
+  meterNote,
+  meterPeakText,
+  meterTrackPeakText,
   outputModeText,
   priorityText,
   queueText,
@@ -52,6 +57,11 @@ const els = {
   repack: $("repack"),
   error: $("error"),
   backendKind: $("backend-kind"),
+  meterPeak: $("meter-peak"),
+  meterTrackPeak: $("meter-track-peak"),
+  meterLoudness: $("meter-loudness"),
+  meterIntegrated: $("meter-integrated"),
+  meterNote: $("meter-note"),
 };
 
 const SEEK_STEPS = 1000;
@@ -107,6 +117,12 @@ function render(s: PlaybackStatus) {
       return li;
     }),
   );
+
+  els.meterPeak.textContent = meterPeakText(s);
+  els.meterTrackPeak.textContent = meterTrackPeakText(s);
+  els.meterLoudness.textContent = meterLoudnessText(s);
+  els.meterIntegrated.textContent = meterIntegratedText(s);
+  els.meterNote.textContent = meterNote(s);
 
   const err = errorText(s);
   els.error.hidden = err === "";

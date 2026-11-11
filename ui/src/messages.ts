@@ -1,7 +1,16 @@
 // User-facing text (Japanese first). Describes what the player does; never
 // claims that something sounds better.
 
-import type { DropoutCounts, FormatInfo, PlaybackStatus, PlayerState, SignalPath, StageState, TrackTransition } from "./status";
+import type {
+  DropoutCounts,
+  FormatInfo,
+  Level,
+  PlaybackStatus,
+  PlayerState,
+  SignalPath,
+  StageState,
+  TrackTransition,
+} from "./status";
 
 function rateText(rate: number): string {
   return `${Number((rate / 1000).toFixed(3))} kHz`;
@@ -210,6 +219,70 @@ export function selfCheckText(s: PlaybackStatus): string {
     `この出力を開いてから ${amount}、ドライバーに渡した値はすべて、ファイルから読み出した値と一致しました。` +
     "確かめられるのはアプリからドライバーまでです。ドライバーの中、USB などの転送、DAC の中は確かめられません"
   );
+}
+
+// --- Meters (task 4-4): True Peak and loudness of what goes to the output ---
+
+function levelText(l: Level): string {
+  if (l === "-inf") return "-∞";
+  return `${l > 0 ? "+" : ""}${l.toFixed(1)}`;
+}
+
+function channelValues(values: Level[]): string {
+  if (values.length === 1) return levelText(values[0]);
+  if (values.length === 2) return `L ${levelText(values[0])} / R ${levelText(values[1])}`;
+  return values.map((v, i) => `${i + 1}: ${levelText(v)}`).join(" / ");
+}
+
+const meterRunning = (s: PlaybackStatus) => s.meter.state === "measuring" && s.meter.reading !== null;
+
+// The track values (maximum, integrated) belong to the track playing, not to
+// the previous one still being measured just after a change.
+const meterTrack = (s: PlaybackStatus) =>
+  s.meter.state !== "notPcm" && s.meter.reading !== null && s.meter.queueIndex === s.queueIndex
+    ? s.meter.reading
+    : null;
+
+// True Peak now (about the last 0.1 s), per channel.
+export function meterPeakText(s: PlaybackStatus): string {
+  if (s.meter.state === "notPcm") return "DoP の経路では測りません（DSD のデータで、PCM の音の値ではないため）";
+  if (!meterRunning(s)) return "—";
+  return `${channelValues(s.meter.reading!.truePeakRecent)} dBTP`;
+}
+
+// The largest True Peak since the track started.
+export function meterTrackPeakText(s: PlaybackStatus): string {
+  const r = meterTrack(s);
+  if (!r) return "—";
+  const over = r.truePeakMax.some((v) => v !== "-inf" && v > 0);
+  return `${channelValues(r.truePeakMax)} dBTP${over ? "（0 dBTP を超えています）" : ""}`;
+}
+
+// Momentary (400 ms) and short-term (3 s) loudness.
+export function meterLoudnessText(s: PlaybackStatus): string {
+  if (s.meter.state === "notPcm" || !meterRunning(s)) return "—";
+  const r = s.meter.reading!;
+  return `瞬時 ${levelText(r.momentaryLufs)} LUFS ／ 短時間 ${levelText(r.shortTermLufs)} LUFS`;
+}
+
+// The integrated loudness since the track started.
+export function meterIntegratedText(s: PlaybackStatus): string {
+  const r = meterTrack(s);
+  if (!r) return "—";
+  const rate = s.outputFormat?.sampleRate ?? 0;
+  const span = rate > 0 ? `（この曲の ${durationText(r.trackFrames / rate)}分）` : "";
+  if (r.integratedLufs === "-inf") return `測定中（-70 LUFS より大きい音が来ると出ます）${span}`;
+  return `${levelText(r.integratedLufs)} LUFS${span}`;
+}
+
+// What the meters measure, and data they could not measure.
+export function meterNote(s: PlaybackStatus): string {
+  const what = "出力に渡す値を測っています（処理経路では処理の後の値）。測るだけで、音は変えません";
+  const rate = s.outputFormat?.sampleRate ?? 0;
+  const dropped = s.meter.droppedFrames;
+  if (dropped === 0) return what;
+  const amount = rate > 0 && dropped >= rate ? `${durationText(dropped / rate)}分` : `${dropped} フレーム分`;
+  return `${what}。メーターの計算が追いつかず、${amount}を測れませんでした（音には影響しません）`;
 }
 
 // Checksum check of the current track (FLAC stores the MD5 of its samples).

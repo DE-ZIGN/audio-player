@@ -752,6 +752,60 @@ std::string bitPerfectLine(const PlayerStatus& s)
     return "BIT-PERFECT ではない：" + reasons + device;
 }
 
+// The meters (task 4-4): what is handed to the output, after processing.
+std::string levelText(double db)
+{
+    return std::isfinite(db) ? std::format("{:+.1f}", db) : std::string("-inf");
+}
+
+double linearToDb(double x)
+{
+    return x > 0.0 ? 20.0 * std::log10(x) : -HUGE_VAL;
+}
+
+std::string peaksText(const std::vector<double>& linear)
+{
+    std::string t;
+    for (std::size_t c = 0; c < linear.size(); ++c)
+    {
+        const std::string name = linear.size() == 2 ? (c == 0 ? "L " : "R ")
+                               : linear.size() > 2  ? std::format("{}: ", c + 1)
+                                                    : std::string();
+        t += (t.empty() ? "" : " / ") + name + levelText(linearToDb(linear[c]));
+    }
+    return t;
+}
+
+// For the running line: the louder channel's recent True Peak and the momentary/short-term loudness.
+std::string meterShort(const MeterStatus& m)
+{
+    if (m.state != MeterState::Measuring || !m.reading)
+        return "";
+    const auto& r = *m.reading;
+    const double peak = r.truePeakRecent.empty() ? 0.0 : *std::max_element(r.truePeakRecent.begin(), r.truePeakRecent.end());
+    return std::format("  TP {} dBTP  M {} / S {} LUFS", levelText(linearToDb(peak)), levelText(r.momentaryLufs),
+                       levelText(r.shortTermLufs));
+}
+
+std::string meterLine(const PlayerStatus& s)
+{
+    const auto& m = s.meter;
+    if (s.path && s.path->dop)
+        return "DoP の経路では測らない（DSD のデータで、PCM の音の値ではないため）";
+    if (!m.reading)
+        return "—";
+    const auto& r = *m.reading;
+    const double rate = s.plan ? s.plan->output.sampleRate : 0.0;
+    std::string t = std::format("出力に渡した値（{} 曲目、{}）: True Peak の最大 {} dBTP、統合ラウドネス {} LUFS",
+                                m.queueIndex + 1,
+                                rate > 0 ? std::format("{:.1f} 秒分", static_cast<double>(r.trackFrames) / rate)
+                                         : std::format("{} フレーム", r.trackFrames),
+                                peaksText(r.truePeakMax), levelText(r.integratedLufs));
+    if (m.droppedFrames > 0)
+        t += std::format("。計算が追いつかず {} フレームを測れなかった（音には影響しない）", m.droppedFrames);
+    return t;
+}
+
 // The self-check line (task 4-3), with how far it reaches.
 std::string selfCheckLine(const PlayerStatus& s)
 {
@@ -979,7 +1033,11 @@ int runQueue(const Options& o)
     const auto& volume = stages.volume;
     const auto& ispSafe = stages.ispSafe;
     const auto& limiter = stages.limiter;
-    const PlaybackOptions playOptions{.allowRepack = !o.exactOnly, .allowDop = o.allowDop, .processing = stages.chain};
+    // The dummy output is not paced by a device: its meter waits instead of skipping data.
+    const PlaybackOptions playOptions{.allowRepack = !o.exactOnly,
+                                      .allowDop = o.allowDop,
+                                      .processing = stages.chain,
+                                      .meter = std::make_shared<OutputMeter>(dummy)};
     if (o.abxTrials > 0)
     {
         playOptions.processing->setComparing(true);
@@ -1294,9 +1352,9 @@ int runQueue(const Options& o)
         if (s.state != PlayerState::Playing)
             break;
         const auto rate = s.sourceFormat ? s.sourceFormat->sampleRate : 1u;
-        print(std::format("\r  再生中 {}/{} 曲目 {} / {}  音切れ {} 回（Ctrl+C で停止）   ", s.queueIndex + 1,
+        print(std::format("\r  再生中 {}/{} 曲目 {} / {}  音切れ {} 回{}（Ctrl+C で停止）   ", s.queueIndex + 1,
                           s.queueLength, duration(s.positionFrames, rate), duration(s.totalFrames, rate),
-                          s.dropouts.total()));
+                          s.dropouts.total(), meterShort(s.meter)));
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     g_player = nullptr;
@@ -1356,6 +1414,7 @@ int runQueue(const Options& o)
                                                               : "通常の優先度（MMCSS は使っていない）"));
     print(std::format("ファイルの検証（{} 曲目）: {}\n", s.queueIndex + 1, integrityText(s.integrity)));
     print(std::format("自己確認（最後に出力を開いてから）: {}\n", selfCheckLine(s)));
+    print(std::format("メーター: {}\n", meterLine(s)));
     if (!s.integrityFailures.empty())
     {
         std::string list;

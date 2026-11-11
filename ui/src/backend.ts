@@ -3,7 +3,7 @@
 // server opened directly) a mock backend simulates playback so the page can
 // be worked on without the app.
 
-import { emptyStatus, type BitPerfectVerdict, type PlaybackStatus, type SignalPath } from "./status";
+import { emptyStatus, type BitPerfectVerdict, type MeterStatus, type PlaybackStatus, type SignalPath } from "./status";
 
 export interface OpenResult {
   ok: boolean;
@@ -116,6 +116,27 @@ const mockVerdict = (t: MockTrack): BitPerfectVerdict => ({
   deliveryMismatch: false,
 });
 
+// Meter values that move a little, for working on the page in a browser.
+const mockMeter = (t: MockTrack, index: number, playedFrames: number, measuring: boolean): MeterStatus => {
+  if (t.dsdRate !== undefined) return { state: measuring ? "notPcm" : "idle", queueIndex: index, droppedFrames: 0, reading: null };
+  const wobble = Math.sin(playedFrames / t.sampleRate) * 1.5;
+  const round = (x: number) => Math.round(x * 100) / 100;
+  return {
+    state: measuring ? "measuring" : "idle",
+    queueIndex: index,
+    droppedFrames: 0,
+    reading: {
+      channels: 2,
+      truePeakRecent: [round(-3.1 + wobble), round(-3.8 + wobble)],
+      truePeakMax: [-0.92, -1.17],
+      momentaryLufs: round(-13.6 + wobble),
+      shortTermLufs: round(-14.1 + wobble / 3),
+      integratedLufs: playedFrames >= t.sampleRate * 0.4 ? -14.3 : "-inf",
+      trackFrames: playedFrames,
+    },
+  };
+};
+
 // Three tracks with a rate change, for working on the page in a browser.
 export const DEMO_QUEUE: MockTrack[] = [
   { name: "（試験用）01_44k.flac", sampleRate: 44100, seconds: 8 },
@@ -181,13 +202,19 @@ export class MockBackend implements Backend {
           ...this.status,
           positionFrames: next,
           delivery: d && { ...d, matchedFrames: d.matchedFrames + rate / 10 },
+          meter: mockMeter(this.tracks[this.status.queueIndex], this.status.queueIndex, next, true),
         });
         return;
       }
       const from = this.status.queueIndex;
       if (from + 1 >= this.tracks.length) {
         this.halt();
-        this.update({ ...this.status, state: "ended", positionFrames: this.status.totalFrames });
+        this.update({
+          ...this.status,
+          state: "ended",
+          positionFrames: this.status.totalFrames,
+          meter: { ...this.status.meter, state: "idle" },
+        });
         return;
       }
       const fields = this.trackFields(from + 1);
@@ -217,7 +244,7 @@ export class MockBackend implements Backend {
   async stop() {
     if (this.status.state !== "playing") return;
     this.halt();
-    this.update({ ...this.status, state: "stopped" });
+    this.update({ ...this.status, state: "stopped", meter: { ...this.status.meter, state: "idle" } });
   }
   async seek(frame: number) {
     if (this.status.state === "empty") return;

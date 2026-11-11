@@ -185,3 +185,15 @@ dd {
   font-size: 13px;
   line-height: 1.5;
 }
+
+.note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Values that change several times a second: fixed-width digits, so the text does not jitter. */
+.meters dd {
+  font-variant-numeric: tabular-nums;
+}
