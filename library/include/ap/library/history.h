@@ -55,6 +55,36 @@ struct PlayRecord
 // Records one play; returns whether it counts as a play.
 bool recordPlay(LibraryDb& db, std::int64_t track, const PlayRecord& play);
 
+// Turns what the player reports, looked at a few times a second, into plays
+// (task 6-2). Only what was heard counts: the position must move on while
+// playing, and by no more than the time that passed (a seek, forward or back,
+// is not heard). A pause and a resume of the same track are one play. When
+// the next track starts (gaplessly or not), the end of the previous one is
+// counted up to its end if the time allows it, and that play is given out.
+// Track 0 means a track that is not in the library (not counted).
+class PlayCounter
+{
+public:
+    struct Observation
+    {
+        std::int64_t track = 0;          // library track id; 0: none
+        std::uint64_t position = 0;      // frames into the track
+        std::uint64_t totalFrames = 0;
+        std::uint32_t sampleRate = 0;
+        bool playing = false;
+        std::int64_t now = 0;            // unix ms
+    };
+
+    // The plays that ended with this observation (the previous track's).
+    std::vector<std::pair<std::int64_t, PlayRecord>> observe(const Observation& o);
+    // The play going on now, if anything of it was heard (the app closes, the queue is replaced).
+    std::vector<std::pair<std::int64_t, PlayRecord>> finish();
+
+private:
+    std::optional<Observation> last_;
+    PlayRecord current_;
+};
+
 struct TrackStats
 {
     std::int64_t playCount = 0;            // plays that count

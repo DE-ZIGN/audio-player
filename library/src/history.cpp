@@ -166,6 +166,62 @@ std::vector<Relink> relinkMovedTracks(LibraryDb& lib)
     return done;
 }
 
+std::vector<std::pair<std::int64_t, PlayRecord>> PlayCounter::finish()
+{
+    std::vector<std::pair<std::int64_t, PlayRecord>> out;
+    if (last_ && last_->track != 0 && current_.playedFrames > 0)
+        out.emplace_back(last_->track, current_);
+    last_.reset();
+    current_ = {};
+    return out;
+}
+
+std::vector<std::pair<std::int64_t, PlayRecord>> PlayCounter::observe(const Observation& o)
+{
+    // How far playing can move the position in the time since the last look,
+    // with room for the timer's unevenness.
+    auto reach = [&](std::uint32_t rate) -> std::uint64_t {
+        if (!last_ || rate == 0)
+            return 0;
+        const auto ms = std::max<std::int64_t>(0, o.now - last_->now);
+        return static_cast<std::uint64_t>(ms * 1.5 * rate / 1000.0 + rate * 0.25);
+    };
+
+    std::vector<std::pair<std::int64_t, PlayRecord>> out;
+    if (last_ && o.track != last_->track)
+    {
+        // The previous track ended here: its last part counts if the time allows.
+        if (last_->playing && o.playing && last_->totalFrames > last_->position
+            && last_->totalFrames - last_->position <= reach(last_->sampleRate))
+        {
+            current_.playedFrames += last_->totalFrames - last_->position;
+            current_.reachedEnd = true;
+        }
+        if (last_->track != 0 && current_.playedFrames > 0)
+            out.emplace_back(last_->track, current_);
+        // The new track may have begun a little before this look (gaplessly).
+        const bool continued = last_->playing && o.playing && o.position <= reach(o.sampleRate);
+        current_ = {};
+        current_.startedAt = o.now;
+        current_.playedFrames = continued ? o.position : 0;
+    }
+    else if (!last_)
+    {
+        current_ = {};
+        current_.startedAt = o.now;
+    }
+    else if (o.playing && o.position >= last_->position && o.position - last_->position <= reach(o.sampleRate))
+    {
+        current_.playedFrames += o.position - last_->position; // heard (not a seek)
+        if (o.totalFrames > 0 && o.position >= o.totalFrames)
+            current_.reachedEnd = true;
+    }
+    current_.trackFrames = o.totalFrames;
+    current_.sampleRate = o.sampleRate;
+    last_ = o;
+    return out;
+}
+
 bool recordPlay(LibraryDb& lib, std::int64_t track, const PlayRecord& p)
 {
     const double seconds = p.sampleRate ? static_cast<double>(p.playedFrames) / p.sampleRate : 0.0;

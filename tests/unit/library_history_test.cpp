@@ -374,3 +374,82 @@ TEST_CASE("Ratings: 0 to 100, or none", "[library][history]")
     CHECK_THROWS_AS(setRating(lib, t, 101), std::out_of_range);
     CHECK_THROWS_AS(setRating(lib, t, -1), std::out_of_range);
 }
+
+// --- Task 6-2: what the player reports, turned into plays ---------------------
+
+namespace {
+
+struct Feed
+{
+    PlayCounter counter;
+    std::int64_t now = 1'000'000;
+    std::vector<std::pair<std::int64_t, PlayRecord>> plays;
+
+    // Steps of 100 ms at 48 kHz.
+    void step(std::int64_t track, std::uint64_t position, bool playing = true, std::uint64_t total = 48000 * 10)
+    {
+        auto out = counter.observe({track, position, total, 48000, playing, now});
+        plays.insert(plays.end(), out.begin(), out.end());
+        now += 100;
+    }
+    void playThrough(std::int64_t track, std::uint64_t from, std::uint64_t to, std::uint64_t total = 48000 * 10)
+    {
+        for (std::uint64_t p = from; p <= to; p += 4800)
+            step(track, p, true, total);
+    }
+};
+
+} // namespace
+
+TEST_CASE("Play counter: a track heard to its end, then the next one", "[library][history][plays]")
+{
+    Feed f;
+    f.playThrough(1, 0, 48000 * 10 - 4800); // up to 0.1 s before the end
+    f.step(2, 2400);                        // gapless: the next track has begun
+    REQUIRE(f.plays.size() == 1);
+    CHECK(f.plays[0].first == 1);
+    CHECK(f.plays[0].second.playedFrames == 48000u * 10);
+    CHECK(f.plays[0].second.reachedEnd);
+    CHECK(f.plays[0].second.trackFrames == 48000u * 10);
+    CHECK(f.plays[0].second.startedAt == 1'000'000);
+
+    f.playThrough(2, 7200, 48000 * 3);
+    const auto last = f.counter.finish(); // the app closes
+    REQUIRE(last.size() == 1);
+    CHECK(last[0].first == 2);
+    CHECK(last[0].second.playedFrames == 141600u); // from 0 (the boundary) to the last look (2.95 s)
+    CHECK_FALSE(last[0].second.reachedEnd);
+}
+
+TEST_CASE("Play counter: a seek is not heard", "[library][history][plays]")
+{
+    Feed f;
+    f.playThrough(1, 0, 48000 * 2);
+    f.step(1, 48000 * 8); // jumped ahead
+    f.playThrough(1, 48000 * 8 + 4800, 48000 * 9);
+    f.step(1, 48000 * 1); // jumped back
+    f.playThrough(1, 48000 * 1 + 4800, 48000 * 2);
+    const auto p = f.counter.finish();
+    REQUIRE(p.size() == 1);
+    CHECK(p[0].second.playedFrames == 48000u * 4); // 2 s + 1 s + 1 s
+}
+
+TEST_CASE("Play counter: a pause is the same play; nothing heard is no play", "[library][history][plays]")
+{
+    Feed f;
+    f.playThrough(1, 0, 48000 * 2);
+    for (int i = 0; i < 20; ++i)
+        f.step(1, 48000 * 2, false); // paused for 2 s
+    f.playThrough(1, 48000 * 2 + 4800, 48000 * 3);
+    f.step(5, 0, false); // another track chosen, not started
+    REQUIRE(f.plays.size() == 1);
+    CHECK(f.plays[0].second.playedFrames == 48000u * 3);
+    CHECK(f.counter.finish().empty()); // track 5 was never heard
+}
+
+TEST_CASE("Play counter: tracks not from the library are not counted", "[library][history][plays]")
+{
+    Feed f;
+    f.playThrough(0, 0, 48000 * 5); // 0: opened as a file
+    CHECK(f.counter.finish().empty());
+}
