@@ -125,7 +125,7 @@ button.link {
   grid-area: top;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 0 16px;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
@@ -172,7 +172,7 @@ button.link {
 .seek {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   flex: 1 1 200px;
   min-width: 140px;
 }
@@ -184,10 +184,12 @@ button.link {
   font-variant-numeric: tabular-nums;
   font-size: 12px;
   color: var(--muted);
-  min-width: 34px;
+  flex: none;
+  width: 44px; /* up to h:mm:ss: the seek bar does not move as the time changes */
+  text-align: center;
 }
 .levels {
-  width: 190px;
+  width: 150px;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -222,6 +224,8 @@ button.link {
   color: var(--muted);
   padding-left: 12px;
 }
+/* Fixed widths: what the field says changes (BIT-PERFECT, DIGITAL VOL -15.5 dB,
+   44.1 or 192 kHz) without moving anything else in the bar. */
 .output-field {
   flex: none;
   display: flex;
@@ -238,8 +242,14 @@ button.link {
   color: var(--muted);
 }
 .output-tags {
-  display: flex;
+  display: grid;
+  grid-template-columns: 40px 56px 46px 130px; /* container, rate, bits, the judgement */
   gap: 4px;
+}
+.output-tags .tag {
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tag {
   border: 1px solid var(--line);
@@ -271,9 +281,9 @@ button.icon.plain {
 .volume-box {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex: 0 1 170px;
-  min-width: 110px;
+  gap: 4px;
+  flex: none;
+  width: 178px; /* the slider itself gets about 100 px */
 }
 .volume-box input {
   flex: 1;
@@ -283,7 +293,9 @@ button.icon.plain {
 .vol-label {
   font-size: 11px;
   color: var(--muted);
-  min-width: 50px;
+  flex: none;
+  width: 48px; /* "100%", "-15.5 dB", "ミュート": the slider keeps its size */
+  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 .vol-label.changed {
@@ -799,6 +811,20 @@ dd {
 }
 .backend-kind {
   font-size: 11px;
+}
+
+/* Up to about 1360 px (the window opens at 1280): smaller levels and title
+   area, so the seek bar keeps a usable length. Widths stay fixed. */
+@media (max-width: 1360px) {
+  .levels {
+    width: 104px;
+  }
+  .levels .scale {
+    display: none;
+  }
+  .now {
+    flex-basis: 130px;
+  }
 }
 
 /* Narrow windows: the queue goes first, then the side bar. */
