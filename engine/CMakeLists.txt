@@ -30,6 +30,7 @@ add_library(ap_engine STATIC
     src/dsp/volume.cpp
     src/dsp/true_peak.cpp
     src/dsp/loudness.cpp
+    src/dsp/level_meter.cpp
     src/dsp/replay_gain.cpp
     src/dsp/isp_safe.cpp
     src/dsp/limiter.cpp

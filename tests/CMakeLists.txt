@@ -87,6 +87,7 @@ add_executable(ap_engine_unit_tests
     unit/dither_test.cpp
     unit/volume_test.cpp
     unit/true_peak_test.cpp
+    unit/level_meter_test.cpp
     unit/replay_gain_test.cpp
     unit/isp_safe_test.cpp
     unit/eq_test.cpp
@@ -141,6 +142,7 @@ ap_copy_engine_dlls(ap_engine_signal_tests) # before test discovery, which runs 
         acceptance/bypass_test.cpp
         acceptance/true_peak_test.cpp
         acceptance/loudness_test.cpp
+        acceptance/level_meter_test.cpp
         acceptance/isp_safe_test.cpp
         acceptance/comparison_test.cpp)
     target_link_libraries(ap_acceptance_tests PRIVATE
