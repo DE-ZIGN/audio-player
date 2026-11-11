@@ -161,6 +161,17 @@ public:
     // happens at the next read without reopening the output.
     void seek(std::uint64_t frame);
 
+    // Goes to the start of queue track `index` (task 6-2). While playing,
+    // playback goes on from there; otherwise the queue waits there. An index
+    // past the end changes nothing.
+    void playAt(std::size_t index);
+
+    // Replaces every track after the current one (task 6-2: add, remove,
+    // reorder what comes next). The current track plays on; the new next
+    // track follows it gaplessly when the formats allow. Safe while playing:
+    // a next track that was being opened for the old list is dropped.
+    void replaceUpcoming(std::vector<QueueItem> items);
+
     PlayerStatus status() const;
 
     // Blocks until the playback thread has finished (end, stop or error).
@@ -174,9 +185,11 @@ private:
     void joinThread();
     bool openCurrentLocked();      // opens queue_[index_] into source_; on failure sets a Load error
     void startLoadingNextLocked(); // opens queue_[index_ + 1] in the background
+    bool hasNext() const;          // takes mutex_
     void publishTrackLocked();     // copies the current track's facts into status_
     void retireSourceLocked();     // adds the current source's dropout counters to the totals
-    TrackInfo trackInfo(std::size_t index) const;
+    TrackInfo trackInfo(std::size_t index) const;       // takes mutex_
+    TrackInfo trackInfoLocked(std::size_t index) const; // mutex_ held
 
     OutputFactory outputFactory_;
     PlaybackOptions options_;
@@ -197,6 +210,9 @@ private:
     std::unique_ptr<PcmSource> source_;
     std::future<std::unique_ptr<PcmSource>> nextLoad_;
     std::unique_ptr<PcmSource> pendingNext_; // next track, different format: needs a reopen
+    // Changes whenever the tracks after the current one are replaced: a next
+    // track opened for an older list is not played.
+    std::uint64_t upcomingGeneration_ = 0;
     std::string loadError_;                  // next track failed to open
     bool loadFailed_ = false;
     std::optional<TrackTransition> reopenPending_; // recorded at the first read after reopening

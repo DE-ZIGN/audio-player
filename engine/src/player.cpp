@@ -80,13 +80,30 @@ public:
         std::size_t got = p_.source_->read(dst);
         p_.position_ = p_.source_->position();
 
-        while (got < want && !p_.stopRequested_ && p_.index_ + 1 < p_.queue_.size())
+        while (got < want && !p_.stopRequested_ && p_.hasNext())
         {
-            // The current track is exhausted; take the next one (opened in the background).
+            // The current track is exhausted; take the next one (opened in the
+            // background). The queue may be edited meanwhile (replaceUpcoming):
+            // the future is taken under the lock, and a track opened for a list
+            // that was replaced while it opened is dropped for the new one.
             std::unique_ptr<PcmSource> next;
             try
             {
-                next = p_.nextLoad_.valid() ? p_.nextLoad_.get() : nullptr;
+                for (;;)
+                {
+                    std::future<std::unique_ptr<PcmSource>> load;
+                    std::uint64_t generation = 0;
+                    {
+                        std::lock_guard lock(p_.mutex_);
+                        load = std::move(p_.nextLoad_);
+                        generation = p_.upcomingGeneration_;
+                    }
+                    next = load.valid() ? load.get() : nullptr;
+                    std::lock_guard lock(p_.mutex_);
+                    if (generation == p_.upcomingGeneration_)
+                        break;
+                    next.reset(); // replaced while it was opening: the new next track is opening now
+                }
                 if (!next)
                     throw std::runtime_error("track could not be opened");
             }
@@ -240,6 +257,12 @@ bool Player::openCurrentLocked()
 
 TrackInfo Player::trackInfo(std::size_t index) const
 {
+    std::lock_guard lock(mutex_);
+    return trackInfoLocked(index);
+}
+
+TrackInfo Player::trackInfoLocked(std::size_t index) const
+{
     TrackInfo t;
     t.queueIndex = index;
     if (index < queue_.size())
@@ -281,6 +304,61 @@ void Player::publishTrackLocked()
     status_.trackTruePeak.reset();
     if (!queue_.empty() && queue_[index_].replayGain && queue_[index_].replayGain->trackPeak > 0.0)
         status_.trackTruePeak = queue_[index_].replayGain->trackPeak;
+}
+
+bool Player::hasNext() const
+{
+    std::lock_guard lock(mutex_);
+    return index_ + 1 < queue_.size();
+}
+
+void Player::playAt(std::size_t index)
+{
+    bool wasPlaying = false;
+    {
+        std::lock_guard lock(mutex_);
+        if (index >= queue_.size())
+            return;
+        wasPlaying = running_;
+    }
+    stop();
+    {
+        std::lock_guard lock(mutex_);
+        retireSourceLocked();
+        index_ = index;
+        source_.reset();
+        pendingNext_.reset();
+        nextLoad_ = {};
+        ++upcomingGeneration_;
+        loadFailed_ = false;
+        loadError_.clear();
+        reopenPending_.reset();
+        position_ = 0;
+        pendingSeek_ = -1;
+        status_.error = PlayerError{};
+        if (openCurrentLocked())
+        {
+            status_.state = PlayerState::Stopped;
+            startLoadingNextLocked();
+        }
+    }
+    if (wasPlaying)
+        play();
+}
+
+void Player::replaceUpcoming(std::vector<QueueItem> items)
+{
+    std::lock_guard lock(mutex_);
+    if (queue_.empty())
+        return;
+    queue_.resize(index_ + 1);
+    for (auto& item : items)
+        queue_.push_back(std::move(item));
+    status_.queueLength = queue_.size();
+    ++upcomingGeneration_;
+    // The next track for the new list. (A next track already handed to the
+    // playback thread for the old list is dropped there: see QueueReader.)
+    startLoadingNextLocked();
 }
 
 void Player::play()

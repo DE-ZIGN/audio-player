@@ -277,3 +277,115 @@ TEST_CASE("Starting the queue at a later track", "[engine][queue]")
     player.waitUntilIdle();
     CHECK(rig.output() == b);
 }
+
+// --- Task 6-2: moving in the queue and changing what comes next ---------------
+
+TEST_CASE("playAt: stopped, the queue waits at that track", "[engine][queue][edit]")
+{
+    Rig rig;
+    const auto a = trackData(48000, 500, 0);
+    const auto b = trackData(48000, 500, 1);
+    const auto c = trackData(48000, 500, 2);
+    Player player(rig.factory());
+    player.setQueue({item("A", 48000, a), item("B", 48000, b), item("C", 48000, c)});
+    player.playAt(2);
+    auto s = player.status();
+    CHECK(s.state == PlayerState::Stopped);
+    CHECK(s.queueIndex == 2);
+    CHECK(s.trackName == "C");
+    CHECK(s.positionFrames == 0u);
+    player.play();
+    player.waitUntilIdle();
+    CHECK(rig.output() == c);
+    player.playAt(7); // past the end: nothing changes
+    CHECK(player.status().queueIndex == 2);
+}
+
+TEST_CASE("playAt: playing, it goes on from the start of that track", "[engine][queue][edit]")
+{
+    Rig rig;
+    const auto a = trackData(48000, 48000, 0); // 1 s each
+    const auto b = trackData(48000, 48000, 1);
+    const auto c = trackData(48000, 4800, 2);
+    Player player(rig.factory({}, true));
+    player.setQueue({item("A", 48000, a), item("B", 48000, b), item("C", 48000, c)});
+    player.play();
+    std::this_thread::sleep_for(200ms);
+    player.playAt(2);
+    CHECK(player.status().state == PlayerState::Playing);
+    player.waitUntilIdle();
+    const auto s = player.status();
+    CHECK(s.state == PlayerState::Ended);
+    CHECK(s.queueIndex == 2);
+    // The second output session (after the jump) is exactly track C.
+    CHECK(rig.output() == c);
+}
+
+TEST_CASE("replaceUpcoming: the current track plays on, the new ones follow gaplessly", "[engine][queue][edit]")
+{
+    Rig rig;
+    const auto a = trackData(48000, 24000, 0); // 0.5 s
+    const auto b = trackData(48000, 4800, 1);
+    const auto c = trackData(48000, 4800, 2);
+    const auto d = trackData(48000, 4800, 3);
+    Player player(rig.factory({}, true));
+    player.setQueue({item("A", 48000, a), item("B", 48000, b)});
+    player.play();
+    std::this_thread::sleep_for(100ms); // in A
+    player.replaceUpcoming({item("C", 48000, c), item("D", 48000, d)});
+    CHECK(player.status().queueLength == 3);
+    CHECK(player.status().trackName == "A");
+    player.waitUntilIdle();
+    const auto s = player.status();
+    CHECK(s.state == PlayerState::Ended);
+    CHECK(s.trackName == "D");
+    CHECK(rig.output() == concat({&a, &c, &d})); // B is gone; no gap, no overlap
+    CHECK(rig.sessions->size() == 1);
+}
+
+TEST_CASE("replaceUpcoming: stopped, and with nothing after", "[engine][queue][edit]")
+{
+    Rig rig;
+    const auto a = trackData(48000, 500, 0);
+    const auto b = trackData(48000, 500, 1);
+    const auto c = trackData(48000, 500, 2);
+    Player player(rig.factory());
+    player.setQueue({item("A", 48000, a), item("B", 48000, b)});
+    player.replaceUpcoming({item("C", 48000, c)});
+    player.play();
+    player.waitUntilIdle();
+    CHECK(rig.output() == concat({&a, &c}));
+
+    Rig rig2;
+    Player alone(rig2.factory());
+    alone.setQueue({item("A", 48000, a), item("B", 48000, b)});
+    alone.replaceUpcoming({});
+    CHECK(alone.status().queueLength == 1);
+    alone.play();
+    alone.waitUntilIdle();
+    CHECK(rig2.output() == a);
+}
+
+TEST_CASE("replaceUpcoming many times while playing never mixes tracks up", "[engine][queue][edit]")
+{
+    // Each replacement changes what follows A while the next track may be
+    // loading; whatever follows A must be one whole track of the last list.
+    Rig rig;
+    const auto a = trackData(48000, 9600, 0); // 0.2 s
+    std::vector<std::vector<std::byte>> others;
+    for (int i = 0; i < 20; ++i)
+        others.push_back(trackData(48000, 480, 10 + i));
+    Player player(rig.factory({}, true));
+    player.setQueue({item("A", 48000, a), item("X", 48000, others[0])});
+    player.play();
+    for (int i = 1; i < 20; ++i)
+    {
+        player.replaceUpcoming({item("N" + std::to_string(i), 48000, others[i])});
+        std::this_thread::sleep_for(5ms);
+    }
+    player.waitUntilIdle();
+    const auto s = player.status();
+    CHECK(s.state == PlayerState::Ended);
+    CHECK(s.trackName == "N19");
+    CHECK(rig.output() == concat({&a, &others[19]}));
+}
