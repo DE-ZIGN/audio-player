@@ -139,8 +139,8 @@ TEST_CASE("Tracks: removing a file from the library removes what hangs on its tr
     auto& db = lib.database();
     lib.setValues(t, Layer::Tag, "title", Strings{"x"});
     db.exec("INSERT INTO plays (track_id, started_at, played_frames, completed) VALUES (" + id + ", 1, 100, 1)");
-    db.exec("INSERT INTO track_analysis (track_id, analyzer_version, sample_peak, true_peak, analyzed_at) VALUES (" + id
-            + ", 1, 0.9, 1.4, 1)");
+    db.exec("INSERT INTO track_analysis (track_id, analyzer_version, status, sample_peak, true_peak, analyzed_at) VALUES ("
+            + id + ", 1, 'ok', 0.9, 1.4, 1)");
     db.exec("INSERT INTO provenance_findings (track_id, check_name, result, evidence, checker_version, checked_at) "
             "VALUES (" + id + ", 'upsampled', 'inconclusive', '{\"cutoffHz\": 21000}', 1, 1)");
     db.exec("DELETE FROM files");

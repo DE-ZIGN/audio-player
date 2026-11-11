@@ -10,10 +10,12 @@
 // when the watch fails (the folder or the drive went away), the whole folder
 // is scanned again.
 //
-// After each comparison the tags of the files it marked are read (task 5-3).
+// After each comparison the tags of the files it marked are read (task 5-3),
+// and the background analysis (task 5-6) is woken to measure them.
 //
 // Runs on a thread of its own with its own connection to the database.
 
+#include <ap/library/analysis.h>
 #include <ap/library/folder_watcher.h>
 #include <ap/library/scanner.h>
 #include <ap/library/tag_importer.h>
@@ -22,6 +24,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -40,6 +43,7 @@ struct MonitorStats
     std::size_t tagsRead = 0;        // files whose tags were read (task 5-3)
     std::size_t tagReadFailures = 0;
     std::size_t relinked = 0;        // tracks found again at a new file after a move to another drive (task 5-5)
+    AnalysisReport analysis;         // measured in the background (task 5-6)
 };
 
 class LibraryMonitor
@@ -49,6 +53,7 @@ public:
     {
         std::chrono::milliseconds settle{300}; // quiet time before the changes are compared
         FolderWatcher::Options watcher;
+        bool analyze = true; // measure new and changed tracks in the background (AnalysisWorker)
     };
 
     // Opens `databaseFile` (it must exist with its watched folders), scans and watches.
@@ -85,6 +90,7 @@ private:
     bool busy_ = true; // starting, or comparing
     bool stop_ = false;
     MonitorStats stats_;
+    std::unique_ptr<AnalysisWorker> analysis_;
     std::thread thread_;
 };
 

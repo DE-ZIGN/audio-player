@@ -28,6 +28,8 @@ LibraryMonitor::LibraryMonitor(fs::path databaseFile) : LibraryMonitor(std::move
 LibraryMonitor::LibraryMonitor(fs::path databaseFile, Options options)
     : databaseFile_(std::move(databaseFile)), options_(options)
 {
+    if (options_.analyze)
+        analysis_ = std::make_unique<AnalysisWorker>(databaseFile_);
     thread_ = std::thread([this] { run(); });
 }
 
@@ -59,8 +61,14 @@ bool LibraryMonitor::waitUntilIdle(std::chrono::milliseconds timeout)
 
 MonitorStats LibraryMonitor::stats() const
 {
-    std::lock_guard lock(mutex_);
-    return stats_;
+    MonitorStats s;
+    {
+        std::lock_guard lock(mutex_);
+        s = stats_;
+    }
+    if (analysis_)
+        s.analysis = analysis_->total();
+    return s;
 }
 
 void LibraryMonitor::run()
@@ -105,6 +113,8 @@ void LibraryMonitor::run()
                 r.read += again.read;
                 r.failed += again.failed;
             }
+            if (analysis_ && (r.read > 0 || r.failed > 0 || !relinked.empty()))
+                analysis_->wake();
             std::lock_guard lock(mutex_);
             stats_.tagsRead += r.read;
             stats_.tagReadFailures += r.failed;

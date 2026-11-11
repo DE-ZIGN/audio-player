@@ -1,6 +1,7 @@
 # ap_library: the library database (tasks 5-1 to 5-5): files, tracks, the
 # three layers of displayed values, analysis values, play history.
-# Must not depend on the UI or on JUCE (plain C++20 + SQLite).
+# Must not depend on the UI or on JUCE (plain C++20 + SQLite). The engine's
+# decoders and meters measure the tracks (task 5-6).
 
 add_library(ap_library STATIC
     src/sqlite.cpp
@@ -14,9 +15,10 @@ add_library(ap_library STATIC
     src/tag_reader.cpp
     src/tag_importer.cpp
     src/search.cpp
-    src/history.cpp)
+    src/history.cpp
+    src/analysis.cpp)
 
-target_link_libraries(ap_library PRIVATE ap_sqlite tag normaliz bcrypt)
+target_link_libraries(ap_library PUBLIC ap_engine PRIVATE ap_sqlite tag normaliz bcrypt)
 
 target_include_directories(ap_library PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)

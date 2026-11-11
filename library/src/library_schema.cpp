@@ -173,12 +173,39 @@ UPDATE plays SET counted = completed;
 UPDATE files SET needs_read = 1 WHERE id IN (SELECT file_id FROM tracks WHERE fingerprint IS NULL);
 )sql";
 
+constexpr std::string_view kV6 = R"sql(
+-- Measuring at import (task 5-6). A track's analysis also records a DSD file
+-- (not PCM: nothing to measure) or a file that does not decode, so neither is
+-- tried again until the file changes; and the album it was measured with.
+CREATE TABLE track_analysis_new (
+    track_id          INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+    analyzer_version  INTEGER NOT NULL,
+    fingerprint       TEXT,               -- of the audio that was measured: measured again when it changed
+    status            TEXT NOT NULL CHECK (status IN ('ok', 'not_pcm', 'failed')),
+    error             TEXT,               -- why it failed
+    sample_peak       REAL,               -- linear, the largest channel
+    true_peak         REAL,               -- linear, 8x oversampling
+    true_peak_frame   REAL,               -- where (frames from the start, between samples)
+    loudness_lufs     REAL,               -- integrated; NULL: nothing above the gate (silence)
+    album_key         TEXT,               -- the album it was measured with; NULL: alone
+    analyzed_at       INTEGER NOT NULL,
+    CHECK (status <> 'ok' OR (sample_peak IS NOT NULL AND true_peak IS NOT NULL))
+);
+INSERT INTO track_analysis_new (track_id, analyzer_version, fingerprint, status, sample_peak, true_peak,
+                                true_peak_frame, loudness_lufs, analyzed_at)
+    SELECT track_id, analyzer_version, fingerprint, 'ok', sample_peak, true_peak, true_peak_frame, loudness_lufs,
+           analyzed_at FROM track_analysis;
+DROP TABLE track_analysis;
+ALTER TABLE track_analysis_new RENAME TO track_analysis;
+)sql";
+
 constexpr Migration kMigrations[] = {
     {1, "files, tracks, three layers of values, analysis, provenance findings, plays", kV1},
     {2, "files.needs_read", kV2},
     {3, "files.tag_charset, tag_charset_override, read_error", kV3},
     {4, "library_meta, track_search (FTS5 trigram)", kV4},
     {5, "plays.counted; read again for fingerprints", kV5},
+    {6, "track_analysis with status, error and album_key", kV6},
 };
 
 } // namespace

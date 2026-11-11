@@ -119,10 +119,12 @@ add_executable(ap_library_tests
     unit/legacy_text_test.cpp
     unit/library_tags_test.cpp
     unit/library_search_test.cpp
-    unit/library_history_test.cpp)
+    unit/library_history_test.cpp
+    unit/library_analysis_test.cpp)
 target_include_directories(ap_library_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/support)
 target_link_libraries(ap_library_tests PRIVATE ap_library Catch2::Catch2WithMain)
 ap_apply_compiler_settings(ap_library_tests)
+ap_copy_engine_dlls(ap_library_tests) # mpg123.dll, before test discovery runs the program
 set_target_properties(ap_library_tests PROPERTIES FOLDER "tests")
 
 catch_discover_tests(ap_library_tests ${AP_DISCOVER_ARGS}
