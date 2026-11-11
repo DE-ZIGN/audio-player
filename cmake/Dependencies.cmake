@@ -119,6 +119,33 @@ target_compile_definitions(ap_sqlite
 target_compile_options(ap_sqlite PRIVATE /W0)
 set_target_properties(ap_sqlite PROPERTIES FOLDER "third_party")
 
+# TagLib 2.1.1 (release archive), LGPL-2.1 or MPL-1.1; its bundled utfcpp is
+# BSL-1.0. Reads the tags of the music files (task 5-3); the application never
+# writes them. A static library (the source is public: the LGPL's relinking
+# is possible). Formats the application does not play are left out; zlib
+# (compressed ID3v2 frames, rare) is not used.
+set(BUILD_BINDINGS OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(WITH_ZLIB OFF CACHE BOOL "" FORCE)
+set(WITH_ASF OFF CACHE BOOL "" FORCE)
+set(WITH_MOD OFF CACHE BOOL "" FORCE)
+set(WITH_SHORTEN OFF CACHE BOOL "" FORCE)
+set(WITH_TRUEAUDIO OFF CACHE BOOL "" FORCE)
+set(CMAKE_DISABLE_FIND_PACKAGE_utf8cpp TRUE) # the copy in the archive, not one installed elsewhere
+FetchContent_Declare(taglib
+    URL      https://github.com/taglib/taglib/releases/download/v2.1.1/taglib-2.1.1.tar.gz
+    URL_HASH SHA256=3716d31f7c83cbf17b67c8cf44dd82b2a2f17e6780472287a16823e70305ddba
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    SYSTEM)
+FetchContent_MakeAvailable(taglib)
+set_target_properties(tag PROPERTIES FOLDER "third_party")
+# TagLib publishes its header folders only for an installed copy; in this
+# build they are given here (the folders of the formats that are built).
+foreach(dir . toolkit mpeg mpeg/id3v1 mpeg/id3v2 mpeg/id3v2/frames ogg flac ape mp4 riff riff/aiff riff/wav dsf dsdiff)
+    target_include_directories(tag SYSTEM INTERFACE "$<BUILD_INTERFACE:${taglib_SOURCE_DIR}/taglib/${dir}>")
+endforeach()
+target_include_directories(tag SYSTEM INTERFACE "$<BUILD_INTERFACE:${taglib_BINARY_DIR}>") # taglib_config.h
+
 # Copies the mpg123 DLL next to an executable that uses the engine.
 function(ap_copy_engine_dlls target)
     add_custom_command(TARGET ${target} POST_BUILD

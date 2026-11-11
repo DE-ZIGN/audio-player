@@ -143,6 +143,24 @@
   - Copyright (c) 1991, 1993 The Regents of the University of California. All rights reserved.（queue.h）
 - ライセンス本文：libebur128 の `COPYING`、`doc/license/R128Scan.txt`、`doc/license/queue.txt`
 
+## TagLib
+
+- バージョン：2.1.1（リリースの配布 `taglib-2.1.1.tar.gz`、SHA-256 `3716d31f7c83cbf17b67c8cf44dd82b2a2f17e6780472287a16823e70305ddba`）
+- ライセンス：LGPL-2.1 または MPL-1.1 の選択（本プロジェクトは LGPL-2.1 で利用。ソースを公開しているので、利用者が TagLib を差し替えてリンクし直せる）
+- 配布物：含む（音楽ファイルのタグを読む。書き込みには使わない。静的ライブラリとして組み込む。ASF・トラッカー形式・Shorten・TrueAudio は外し、zlib は使わない）
+- 入手先：https://taglib.org/ 、https://github.com/taglib/taglib （ソースは上の配布物。変更なし）
+- 著作権表示：Copyright (C) 2002 - 2008 by Scott Wheeler ほか（各ソースの冒頭と `AUTHORS`）
+- ライセンス本文：TagLib の `COPYING.LGPL`、`COPYING.MPL`
+
+### utfcpp（TagLib に同梱）
+
+- バージョン：TagLib 2.1.1 の `3rdparty/utfcpp` に入っているもの
+- ライセンス：BSL-1.0（Boost Software License 1.0）
+- 配布物：含む（TagLib の中で UTF-8 の変換に使われる。ヘッダーだけ）
+- 入手先：https://github.com/nemtrif/utfcpp
+- 著作権表示：Copyright 2006 Nemanja Trifunovic
+- ライセンス本文：`3rdparty/utfcpp/LICENSE`
+
 ## SQLite
 
 - バージョン：3.50.4（amalgamation `sqlite-amalgamation-3500400.zip`、SHA-256 `1d3049dd0f830a025a53105fc79fd2ab9431aea99e137809d064d8ee8356b032`）
