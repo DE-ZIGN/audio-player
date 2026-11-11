@@ -52,6 +52,8 @@ ap_lib scan FOLDER --db FILE     FOLDER を監視フォルダーとして DB に
                                  新しいファイルと変わったファイルのタグを読む
 ap_lib show --db FILE [--charset shift_jis|windows-1252|utf-8]
                                  曲の一覧（表示する値と、タグの文字コードの判断）
+ap_lib find --db FILE 言葉...    検索（かな・全角半角・大文字小文字・アクセント記号の違いを吸収。
+                                 1〜2 文字の言葉も探せる。言葉はすべて含むものを探す）
 ```
 
 ## ap_signalgen（テスト信号の生成）

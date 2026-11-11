@@ -4,11 +4,13 @@
 //                                    with the database, read the tags of what changed
 //   ap_lib show --db FILE [--charset shift_jis|windows-1252|utf-8]
 //                                    list the tracks with their shown values
+//   ap_lib find --db FILE WORDS...   search (task 5-4)
 //
 // The music files are only read.
 
 #include <ap/library/library_db.h>
 #include <ap/library/scanner.h>
+#include <ap/library/search.h>
 #include <ap/library/tag_importer.h>
 
 #include <windows.h>
@@ -29,7 +31,9 @@ constexpr const char* kUsage =
     "  ap_lib scan FOLDER --db FILE   FOLDER を監視フォルダーとして DB に加え（初回だけ）、DB と比べ、\n"
     "                                 新しいファイルと変わったファイルのタグを読む（音楽ファイルは読むだけ）\n"
     "  ap_lib show --db FILE [--charset shift_jis|windows-1252|utf-8]\n"
-    "                                 曲の一覧（表示する値と、タグの文字コードの判断）\n";
+    "                                 曲の一覧（表示する値と、タグの文字コードの判断）\n"
+    "  ap_lib find --db FILE 言葉...   検索（かな・全角半角・大文字小文字・アクセント記号の違いを吸収。\n"
+    "                                 1〜2 文字の言葉も探せる。言葉はすべて含むものを探す）\n";
 
 void print(const std::string& s)
 {
@@ -125,6 +129,25 @@ int show(const fs::path& db, const std::optional<std::string>& charset)
     return 0;
 }
 
+int find(const fs::path& db, const std::string& query)
+{
+    auto lib = LibraryDb::open(db);
+    const auto t0 = GetTickCount64();
+    const auto ids = searchTracks(lib, query);
+    const auto t1 = GetTickCount64();
+    print(std::format("「{}」（検索の形：「{}」）: {} 曲（{} ms）\n", query, normalizeForSearch(query), ids.size(), t1 - t0));
+    for (const auto id : ids)
+    {
+        auto st = lib.database().prepare(
+            "SELECT files.path FROM tracks JOIN files ON files.id = tracks.file_id WHERE tracks.id = ?");
+        st.bind(1, id);
+        st.step();
+        print(std::format("  {} ／ {} ／ {}\n    {}\n", joined(lib.values(id, "title")), joined(lib.values(id, "artist")),
+                          joined(lib.values(id, "album")), st.text(0)));
+    }
+    return 0;
+}
+
 } // namespace
 
 int wmain(int argc, wchar_t** argv)
@@ -149,6 +172,13 @@ int wmain(int argc, wchar_t** argv)
             return scan(fs::path(rest[1]), *db);
         if (db && rest.size() == 1 && rest[0] == L"show")
             return show(*db, charset);
+        if (db && rest.size() >= 2 && rest[0] == L"find")
+        {
+            std::wstring q;
+            for (std::size_t i = 1; i < rest.size(); ++i)
+                q += (i > 1 ? L" " : L"") + rest[i];
+            return find(*db, utf8(q));
+        }
     }
     catch (const std::exception& e)
     {
