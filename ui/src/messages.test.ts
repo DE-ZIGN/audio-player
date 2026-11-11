@@ -17,6 +17,7 @@ import {
   meterPeakText,
   meterTrackPeakText,
   outputModeText,
+  outputTags,
   priorityText,
   queueText,
   rateChangeText,
@@ -639,5 +640,47 @@ describe("Meters (task 4-4)", () => {
     const t = meterNote(meter("measuring", reading(), { droppedFrames: 48000 * 2 }));
     expect(t).toContain("2 秒分を測れませんでした（音には影響しません）");
     expect(meterNote(meter("measuring", reading(), { droppedFrames: 1024 }))).toContain("1024 フレーム分");
+  });
+});
+
+describe("Output field (top bar)", () => {
+  const verdict = (v: Partial<BitPerfectVerdict>): BitPerfectVerdict => ({
+    bitPerfect: true,
+    quantized: false,
+    dither: false,
+    comparison: false,
+    repacked: false,
+    dop: false,
+    floatSource: false,
+    dummyOutput: false,
+    deviceVolume: null,
+    deviceMuted: false,
+    deliveryMismatch: false,
+    ...v,
+  });
+  const playing = (extra: Partial<PlaybackStatus>): PlaybackStatus => ({
+    ...emptyStatus,
+    state: "playing",
+    outputFormat: f(96000, 32, 24),
+    path: { ...({} as SignalPath), container: "FLAC", processing: false } as SignalPath,
+    bitPerfect: verdict({}),
+    ...extra,
+  });
+  it("shows the format and BIT-PERFECT from the judgement", () => {
+    expect(outputTags(playing({})).map((t) => t.text)).toEqual(["FLAC", "96 kHz", "24 bit", "BIT-PERFECT"]);
+    expect(outputTags(playing({})).at(-1)?.kind).toBe("ok");
+  });
+  it("shows the digital volume instead when it is not 100%", () => {
+    const s = playing({ bitPerfect: verdict({ bitPerfect: false, dither: true }), stages: [{ name: "volume", gainDb: -6 }] });
+    const tags = outputTags(s);
+    expect(tags.at(-1)).toEqual({ text: "DIGITAL VOL -6.0 dB", kind: "warn" });
+    expect(tags.map((t) => t.text)).not.toContain("BIT-PERFECT");
+  });
+  it("shows DSD as DoP", () => {
+    const s = playing({ dop: { dsdRate: 2822400, container: "DSF" }, path: { container: "DSF", processing: false } as SignalPath });
+    expect(outputTags(s).map((t) => t.text)).toEqual(["DSF", "DSD64", "DoP", "BIT-PERFECT"]);
+  });
+  it("shows nothing before the output is open", () => {
+    expect(outputTags(emptyStatus)).toEqual([{ text: "—", kind: "plain" }]);
   });
 });

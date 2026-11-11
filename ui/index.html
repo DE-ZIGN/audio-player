@@ -1,40 +1,123 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" data-theme="amber">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:5173" />
+          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://juce.backend; connect-src 'self' ws://localhost:5173" />
     <title>AudioPlayer</title>
   </head>
   <body>
-    <main class="app">
-      <header class="app-header">
-        <h1>AudioPlayer <span class="tag">仮称</span></h1>
-        <span id="backend-kind" class="backend-kind"></span>
-      </header>
-
-      <section class="panel file">
-        <button id="open" type="button">ファイルを開く</button>
-        <div class="file-name" id="file-name">ファイルを開いてください</div>
-        <span class="queue" id="queue"></span>
-      </section>
-
-      <section class="panel transport">
-        <div class="buttons">
-          <button id="play" type="button" class="primary" disabled>再生</button>
-          <button id="stop" type="button" disabled>停止</button>
-          <span class="state" id="state"></span>
+    <!-- The library view (task 6-1, CLAUDE.md chapter 8): the same parts and
+         information as the other views, in a flat layout. Colours are theme
+         tokens (style.css): amber or blue-grey. -->
+    <div class="shell">
+      <header class="topbar">
+        <img id="now-cover" class="now-cover" alt="" hidden />
+        <div class="now-cover now-cover-empty" id="now-cover-empty"></div>
+        <div class="now">
+          <div class="now-title" id="file-name">曲を選んでください</div>
+          <div class="now-sub"><span id="now-artist"></span><span class="queue" id="queue"></span></div>
+        </div>
+        <div class="transport">
+          <button id="prev" type="button" class="icon" title="前の曲" aria-label="前の曲" disabled>⏮</button>
+          <button id="play" type="button" class="icon primary" title="再生" aria-label="再生" disabled>▶</button>
+          <button id="stop" type="button" class="icon" title="停止" aria-label="停止" disabled>■</button>
+          <button id="next" type="button" class="icon" title="次の曲" aria-label="次の曲" disabled>⏭</button>
         </div>
         <div class="seek">
           <span class="time" id="position">0:00</span>
           <input id="seek" type="range" min="0" max="1000" value="0" step="1" disabled aria-label="再生位置" />
           <span class="time" id="duration">0:00</span>
         </div>
-      </section>
+        <div class="levels" title="出力に渡す値の True Peak（直近 0.1 秒）。正確な値は「出力の確認」で">
+          <div class="level"><span>L</span><div class="bar"><div class="fill" id="level-l"></div></div></div>
+          <div class="level"><span>R</span><div class="bar"><div class="fill" id="level-r"></div></div></div>
+          <div class="scale"><span>-60</span><span>-40</span><span>-20</span><span>-6</span><span>0 dB</span></div>
+        </div>
+        <button id="output" type="button" class="output-field" title="出力の確認（経路とメーター）">
+          <span class="output-label">出力</span>
+          <span class="output-tags" id="output-tags"><span class="tag">—</span></span>
+        </button>
+      </header>
 
+      <nav class="sidebar">
+        <button type="button" class="nav active" data-view="tracks"><span class="nav-icon">♪</span>曲</button>
+        <button type="button" class="nav" data-view="albums"><span class="nav-icon">◎</span>アルバム</button>
+        <button type="button" class="nav" data-view="settings"><span class="nav-icon">⚙</span>設定</button>
+        <div class="folders">
+          <div class="folders-head">
+            <span>監視フォルダー</span>
+            <button id="add-folder" type="button" class="icon small" title="フォルダーを加える" aria-label="フォルダーを加える">＋</button>
+          </div>
+          <ul id="folder-list" class="folder-list"></ul>
+        </div>
+        <button id="open" type="button" class="open-file">ファイルを開く</button>
+      </nav>
+
+      <main class="content">
+        <div class="content-head">
+          <h1 id="content-title">ライブラリ</h1>
+          <input id="search" type="search" placeholder="ライブラリを検索（かな・全角半角を問わず）" aria-label="検索" />
+          <select id="sort" aria-label="並べ替え"></select>
+          <div class="view-toggle" role="group" aria-label="表示">
+            <button id="view-list" type="button" class="icon active" title="一覧" aria-label="一覧">☰</button>
+            <button id="view-grid" type="button" class="icon" title="タイル" aria-label="タイル">▦</button>
+          </div>
+        </div>
+        <p class="error banner" id="error" hidden></p>
+
+        <div class="album-head" id="album-head" hidden>
+          <button id="album-back" type="button" class="link">← アルバム一覧へ</button>
+          <img id="album-cover" class="album-cover" alt="" />
+          <div class="album-info">
+            <h2 id="album-title"></h2>
+            <div id="album-artist" class="album-artist"></div>
+            <div id="album-meta" class="album-meta"></div>
+          </div>
+        </div>
+
+        <div class="table" id="table">
+          <div class="table-head" id="table-head"></div>
+          <div class="table-body" id="table-body"><div class="spacer" id="table-spacer"></div></div>
+        </div>
+        <div class="grid" id="grid" hidden><div class="spacer" id="grid-spacer"></div></div>
+        <p class="empty" id="empty" hidden></p>
+
+        <section class="settings" id="settings" hidden>
+          <h2>見た目</h2>
+          <fieldset class="themes">
+            <legend>テーマ（色だけが変わります）</legend>
+            <label><input type="radio" name="theme" value="amber" /> アンバー</label>
+            <label><input type="radio" name="theme" value="bluegray" /> ブルーグレー</label>
+          </fieldset>
+          <p class="note">ほかの設定（出力デバイス、モード、ISP セーフ、ReplayGain、EQ）は 6-3 で作ります。</p>
+        </section>
+      </main>
+
+      <aside class="queue-panel">
+        <h2>再生キュー</h2>
+        <div class="queue-count" id="queue-count">—</div>
+        <ol class="queue-list" id="queue-list"></ol>
+      </aside>
+
+      <footer class="statusbar">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="counts">—</span>
+        <span class="spacer-flex"></span>
+        <span id="state" class="state"></span>
+        <span id="backend-kind" class="backend-kind"></span>
+      </footer>
+    </div>
+
+    <!-- 出力の確認（簡易版。経路図とメーターの画面は 6-4） -->
+    <dialog id="output-dialog" class="output-dialog">
+      <div class="dialog-head">
+        <h2>出力の確認</h2>
+        <button id="output-close" type="button" class="icon" aria-label="閉じる">✕</button>
+      </div>
       <section class="panel path">
-        <h2>経路</h2>
+        <h3>経路</h3>
         <dl>
           <dt>入力</dt>
           <dd id="source-format">—</dd>
@@ -65,11 +148,9 @@
         </dl>
         <p class="notice" id="dop-note" hidden></p>
         <p class="error" id="integrity-failures" hidden></p>
-        <p class="error" id="error" hidden></p>
       </section>
-
       <section class="panel meters">
-        <h2>メーター</h2>
+        <h3>メーター</h3>
         <dl>
           <dt>True Peak</dt>
           <dd id="meter-peak">—</dd>
@@ -82,7 +163,7 @@
         </dl>
         <p class="note" id="meter-note"></p>
       </section>
-    </main>
+    </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -404,3 +404,38 @@ export function errorText(s: PlaybackStatus): string {
 
   return `エラー: ${e.detail}`;
 }
+
+// --- The output field at the right end of the top bar (CLAUDE.md chapter 8) ---
+
+export interface OutputTag {
+  text: string;
+  kind: "plain" | "ok" | "warn";
+}
+
+// Short tags: the container, the rate, the bit depth, then BIT-PERFECT as
+// judged from the actual path (task 4-2), or the first reason it is not.
+export function outputTags(s: PlaybackStatus): OutputTag[] {
+  const f = s.outputFormat;
+  if (!f || !s.path) return [{ text: "—", kind: "plain" }];
+  const tags: OutputTag[] = [];
+  if (s.path.container) tags.push({ text: s.path.container, kind: "plain" });
+  if (s.dop) {
+    tags.push({ text: dsdRateName(s.dop.dsdRate).replace(/（.*）/, ""), kind: "plain" });
+    tags.push({ text: "DoP", kind: "plain" });
+  } else {
+    tags.push({ text: `${Number((f.sampleRate / 1000).toFixed(1))} kHz`, kind: "plain" });
+    tags.push({ text: f.sampleType === "float" ? "32bit float" : `${f.validBits} bit`, kind: "plain" });
+  }
+  const v = s.bitPerfect;
+  if (!v) return tags;
+  if (v.bitPerfect) {
+    tags.push({ text: "BIT-PERFECT", kind: "ok" });
+    return tags;
+  }
+  const volume = s.stages.find((st) => st.name === "volume");
+  if (volume && volume.gainDb !== null) tags.push({ text: `DIGITAL VOL ${dbText(volume.gainDb)}`, kind: "warn" });
+  else if (v.comparison) tags.push({ text: "聴き比べ中", kind: "warn" });
+  else if (v.deliveryMismatch) tags.push({ text: "自己確認で不一致", kind: "warn" });
+  else tags.push({ text: "処理あり", kind: "warn" });
+  return tags;
+}

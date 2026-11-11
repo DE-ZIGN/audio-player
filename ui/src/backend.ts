@@ -4,6 +4,17 @@
 // be worked on without the app.
 
 import { emptyStatus, type BitPerfectVerdict, type MeterStatus, type PlaybackStatus, type SignalPath } from "./status";
+import type {
+  ActionResult,
+  AlbumQuery,
+  AlbumRow,
+  Folder,
+  LibraryCounts,
+  Page,
+  TrackQuery,
+  TrackRow,
+} from "./library";
+import { MockLibrary } from "./mockLibrary";
 
 export interface OpenResult {
   ok: boolean;
@@ -11,8 +22,22 @@ export interface OpenResult {
   message?: string;
 }
 
+// The library (task 6-1), see app/src/LibraryBridge.h.
+export interface LibraryApi {
+  folders(): Promise<Folder[]>;
+  addFolder(): Promise<ActionResult>; // shows a folder dialog
+  removeFolder(id: number): Promise<void>;
+  tracks(q: TrackQuery): Promise<Page<TrackRow>>;
+  albums(q: AlbumQuery): Promise<Page<AlbumRow>>;
+  counts(): Promise<LibraryCounts>;
+  play(ids: number[], start: number): Promise<ActionResult>; // these tracks as the queue
+  coverUrl(trackId: number): string;
+  onChanged(listener: (c: LibraryCounts) => void): void;
+}
+
 export interface Backend {
   readonly kind: "app" | "mock";
+  readonly library: LibraryApi;
   openFile(): Promise<OpenResult>;
   play(): Promise<void>;
   stop(): Promise<void>;
@@ -36,10 +61,53 @@ declare global {
 }
 
 export const STATUS_EVENT = "playbackStatus";
+export const LIBRARY_EVENT = "libraryChanged";
+
+type NativeFn = (name: string) => (...args: unknown[]) => Promise<unknown>;
+
+class AppLibrary implements LibraryApi {
+  constructor(
+    private readonly fn: NativeFn,
+    private readonly coverBase: string,
+  ) {}
+  async folders() {
+    return ((await this.fn("libraryFolders")()) as Folder[] | null) ?? [];
+  }
+  async addFolder() {
+    return (await this.fn("libraryAddFolder")()) as ActionResult;
+  }
+  async removeFolder(id: number) {
+    await this.fn("libraryRemoveFolder")(id);
+  }
+  async tracks(q: TrackQuery) {
+    return ((await this.fn("libraryTracks")(q)) as Page<TrackRow> | null) ?? { rows: [], total: 0 };
+  }
+  async albums(q: AlbumQuery) {
+    return ((await this.fn("libraryAlbums")(q)) as Page<AlbumRow> | null) ?? { rows: [], total: 0 };
+  }
+  async counts() {
+    return (await this.fn("libraryCounts")()) as LibraryCounts;
+  }
+  async play(ids: number[], start: number) {
+    return ((await this.fn("libraryPlay")(ids, start)) as ActionResult | null) ?? { ok: false };
+  }
+  coverUrl(trackId: number) {
+    return `${this.coverBase}${trackId}.jpg`;
+  }
+  onChanged(listener: (c: LibraryCounts) => void) {
+    window.__JUCE__!.backend.addEventListener(LIBRARY_EVENT, (p) => listener(p as LibraryCounts));
+  }
+}
 
 class AppBackend implements Backend {
   readonly kind = "app" as const;
-  constructor(private readonly fn: (name: string) => (...args: unknown[]) => Promise<unknown>) {}
+  readonly library: LibraryApi;
+  constructor(
+    private readonly fn: NativeFn,
+    coverBase: string,
+  ) {
+    this.library = new AppLibrary(fn, coverBase);
+  }
 
   async openFile(): Promise<OpenResult> {
     return (await this.fn("openFile")()) as OpenResult;
@@ -148,11 +216,40 @@ export const DEMO_QUEUE: MockTrack[] = [
 // Simulated player for working on the page in a normal browser.
 export class MockBackend implements Backend {
   readonly kind = "mock" as const;
+  readonly library: LibraryApi;
   private status: PlaybackStatus = { ...emptyStatus };
   private listeners: ((s: PlaybackStatus) => void)[] = [];
   private timer: ReturnType<typeof setInterval> | undefined;
 
-  constructor(private readonly tracks: MockTrack[] = [{ name: "（試験用）sine_96k_24bit.wav", sampleRate: 96000, seconds: 30 }]) {}
+  constructor(
+    private tracks: MockTrack[] = [{ name: "（試験用）sine_96k_24bit.wav", sampleRate: 96000, seconds: 30 }],
+    mockLibrary: MockLibrary | null = null,
+  ) {
+    const lib = mockLibrary ?? new MockLibrary(0);
+    this.library = {
+      folders: async () => lib.listFolders(),
+      addFolder: async () => lib.addFolder(),
+      removeFolder: async (id) => lib.removeFolder(id),
+      tracks: async (q) => lib.trackPage(q),
+      albums: async (q) => lib.albumPage(q),
+      counts: async () => lib.counts(),
+      coverUrl: (id) => lib.coverUrl(id),
+      onChanged: (l) => lib.onChanged(l),
+      play: async (ids, start) => {
+        const tracks = ids.flatMap((id) => {
+          const t = lib.track(id);
+          return t ? [{ name: t.title, sampleRate: t.sampleRate ?? 44100, seconds: t.seconds ?? 200 }] : [];
+        });
+        if (tracks.length === 0) return { ok: false, message: "再生できる曲がありません" };
+        this.halt();
+        this.tracks = tracks;
+        const i = Math.min(start, tracks.length - 1);
+        this.update({ ...emptyStatus, state: "stopped", queueLength: tracks.length, ...this.trackFields(i) });
+        await this.play();
+        return { ok: true };
+      },
+    };
+  }
 
   async openFile(): Promise<OpenResult> {
     this.halt();
@@ -273,8 +370,10 @@ export class MockBackend implements Backend {
 }
 
 export async function createBackend(): Promise<Backend> {
-  if (!window.__JUCE__) return new MockBackend(DEMO_QUEUE);
+  if (!window.__JUCE__) return new MockBackend(DEMO_QUEUE, new MockLibrary());
   // JUCE's helper reads window.__JUCE__ when it is loaded, so import it only inside the app.
   const juce = await import("./juce/index.js");
-  return new AppBackend((name) => juce.getNativeFunction(name) as (...args: unknown[]) => Promise<unknown>);
+  const fn: NativeFn = (name) => juce.getNativeFunction(name) as (...args: unknown[]) => Promise<unknown>;
+  const info = (await fn("libraryInfo")()) as { coverBase?: string } | null;
+  return new AppBackend(fn, info?.coverBase ?? "/art/track/");
 }

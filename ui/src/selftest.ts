@@ -119,6 +119,22 @@ export async function runSelfTest(
     if (stopped.positionFrames <= 0 || stopped.positionFrames >= total) throw new Error(`stop position ${stopped.positionFrames}`);
     log.push(`restart and stop at ${stopped.positionFrames}`);
 
+    // The library (task 6-1): the test WAV's folder is watched; its track
+    // reaches the list through the scan, the tag reading and the bridge.
+    // (In the app only: the browser's mock library is checked by its own tests.)
+    if (backend.kind !== "app") return { ok: true, log };
+    const name = latest.fileName.replace(/\.[^.]+$/, "");
+    let found = false;
+    for (let i = 0; i < 100 && !found; i++) {
+      const page = await backend.library.tracks({ search: name, offset: 0, limit: 10 });
+      found = page.rows.some((r) => r.title === name);
+      if (!found) await new Promise((r) => setTimeout(r, 100));
+    }
+    if (!found) throw new Error(`library: ${name} not in the track list`);
+    const counts = await backend.library.counts();
+    if (counts.folders !== 1 || counts.tracks < 1) throw new Error(`library counts ${JSON.stringify(counts)}`);
+    log.push(`library: ${name} is in the track list (${counts.tracks} tracks, ${counts.folders} folder)`);
+
     return { ok: true, log };
   } catch (e) {
     log.push(String(e));

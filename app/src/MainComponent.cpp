@@ -39,7 +39,7 @@ MainComponent::MainComponent(MainOptions options)
           return bridge_.playQueue(std::move(files), start);
       })
 {
-    setSize(900, 620);
+    setSize(1280, 800); // the library view (task 6-1): a list, the side bar and the queue side by side
     bridge_.onUiReady = options_.onUiReady;
     bridge_.onSelfTestResult = options_.onSelfTestResult;
     const bool selfTest = options_.selfTestWav != juce::File{};

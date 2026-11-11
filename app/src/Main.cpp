@@ -2,6 +2,7 @@
 
 #include <ap/engine/pcm_source.h>
 #include <ap/engine/wav_file_source.h>
+#include <ap/library/library_db.h>
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
@@ -122,6 +123,16 @@ public:
             options.libraryFolder = juce::File::getSpecialLocation(juce::File::tempDirectory)
                                         .getChildFile("ap_app_self_test_library");
             options.libraryFolder.deleteRecursively();
+            if (options.selfTestWav != juce::File{})
+            {
+                // The self-test's WAV folder is the library's one watched folder:
+                // the page checks that its track reaches the track list.
+                options.libraryFolder.createDirectory();
+                auto lib = ap::library::LibraryDb::open(std::filesystem::path(
+                    options.libraryFolder.getChildFile("library.db").getFullPathName().toWideCharPointer()));
+                lib.addRoot(std::filesystem::path(
+                    options.selfTestWav.getParentDirectory().getFullPathName().toWideCharPointer()));
+            }
         }
 
         if (options.selfTestWav != juce::File{})
