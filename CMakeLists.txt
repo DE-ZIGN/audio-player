@@ -65,6 +65,7 @@ include(Dependencies)
 # Sub-projects
 # ---------------------------------------------------------------------------
 add_subdirectory(engine)
+add_subdirectory(library)
 
 if(AP_BUILD_TOOLS)
     add_subdirectory(tools)

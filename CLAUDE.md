@@ -118,6 +118,7 @@
 
 ```
 engine/   出力層、デコーダー、信号処理（UI に依存しない）
+library/  ライブラリの DB（SQLite）、監視、タグ（UI に依存しない）
 app/      JUCE アプリ本体、エンジンと画面の橋渡し
 ui/       TypeScript の画面（Vite）
 tests/    単体テストと受け入れテスト
