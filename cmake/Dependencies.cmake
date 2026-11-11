@@ -102,6 +102,23 @@ target_include_directories(ap_ebur128 PRIVATE "${ebur128_SOURCE_DIR}/ebur128/que
 target_compile_definitions(ap_ebur128 PRIVATE _USE_MATH_DEFINES)
 set_target_properties(ap_ebur128 PROPERTIES FOLDER "third_party")
 
+# SQLite 3.50.4 (amalgamation), public domain. The library database (task
+# 5-1, CLAUDE.md chapter 7). Built here as a static library with FTS5 (the
+# trigram tokenizer for Japanese substring search, task 5-4).
+FetchContent_Declare(sqlite
+    URL      https://sqlite.org/2025/sqlite-amalgamation-3500400.zip
+    URL_HASH SHA256=1d3049dd0f830a025a53105fc79fd2ab9431aea99e137809d064d8ee8356b032
+    SOURCE_SUBDIR not-used # no CMakeLists.txt there: FetchContent only downloads
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(sqlite)
+add_library(ap_sqlite STATIC "${sqlite_SOURCE_DIR}/sqlite3.c")
+target_include_directories(ap_sqlite SYSTEM PUBLIC "${sqlite_SOURCE_DIR}")
+target_compile_definitions(ap_sqlite
+    PUBLIC  SQLITE_OMIT_LOAD_EXTENSION # no run-time extensions
+    PRIVATE SQLITE_ENABLE_FTS5 SQLITE_DQS=0 SQLITE_DEFAULT_FOREIGN_KEYS=1 SQLITE_THREADSAFE=1)
+target_compile_options(ap_sqlite PRIVATE /W0)
+set_target_properties(ap_sqlite PROPERTIES FOLDER "third_party")
+
 # Copies the mpg123 DLL next to an executable that uses the engine.
 function(ap_copy_engine_dlls target)
     add_custom_command(TARGET ${target} POST_BUILD

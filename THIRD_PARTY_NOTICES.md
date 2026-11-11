@@ -143,6 +143,15 @@
   - Copyright (c) 1991, 1993 The Regents of the University of California. All rights reserved.（queue.h）
 - ライセンス本文：libebur128 の `COPYING`、`doc/license/R128Scan.txt`、`doc/license/queue.txt`
 
+## SQLite
+
+- バージョン：3.50.4（amalgamation `sqlite-amalgamation-3500400.zip`、SHA-256 `1d3049dd0f830a025a53105fc79fd2ab9431aea99e137809d064d8ee8356b032`）
+- ライセンス：パブリックドメイン（著作権を放棄している。AGPLv3 と両立する）
+- 配布物：含む（ライブラリのデータベース。`sqlite3.c` を FTS5 つきで静的ライブラリとして組み込む。`shell.c` は使わない）
+- 入手先：https://sqlite.org/ （ソースは上の配布物。変更なし）
+- 著作権表示：なし（ソースの冒頭に「The author disclaims copyright to this source code.」とある）
+- ライセンス本文：https://sqlite.org/copyright.html
+
 ---
 
 ## LAME（テスト専用）
