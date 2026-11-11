@@ -17,9 +17,10 @@ add_library(ap_library STATIC
     src/search.cpp
     src/history.cpp
     src/analysis.cpp
-    src/browse.cpp)
+    src/browse.cpp
+    src/covers.cpp)
 
-target_link_libraries(ap_library PUBLIC ap_engine PRIVATE ap_sqlite tag normaliz bcrypt)
+target_link_libraries(ap_library PUBLIC ap_engine PRIVATE ap_sqlite tag normaliz bcrypt windowscodecs ole32)
 
 target_include_directories(ap_library PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)
