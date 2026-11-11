@@ -10,10 +10,13 @@
 // when the watch fails (the folder or the drive went away), the whole folder
 // is scanned again.
 //
+// After each comparison the tags of the files it marked are read (task 5-3).
+//
 // Runs on a thread of its own with its own connection to the database.
 
 #include <ap/library/folder_watcher.h>
 #include <ap/library/scanner.h>
+#include <ap/library/tag_importer.h>
 
 #include <chrono>
 #include <condition_variable>
@@ -34,6 +37,8 @@ struct MonitorStats
     std::size_t watchFailures = 0;   // folders whose watch stopped (scanned again, no longer watched)
     std::vector<std::string> errors; // English, for logs
     ScanReport total;                // everything found since the start
+    std::size_t tagsRead = 0;        // files whose tags were read (task 5-3)
+    std::size_t tagReadFailures = 0;
 };
 
 class LibraryMonitor

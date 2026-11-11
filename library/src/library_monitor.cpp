@@ -92,6 +92,13 @@ void LibraryMonitor::run()
                 stats_.errors.push_back(e.what());
             }
         }
+        TagImporter importer(lib);
+        auto readTags = [&] {
+            const auto r = importer.readPending();
+            std::lock_guard lock(mutex_);
+            stats_.tagsRead += r.read;
+            stats_.tagReadFailures += r.failed;
+        };
         for (const auto& [id, path] : roots)
         {
             const auto r = scanner.scanRoot(id); // a missing folder: everything in it is missing
@@ -99,6 +106,7 @@ void LibraryMonitor::run()
             ++stats_.startupScans;
             stats_.total.append(r);
         }
+        readTags();
 
         for (;;)
         {
@@ -180,6 +188,14 @@ void LibraryMonitor::run()
                     attempt([&] { return scanner.scanPath(id, fs::path(p)); });
                     ++scans;
                 }
+            }
+            try
+            {
+                readTags();
+            }
+            catch (const std::exception& e)
+            {
+                errors.push_back(e.what());
             }
             std::lock_guard lock(mutex_);
             stats_.pathScans += scans;

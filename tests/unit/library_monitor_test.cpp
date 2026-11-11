@@ -121,13 +121,12 @@ TEST_CASE("Monitor: added, changed, deleted and renamed files while running", "[
     put(f.root / "Album" / "cover.jpg");
     CHECK(eventually([&] { return f.present() == 6; }));
 
-    // Changed: to be read again.
-    {
-        auto lib = LibraryDb::open(f.db);
-        lib.database().exec("UPDATE files SET needs_read = 0");
-    }
+    // Changed: the new size is recorded and the tags are read again (these
+    // test files have no tags, so each read is a failure on record).
+    const auto readsBefore = monitor.stats().tagReadFailures;
     put(a, 150);
-    CHECK(eventually([&] { return scalar(f.db, "SELECT COUNT(*) FROM files WHERE needs_read = 1") == 1; }));
+    CHECK(eventually([&] { return scalar(f.db, "SELECT size FROM files WHERE path LIKE '%a.flac'") == 150; }));
+    CHECK(eventually([&] { return monitor.stats().tagReadFailures > readsBefore; }));
 
     // Renamed folder: the same tracks at their new paths.
     const auto tracksBefore = scalar(f.db, "SELECT COUNT(*) FROM tracks");

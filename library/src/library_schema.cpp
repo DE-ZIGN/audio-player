@@ -138,9 +138,21 @@ ALTER TABLE files ADD COLUMN needs_read INTEGER NOT NULL DEFAULT 1 CHECK (needs_
 CREATE INDEX files_needs_read ON files (id) WHERE needs_read = 1;
 )sql";
 
+constexpr std::string_view kV3 = R"sql(
+-- Reading the tags (task 5-3). Text in fields that declare no character set
+-- (ID3v1, ID3v2 "ISO-8859-1" frames, RIFF INFO) is decoded by a character set
+-- judged per file; the judgement is kept, and the user can choose instead.
+ALTER TABLE files ADD COLUMN tag_charset TEXT
+    CHECK (tag_charset IN ('shift_jis', 'windows-1252', 'utf-8')); -- NULL: no such text beyond ASCII
+ALTER TABLE files ADD COLUMN tag_charset_override TEXT
+    CHECK (tag_charset_override IN ('shift_jis', 'windows-1252', 'utf-8')); -- the user's choice; NULL: detect
+ALTER TABLE files ADD COLUMN read_error TEXT; -- why the tags could not be read (read again when the file changes)
+)sql";
+
 constexpr Migration kMigrations[] = {
     {1, "files, tracks, three layers of values, analysis, provenance findings, plays", kV1},
     {2, "files.needs_read", kV2},
+    {3, "files.tag_charset, tag_charset_override, read_error", kV3},
 };
 
 } // namespace
