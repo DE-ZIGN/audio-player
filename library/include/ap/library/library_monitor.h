@@ -39,6 +39,7 @@ struct MonitorStats
     ScanReport total;                // everything found since the start
     std::size_t tagsRead = 0;        // files whose tags were read (task 5-3)
     std::size_t tagReadFailures = 0;
+    std::size_t relinked = 0;        // tracks found again at a new file after a move to another drive (task 5-5)
 };
 
 class LibraryMonitor

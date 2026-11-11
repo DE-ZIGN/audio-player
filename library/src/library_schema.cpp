@@ -164,11 +164,21 @@ CREATE TRIGGER tracks_leave_search AFTER DELETE ON tracks BEGIN
 END;
 )sql";
 
+constexpr std::string_view kV5 = R"sql(
+-- Plays and moves (task 5-5). A play counts when half the track or 4 minutes
+-- were heard (history.h); every play is kept with whether it counts.
+ALTER TABLE plays ADD COLUMN counted INTEGER NOT NULL DEFAULT 0 CHECK (counted IN (0, 1));
+UPDATE plays SET counted = completed;
+-- Fingerprints are taken when the tags are read: read the tracks that have none yet.
+UPDATE files SET needs_read = 1 WHERE id IN (SELECT file_id FROM tracks WHERE fingerprint IS NULL);
+)sql";
+
 constexpr Migration kMigrations[] = {
     {1, "files, tracks, three layers of values, analysis, provenance findings, plays", kV1},
     {2, "files.needs_read", kV2},
     {3, "files.tag_charset, tag_charset_override, read_error", kV3},
     {4, "library_meta, track_search (FTS5 trigram)", kV4},
+    {5, "plays.counted; read again for fingerprints", kV5},
 };
 
 } // namespace

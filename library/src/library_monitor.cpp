@@ -1,6 +1,8 @@
 #include <ap/library/library_monitor.h>
 
 #include <algorithm>
+#include <ap/library/history.h>
+
 #include <map>
 #include <memory>
 #include <wchar.h>
@@ -94,10 +96,19 @@ void LibraryMonitor::run()
         }
         TagImporter importer(lib);
         auto readTags = [&] {
-            const auto r = importer.readPending();
+            auto r = importer.readPending();
+            // A file that moved to another drive: the track keeps its history (task 5-5).
+            const auto relinked = relinkMovedTracks(lib);
+            if (!relinked.empty())
+            {
+                const auto again = importer.readPending(); // the moved files' tags, into the old tracks
+                r.read += again.read;
+                r.failed += again.failed;
+            }
             std::lock_guard lock(mutex_);
             stats_.tagsRead += r.read;
             stats_.tagReadFailures += r.failed;
+            stats_.relinked += relinked.size();
         };
         for (const auto& [id, path] : roots)
         {

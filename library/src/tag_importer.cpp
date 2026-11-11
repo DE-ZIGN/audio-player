@@ -1,5 +1,7 @@
 #include <ap/library/tag_importer.h>
 
+#include <ap/library/history.h>
+
 namespace ap::library {
 
 namespace {
@@ -45,8 +47,18 @@ ImportReport TagImporter::readPending(std::size_t limit)
         {
             error = e.what();
         }
+        // Found again by it after a move to another drive (task 5-5), tags or not.
+        const auto fingerprint = fingerprintOf(fromUtf8(it.path));
 
         Database::Transaction tx(db);
+        {
+            auto fp = db.prepare("UPDATE tracks SET fingerprint = ? WHERE id = ?");
+            if (fingerprint)
+                fp.bind(1, std::string_view(*fingerprint));
+            else
+                fp.bindNull(1);
+            fp.bind(2, it.track).run();
+        }
         if (!tags)
         {
             // Not retried until the file changes again (the scan marks it then).
