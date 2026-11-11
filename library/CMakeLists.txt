@@ -12,9 +12,10 @@ add_library(ap_library STATIC
     src/library_monitor.cpp
     src/legacy_text.cpp
     src/tag_reader.cpp
-    src/tag_importer.cpp)
+    src/tag_importer.cpp
+    src/search.cpp)
 
-target_link_libraries(ap_library PRIVATE ap_sqlite tag)
+target_link_libraries(ap_library PRIVATE ap_sqlite tag normaliz)
 
 target_include_directories(ap_library PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)

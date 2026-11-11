@@ -78,6 +78,7 @@ ImportReport TagImporter::readPending(std::size_t limit)
         else
             upd.bindNull(1);
         upd.bind(2, it.file).run();
+        db_.refreshSearch(it.track);
         tx.commit();
         ++report.read;
         if (tags->legacyCharset == LegacyCharset::ShiftJis)

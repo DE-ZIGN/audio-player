@@ -85,8 +85,15 @@ public:
     std::vector<std::string> values(std::int64_t track, std::string_view field);
     std::optional<Layer> shownLayer(std::int64_t track, std::string_view field);
 
+    // Puts the track's shown values and file name into the search index again
+    // (task 5-4, search.h). The changes above do it themselves; a change made
+    // with SQL directly must call it. A track that no longer exists leaves the index.
+    void refreshSearch(std::int64_t track);
+
 private:
     LibraryDb(Database db, MigrationResult m) : db_(std::move(db)), migration_(std::move(m)) {}
+    // Builds the search index again when it was made by another version of the search form.
+    void ensureSearchIndex();
 
     Database db_;
     MigrationResult migration_;

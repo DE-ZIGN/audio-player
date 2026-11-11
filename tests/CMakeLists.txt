@@ -117,7 +117,8 @@ add_executable(ap_library_tests
     unit/library_scan_test.cpp
     unit/library_monitor_test.cpp
     unit/legacy_text_test.cpp
-    unit/library_tags_test.cpp)
+    unit/library_tags_test.cpp
+    unit/library_search_test.cpp)
 target_include_directories(ap_library_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/support)
 target_link_libraries(ap_library_tests PRIVATE ap_library Catch2::Catch2WithMain)
 ap_apply_compiler_settings(ap_library_tests)

@@ -149,10 +149,26 @@ ALTER TABLE files ADD COLUMN tag_charset_override TEXT
 ALTER TABLE files ADD COLUMN read_error TEXT; -- why the tags could not be read (read again when the file changes)
 )sql";
 
+constexpr std::string_view kV4 = R"sql(
+-- Search (task 5-4): the shown values in the search form (search.h), one row
+-- per track (rowid = tracks.id), indexed by 3-character pieces. Filled by the
+-- application (the search form is computed there); built again when the form
+-- changes (library_meta 'search_index').
+CREATE TABLE library_meta (
+    key    TEXT PRIMARY KEY,
+    value  TEXT
+) WITHOUT ROWID;
+CREATE VIRTUAL TABLE track_search USING fts5 (title, artists, album, other, file, tokenize = 'trigram');
+CREATE TRIGGER tracks_leave_search AFTER DELETE ON tracks BEGIN
+    DELETE FROM track_search WHERE rowid = old.id;
+END;
+)sql";
+
 constexpr Migration kMigrations[] = {
     {1, "files, tracks, three layers of values, analysis, provenance findings, plays", kV1},
     {2, "files.needs_read", kV2},
     {3, "files.tag_charset, tag_charset_override, read_error", kV3},
+    {4, "library_meta, track_search (FTS5 trigram)", kV4},
 };
 
 } // namespace

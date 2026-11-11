@@ -293,6 +293,12 @@ ScanReport Scanner::reconcile(std::int64_t rootId, const fs::path& path)
                         .bind(6, now)
                         .bind(7, static_cast<std::int64_t>(changed))
                         .run();
+                    {
+                        auto tracks = db.prepare("SELECT id FROM tracks WHERE file_id = ?");
+                        tracks.bind(1, id);
+                        while (tracks.step())
+                            db_.refreshSearch(tracks.integer(0)); // found by its new file name
+                    }
                     if (const auto m = missingNow.find(id); m != missingNow.end())
                         report.missing[m->second].clear(); // not gone: moved (removed below)
                     report.moved.emplace_back(oldPath, f->path);

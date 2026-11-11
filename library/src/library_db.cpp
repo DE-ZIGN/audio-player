@@ -40,14 +40,18 @@ LibraryDb LibraryDb::open(const std::filesystem::path& file)
     // Readers (the screen) do not wait for the writer (the scan), and a crash
     // does not leave a half-written database.
     db.exec("PRAGMA journal_mode = WAL;");
-    return LibraryDb(std::move(db), std::move(m));
+    LibraryDb lib(std::move(db), std::move(m));
+    lib.ensureSearchIndex();
+    return lib;
 }
 
 LibraryDb LibraryDb::openInMemory()
 {
     auto db = Database::openInMemory();
     auto m = migrate(db, libraryMigrations());
-    return LibraryDb(std::move(db), std::move(m));
+    LibraryDb lib(std::move(db), std::move(m));
+    lib.ensureSearchIndex();
+    return lib;
 }
 
 std::int64_t LibraryDb::addRoot(const std::filesystem::path& folder)
@@ -74,6 +78,7 @@ std::int64_t LibraryDb::addTrack(const FileFacts& f, std::optional<std::int64_t>
     auto track = db_.prepare("INSERT INTO tracks (file_id, added_at) VALUES (?, ?)");
     track.bind(1, fileId).bind(2, now).run();
     const auto trackId = db_.lastInsertRowId();
+    refreshSearch(trackId); // findable by its file name before its tags are read
     tx.commit();
     return trackId;
 }
@@ -102,6 +107,7 @@ void LibraryDb::setValues(std::int64_t track, Layer layer, std::string_view fiel
             ins.bind(6, source);
         ins.bind(7, now).run();
     }
+    refreshSearch(track);
     tx.commit();
 }
 
@@ -115,16 +121,20 @@ void LibraryDb::clearByUser(std::int64_t track, std::string_view field)
         .bind(2, name)
         .bind(3, nowUnixMs())
         .run();
+    refreshSearch(track);
     tx.commit();
 }
 
 void LibraryDb::removeValues(std::int64_t track, Layer layer, std::string_view field)
 {
+    Database::Transaction tx(db_);
     db_.prepare("DELETE FROM track_fields WHERE track_id = ? AND layer = ? AND field = ?")
         .bind(1, track)
         .bind(2, static_cast<std::int64_t>(layer))
         .bind(3, fieldName(field))
         .run();
+    refreshSearch(track);
+    tx.commit();
 }
 
 std::vector<std::string> LibraryDb::values(std::int64_t track, std::string_view field)
