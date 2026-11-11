@@ -3,4 +3,5 @@
 add_executable(ap_lib main.cpp)
 target_link_libraries(ap_lib PRIVATE ap_library)
 ap_apply_compiler_settings(ap_lib)
+ap_copy_engine_dlls(ap_lib) # mpg123.dll next to the program
 set_target_properties(ap_lib PROPERTIES FOLDER "tools")

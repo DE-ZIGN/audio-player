@@ -5,9 +5,11 @@
 //   ap_lib show --db FILE [--charset shift_jis|windows-1252|utf-8]
 //                                    list the tracks with their shown values
 //   ap_lib find --db FILE WORDS...   search (task 5-4)
+//   ap_lib analyze --db FILE         measure True Peak and loudness of what waits (task 5-6)
 //
 // The music files are only read.
 
+#include <ap/library/analysis.h>
 #include <ap/library/history.h>
 #include <ap/library/library_db.h>
 #include <ap/library/scanner.h>
@@ -16,6 +18,7 @@
 
 #include <windows.h>
 
+#include <cmath>
 #include <cstdio>
 #include <format>
 #include <optional>
@@ -34,7 +37,8 @@ constexpr const char* kUsage =
     "  ap_lib show --db FILE [--charset shift_jis|windows-1252|utf-8]\n"
     "                                 曲の一覧（表示する値と、タグの文字コードの判断）\n"
     "  ap_lib find --db FILE 言葉...   検索（かな・全角半角・大文字小文字・アクセント記号の違いを吸収。\n"
-    "                                 1〜2 文字の言葉も探せる。言葉はすべて含むものを探す）\n";
+    "                                 1〜2 文字の言葉も探せる。言葉はすべて含むものを探す）\n"
+    "  ap_lib analyze --db FILE       測っていない曲の True Peak とラウドネスを測る（アルバムはまとめて）\n";
 
 void print(const std::string& s)
 {
@@ -117,8 +121,11 @@ int scan(const fs::path& folder, const fs::path& db)
 int show(const fs::path& db, const std::optional<std::string>& charset)
 {
     auto lib = LibraryDb::open(db);
-    std::string sql = "SELECT tracks.id, files.path, files.tag_charset, files.tag_charset_override, files.present "
-                      "FROM tracks JOIN files ON files.id = tracks.file_id";
+    std::string sql = "SELECT tracks.id, files.path, files.tag_charset, files.tag_charset_override, files.present, "
+                      "tracks.container, tracks.sample_rate, tracks.bits, tracks.frames, tracks.dsd_rate, "
+                      "a.status, a.true_peak, a.loudness_lufs, a.error "
+                      "FROM tracks JOIN files ON files.id = tracks.file_id "
+                      "LEFT JOIN track_analysis AS a ON a.track_id = tracks.id";
     if (charset)
         sql += " WHERE files.tag_charset = ?";
     sql += " ORDER BY files.path";
@@ -134,6 +141,36 @@ int show(const fs::path& db, const std::optional<std::string>& charset)
         print(std::format("{}{}\n  文字コード: {}{}\n  曲名: {}\n  アーティスト: {}\n  アルバム: {}\n", st.text(1),
                           st.integer(4) ? "" : "（見つからない）", cs, ov, joined(lib.values(id, "title")),
                           joined(lib.values(id, "artist")), joined(lib.values(id, "album"))));
+        // Format and length (task 5-6): the headers' values, the decoder's once measured.
+        std::string format = st.isNull(5) ? std::string("—") : st.text(5);
+        double seconds = 0.0;
+        if (!st.isNull(9))
+        {
+            format += std::format(" DSD{}", st.integer(9) / 44100);
+            seconds = st.isNull(8) ? 0.0 : static_cast<double>(st.integer(8)) / static_cast<double>(st.integer(9));
+        }
+        else if (!st.isNull(6))
+        {
+            format += std::format(" {:g} kHz", st.integer(6) / 1000.0);
+            if (!st.isNull(7))
+                format += std::format(" / {}bit", st.integer(7));
+            seconds = st.isNull(8) ? 0.0 : static_cast<double>(st.integer(8)) / static_cast<double>(st.integer(6));
+        }
+        const auto length = std::format("{}:{:04.1f}", static_cast<int>(seconds) / 60, std::fmod(seconds, 60.0));
+        std::string measured = "測っていない";
+        if (!st.isNull(10))
+        {
+            const auto status = st.text(10);
+            if (status == "ok")
+                measured = std::format("True Peak {:+.2f} dBTP{}、ラウドネス {}", 20.0 * std::log10(st.real(11)),
+                                       st.real(11) > 1.0 ? "（0 dBTP 超え）" : "",
+                                       st.isNull(12) ? std::string("無音") : std::format("{:.2f} LUFS", st.real(12)));
+            else if (status == "not_pcm")
+                measured = "DSD（PCM ではないので測らない）";
+            else
+                measured = "デコードできなかった（" + st.text(13) + "）";
+        }
+        print(std::format("  形式: {}、長さ {}\n  測定: {}\n", format, length, measured));
         ++n;
     }
     print(std::format("{} 曲\n", n));
@@ -156,6 +193,20 @@ int find(const fs::path& db, const std::string& query)
         print(std::format("  {} ／ {} ／ {}\n    {}\n", joined(lib.values(id, "title")), joined(lib.values(id, "artist")),
                           joined(lib.values(id, "album")), st.text(0)));
     }
+    return 0;
+}
+
+int analyze(const fs::path& db)
+{
+    auto lib = LibraryDb::open(db);
+    print(std::format("測っていない曲: {}\n", pendingAnalysis(lib)));
+    const auto t0 = GetTickCount64();
+    const auto r = analyzePending(lib);
+    const auto t1 = GetTickCount64();
+    print(std::format("測った曲 {}、アルバム {}、DSD（測らない）{}、デコードできなかった {}（{:.2f} 秒）\n", r.tracks, r.albums,
+                      r.notPcm, r.failed, (t1 - t0) / 1000.0));
+    for (const auto& e : r.errors)
+        print("  デコードできなかった: " + e + "\n");
     return 0;
 }
 
@@ -183,6 +234,8 @@ int wmain(int argc, wchar_t** argv)
             return scan(fs::path(rest[1]), *db);
         if (db && rest.size() == 1 && rest[0] == L"show")
             return show(*db, charset);
+        if (db && rest.size() == 1 && rest[0] == L"analyze")
+            return analyze(*db);
         if (db && rest.size() >= 2 && rest[0] == L"find")
         {
             std::wstring q;
