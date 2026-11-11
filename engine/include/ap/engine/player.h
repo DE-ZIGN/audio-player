@@ -111,6 +111,9 @@ struct PlayerStatus
     // The direct path's self-check (task 4-3): frames of this output session
     // compared between the values read and what reached the driver's buffers.
     std::optional<DeliveryResult> delivery;
+    // True Peak and loudness of what is handed to the output (task 4-4).
+    // reading.truePeakMax and integratedLufs belong to the track meter.queueIndex.
+    MeterStatus meter;
     std::string outputName;
     std::uint64_t positionFrames = 0; // within the current track
     std::uint64_t totalFrames = 0;    // of the current track

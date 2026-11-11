@@ -153,6 +153,8 @@ Player::Player(OutputFactory outputFactory, PlaybackOptions options)
 {
     if (!options_.deliveryCheck)
         options_.deliveryCheck = std::make_shared<DeliveryCheck>(); // the self-check always runs on the direct path
+    if (!options_.meter)
+        options_.meter = std::make_shared<OutputMeter>();
 }
 
 Player::~Player()
@@ -195,6 +197,7 @@ void Player::setQueue(std::vector<QueueItem> items, std::size_t startIndex)
     retiredOutputHealth_ = {};
 
     status_ = PlayerStatus{};
+    options_.meter->clear();
     outputPath_.reset();
     container_.clear();
     status_.queueLength = queue_.size();
@@ -380,6 +383,7 @@ PlayerStatus Player::status() const
         out.realtimePriority = out.realtimePriority || h.realtimePriority;
     }
     s.dropouts = {out.lateBuffers, out.timeouts, src.starvations, src.starvedFrames, out.realtimePriority};
+    s.meter = options_.meter->status();
 
     if (s.plan && outputPath_ && s.sourceFormat)
     {

@@ -113,8 +113,22 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
         chain->prepare(plan.output.sampleRate, plan.output.channels);
     }
     output.open(plan.output);
+    OutputMeter* meter = options.meter.get();
+    if (meter)
+        meter->beginSession(plan.output, !source.dop().has_value(), source.position());
     if (options.onStart)
         options.onStart(plan);
+
+    // Where tracks start, for the meter: the output's frame k is the source's
+    // frame k of this session on every path (the processing path compensates
+    // its latency), so read positions mark output positions.
+    std::uint64_t readFrames = 0;
+    auto noteTracks = [&source, meter, &readFrames](std::size_t got) noexcept {
+        if (meter)
+            for (const auto& seg : source.lastReadTracks())
+                meter->trackStarts(readFrames + seg.frameOffset, seg.track.queueIndex);
+        readFrames += got;
+    };
 
     PlaybackReport report;
     RenderCallback render;
@@ -154,6 +168,7 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
                 if (!ended)
                 {
                     const std::size_t got = source.read(std::span(scratch).first(frames * in.bytesPerFrame()));
+                    noteTracks(got);
                     if (got < frames)
                         ended = true;
                     const auto block = std::span(samples).first(got * ch);
@@ -194,8 +209,9 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
     else if (plan.repack == Repack::None)
     {
         const PcmFormat in = plan.source;
-        render = [&source, check, in](std::span<std::byte> dst) {
+        render = [&source, check, in, &noteTracks](std::span<std::byte> dst) {
             const std::size_t got = source.read(dst);
+            noteTracks(got);
             if (check)
                 check->read(dst.first(got * in.bytesPerFrame()), in, got); // before the output touches it
             return got;
@@ -214,10 +230,21 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
             if (scratch.size() < frames * srcBpf)
                 scratch.resize(frames * srcBpf); // first callback only, period size is fixed
             const std::size_t got = source.read(std::span(scratch).first(frames * srcBpf));
+            noteTracks(got);
             if (check)
                 check->read(std::span(scratch).first(got * srcBpf), in, got); // the values as read, before the repack
             repackSamples(scratch, srcBps, dst, dstBps, got * channels);
             return got;
+        };
+    }
+
+    if (meter)
+    {
+        // What the output is handed, after the render has filled it.
+        render = [inner = std::move(render), meter, bpf = plan.output.bytesPerFrame()](std::span<std::byte> dst) {
+            const std::size_t n = inner(dst);
+            meter->delivered(dst.first(std::min(dst.size(), n * bpf)), n);
+            return n;
         };
     }
 
@@ -231,10 +258,14 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
     {
         output.setDeliveryCheck(nullptr);
         output.close();
+        if (meter)
+            meter->endSession();
         throw;
     }
     output.setDeliveryCheck(nullptr);
     output.close();
+    if (meter)
+        meter->endSession();
     return report;
 }
 
