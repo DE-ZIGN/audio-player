@@ -10,6 +10,7 @@
 
 #include <ap/library/legacy_text.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <optional>
@@ -19,6 +20,19 @@
 
 namespace ap::library {
 
+// What the file's headers say about the audio (task 5-6), for the track list
+// before the audio is analysed. The analysis replaces these with the decoder's
+// exact values (e.g. the gapless length of an MP3).
+struct AudioFacts
+{
+    std::string container; // "FLAC", "WAV", "AIFF", "ALAC", "AAC", "MP3", "DSF", "DFF" (as the engine names them)
+    std::optional<std::uint32_t> sampleRate; // PCM; none for DSD (see dsdRate)
+    std::optional<std::uint16_t> bits;       // none for lossy formats
+    std::optional<std::uint16_t> channels;
+    std::optional<std::uint64_t> frames;     // at sampleRate, or DSD samples per channel at dsdRate
+    std::optional<std::uint32_t> dsdRate;
+};
+
 struct TagReadResult
 {
     std::map<std::string, std::vector<std::string>> fields; // UTF-8 values, in order
@@ -27,6 +41,7 @@ struct TagReadResult
     // tags had no such text beyond ASCII.
     std::optional<LegacyCharset> legacyCharset;
     bool legacyOverridden = false; // the user's choice rather than detection
+    AudioFacts audio;
 };
 
 class TagReadError : public std::runtime_error

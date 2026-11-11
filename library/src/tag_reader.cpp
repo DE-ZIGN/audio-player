@@ -102,6 +102,71 @@ std::string lower(const std::string& s)
     return r;
 }
 
+AudioFacts factsOf(TagLib::File* f)
+{
+    AudioFacts a;
+    const auto* p = f->audioProperties();
+    if (!p)
+        return a;
+    if (p->channels() > 0)
+        a.channels = static_cast<std::uint16_t>(p->channels());
+    const auto rate = p->sampleRate() > 0 ? std::optional<std::uint32_t>(static_cast<std::uint32_t>(p->sampleRate()))
+                                          : std::nullopt;
+    auto fromLength = [&] {
+        if (rate && p->lengthInMilliseconds() > 0)
+            a.frames = static_cast<std::uint64_t>(p->lengthInMilliseconds()) * *rate / 1000;
+    };
+    a.sampleRate = rate;
+    if (auto* x = dynamic_cast<TagLib::FLAC::File*>(f); x && x->audioProperties())
+    {
+        a.container = "FLAC";
+        a.bits = static_cast<std::uint16_t>(x->audioProperties()->bitsPerSample());
+        a.frames = x->audioProperties()->sampleFrames();
+    }
+    else if (auto* w = dynamic_cast<TagLib::RIFF::WAV::File*>(f); w && w->audioProperties())
+    {
+        a.container = "WAV";
+        a.bits = static_cast<std::uint16_t>(w->audioProperties()->bitsPerSample());
+        a.frames = w->audioProperties()->sampleFrames();
+    }
+    else if (auto* i = dynamic_cast<TagLib::RIFF::AIFF::File*>(f); i && i->audioProperties())
+    {
+        a.container = i->audioProperties()->isAiffC() ? "AIFC" : "AIFF";
+        a.bits = static_cast<std::uint16_t>(i->audioProperties()->bitsPerSample());
+        a.frames = i->audioProperties()->sampleFrames();
+    }
+    else if (auto* m = dynamic_cast<TagLib::MP4::File*>(f); m && m->audioProperties())
+    {
+        const bool alac = m->audioProperties()->codec() == TagLib::MP4::Properties::ALAC;
+        a.container = alac ? "ALAC" : "AAC";
+        if (alac)
+            a.bits = static_cast<std::uint16_t>(m->audioProperties()->bitsPerSample());
+        fromLength();
+    }
+    else if (dynamic_cast<TagLib::MPEG::File*>(f))
+    {
+        a.container = "MP3";
+        fromLength();
+    }
+    else if (auto* d = dynamic_cast<TagLib::DSF::File*>(f); d && d->audioProperties())
+    {
+        a.container = "DSF";
+        a.dsdRate = rate;
+        a.sampleRate.reset();
+        a.bits = 1;
+        a.frames = static_cast<std::uint64_t>(d->audioProperties()->sampleCount());
+    }
+    else if (auto* dd = dynamic_cast<TagLib::DSDIFF::File*>(f); dd && dd->audioProperties())
+    {
+        a.container = "DFF";
+        a.dsdRate = rate;
+        a.sampleRate.reset();
+        a.bits = 1;
+        a.frames = static_cast<std::uint64_t>(dd->audioProperties()->sampleCount());
+    }
+    return a;
+}
+
 std::string sourceOf(TagLib::File* f)
 {
     if (dynamic_cast<TagLib::MPEG::File*>(f))
@@ -126,12 +191,14 @@ std::string sourceOf(TagLib::File* f)
 TagReadResult readTags(const std::filesystem::path& file, std::optional<LegacyCharset> charsetOverride)
 {
     installHandlers();
-    TagLib::FileRef ref(file.c_str(), false); // tags only, no audio properties
+    // The audio properties from the headers only (Fast: no scan of the audio).
+    TagLib::FileRef ref(file.c_str(), true, TagLib::AudioProperties::Fast);
     if (ref.isNull())
         throw TagReadError("TagLib could not read the file");
 
     TagReadResult r;
     r.source = sourceOf(ref.file());
+    r.audio = factsOf(ref.file());
     const TagLib::PropertyMap props = ref.file()->properties();
 
     // First the values as they came, the undeclared ones still as bytes.

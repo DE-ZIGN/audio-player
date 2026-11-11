@@ -84,6 +84,28 @@ ImportReport TagImporter::readPending(std::size_t limit)
                     .bind(6, now)
                     .run();
             }
+        {
+            // What the headers say about the audio, until the analysis has the decoder's values (task 5-6).
+            const auto& a = tags->audio;
+            auto facts = db.prepare("UPDATE tracks SET container = ?, sample_rate = ?, bits = ?, channels = ?, frames = ?, "
+                                    "dsd_rate = ? WHERE id = ?");
+            if (a.container.empty())
+                facts.bindNull(1);
+            else
+                facts.bind(1, std::string_view(a.container));
+            auto opt = [&](int i, auto v) {
+                if (v)
+                    facts.bind(i, static_cast<std::int64_t>(*v));
+                else
+                    facts.bindNull(i);
+            };
+            opt(2, a.sampleRate);
+            opt(3, a.bits);
+            opt(4, a.channels);
+            opt(5, a.frames);
+            opt(6, a.dsdRate);
+            facts.bind(7, it.track).run();
+        }
         auto upd = db.prepare("UPDATE files SET needs_read = 0, read_error = NULL, tag_charset = ? WHERE id = ?");
         if (tags->legacyCharset)
             upd.bind(1, charsetName(*tags->legacyCharset));

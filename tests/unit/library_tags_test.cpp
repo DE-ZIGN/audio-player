@@ -374,3 +374,27 @@ TEST_CASE("Import: the scan's marked files are read into the tag layer", "[libra
     importer.readPending();
     CHECK(lib.values(a, "artist") == Strings{u8(u8"由紀さおり")});
 }
+
+TEST_CASE("Tags: the audio facts in the headers are read too (task 5-6)", "[library][tags]")
+{
+    ap::test::TempDir dir;
+    auto t = readTags(write(dir.path() / "a.wav", wavWithInfo(encode("x", 932), encode("y", 932))));
+    CHECK(t.audio.container == "WAV");
+    CHECK(t.audio.sampleRate == 44100u);
+    CHECK(t.audio.bits == 16);
+    CHECK(t.audio.channels == 2);
+    CHECK(t.audio.frames == 100u); // 400 bytes of 16-bit stereo
+    CHECK_FALSE(t.audio.dsdRate.has_value());
+
+    t = readTags(write(dir.path() / "f.flac", flacWithComments({"TITLE=x"})));
+    CHECK(t.audio.container == "FLAC");
+    CHECK(t.audio.sampleRate == 44100u);
+    CHECK(t.audio.bits == 16);
+    CHECK(t.audio.channels == 2);
+
+    auto mp3 = sjisMp3("a", "b", "c");
+    t = readTags(write(dir.path() / "m.mp3", mp3));
+    CHECK(t.audio.container == "MP3");
+    CHECK(t.audio.sampleRate == 44100u);
+    CHECK_FALSE(t.audio.bits.has_value()); // lossy: no bit depth
+}
