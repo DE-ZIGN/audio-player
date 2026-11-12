@@ -5,6 +5,7 @@ import { countsText } from "./libraryFormat";
 import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
 import { SettingsView } from "./settingsView";
 import { OutputView } from "./outputView";
+import { AbxView } from "./abxView";
 import { lengthText } from "./libraryFormat";
 import {
   bitPerfectText,
@@ -356,10 +357,19 @@ async function main() {
     ?.addEventListener("click", () => void settings.refresh());
   void settings.refresh(); // the settings as saved, before anything changes them
   const outputView = new OutputView((mode) => settings.enableIspSafe(mode));
+  const abxView = new AbxView(backend.abx);
+  const openAbx = async () => {
+    els.outputDialog.close();
+    abxView.render(await backend.getStatus()); // the track and position to start from
+    abxView.open();
+  };
+  document.getElementById("oc-abx")?.addEventListener("click", () => void openAbx());
+  document.getElementById("settings-abx")?.addEventListener("click", () => void openAbx());
   backend.onStatus((s) => {
     render(s);
     settings.onStatus(s);
     outputView.render(s);
+    abxView.render(s);
   });
   backend.library.onChanged((c) => {
     els.counts.textContent = countsText(c);

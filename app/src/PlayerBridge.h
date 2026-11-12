@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ap/engine/abx.h>
 #include <ap/engine/listening_settings.h>
 #include <ap/engine/player.h>
 
@@ -27,6 +28,16 @@ namespace ap::app {
 //   setVolume(dB) the digital volume (0 = 100%: no processing, bit-perfect; "-inf" mutes)
 // The output and the processing settings come from the settings screen
 // (SettingsBridge, task 6-3) through setOutput() and setListening().
+//
+// ABX (task 6-6), on the current track:
+//   abxStart({ startSeconds, seconds, trials, kind })  kind "processed" (原音 と
+//       音作り) or "16bit" (原音 と 16bit・TPDF). Works out the loudness match
+//       over the region (on a background thread), then plays the region over
+//       and over through the comparison. { ok, message?, matchDb }
+//   abxChoose("A" | "B" | "X"), abxAnswer("A" | "B")  (X is A / X is B)
+//   abxAbort(), abxClose() (forgets the finished result)
+// When the test ends (answered or aborted) the queue, the track and the
+// position before it are put back. The status carries "abx" (see ui/src/abx.ts).
 // Event (C++ -> JavaScript): "playbackStatus" with the status object,
 // sent at most 10 times per second and only when it changed.
 class PlayerBridge final : private juce::Timer
@@ -89,12 +100,29 @@ private:
     // Runs on the playback thread. Throws OutputException.
     std::unique_ptr<ap::engine::AudioOutput> openChosenOutput();
 
-    struct QueueMeta
+    // ABX (task 6-6).
+    void abxStartAsync(const juce::var& request, juce::WebBrowserComponent::NativeFunctionCompletion done);
+    void abxFinish(); // stop, put back the queue, the settings and the position
+    juce::var abxVar() const;
+    struct AbxSession
     {
-        std::int64_t id = 0;
-        std::string name, artist;
-        std::optional<double> seconds;
+        ap::engine::AbxTest test;
+        std::string kind;
+        std::uint64_t start = 0, length = 0;
+        std::uint32_t rate = 0;
+        double matchDb = 0.0;
+        ap::engine::AbxChoice listening = ap::engine::AbxChoice::A;
+        bool running = true;
+        // What was playing before, to put back.
+        std::vector<QueueFile> queue;
+        std::size_t index = 0;
+        std::uint64_t position = 0;
     };
+    std::optional<AbxSession> abx_;
+    bool abxPreparing_ = false;
+    std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+
+    using QueueMeta = QueueFile; // what each queue entry was made from
     ap::engine::ListeningChain chain_; // ReplayGain, EQ, volume, ISP-safe, limiter
     ap::engine::ListeningSettings listening_; // as last applied (the mode and ISP-safe go in the status)
     mutable std::mutex outputMutex_;   // guards output_ and outputNotice_

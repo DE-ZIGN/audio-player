@@ -7,6 +7,8 @@
 #include <ap/engine/output/device_selection.h>
 #include <ap/engine/output/wasapi_exclusive_output.h>
 #include <ap/engine/audio_file.h>
+#include <ap/engine/dsp/comparison.h>
+#include <ap/engine/looping_source.h>
 #include <ap/engine/prefetching_source.h>
 #include <ap/engine/wav_file_source.h>
 
@@ -253,6 +255,7 @@ PlayerBridge::PlayerBridge(Player::OutputFactory outputFactory, const AppSetting
 
 PlayerBridge::~PlayerBridge()
 {
+    *alive_ = false;
     stopTimer();
     player_.stop();
 }
@@ -292,7 +295,7 @@ juce::WebBrowserComponent::Options PlayerBridge::registerFunctions(juce::WebBrow
             for (const auto& m : queueMeta_)
             {
                 auto* o = new juce::DynamicObject();
-                o->setProperty("id", static_cast<juce::int64>(m.id));
+                o->setProperty("id", static_cast<juce::int64>(m.libraryId));
                 o->setProperty("name", juce::String::fromUTF8(m.name.c_str()));
                 o->setProperty("artist", juce::String::fromUTF8(m.artist.c_str()));
                 o->setProperty("seconds", m.seconds ? juce::var(*m.seconds) : juce::var());
@@ -313,6 +316,53 @@ juce::WebBrowserComponent::Options PlayerBridge::registerFunctions(juce::WebBrow
             pushStatus(true);
             done(true);
         })
+        .withNativeFunction("abxStart",
+                            [this](Args args, Completion done) {
+                                abxStartAsync(args.isEmpty() ? juce::var() : args[0], std::move(done));
+                            })
+        .withNativeFunction("abxChoose",
+                            [this](Args args, Completion done) {
+                                if (abx_ && abx_->running && !args.isEmpty())
+                                {
+                                    const auto c = args[0].toString();
+                                    const auto choice = c == "B" ? AbxChoice::B : c == "X" ? AbxChoice::X : AbxChoice::A;
+                                    abx_->listening = choice;
+                                    chain_.chain()->comparison().select(abx_->test.sideFor(choice));
+                                }
+                                pushStatus(true);
+                                done(true);
+                            })
+        .withNativeFunction("abxAnswer",
+                            [this](Args args, Completion done) {
+                                if (abx_ && abx_->running && !args.isEmpty())
+                                {
+                                    abx_->test.answer(args[0].toString() == "B" ? AbxChoice::B : AbxChoice::A);
+                                    // The sound being heard stays; a new X is drawn for the next trial.
+                                    if (abx_->listening == AbxChoice::X)
+                                        chain_.chain()->comparison().select(abx_->test.sideFor(AbxChoice::X));
+                                    if (abx_->test.finished())
+                                        abxFinish();
+                                }
+                                pushStatus(true);
+                                done(true);
+                            })
+        .withNativeFunction("abxAbort",
+                            [this](Args, Completion done) {
+                                if (abx_ && abx_->running)
+                                {
+                                    abx_->test.abort();
+                                    abxFinish();
+                                }
+                                pushStatus(true);
+                                done(true);
+                            })
+        .withNativeFunction("abxClose",
+                            [this](Args, Completion done) {
+                                if (abx_ && !abx_->running)
+                                    abx_.reset();
+                                pushStatus(true);
+                                done(true);
+                            })
         .withNativeFunction("uiReady", [this](Args, Completion done) {
             done(true);
             if (onUiReady)
@@ -360,7 +410,9 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
     }
     queueMeta_.clear();
     for (const auto& file : files)
-        queueMeta_.push_back({0, file.getFileName().toStdString(), {}, std::nullopt});
+        queueMeta_.push_back({file.getFileName().toStdString(),
+                              std::filesystem::path(file.getFullPathName().toWideCharPointer()), std::nullopt, 0, {},
+                              std::nullopt});
     ++queueVersion_;
     chain_.limiter->resetStats();
 
@@ -388,7 +440,7 @@ void PlayerBridge::replaceUpcoming(std::vector<QueueFile> files)
     if (queueMeta_.size() > current + 1)
         queueMeta_.resize(current + 1);
     for (auto& f : files)
-        queueMeta_.push_back({f.libraryId, std::move(f.name), std::move(f.artist), f.seconds});
+        queueMeta_.push_back(std::move(f));
     ++queueVersion_;
     pushStatus(true);
 }
@@ -402,7 +454,7 @@ juce::String PlayerBridge::playQueue(std::vector<QueueFile> files, std::size_t s
         return juce::String::fromUTF8("再生する曲がありません");
     queueMeta_.clear();
     for (auto& f : files)
-        queueMeta_.push_back({f.libraryId, std::move(f.name), std::move(f.artist), f.seconds});
+        queueMeta_.push_back(std::move(f));
     ++queueVersion_;
     chain_.limiter->resetStats();
     player_.setQueue(std::move(items), std::min(start, files.size() - 1));
@@ -522,6 +574,7 @@ juce::var PlayerBridge::statusAsVar() const
         lo->setProperty("maxReductionDb", ls.maxReductionDb);
         o->setProperty("limiter", juce::var(lo));
     }
+    o->setProperty("abx", abxVar());
     o->setProperty("eqSolo", chain_.eqSolo() ? juce::var(static_cast<int>(*chain_.eqSolo())) : juce::var());
     // For the output check (task 6-4): the mode, the ISP-safe gain of that
     // mode, and the current track's measured true peak (the ISP warning).
@@ -680,6 +733,188 @@ std::unique_ptr<AudioOutput> PlayerBridge::openChosenOutput()
     return std::make_unique<WasapiExclusiveOutput>(id);
 }
 
+// --- ABX (task 6-6) -----------------------------------------------------------------
+
+void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserComponent::NativeFunctionCompletion done)
+{
+    auto fail = [&done](const char* message) {
+        auto* o = new juce::DynamicObject();
+        o->setProperty("ok", false);
+        o->setProperty("message", juce::String::fromUTF8(message));
+        done(juce::var(o));
+    };
+    if ((abx_ && abx_->running) || abxPreparing_)
+        return fail("ABX はもう始まっています");
+    abx_.reset();
+    const auto s = player_.status();
+    if (s.state == PlayerState::Empty || s.queueIndex >= queueMeta_.size() || !s.sourceFormat)
+        return fail("ABX で聴く曲を、先に再生してください");
+    if (s.dop)
+        return fail("DSD（DoP）の曲は ABX で比べられません（DoP のデータには処理をかけないため）");
+    const auto file = queueMeta_[s.queueIndex];
+    const std::string kind = request.getProperty("kind", "processed").toString() == "16bit" ? "16bit" : "processed";
+    const auto rate = s.sourceFormat->sampleRate;
+    const double startSeconds = std::max(0.0, static_cast<double>(request.getProperty("startSeconds", 0.0)));
+    const double seconds = std::clamp(static_cast<double>(request.getProperty("seconds", 30.0)), 2.0, 600.0);
+    const int trials = std::clamp(static_cast<int>(request.getProperty("trials", AbxTest::kDefaultTrials)), 1, 100);
+    auto start = static_cast<std::uint64_t>(startSeconds * rate);
+    auto length = static_cast<std::uint64_t>(seconds * rate);
+    if (s.totalFrames > 0)
+    {
+        start = std::min(start, s.totalFrames - 1);
+        length = std::min(length, s.totalFrames - start);
+    }
+    ListeningSettings listening = listening_;
+    const double volumeDb = chain_.volume->gainDb();
+    abxPreparing_ = true;
+
+    // The loudness match over the region, with the same settings as will play.
+    juce::Thread::launch([this, alive = alive_, file, kind, rate, start, length, trials, listening, volumeDb, saved = s,
+                          done = std::move(done)]() mutable {
+        double match = 0.0;
+        std::string error;
+        try
+        {
+            // A chain like the one that will play: the settings (or, for 16 bit,
+            // only the requantization) and the volume.
+            ListeningChain offline;
+            if (kind == "processed")
+                offline.apply(listening);
+            else
+            {
+                ListeningSettings plain;
+                offline.apply(plain);
+                offline.requantize->setBits(16);
+            }
+            offline.volume->setGainDb(volumeDb);
+            auto src = openAudioFile(file.path);
+            src->seek(start);
+            match = measureMatchDb(*src, *offline.chain(), TrackInfo{0, file.replayGain}, length);
+        }
+        catch (const std::exception& e)
+        {
+            error = e.what();
+        }
+        juce::MessageManager::callAsync([this, alive, file, kind, rate, start, length, trials, match, error, saved,
+                                         done = std::move(done)]() mutable {
+            if (!*alive)
+                return;
+            abxPreparing_ = false;
+            auto* o = new juce::DynamicObject();
+            if (!error.empty())
+            {
+                o->setProperty("ok", false);
+                o->setProperty("message", juce::String::fromUTF8("区間を解析できませんでした: ") + juce::String::fromUTF8(error.c_str()));
+                done(juce::var(o));
+                return;
+            }
+            AbxSession session{AbxTest(trials)};
+            session.kind = kind;
+            session.start = start;
+            session.length = length;
+            session.rate = rate;
+            session.matchDb = match;
+            session.queue = queueMeta_;
+            session.index = saved.queueIndex;
+            session.position = saved.positionFrames;
+
+            player_.stop();
+            if (kind == "16bit")
+            {
+                // Only the requantization on the processed side.
+                ListeningSettings plain;
+                plain.ispSafeOriginal = IspSafeMode::Off;
+                chain_.apply(plain);
+                chain_.requantize->setBits(16);
+            }
+            auto& ab = chain_.chain()->comparison();
+            ab.setFixedMatchDb(match);
+            ab.select(ComparisonSide::Original); // A first
+            chain_.chain()->setComparing(true);
+
+            const auto fade = static_cast<std::uint32_t>(std::lround(rate * LoopingSource::kFadeSeconds));
+            const auto path = file.path;
+            std::vector<QueueItem> items{QueueItem{
+                file.name,
+                [path, start, length, fade] {
+                    return std::make_unique<PrefetchingSource>(
+                        std::make_unique<LoopingSource>(openAudioFile(path), start, length, fade));
+                },
+                file.replayGain}};
+            queueMeta_ = {file};
+            ++queueVersion_;
+            abx_.emplace(std::move(session));
+            player_.setQueue(std::move(items));
+            player_.play();
+            pushStatus(true);
+            o->setProperty("ok", true);
+            o->setProperty("matchDb", match);
+            done(juce::var(o));
+        });
+    });
+}
+
+void PlayerBridge::abxFinish()
+{
+    if (!abx_ || !abx_->running)
+        return;
+    abx_->running = false;
+    player_.stop();
+    auto& ab = chain_.chain()->comparison();
+    chain_.chain()->setComparing(false);
+    ab.setFixedMatchDb(std::nullopt);
+    chain_.requantize->setBits(0);
+    chain_.apply(listening_);
+
+    // Put back what was playing, stopped at the same place.
+    std::vector<QueueItem> items;
+    for (const auto& f : abx_->queue)
+        items.push_back(itemFor(f));
+    queueMeta_ = abx_->queue;
+    ++queueVersion_;
+    if (!items.empty())
+    {
+        player_.setQueue(std::move(items), std::min(abx_->index, abx_->queue.size() - 1));
+        player_.seek(abx_->position);
+    }
+}
+
+juce::var PlayerBridge::abxVar() const
+{
+    if (!abx_)
+        return {};
+    const auto& a = *abx_;
+    auto* o = new juce::DynamicObject();
+    o->setProperty("running", a.running);
+    o->setProperty("preparing", false);
+    o->setProperty("kind", juce::String(a.kind));
+    o->setProperty("trial", std::min(a.test.trial(), a.test.trials()));
+    o->setProperty("trials", a.test.trials());
+    o->setProperty("listening", a.listening == AbxChoice::A ? "A" : a.listening == AbxChoice::B ? "B" : "X");
+    o->setProperty("startFrames", static_cast<double>(a.start));
+    o->setProperty("lengthFrames", static_cast<double>(a.length));
+    o->setProperty("rate", static_cast<int>(a.rate));
+    o->setProperty("matchDb", a.matchDb);
+    const auto r = a.test.result();
+    o->setProperty("answered", r.answered);
+    if (!a.running)
+    {
+        auto* ro = new juce::DynamicObject();
+        ro->setProperty("finished", r.finished);
+        ro->setProperty("aborted", r.aborted);
+        ro->setProperty("trials", r.trials);
+        ro->setProperty("correct", r.correct ? juce::var(*r.correct) : juce::var());
+        ro->setProperty("pValue", r.pValue ? juce::var(*r.pValue) : juce::var());
+        ro->setProperty("distinguished", r.distinguished);
+        ro->setProperty("levelDifferenceDb", r.levelDifferenceDb ? juce::var(*r.levelDifferenceDb) : juce::var());
+        ro->setProperty("levelMatched", r.levelMatched);
+        o->setProperty("result", juce::var(ro));
+    }
+    else
+        o->setProperty("result", juce::var());
+    return juce::var(o);
+}
+
 void PlayerBridge::pushStatus(bool force)
 {
     if (browser_ == nullptr)
@@ -694,10 +929,18 @@ void PlayerBridge::pushStatus(bool force)
 
 void PlayerBridge::timerCallback()
 {
+    if (abx_ && abx_->running)
+    {
+        // The loudness difference of what came out, once the comparison has warmed up (task 4-1).
+        const auto s = player_.status();
+        const auto& ab = chain_.chain()->comparison();
+        if (s.path && s.path->comparison && ab.levelDifferenceReady())
+            abx_->test.noteLevelDifference(ab.levelDifferenceDb());
+    }
     if (onPoll)
     {
         const auto s = player_.status();
-        const auto id = s.queueIndex < queueMeta_.size() ? queueMeta_[s.queueIndex].id : 0;
+        const auto id = s.queueIndex < queueMeta_.size() && !abx_ ? queueMeta_[s.queueIndex].libraryId : 0;
         onPoll(s, id);
     }
     pushStatus(false);

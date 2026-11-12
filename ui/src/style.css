@@ -1592,3 +1592,165 @@ dd {
 .knob.disabled .knob-dial {
   cursor: default;
 }
+
+/* --- ABX (task 6-6) ------------------------------------------------------- */
+.oc-abx {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.oc-abx .note,
+.setting > .note {
+  margin: 0;
+}
+#settings-abx {
+  margin-right: 10px;
+}
+.abx-dialog {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  width: min(760px, 94vw);
+  max-height: 92vh;
+  padding: 14px 20px 18px;
+}
+.abx-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+.abx-dialog fieldset {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+}
+.abx-dialog fieldset .notice {
+  margin: 4px 0 0;
+}
+.abx-region {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  margin: 12px 0;
+}
+.abx-region label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.abx-region label b {
+  color: var(--text);
+  font-size: 14px;
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.abx-region .link {
+  justify-self: start;
+}
+.abx-options {
+  display: flex;
+  gap: 24px;
+}
+.abx-options label {
+  color: var(--muted);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.abx-dialog select {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 6px;
+  color: var(--text);
+}
+.abx-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+}
+.abx-actions .note {
+  margin: 0;
+}
+.abx-actions button.primary {
+  padding: 6px 22px;
+}
+.abx-progress {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin: 10px 0 14px;
+}
+.abx-progress > span:first-child {
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.abx-progress .note {
+  margin: 0;
+}
+.abx-choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.abx-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 16px 8px 10px;
+  background: var(--surface-2);
+}
+.abx-choice b {
+  font-size: 34px;
+  line-height: 1;
+}
+.abx-choice small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.abx-choice.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.abx-choice.active b {
+  color: var(--accent);
+}
+.abx-dialog kbd {
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0 5px;
+  margin-left: 4px;
+}
+.abx-answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+.abx-answers button {
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.abx-headline {
+  font-size: 26px;
+  font-weight: 600;
+  margin: 14px 0 6px;
+  font-variant-numeric: tabular-nums;
+}
+.abx-headline.distinguished {
+  color: var(--accent);
+}
+.abx-result p {
+  margin: 6px 0;
+  line-height: 1.6;
+}

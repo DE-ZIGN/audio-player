@@ -157,6 +157,8 @@ export interface MeterStatus {
   reading: MeterReading | null;
 }
 
+import type { AbxStatus } from "./abx";
+
 // The safety limiter since the settings or the queue last changed (task 6-3).
 export interface LimiterStats {
   events: number;
@@ -173,6 +175,7 @@ export interface PlaybackStatus {
   mode: "original" | "processed";
   ispSafe: "off" | "measured" | "fixed";
   trackTruePeakDb: number | null;
+  abx: AbxStatus | null; // an ABX running or just ended (task 6-6)
   path: SignalPath | null;
   stages: StageState[]; // processing path: the stages running now
   bitPerfect: BitPerfectVerdict | null; // set with path
@@ -207,6 +210,7 @@ export const emptyStatus: PlaybackStatus = {
   mode: "original",
   ispSafe: "off",
   trackTruePeakDb: null,
+  abx: null,
   path: null,
   stages: [],
   bitPerfect: null,

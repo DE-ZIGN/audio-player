@@ -119,6 +119,10 @@
             </label>
           </div>
           <p class="note" id="mode-summary"></p>
+          <div class="setting">
+            <button type="button" id="settings-abx">ABX で聴き比べる…</button>
+            <span class="note">今の曲で、原音と音作りの違いを聞き分けられるかを、ブラインドテストで確かめます。</span>
+          </div>
 
           <h2>ISP セーフ</h2>
           <div class="setting">
@@ -232,6 +236,92 @@
       <div class="menu" id="eqd-menu" role="menu" hidden></div>
     </dialog>
 
+    <!-- ABX (task 6-6): a blind test on the current track. -->
+    <dialog id="abx-dialog" class="abx-dialog" aria-label="ABX">
+      <div class="dialog-head">
+        <h2>ABX</h2>
+        <span class="oc-file" id="abx-track"></span>
+        <span class="spacer-flex"></span>
+        <button id="abx-close" type="button" class="icon" aria-label="閉じる">✕</button>
+      </div>
+
+      <section id="abx-setup" class="abx-setup">
+        <fieldset>
+          <legend>比べるもの</legend>
+          <label class="check"><input type="radio" name="abx-kind" value="processed" checked /> 原音 と 音作り（今の設定）</label>
+          <label class="check"><input type="radio" name="abx-kind" value="16bit" /> 原音 と 16bit（TPDF ディザ）</label>
+          <p class="notice" id="abx-kind-note" hidden></p>
+        </fieldset>
+        <div class="abx-region">
+          <label for="abx-start">区間の始まり <b id="abx-start-text">0:00</b></label>
+          <input id="abx-start" type="range" min="0" max="0" step="1" value="0" />
+          <button type="button" id="abx-here" class="link">今の再生位置から</button>
+        </div>
+        <div class="abx-options">
+          <label>区間の長さ
+            <select id="abx-length">
+              <option value="10">10 秒</option>
+              <option value="20">20 秒</option>
+              <option value="30" selected>30 秒</option>
+              <option value="60">60 秒</option>
+            </select>
+          </label>
+          <label>回数
+            <select id="abx-trials">
+              <option value="8">8 回</option>
+              <option value="12">12 回</option>
+              <option value="16" selected>16 回</option>
+              <option value="20">20 回</option>
+              <option value="24">24 回</option>
+            </select>
+          </label>
+        </div>
+        <p class="note">
+          区間をくり返し流します（つなぎ目は 5 ms のクロスフェード）。B の音量は、この区間で解析して A に合わせます。
+          A と B は何度でも切り替えて聴けます。X は回ごとに A か B のどちらかで、OS の乱数で決めます。
+          正解数は最後まで出しません（途中で見ると、当たっているところでやめる偏りが入り、p の意味が崩れるため）。
+          p &lt; 0.05 なら「聞き分けられた可能性が高い」とします。どちらの音がよいかは判定しません。
+        </p>
+        <p class="error" id="abx-error" hidden></p>
+        <div class="abx-actions">
+          <button type="button" id="abx-start-btn" class="primary">始める</button>
+          <span class="note" id="abx-preparing" hidden>区間を解析しています…</span>
+        </div>
+      </section>
+
+      <section id="abx-run" class="abx-run" hidden>
+        <div class="abx-progress">
+          <span id="abx-trial">1 / 16 回目</span>
+          <span class="note" id="abx-region"></span>
+        </div>
+        <div class="abx-choices" role="group" aria-label="聴く音">
+          <button type="button" class="abx-choice" data-choice="A"><b>A</b><small id="abx-a-label">原音</small><kbd>A</kbd></button>
+          <button type="button" class="abx-choice" data-choice="B"><b>B</b><small id="abx-b-label">音作り</small><kbd>B</kbd></button>
+          <button type="button" class="abx-choice" data-choice="X"><b>X</b><small>A か B</small><kbd>X</kbd></button>
+        </div>
+        <div class="abx-answers" role="group" aria-label="答え">
+          <button type="button" id="abx-answer-a">X は A <kbd>1</kbd></button>
+          <button type="button" id="abx-answer-b">X は B <kbd>2</kbd></button>
+        </div>
+        <p class="note" id="abx-match"></p>
+        <div class="abx-actions">
+          <button type="button" id="abx-abort" class="link">中断する（Esc）</button>
+        </div>
+      </section>
+
+      <section id="abx-result" class="abx-result" hidden>
+        <div class="abx-headline" id="abx-headline"></div>
+        <p id="abx-p"></p>
+        <p id="abx-verdict"></p>
+        <p class="notice" id="abx-low" hidden></p>
+        <p class="note" id="abx-level"></p>
+        <div class="abx-actions">
+          <button type="button" id="abx-again">もう一度</button>
+          <button type="button" id="abx-done" class="primary">閉じる</button>
+        </div>
+      </section>
+    </dialog>
+
     <!-- 曲の右クリックのメニュー -->
     <div id="menu" class="menu" role="menu" hidden></div>
 
@@ -255,6 +345,10 @@
             <button type="button" id="oc-isp-on">ISP セーフをオンにする（計測した値で下げる）</button>
           </div>
           <section class="oc-verdict" id="oc-verdict" aria-label="BIT-PERFECT の判定"></section>
+          <div class="oc-abx">
+            <button type="button" id="oc-abx">ABX で聴き比べる…</button>
+            <span class="note">今の曲で、原音と音作り（または 16bit）を聞き分けられるかを確かめます。</span>
+          </div>
           <details class="oc-details">
             <summary>詳細</summary>
             <dl>

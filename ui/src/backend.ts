@@ -16,6 +16,7 @@ import type {
 } from "./library";
 import { MockLibrary } from "./mockLibrary";
 import { MockSettings } from "./mockSettings";
+import { upperTailP, type AbxChoice, type AbxRequest, type AbxStatus } from "./abx";
 import type {
   EqBand,
   EqCurve,
@@ -72,10 +73,20 @@ export interface SettingsApi {
   onOutputsChanged(listener: () => void): void;
 }
 
+// The ABX (task 6-6), see app/src/PlayerBridge.h. Its state comes with the status.
+export interface AbxApi {
+  start(r: AbxRequest): Promise<{ ok: boolean; message?: string; matchDb?: number }>;
+  choose(c: AbxChoice): Promise<void>;
+  answer(xIs: "A" | "B"): Promise<void>;
+  abort(): Promise<void>;
+  close(): Promise<void>; // forget the result shown
+}
+
 export interface Backend {
   readonly kind: "app" | "mock";
   readonly library: LibraryApi;
   readonly settings: SettingsApi;
+  readonly abx: AbxApi;
   openFile(): Promise<OpenResult>;
   play(): Promise<void>;
   stop(): Promise<void>;
@@ -182,7 +193,15 @@ class AppBackend implements Backend {
   ) {
     this.library = new AppLibrary(fn, coverBase);
     this.settings = new AppSettings(fn);
+    this.abx = {
+      start: async (r) => ((await fn("abxStart")(r)) as { ok: boolean; message?: string; matchDb?: number } | null) ?? { ok: false },
+      choose: async (c) => void (await fn("abxChoose")(c)),
+      answer: async (x) => void (await fn("abxAnswer")(x)),
+      abort: async () => void (await fn("abxAbort")()),
+      close: async () => void (await fn("abxClose")()),
+    };
   }
+  readonly abx: AbxApi;
 
   async openFile(): Promise<OpenResult> {
     return (await this.fn("openFile")()) as OpenResult;
@@ -308,6 +327,98 @@ export class MockBackend implements Backend {
     (band) => this.update({ ...this.status, eqSolo: band }),
   );
   private listening: ListeningSettings | null = null;
+  private abxX: boolean[] = []; // per trial: X is B
+  private abxCorrect = 0;
+  readonly abx: AbxApi = {
+    start: async (r) => {
+      if (this.status.state === "empty") return { ok: false, message: "ABX で聴く曲を、先に再生してください" };
+      if (this.status.dop) return { ok: false, message: "DSD（DoP）の曲は ABX で比べられません（DoP のデータには処理をかけないため）" };
+      await new Promise((res) => setTimeout(res, 400)); // the loudness match
+      const rate = this.status.sourceFormat?.sampleRate ?? 48000;
+      this.abxX = Array.from({ length: r.trials }, () => Math.random() < 0.5);
+      this.abxCorrect = 0;
+      const abx: AbxStatus = {
+        running: true,
+        kind: r.kind,
+        trial: 1,
+        trials: r.trials,
+        answered: 0,
+        listening: "A",
+        startFrames: Math.round(r.startSeconds * rate),
+        lengthFrames: Math.round(r.seconds * rate),
+        rate,
+        matchDb: r.kind === "16bit" ? 0 : 3.21,
+        result: null,
+      };
+      this.update({ ...this.status, abx, positionFrames: abx.startFrames });
+      if (this.status.state !== "playing") await this.play();
+      // The comparison takes the processing path.
+      const path = this.status.path;
+      if (path) this.update({ ...this.status, path: { ...path, processing: true, comparison: true } });
+      return { ok: true, matchDb: abx.matchDb };
+    },
+    choose: async (c) => {
+      const a = this.status.abx;
+      if (a?.running) this.update({ ...this.status, abx: { ...a, listening: c } });
+    },
+    answer: async (x) => {
+      const a = this.status.abx;
+      if (!a?.running) return;
+      if ((x === "B") === this.abxX[a.answered]) this.abxCorrect++;
+      const answered = a.answered + 1;
+      if (answered < a.trials) {
+        this.update({ ...this.status, abx: { ...a, answered, trial: answered + 1 } });
+        return;
+      }
+      const p = upperTailP(this.abxCorrect, a.trials);
+      this.halt();
+      this.update({
+        ...this.status,
+        state: "stopped",
+        abx: {
+          ...a,
+          answered,
+          running: false,
+          result: {
+            finished: true,
+            aborted: false,
+            trials: a.trials,
+            correct: this.abxCorrect,
+            pValue: p,
+            distinguished: p < 0.05,
+            levelDifferenceDb: 0.012,
+            levelMatched: true,
+          },
+        },
+      });
+    },
+    abort: async () => {
+      const a = this.status.abx;
+      if (!a?.running) return;
+      this.halt();
+      this.update({
+        ...this.status,
+        state: "stopped",
+        abx: {
+          ...a,
+          running: false,
+          result: {
+            finished: false,
+            aborted: true,
+            trials: a.trials,
+            correct: null,
+            pValue: null,
+            distinguished: false,
+            levelDifferenceDb: null,
+            levelMatched: true,
+          },
+        },
+      });
+    },
+    close: async () => {
+      if (this.status.abx && !this.status.abx.running) this.update({ ...this.status, abx: null });
+    },
+  };
   private status: PlaybackStatus = { ...emptyStatus };
   private listeners: ((s: PlaybackStatus) => void)[] = [];
   private timer: ReturnType<typeof setInterval> | undefined;

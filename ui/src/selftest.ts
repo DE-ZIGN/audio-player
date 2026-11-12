@@ -201,6 +201,40 @@ export async function runSelfTest(
     await backend.stop();
     await waitFor("stopped", (s) => s.state === "stopped", 5000);
 
+    // ABX (task 6-6) through the real bridge, still in 音作りモード with the EQ:
+    // the 2 s file as the region, longer than the file plays (it loops), then
+    // the queue and the position come back.
+    const beforeAbx = latest;
+    const started = await backend.abx.start({ kind: "processed", startSeconds: 0, seconds: 2, trials: 4 });
+    if (!started.ok) throw new Error(`ABX: ${started.message}`);
+    await waitFor(
+      "ABX playing the region through the comparison",
+      (s) => s.abx?.running === true && s.state === "playing" && s.path?.comparison === true,
+      5000,
+    );
+    await new Promise((r) => setTimeout(r, 2600)); // past the end of the 2 s region
+    const afterLoop = (await backend.getStatus()).state;
+    if (afterLoop !== "playing") throw new Error(`ABX: the region did not loop (state ${afterLoop})`);
+    await backend.abx.choose("X");
+    await waitFor("ABX listening to X", (s) => s.abx?.listening === "X", 5000);
+    for (let i = 0; i < 4; i++) await backend.abx.answer("A");
+    const abxEnd = await waitFor("ABX result", (s) => s.abx?.result?.finished === true, 5000);
+    const abxResult = abxEnd.abx!.result!;
+    if (abxResult.correct === null || abxResult.correct < 0 || abxResult.correct > 4 || abxResult.pValue === null)
+      throw new Error(`ABX: result ${JSON.stringify(abxResult)}`);
+    const restored = await waitFor(
+      "queue back after ABX",
+      (s) => s.state === "stopped" && s.queueLength === beforeAbx.queueLength,
+      5000,
+    );
+    if (restored.fileName !== beforeAbx.fileName) throw new Error(`ABX: track not put back (${restored.fileName})`);
+    log.push(
+      `ABX: 4 trials, ${abxResult.correct} correct, p = ${abxResult.pValue.toFixed(4)}, match ${started.matchDb?.toFixed(2)} dB, ` +
+        `looped past the end, queue put back`,
+    );
+    await backend.abx.close();
+    await waitFor("ABX closed", (s) => (s.abx ?? null) === null, 5000);
+
     await backend.settings.setListening(saved.listening);
     if ((await backend.settings.get()).listening.mode !== "original") throw new Error("settings: not back to 原音モード");
     await backend.seek(0);
