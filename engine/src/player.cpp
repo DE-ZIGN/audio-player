@@ -166,7 +166,7 @@ private:
 };
 
 Player::Player(OutputFactory outputFactory, PlaybackOptions options)
-    : outputFactory_(std::move(outputFactory)), options_(std::move(options))
+    : outputFactory_(std::move(outputFactory)), options_(std::move(options)), allowDop_(options_.allowDop)
 {
     if (!options_.deliveryCheck)
         options_.deliveryCheck = std::make_shared<DeliveryCheck>(); // the self-check always runs on the direct path
@@ -538,7 +538,7 @@ void Player::threadMain()
         // One iteration per output session (per run of tracks with one format).
         for (;;)
         {
-            if (source_->dop() && !options_.allowDop)
+            if (source_->dop() && !allowDop_)
                 throw DopNotAllowed{};
             // Stages that depend on the track (ReplayGain) take the starting
             // track's values first: they decide whether this session is processed.

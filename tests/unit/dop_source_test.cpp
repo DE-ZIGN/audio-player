@@ -226,6 +226,20 @@ TEST_CASE("DoP is refused unless enabled for the output", "[engine][dop][player]
         player.waitUntilIdle();
         CHECK(player.status().state == PlayerState::Ended);
     }
+    SECTION("changed later (another output was chosen, task 6-3): from the next play()")
+    {
+        Player player(factory);
+        player.setQueue({{"a.dsf", [f] { return openAudioFile(f); }}});
+        player.setAllowDop(true);
+        player.play();
+        player.waitUntilIdle();
+        CHECK(player.status().state == PlayerState::Ended);
+
+        player.setAllowDop(false);
+        player.play(); // after the end: from the start again
+        player.waitUntilIdle();
+        CHECK(player.status().error.kind == PlayerErrorKind::DopNotAllowed);
+    }
 }
 
 TEST_CASE("A PCM track followed by a DoP track of the same PCM format is not joined", "[engine][dop][player]")

@@ -172,6 +172,11 @@ public:
     // a next track that was being opened for the old list is dropped.
     void replaceUpcoming(std::vector<QueueItem> items);
 
+    // Whether DSD may be sent as DoP (PlaybackOptions::allowDop), changed when
+    // another output is chosen (task 6-3). Takes effect from the next output
+    // session; the caller stops playback before changing the output.
+    void setAllowDop(bool allow) noexcept { allowDop_ = allow; }
+
     PlayerStatus status() const;
 
     // Blocks until the playback thread has finished (end, stop or error).
@@ -227,6 +232,7 @@ private:
     std::atomic<std::uint64_t> position_{0};
     std::atomic<std::int64_t> pendingSeek_{-1};
     std::atomic<bool> stopRequested_{false};
+    std::atomic<bool> allowDop_{false}; // from options_.allowDop, see setAllowDop
 };
 
 } // namespace ap::engine
