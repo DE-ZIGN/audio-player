@@ -35,13 +35,15 @@ enum class EqFilterType
     HighShelf,
     LowPass,
     HighPass,
+    BandPass, // constant 0 dB at Fc (task 6-3)
+    Notch,    // (task 6-3)
 };
 
 struct EqBand
 {
     EqFilterType type = EqFilterType::Peak;
     double frequency = 1000.0; // Hz
-    double gainDb = 0.0;       // Peak and shelves
+    double gainDb = 0.0;       // Peak and shelves (the other types do not use it)
     double q = 0.7071067811865476;
     bool enabled = true;
 
@@ -65,13 +67,14 @@ double eqResponseDb(const std::vector<EqBand>& bands, double frequency, double s
 // from 20 Hz to 0.49 of the sample rate (0 if nothing is boosted).
 double eqAutoPreampDb(const std::vector<EqBand>& bands, double sampleRate);
 
-// True when the bands leave every sample unchanged (all gains 0 dB, no pass filters).
+// True when the bands leave every sample unchanged (peaks and shelves at 0 dB
+// only; pass filters, band-pass and notch always change the sound).
 bool eqIsFlat(const std::vector<EqBand>& bands);
 
 // AutoEQ "ParametricEQ.txt" and Equalizer APO lines:
 //   Preamp: -6.2 dB
 //   Filter 1: ON PK Fc 105 Hz Gain -3.1 dB Q 0.70
-// Types PK/PEQ, LS/LSC, HS/HSC, LP/LPQ, HP/HPQ. OFF filters and unknown lines
+// Types PK/PEQ, LS/LSC, HS/HSC, LP/LPQ, HP/HPQ, BP, NO. OFF filters and unknown lines
 // are skipped and reported in `warnings` (Japanese, for display).
 struct EqPreset
 {
@@ -91,6 +94,12 @@ public:
     // Thread-safe (the UI thread). Bands beyond kMaxBands are ignored.
     void setBands(std::vector<EqBand> bands);
     std::vector<EqBand> bands() const;
+
+    // A preamp set by the user instead of the automatic one (task 6-3), in dB,
+    // at most 0 dB. What it lets go over 0 dBFS is left to the safety limiter.
+    // nullopt: automatic. Applies only while the EQ is not flat. Thread-safe.
+    void setManualPreamp(std::optional<double> db);
+    std::optional<double> manualPreamp() const;
     // The preamp in use (dB, 0 or negative), at the last prepared sample rate.
     double preampDb() const noexcept { return preampDb_; }
     // Bands that could not be realised at the last prepared sample rate.
@@ -121,6 +130,7 @@ private:
 
     mutable std::mutex mutex_; // guards bands_ and pending_ (the playback thread only try-locks)
     std::vector<EqBand> bands_;
+    std::optional<double> manualPreamp_;
     Design pending_;
     std::atomic<bool> dirty_{false};
     std::atomic<bool> flat_{true};

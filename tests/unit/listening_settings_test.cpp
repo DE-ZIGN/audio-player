@@ -207,6 +207,54 @@ TEST_CASE("Played through the chain: 原音モード is bit-perfect, 音作り�
     CHECK(processed != data);
 }
 
+TEST_CASE("The EQ's preamp: automatic by default, or the user's value", "[settings]")
+{
+    ListeningSettings s = everythingOn(ListeningMode::Processed);
+    CHECK(s.eqAutoPreamp);
+    CHECK(s.eqManualPreampDb == 0.0);
+    ListeningChain c;
+    c.apply(s);
+    CHECK_FALSE(c.eq->manualPreamp().has_value());
+    s.eqAutoPreamp = false;
+    s.eqManualPreampDb = -3.5;
+    c.apply(s);
+    CHECK(c.eq->manualPreamp() == -3.5);
+    s.eqManualPreampDb = 7.0; // never above 0 dB
+    c.apply(s);
+    CHECK(c.eq->manualPreamp() == 0.0);
+}
+
+TEST_CASE("Solo: only the frequencies around one band, not saved", "[settings]")
+{
+    ListeningChain c;
+    auto s = everythingOn(ListeningMode::Processed);
+    s.eqAutoPreamp = false;
+    s.eqManualPreampDb = -10.0;
+    c.apply(s);
+    c.setEqSolo(1);
+    CHECK(c.eqSolo() == 1u);
+    REQUIRE(c.eq->bands().size() == 1);
+    CHECK(c.eq->bands()[0] == EqBand{EqFilterType::BandPass, 8000.0, 0.0, 0.7071, true});
+    CHECK_FALSE(c.eq->manualPreamp().has_value()); // the band-pass needs no preamp
+
+    // A later change of the settings keeps the solo on the band's new values.
+    s.eqBands[1].frequency = 6000.0;
+    c.apply(s);
+    CHECK(c.eq->bands()[0].frequency == 6000.0);
+
+    c.setEqSolo(std::nullopt);
+    CHECK(c.eq->bands() == s.eqBands);
+    CHECK(c.eq->manualPreamp() == -10.0);
+
+    c.setEqSolo(5); // no such band: ignored
+    CHECK(c.eq->bands() == s.eqBands);
+    s.mode = ListeningMode::Original; // 原音モード: no EQ, solo or not
+    c.setEqSolo(0);
+    c.apply(s);
+    CHECK(c.eq->bands().empty());
+    CHECK(settingsFromText(settingsToText(AppSettings{{}, s})).listening == s); // the solo is not in the settings
+}
+
 TEST_CASE("Settings are saved as text and read back exactly", "[settings][text]")
 {
     AppSettings a;
@@ -218,6 +266,10 @@ TEST_CASE("Settings are saved as text and read back exactly", "[settings][text]"
     a.listening.eqBands.push_back(EqBand{EqFilterType::LowPass, 18000.0 / 3.0, 0.0, 0.1 + 0.2, false});
     a.listening.eqBands.push_back(EqBand{EqFilterType::HighPass, 20.0, 0.0, 0.5, true});
     a.listening.eqBands.push_back(EqBand{EqFilterType::LowShelf, 105.0, -3.1, 0.7, true});
+    a.listening.eqBands.push_back(EqBand{EqFilterType::BandPass, 440.0, 0.0, 4.0, true});
+    a.listening.eqBands.push_back(EqBand{EqFilterType::Notch, 50.0, 0.0, 30.0, false});
+    a.listening.eqAutoPreamp = false;
+    a.listening.eqManualPreampDb = -4.25;
 
     const auto text = settingsToText(a);
     CHECK(settingsFromText(text) == a);

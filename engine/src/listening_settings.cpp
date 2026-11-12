@@ -45,6 +45,8 @@ const char* toKey(EqFilterType t)
         case EqFilterType::HighShelf: return "highshelf";
         case EqFilterType::LowPass:   return "lowpass";
         case EqFilterType::HighPass:  return "highpass";
+        case EqFilterType::BandPass:  return "bandpass";
+        case EqFilterType::Notch:     return "notch";
     }
     return "peak";
 }
@@ -74,7 +76,7 @@ std::optional<IspSafeMode> ispSafeFrom(std::string_view v)
 std::optional<EqFilterType> filterFrom(std::string_view v)
 {
     for (const auto t : {EqFilterType::Peak, EqFilterType::LowShelf, EqFilterType::HighShelf, EqFilterType::LowPass,
-                         EqFilterType::HighPass})
+                         EqFilterType::HighPass, EqFilterType::BandPass, EqFilterType::Notch})
         if (v == toKey(t))
             return t;
     return std::nullopt;
@@ -154,6 +156,8 @@ std::string settingsToText(const AppSettings& s)
     out << "isp.original=" << toKey(l.ispSafeOriginal) << '\n';
     out << "isp.processed=" << toKey(l.ispSafeProcessed) << '\n';
     out << "eq.enabled=" << (l.eqEnabled ? 1 : 0) << '\n';
+    out << "eq.autopreamp=" << (l.eqAutoPreamp ? 1 : 0) << '\n';
+    out << "eq.preamp=" << number(l.eqManualPreampDb) << '\n';
     for (const auto& b : l.eqBands)
         out << "eq.band=" << (b.enabled ? "on" : "off") << ' ' << toKey(b.type) << ' ' << number(b.frequency) << ' '
             << number(b.gainDb) << ' ' << number(b.q) << '\n';
@@ -205,6 +209,10 @@ AppSettings settingsFromText(std::string_view text)
             l.ispSafeProcessed = ispSafeFrom(value).value_or(l.ispSafeProcessed);
         else if (key == "eq.enabled")
             l.eqEnabled = value != "0";
+        else if (key == "eq.autopreamp")
+            l.eqAutoPreamp = value != "0";
+        else if (key == "eq.preamp")
+            l.eqManualPreampDb = std::min(0.0, parseNumber(value).value_or(0.0));
         else if (key == "eq.band" && l.eqBands.size() < EqStage::kMaxBands)
         {
             if (const auto b = bandFrom(value))
@@ -222,16 +230,43 @@ ListeningChain::ListeningChain()
 
 void ListeningChain::apply(const ListeningSettings& s)
 {
+    settings_ = s;
     const bool processed = s.mode == ListeningMode::Processed;
     const auto rg = processed ? s.replayGain : ReplayGainMode::Off;
     replayGain->setMode(rg);
-    auto bands = processed && s.eqEnabled ? s.eqBands : std::vector<EqBand>{};
-    if (bands.size() > EqStage::kMaxBands)
-        bands.resize(EqStage::kMaxBands);
-    if (bands != eq->bands()) // the same bands again would start a needless crossfade
-        eq->setBands(std::move(bands));
+    applyEq();
     ispSafe->setUseAlbumPeak(rg == ReplayGainMode::Album);
     ispSafe->setMode(processed ? s.ispSafeProcessed : s.ispSafeOriginal);
+}
+
+void ListeningChain::setEqSolo(std::optional<std::size_t> band)
+{
+    solo_ = band;
+    applyEq();
+}
+
+void ListeningChain::applyEq()
+{
+    const auto& s = settings_;
+    const bool on = s.mode == ListeningMode::Processed && s.eqEnabled;
+    std::vector<EqBand> bands;
+    std::optional<double> preamp;
+    if (on && solo_ && *solo_ < s.eqBands.size())
+    {
+        const auto& b = s.eqBands[*solo_];
+        bands = {EqBand{EqFilterType::BandPass, b.frequency, 0.0, b.q, true}};
+    }
+    else if (on)
+    {
+        bands = s.eqBands;
+        if (bands.size() > EqStage::kMaxBands)
+            bands.resize(EqStage::kMaxBands);
+        if (!s.eqAutoPreamp)
+            preamp = std::min(0.0, s.eqManualPreampDb);
+    }
+    eq->setManualPreamp(preamp);
+    if (bands != eq->bands()) // the same bands again would start a needless crossfade
+        eq->setBands(std::move(bands));
 }
 
 } // namespace ap::engine

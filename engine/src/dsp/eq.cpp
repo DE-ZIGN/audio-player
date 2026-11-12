@@ -17,15 +17,15 @@ namespace {
 
 constexpr double kMaxFrequencyRatio = 0.49;
 
-bool isPassFilter(EqFilterType t)
+bool usesGain(EqFilterType t)
 {
-    return t == EqFilterType::LowPass || t == EqFilterType::HighPass;
+    return t == EqFilterType::Peak || t == EqFilterType::LowShelf || t == EqFilterType::HighShelf;
 }
 
 // A band that changes nothing (a peak or shelf at 0 dB, or switched off).
 bool isNeutral(const EqBand& b)
 {
-    return !b.enabled || (!isPassFilter(b.type) && b.gainDb == 0.0);
+    return !b.enabled || (usesGain(b.type) && b.gainDb == 0.0);
 }
 
 double magnitude(const Biquad& c, double frequency, double sampleRate)
@@ -87,6 +87,22 @@ std::optional<Biquad> designBiquad(const EqBand& band, double sampleRate)
             b0 = (1.0 + cs) / 2.0;
             b1 = -(1.0 + cs);
             b2 = (1.0 + cs) / 2.0;
+            a0 = 1.0 + alpha;
+            a1 = -2.0 * cs;
+            a2 = 1.0 - alpha;
+            break;
+        case EqFilterType::BandPass: // constant 0 dB peak gain
+            b0 = alpha;
+            b1 = 0.0;
+            b2 = -alpha;
+            a0 = 1.0 + alpha;
+            a1 = -2.0 * cs;
+            a2 = 1.0 - alpha;
+            break;
+        case EqFilterType::Notch:
+            b0 = 1.0;
+            b1 = -2.0 * cs;
+            b2 = 1.0;
             a0 = 1.0 + alpha;
             a1 = -2.0 * cs;
             a2 = 1.0 - alpha;
@@ -182,6 +198,10 @@ std::optional<EqFilterType> filterType(const std::string& t)
         return EqFilterType::LowPass;
     if (t == "HP" || t == "HPQ")
         return EqFilterType::HighPass;
+    if (t == "BP")
+        return EqFilterType::BandPass;
+    if (t == "NO")
+        return EqFilterType::Notch;
     return std::nullopt;
 }
 
@@ -309,7 +329,8 @@ EqStage::Design EqStage::designFor(const std::vector<EqBand>& bands, double samp
         d.sections[d.count++] = *c;
         used.push_back(b);
     }
-    d.preamp = std::pow(10.0, eqAutoPreampDb(used, sampleRate) / 20.0);
+    const double preampDb = manualPreamp_ ? std::min(0.0, *manualPreamp_) : eqAutoPreampDb(used, sampleRate);
+    d.preamp = d.count > 0 ? std::pow(10.0, preampDb / 20.0) : 1.0;
     if (skipped)
         *skipped = skip;
     return d;
@@ -339,6 +360,33 @@ std::vector<EqBand> EqStage::bands() const
 {
     std::lock_guard lock(mutex_);
     return bands_;
+}
+
+void EqStage::setManualPreamp(std::optional<double> db)
+{
+    if (db && !std::isfinite(*db))
+        db.reset();
+    std::lock_guard lock(mutex_);
+    if (manualPreamp_ == db)
+        return;
+    manualPreamp_ = db;
+    const double rate = sampleRate_;
+    if (rate > 0.0)
+    {
+        std::size_t skipped = 0;
+        pending_ = designFor(bands_, rate, &skipped);
+        skipped_ = skipped;
+        preampDb_ = 20.0 * std::log10(pending_.preamp);
+        dirty_ = true;
+        if (!flat_)
+            settled_ = false;
+    }
+}
+
+std::optional<double> EqStage::manualPreamp() const
+{
+    std::lock_guard lock(mutex_);
+    return manualPreamp_;
 }
 
 void EqStage::prepare(std::uint32_t sampleRate, std::uint16_t channels)

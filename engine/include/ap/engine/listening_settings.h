@@ -44,6 +44,10 @@ struct ListeningSettings
     IspSafeMode ispSafeProcessed = IspSafeMode::Measured; // in 音作りモード
     bool eqEnabled = true;
     std::vector<EqBand> eqBands; // at most EqStage::kMaxBands
+    // The EQ's preamp: automatic (the largest boost), or this value (<= 0 dB;
+    // what goes over is left to the safety limiter). Task 6-3.
+    bool eqAutoPreamp = true;
+    double eqManualPreampDb = 0.0;
 
     bool operator==(const ListeningSettings&) const = default;
 };
@@ -90,7 +94,15 @@ public:
 
     // Sets the stages from the settings. Thread-safe like the stages' own
     // setters; the player notices when the chain leaves or returns to bypass.
+    // Call from one thread (the settings are remembered for setEqSolo).
     void apply(const ListeningSettings& settings);
+
+    // Solo (task 6-3): the EQ plays only a band-pass at that band's frequency
+    // and Q, to hear what the band works on. Not part of the settings; kept
+    // across apply() while the band exists. nullopt: off. In 原音モード, or
+    // with the EQ off, there is no EQ, solo or not.
+    void setEqSolo(std::optional<std::size_t> band);
+    std::optional<std::size_t> eqSolo() const noexcept { return solo_; }
 
     const std::shared_ptr<ProcessingChain>& chain() const noexcept { return chain_; }
 
@@ -101,7 +113,11 @@ public:
     const std::shared_ptr<SafetyLimiter> limiter = std::make_shared<SafetyLimiter>();
 
 private:
+    void applyEq();
+
     std::shared_ptr<ProcessingChain> chain_;
+    ListeningSettings settings_;
+    std::optional<std::size_t> solo_;
 };
 
 } // namespace ap::engine

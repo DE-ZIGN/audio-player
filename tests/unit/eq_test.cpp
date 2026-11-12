@@ -47,6 +47,12 @@ double referenceDb(const EqBand& b, double f, double fs)
         case EqFilterType::HighPass:
             h = (s * s) / (s * s + s / q + 1.0);
             break;
+        case EqFilterType::BandPass: // constant 0 dB peak gain
+            h = (s / q) / (s * s + s / q + 1.0);
+            break;
+        case EqFilterType::Notch:
+            h = (s * s + 1.0) / (s * s + s / q + 1.0);
+            break;
     }
     return 20 * std::log10(std::abs(h));
 }
@@ -101,13 +107,54 @@ TEST_CASE("EQ design: peaks reach their gain at Fc; shelves reach theirs at the 
 TEST_CASE("EQ design agrees with the Cookbook's analog prototypes (bilinear warping)", "[dsp][eq]")
 {
     const auto type = GENERATE(EqFilterType::Peak, EqFilterType::LowShelf, EqFilterType::HighShelf,
-                               EqFilterType::LowPass, EqFilterType::HighPass);
+                               EqFilterType::LowPass, EqFilterType::HighPass, EqFilterType::BandPass,
+                               EqFilterType::Notch);
     const EqBand band{type, 1500, type == EqFilterType::Peak ? 7.5 : -6.0, 0.9};
-    for (double f : {30.0, 200.0, 1000.0, 1500.0, 2500.0, 8000.0, 16000.0, 22000.0})
+    for (double f : {30.0, 200.0, 1000.0, 1450.0, 2500.0, 8000.0, 16000.0, 22000.0})
     {
         CAPTURE(static_cast<int>(type), f);
         CHECK(std::abs(eqResponseDb({band}, f, kRate) - referenceDb(band, f, kRate)) < 1e-6);
     }
+}
+
+TEST_CASE("EQ band-pass and notch (task 6-3): 0 dB and silence at Fc, the gain is not used", "[dsp][eq]")
+{
+    const EqBand bp{EqFilterType::BandPass, 1000, 9.0, 2.0}; // the gain is ignored
+    CHECK(std::abs(eqResponseDb({bp}, 1000, kRate)) < 1e-9);
+    CHECK(eqResponseDb({bp}, 100, kRate) < -20.0);
+    CHECK(eqResponseDb({bp}, 10000, kRate) < -20.0);
+    const EqBand notch{EqFilterType::Notch, 1000, 9.0, 2.0};
+    CHECK(eqResponseDb({notch}, 1000, kRate) < -100.0);
+    CHECK(std::abs(eqResponseDb({notch}, 100, kRate)) < 0.05);
+    CHECK(eqAutoPreampDb({bp, notch}, kRate) == 0.0); // neither lifts anything
+    // Neither is neutral at 0 dB: they change the sound whatever the gain.
+    EqStage eq;
+    eq.setBands({{EqFilterType::Notch, 1000, 0.0, 2.0}});
+    CHECK_FALSE(eq.isIdentity());
+    eq.setBands({{EqFilterType::BandPass, 1000, 0.0, 2.0}});
+    CHECK_FALSE(eq.isIdentity());
+}
+
+TEST_CASE("EQ manual preamp (task 6-3): used as set instead of the automatic one", "[dsp][eq]")
+{
+    const std::vector<EqBand> boost{{EqFilterType::Peak, 1000, 6.0, 1.0}};
+    EqStage eq;
+    eq.setBands(boost);
+    eq.prepare(48000, 1);
+    CHECK(std::abs(eq.preampDb() - -6.0) < 0.01);
+    eq.setManualPreamp(-2.5);
+    CHECK(eq.manualPreamp() == -2.5);
+    CHECK(std::abs(eq.preampDb() - -2.5) < 1e-9);
+    CHECK(std::abs(measuredDb(eq, 1000) - 3.5) < 0.01); // +6 dB band, -2.5 dB preamp: over 0 dB on purpose
+    eq.setManualPreamp(std::nullopt);
+    eq.prepare(48000, 1);
+    CHECK(std::abs(eq.preampDb() - -6.0) < 0.01);
+    // A manual preamp with a flat EQ: the EQ does nothing at all (stays identity).
+    EqStage flat;
+    flat.setManualPreamp(-6.0);
+    flat.setBands({{EqFilterType::Peak, 1000, 0.0, 1.0}});
+    flat.prepare(48000, 1);
+    CHECK(flat.isIdentity());
 }
 
 TEST_CASE("EQ frequency response measured with sines matches the design (and the preamp)", "[dsp][eq]")
@@ -205,15 +252,19 @@ TEST_CASE("AutoEQ and Equalizer APO text is read", "[dsp][eq][autoeq]")
                                  "Filter: ON PK Fc 2000 Hz Gain 1.5 dB Q 2\n"
                                  "Filter 6: ON BP Fc 1000 Hz Q 1\n"
                                  "Filter 7: ON PK Fc abc Hz Gain 1 dB Q 1\n"
-                                 "Channel: L\n");
+                                 "Channel: L\n"
+                                 "Filter 9: ON NO Fc 60 Hz Q 30\n"
+                                 "Filter 10: ON BWLP Fc 60 Hz\n");
     REQUIRE(p.filePreampDb.has_value());
     CHECK(*p.filePreampDb == -6.2);
-    REQUIRE(p.bands.size() == 4);
+    REQUIRE(p.bands.size() == 6);
     CHECK(p.bands[0] == EqBand{EqFilterType::LowShelf, 105, 5.6, 0.70});
     CHECK(p.bands[1] == EqBand{EqFilterType::Peak, 31, -2.1, 1.41});
     CHECK(p.bands[2] == EqBand{EqFilterType::HighShelf, 10000, -3.4, 0.70});
     CHECK(p.bands[3] == EqBand{EqFilterType::Peak, 2000, 1.5, 2.0});
-    CHECK(p.warnings.size() == 3); // BP, the unreadable number, and "Channel:"
+    CHECK(p.bands[4] == EqBand{EqFilterType::BandPass, 1000, 0.0, 1.0});
+    CHECK(p.bands[5] == EqBand{EqFilterType::Notch, 60, 0.0, 30.0});
+    CHECK(p.warnings.size() == 3); // the unreadable number, "Channel:" and BWLP
 }
 
 TEST_CASE("EQ: bands that cannot be realised at the rate are skipped and counted", "[dsp][eq]")
