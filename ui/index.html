@@ -40,6 +40,8 @@
           <div class="level"><span>R</span><div class="bar"><div class="fill" id="level-r"></div></div></div>
           <div class="scale"><span>-60</span><span>-40</span><span>-20</span><span>-6</span><span>0 dB</span></div>
         </div>
+        <!-- The standard view's VU meters (task 6-8); the library view shows the bars above. -->
+        <div class="vu-meters" id="vu-meters" title="VU メーター（出力に渡す値。0 VU = −18 dBFS のサイン波、約 300 ms の平均。正確な値は「出力の確認」の True Peak と LUFS で）"></div>
         <button id="output" type="button" class="output-field" title="出力の確認（経路とメーター）">
           <span class="output-label">出力</span>
           <span class="output-tags" id="output-tags"><span class="tag">—</span></span>

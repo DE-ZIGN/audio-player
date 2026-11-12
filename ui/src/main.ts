@@ -5,6 +5,7 @@ import { countsText } from "./libraryFormat";
 import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
 import { applyUiView, currentUiView, loadUiView, onUiViewChange, otherView, saveUiView, VIEW_LABELS, type UiView } from "./uiView";
 import { SettingsView } from "./settingsView";
+import { VuMeter } from "./vuMeter";
 import { OutputView } from "./outputView";
 import { AbxView } from "./abxView";
 import { lengthText } from "./libraryFormat";
@@ -97,6 +98,10 @@ let unmutedDb: Db = 0;
 
 const queueIds = () => queue.items.map((i) => i.id);
 
+// The standard view's VU meters (task 6-8).
+const vuMeters = [new VuMeter("L"), new VuMeter("R")];
+document.getElementById("vu-meters")!.append(...vuMeters.map((m) => m.el));
+
 function levelWidth(db: number | "-inf" | undefined): number {
   if (db === undefined || db === "-inf") return 0;
   return Math.max(0, Math.min(100, ((db + 60) / 60) * 100)); // -60..0 dB
@@ -126,6 +131,11 @@ function renderTopBar(s: PlaybackStatus) {
   els.levelL.style.width = `${levelWidth(left)}%`;
   els.levelR.style.width = `${levelWidth(right)}%`;
   els.levelL.classList.toggle("over", left !== undefined && left !== "-inf" && left > 0);
+  // VU: the needles keep moving in 原音モード; only the light is lowered (CLAUDE.md chapter 8).
+  const vu = measuring ? r.vu : [];
+  vuMeters[0].set(vu[0]);
+  vuMeters[1].set(vu.length > 1 ? vu[1] : vu[0]);
+  document.getElementById("vu-meters")!.classList.toggle("lamp-off", s.mode === "original");
   els.levelR.classList.toggle("over", right !== undefined && right !== "-inf" && right > 0);
 
   els.outputTags.replaceChildren(

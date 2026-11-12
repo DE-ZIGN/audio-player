@@ -107,6 +107,10 @@ export async function runSelfTest(
       5000,
     );
     log.push(`meter: momentary ${measuring.meter.reading!.momentaryLufs} LUFS`);
+    // The VU meters' value (task 6-8): per channel, a sine reads its RMS.
+    const vu = measuring.meter.reading!.vu;
+    if (vu.length !== 2 || vu.some((v) => v === "-inf")) throw new Error(`VU: ${JSON.stringify(vu)}`);
+    log.push(`VU: ${vu.map((v) => (v as number).toFixed(1)).join(" / ")} dBFS`);
 
     await backend.seek(total / 2);
     const rate = latest.sourceFormat?.sampleRate || 48000;
