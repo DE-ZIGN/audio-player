@@ -6,6 +6,7 @@
 import type { Backend } from "./backend";
 import { autoPreampDb, responsePoints } from "./eqResponse";
 import { ispWarning, pathModel, verdictModel } from "./outputCheck";
+import { applyUiView, currentUiView, type UiView } from "./uiView";
 import type { EqBand } from "./settings";
 import type { PlaybackStatus } from "./status";
 
@@ -264,6 +265,27 @@ export async function runSelfTest(
     const counts = await backend.library.counts();
     if (counts.folders !== 1 || counts.tracks < 1) throw new Error(`library counts ${JSON.stringify(counts)}`);
     log.push(`library: ${name} is in the track list (${counts.tracks} tracks, ${counts.folders} folder)`);
+
+    // The two views (task 6-7) show the same information: the output field
+    // and the True Peak column are in view in both. Shown only, not saved:
+    // the view the user last used stays as it was.
+    const userView = currentUiView();
+    const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 50)));
+    const seen: string[] = [];
+    for (const v of ["standard", "library"] as UiView[]) {
+      applyUiView(v);
+      await frame();
+      const output = document.getElementById("output")!.getBoundingClientRect();
+      const body = document.getElementById("table-body")!.getBoundingClientRect();
+      const tp = [...document.getElementById("table-head")!.children].find((c) => /True Peak/i.test(c.textContent ?? ""));
+      const tpRect = tp?.getBoundingClientRect();
+      if (output.width < 100 || output.right > window.innerWidth + 1) throw new Error(`${v} view: the output field is not in view`);
+      if (!tpRect || tpRect.width === 0 || tpRect.right > body.right + 1) throw new Error(`${v} view: the True Peak column is not in view`);
+      const rowH = getComputedStyle(document.documentElement).getPropertyValue("--row-h").trim();
+      seen.push(`${v} (rows ${rowH})`);
+    }
+    applyUiView(userView);
+    log.push(`views: output field and True Peak column in view in ${seen.join(" and ")}; back to ${userView}`);
 
     return { ok: true, log };
   } catch (e) {

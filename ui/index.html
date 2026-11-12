@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja" data-theme="amber">
+<html lang="ja" data-theme="amber" data-ui-view="standard">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -58,6 +58,7 @@
           <ul id="folder-list" class="folder-list"></ul>
         </div>
         <button id="open" type="button" class="open-file">ファイルを開く</button>
+        <button id="ui-view-toggle" type="button" class="view-switch" title="ビューを切り替える（見た目と配置だけが変わります）">ライブラリビューにする</button>
       </nav>
 
       <main class="content">
@@ -163,7 +164,12 @@
 
           <h2>見た目</h2>
           <fieldset class="themes">
-            <legend>テーマ（色だけが変わります）</legend>
+            <legend>ビュー（見た目と配置だけが変わり、機能と表示する情報は同じです）</legend>
+            <label><input type="radio" name="ui-view" value="standard" /> 標準ビュー（写実的）</label>
+            <label><input type="radio" name="ui-view" value="library" /> ライブラリビュー（平坦、曲の多い一覧向け）</label>
+          </fieldset>
+          <fieldset class="themes" id="theme-set">
+            <legend>ライブラリビューのテーマ（色だけが変わります）</legend>
             <label><input type="radio" name="theme" value="amber" /> アンバー</label>
             <label><input type="radio" name="theme" value="bluegray" /> ブルーグレー</label>
           </fieldset>

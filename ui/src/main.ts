@@ -3,6 +3,7 @@ import { createBackend, type Backend, type QueueInfo } from "./backend";
 import { afterInsert, afterMove, afterRemove, dbToSlider, sliderToDb, volumeLabel, type Db } from "./queueOps";
 import { countsText } from "./libraryFormat";
 import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
+import { applyUiView, currentUiView, loadUiView, onUiViewChange, otherView, saveUiView, VIEW_LABELS, type UiView } from "./uiView";
 import { SettingsView } from "./settingsView";
 import { OutputView } from "./outputView";
 import { AbxView } from "./abxView";
@@ -341,8 +342,35 @@ function seekTarget(): number {
   return Math.round((Number(els.seek.value) / SEEK_STEPS) * total);
 }
 
+// The two views (task 6-7): the standard view first, then the view last used.
+function setUpViews() {
+  const toggle = document.getElementById("ui-view-toggle") as HTMLButtonElement;
+  const radios = document.querySelectorAll<HTMLInputElement>('input[name="ui-view"]');
+  const themeSet = document.getElementById("theme-set") as HTMLFieldSetElement;
+  const show = (v: UiView) => {
+    toggle.textContent = `${VIEW_LABELS[otherView(v)]}にする`;
+    for (const r of radios) r.checked = r.value === v;
+    themeSet.disabled = v !== "library";
+  };
+  let storage: Storage | null = null;
+  try {
+    storage = localStorage;
+  } catch {
+    storage = null; // no storage: the view lasts until the window closes
+  }
+  const choose = (v: UiView) => {
+    applyUiView(v);
+    if (storage) saveUiView(storage, v);
+  };
+  onUiViewChange(show);
+  toggle.addEventListener("click", () => choose(otherView(currentUiView())));
+  for (const r of radios) r.addEventListener("change", () => r.checked && choose(r.value as UiView));
+  applyUiView(storage ? loadUiView(storage) : "standard");
+}
+
 async function main() {
   loadTheme();
+  setUpViews();
   backend = await createBackend();
   els.backendKind.textContent = backend.kind === "mock" ? "模擬エンジン（ブラウザー単体で表示中）" : "";
 

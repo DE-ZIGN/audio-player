@@ -3,6 +3,7 @@
 // themes. Lists of any length keep only what is in view in the page and
 // fetch rows a page at a time (virtual.ts).
 
+import { cssPixels, onUiViewChange } from "./uiView";
 import type { Backend } from "./backend";
 import type { AlbumRow, AlbumSort, Folder, LibraryCounts, TrackRow, TrackSort } from "./library";
 import { dbtpText, formatText, lengthText, rateText, truePeakCell } from "./libraryFormat";
@@ -19,10 +20,11 @@ export interface PlayRequest {
 export type Enqueue = (ids: number[], where: "next" | "end") => void;
 
 const PAGE = 200;
-const ROW_H = 30;
-const TILE_MIN = 168;
+// Sizes from the current view's CSS variables (task 6-7: the standard view is larger).
+const rowH = () => cssPixels("--row-h", 30);
+const tileMin = () => cssPixels("--tile-min", 168);
+const tileText = () => cssPixels("--tile-text", 48);
 const TILE_GAP = 18;
-const TILE_TEXT = 48;
 const PLAY_LIMIT = 1000; // tracks put in the queue from a long list
 
 const TRACK_SORTS: [TrackSort, string][] = [
@@ -129,6 +131,7 @@ export class LibraryView {
     this.els.albumBack.addEventListener("click", () => this.show("albums"));
     this.els.body.addEventListener("scroll", () => this.schedule());
     this.els.grid.addEventListener("scroll", () => this.schedule());
+    onUiViewChange(() => this.schedule()); // row and tile sizes differ between the views
     new ResizeObserver(() => this.schedule()).observe(this.els.body);
     new ResizeObserver(() => this.schedule()).observe(this.els.grid);
     this.els.addFolder.addEventListener("click", async () => {
@@ -351,6 +354,7 @@ export class LibraryView {
 
   private drawRows() {
     const body = this.els.body;
+    const ROW_H = rowH();
     this.els.bodySpacer.style.height = `${this.total * ROW_H}px`;
     const range = visibleRange({
       scrollTop: body.scrollTop,
@@ -404,11 +408,11 @@ export class LibraryView {
   private drawGrid() {
     const grid = this.els.grid;
     const width = grid.clientWidth - 4;
-    const { columns, tile } = gridLayout({ width, minTile: TILE_MIN, gap: TILE_GAP });
-    const rowH = tile + TILE_TEXT + TILE_GAP;
+    const { columns, tile } = gridLayout({ width, minTile: tileMin(), gap: TILE_GAP });
+    const tileRowH = tile + tileText() + TILE_GAP;
     const rowsTotal = Math.ceil(this.total / columns);
-    this.els.gridSpacer.style.height = `${rowsTotal * rowH}px`;
-    const range = visibleRange({ scrollTop: grid.scrollTop, viewport: grid.clientHeight, rowHeight: rowH, total: rowsTotal, overscan: 2 });
+    this.els.gridSpacer.style.height = `${rowsTotal * tileRowH}px`;
+    const range = visibleRange({ scrollTop: grid.scrollTop, viewport: grid.clientHeight, rowHeight: tileRowH, total: rowsTotal, overscan: 2 });
     const first = range.first * columns;
     const last = Math.min(this.total, range.last * columns);
     for (const p of pagesFor({ first, last }, PAGE)) void this.fetchPage(p);
@@ -419,7 +423,7 @@ export class LibraryView {
       el.className = "tile";
       el.style.width = `${tile}px`;
       el.style.left = `${(i % columns) * (tile + TILE_GAP)}px`;
-      el.style.top = `${Math.floor(i / columns) * rowH}px`;
+      el.style.top = `${Math.floor(i / columns) * tileRowH}px`;
       if (a) {
         const img = document.createElement("img");
         img.loading = "lazy";
@@ -479,6 +483,7 @@ export class LibraryView {
       e.preventDefault();
       const i = Math.max(0, Math.min(this.total - 1, this.selected + (e.key === "ArrowDown" ? 1 : -1)));
       this.select(i);
+      const ROW_H = rowH();
       const top = i * ROW_H;
       const body = this.els.body;
       if (top < body.scrollTop) body.scrollTop = top;

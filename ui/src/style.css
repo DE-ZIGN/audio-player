@@ -3,6 +3,10 @@
    colour only (concept images UI-LIBRARY-A and UI-LIBRARY-B). Warnings never
    rely on colour alone: they carry a triangle mark. */
 :root {
+  --tile-min: 168px;
+  --tile-text: 48px;
+  --font-display: inherit; /* headings and titles; the standard view uses a serif */
+  --font-list: inherit; /* track lists and the queue */
   --row-h: 30px;
   --radius: 6px;
   --topbar-h: 76px;
@@ -1753,4 +1757,103 @@ dd {
 .abx-result p {
   margin: 6px 0;
   line-height: 1.6;
+}
+
+/* --- the standard view (task 6-7, CLAUDE.md chapter 8; concept images
+   UI-STANDARD and UI-STANDARD-LIST) ----------------------------------------
+   The same parts as the library view: only sizes, type and colour differ,
+   through the variables below. Dark wood and metal, amber light; the
+   photo-like parts (wood frame, metal, VU meters) come with 6-8. The library
+   view's colour themes do not apply here. */
+:root[data-ui-view="standard"] {
+  --row-h: 34px;
+  --topbar-h: 84px;
+  /* The same widths as the library view: at the 1280 px the window opens
+     with, the track list keeps all its columns (True Peak included). */
+  --sidebar-w: 216px;
+  --queue-w: 300px;
+  --tile-min: 188px;
+  --tile-text: 54px;
+  --font-display: Cambria, Georgia, "Yu Mincho", "YuMincho", serif;
+  --font-list: Cambria, "Yu Mincho", "YuMincho", serif;
+  --bg: #120d09;
+  --surface: #1a130d;
+  --surface-2: #241a12;
+  --line: #3a2a1c;
+  --text: #f1e4cc;
+  --muted: #b39c80;
+  --accent: #f4a640;
+  --accent-text: #1c1206;
+  --accent-soft: rgba(244, 166, 64, 0.16);
+  --warn: #f4a640;
+  --error: #ff8a70;
+  --level: #f4a640;
+  font-size: 15px;
+}
+.now-title,
+.content-head h1,
+.queue-panel h2,
+.album-info h2,
+.tile-title,
+.settings h2,
+.dialog-head h2 {
+  font-family: var(--font-display);
+}
+.table-body .row,
+.queue-list {
+  font-family: var(--font-list);
+  /* Times and levels line up (Cambria has lining figures; Georgia does not). */
+  font-variant-numeric: lining-nums tabular-nums;
+}
+[data-ui-view="standard"] .shell {
+  border: 4px solid #3b2516;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px #5a3a22;
+}
+[data-ui-view="standard"] .topbar {
+  background: linear-gradient(180deg, #2b211a 0%, #1a130e 55%, #140f0b 100%);
+  border-bottom-color: #4a3422;
+}
+[data-ui-view="standard"] .sidebar,
+[data-ui-view="standard"] .queue-panel {
+  background: linear-gradient(180deg, #1c150f, #140f0a);
+}
+[data-ui-view="standard"] .now-title {
+  font-size: 18px;
+  font-weight: 400;
+}
+[data-ui-view="standard"] .content-head h1 {
+  font-size: 28px;
+  font-weight: 400;
+}
+[data-ui-view="standard"] .queue-panel h2 {
+  font-size: 24px;
+  font-weight: 400;
+}
+[data-ui-view="standard"] .nav.active {
+  box-shadow: 0 0 10px rgba(244, 166, 64, 0.22);
+}
+[data-ui-view="standard"] button.primary.play,
+[data-ui-view="standard"] #play {
+  box-shadow: 0 0 12px rgba(244, 166, 64, 0.35);
+}
+[data-ui-view="standard"] .tile-title {
+  font-size: 15px;
+}
+[data-ui-view="standard"] .output-field .tag {
+  border-color: #5a4028;
+}
+
+/* The switch between the views, at the foot of the side bar. */
+.view-switch {
+  margin-top: 6px;
+  width: 100%;
+  font-size: 12px;
+  background: none;
+  border-color: var(--accent);
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+.themes:disabled {
+  opacity: 0.45;
 }
