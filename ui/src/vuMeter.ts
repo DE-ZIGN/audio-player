@@ -6,6 +6,9 @@
 // keeps moving in 原音モード, where only its light is lowered.
 
 import type { Level } from "./status";
+// The face behind the scale: a picture made by image generation, with nothing
+// printed on it (tools/ui_textures.py).
+import faceUrl from "./textures/vu-face.jpg";
 
 export const VU_REFERENCE_DBFS = -18; // 0 VU
 export const VU_SWEEP = 96; // degrees
@@ -49,7 +52,7 @@ export class VuMeter {
 
   constructor(label: string) {
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, class: "vu", role: "img", "aria-label": `VU メーター ${label}` });
-    svg.append(el("rect", { x: 1, y: 1, width: W - 2, height: H - 2, rx: 4, class: "vu-face" }));
+    svg.append(el("image", { href: faceUrl, x: 0, y: 0, width: W, height: H, preserveAspectRatio: "none", class: "vu-face" }));
     // The red zone from 0 VU to +3.
     const a0 = point(needleAngle(0), R), a3 = point(needleAngle(3), R);
     svg.append(el("path", { d: `M ${a0.x} ${a0.y} A ${R} ${R} 0 0 1 ${a3.x} ${a3.y}`, class: "vu-red" }));
@@ -71,8 +74,15 @@ export class VuMeter {
     const ch = el("text", { x: W - 8, y: H - 7, class: "vu-ch" });
     ch.textContent = label;
     svg.append(vu, ch);
+    // The needle shows only above the black band that hides its foot (a clip:
+    // a moving needle may be painted on its own layer, above later elements).
+    const clipId = `vu-clip-${label}-${Math.random().toString(36).slice(2, 8)}`;
+    const clip = el("clipPath", { id: clipId });
+    clip.append(el("rect", { x: 0, y: 0, width: W, height: H - 12 }));
+    const holder = el("g", { "clip-path": `url(#${clipId})` });
     this.needle = el("line", { x1: CX, y1: CY, x2: CX, y2: CY - R - 4, class: "vu-needle" });
-    svg.append(this.needle, el("rect", { x: 1, y: H - 12, width: W - 2, height: 11, rx: 0, class: "vu-base" }));
+    holder.append(this.needle);
+    svg.append(clip, holder, el("rect", { x: 1, y: H - 12, width: W - 2, height: 11, rx: 0, class: "vu-base" }));
     this.el = svg;
     this.set("-inf");
   }

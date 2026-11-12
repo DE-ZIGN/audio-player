@@ -1864,7 +1864,13 @@ dd {
    below). No text is baked into any texture. */
 :root {
   /* Wood grain and a fine grain for panels: SVG noise, stretched along the grain. */
-  --wood: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.09' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0.30 0.09  0 0 0 0.17 0.045  0 0 0 0.09 0.02  0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='600' height='600' filter='url(%23w)'/%3E%3C/svg%3E");
+  /* Pictures made by image generation (tools/ui_textures.py), no text in them. */
+  --wood: url("./textures/wood.jpg");
+  --panel: url("./textures/panel.jpg");
+  --metal: url("./textures/metal.jpg");
+  --button: url("./textures/button.jpg");
+  --button-play: url("./textures/play.jpg");
+  --wood-drawn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.09' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0.30 0.09  0 0 0 0.17 0.045  0 0 0 0.09 0.02  0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='600' height='600' filter='url(%23w)'/%3E%3C/svg%3E");
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 0.85  0 0 0 0 0.6  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23g)'/%3E%3C/svg%3E");
   --brushed: repeating-linear-gradient(90deg, rgba(255, 236, 205, 0.022) 0 1px, transparent 1px 3px);
 }
@@ -1873,7 +1879,7 @@ dd {
 }
 [data-ui-view="standard"] body {
   background: #2a170c var(--wood);
-  background-size: 600px 600px;
+  background-size: 480px 480px;
 }
 [data-ui-view="standard"] .shell {
   border: 6px solid transparent;
@@ -1886,8 +1892,8 @@ dd {
 }
 [data-ui-view="standard"] .topbar {
   background:
-    var(--brushed),
-    linear-gradient(180deg, #3b2d22 0%, #241a13 48%, #18110c 100%);
+    linear-gradient(180deg, rgba(255, 225, 180, 0.07) 0%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.38) 100%),
+    var(--metal) center / auto 300px repeat-x;
   border-bottom: 1px solid #5a4029;
   box-shadow: 0 1px 0 rgba(255, 210, 150, 0.06), 0 6px 14px rgba(0, 0, 0, 0.45);
   position: relative;
@@ -1895,10 +1901,12 @@ dd {
 }
 [data-ui-view="standard"] .sidebar,
 [data-ui-view="standard"] .queue-panel {
-  background: var(--grain), linear-gradient(180deg, #1f160f, #140e0a);
+  background: linear-gradient(180deg, rgba(60, 40, 24, 0.28), rgba(0, 0, 0, 0.2)), var(--panel);
+  background-size: auto, 256px 256px;
 }
 [data-ui-view="standard"] .content {
-  background: var(--grain), radial-gradient(ellipse at 50% 0%, #20170f 0%, #140e09 70%);
+  background: radial-gradient(ellipse at 50% 0%, rgba(70, 48, 28, 0.3) 0%, rgba(0, 0, 0, 0) 70%), var(--panel);
+  background-size: auto, 256px 256px;
   box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.55);
 }
 [data-ui-view="standard"] .statusbar {
@@ -1909,22 +1917,19 @@ dd {
   border-radius: 50%;
   width: 34px;
   height: 34px;
-  background: radial-gradient(circle at 35% 30%, #5b4a3b 0%, #2c2119 62%, #1b140f 100%);
-  border: 1px solid #6e5641;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 230, 190, 0.18),
-    0 2px 5px rgba(0, 0, 0, 0.6);
-  color: #ead9bd;
+  background: var(--button) center / cover;
+  border: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.65);
+  color: #f1e2c6;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
 }
 [data-ui-view="standard"] .transport button.play {
   width: 44px;
   height: 44px;
-  background: radial-gradient(circle at 35% 30%, #6b4a26 0%, #3a2612 60%, #22160a 100%);
-  border: 2px solid var(--accent);
+  background: var(--button-play) center / cover;
+  border: none;
   color: var(--accent);
-  box-shadow:
-    0 0 14px rgba(244, 166, 64, 0.45),
-    inset 0 0 8px rgba(244, 166, 64, 0.25);
+  box-shadow: 0 0 12px rgba(244, 166, 64, 0.35);
 }
 [data-ui-view="standard"] .transport button:disabled {
   opacity: 0.5;
@@ -1949,10 +1954,7 @@ dd {
     0 3px 8px rgba(0, 0, 0, 0.6);
 }
 .vu-face {
-  fill: #e9c27c;
-  stroke: #6b4a28;
-  stroke-width: 1;
-  transition: fill 300ms ease;
+  transition: filter 300ms ease;
 }
 .vu-arc,
 .vu-red {
@@ -2003,10 +2005,10 @@ dd {
   transition: transform 110ms linear;
 }
 .vu-base {
-  fill: #1c140d;
+  fill: #141110; /* the face's own black band, over the needle's foot */
 }
 .vu-meters.lamp-off .vu-face {
-  fill: #9c8256;
+  filter: brightness(0.62) saturate(0.75);
 }
 /* The output field: amber-edged tags. */
 [data-ui-view="standard"] .output-field .tag {
