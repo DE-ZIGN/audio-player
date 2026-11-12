@@ -4,6 +4,8 @@
 // bytes that reached its dummy output.
 
 import type { Backend } from "./backend";
+import { autoPreampDb, responsePoints } from "./eqResponse";
+import type { EqBand } from "./settings";
 import type { PlaybackStatus } from "./status";
 
 export interface SelfTestResult {
@@ -135,6 +137,28 @@ export async function runSelfTest(
     const curve = await backend.settings.eqCurve([eqBand]);
     const at1k = curve.points.reduce((best, p) => (Math.abs(p[0] - 1000) < Math.abs(best[0] - 1000) ? p : best));
     if (Math.abs(at1k[1] - 6) > 0.3) throw new Error(`settings: curve at ${at1k[0]} Hz is ${at1k[1]} dB`);
+    // The page draws the EQ with its own copy of the formulas (eqResponse.ts):
+    // it must agree with the engine's, for every filter type.
+    const mixed: EqBand[] = [
+      { type: "lowShelf", frequency: 105, gainDb: 5.5, q: 0.7, enabled: true },
+      { type: "peak", frequency: 2900, gainDb: 3.1, q: 2.1, enabled: true },
+      { type: "highShelf", frequency: 10000, gainDb: -2, q: 0.7, enabled: true },
+      { type: "highPass", frequency: 25, gainDb: 0, q: 0.71, enabled: true },
+      { type: "lowPass", frequency: 18000, gainDb: 0, q: 0.71, enabled: true },
+      { type: "bandPass", frequency: 440, gainDb: 0, q: 0.5, enabled: true },
+      { type: "notch", frequency: 60, gainDb: 0, q: 8, enabled: true },
+      { type: "peak", frequency: 700, gainDb: 9, q: 1, enabled: false },
+    ];
+    const engine = await backend.settings.eqCurve(mixed);
+    const page = responsePoints(mixed, engine.sampleRate, engine.points.length);
+    const worst = engine.points.reduce((m, [hz, db], k) => {
+      if (Math.abs(page[k][0] - hz) > 1e-6 * hz) return Infinity;
+      return db < -80 ? m : Math.max(m, Math.abs(page[k][1] - db)); // deep in the notch: both far down
+    }, 0);
+    const preampDiff = Math.abs(autoPreampDb(mixed, engine.sampleRate) - engine.preampDb);
+    if (worst > 0.001 || preampDiff > 0.001)
+      throw new Error(`settings: the page's EQ curve differs from the engine's by ${worst} dB (preamp ${preampDiff} dB)`);
+    log.push(`settings: page and engine EQ curves agree within ${worst.toExponential(1)} dB (preamp ${engine.preampDb.toFixed(2)} dB)`);
     const outputs = await backend.settings.outputs();
     log.push(
       `settings: 音作りモード with EQ, preamp ${set.eq.preampDb.toFixed(2)} dB, ` +
@@ -149,6 +173,13 @@ export async function runSelfTest(
       5000,
     );
     log.push(`processing path: ${processed.stages.map((st) => st.name).join(", ")}`);
+    // Solo (not saved) and back.
+    await backend.settings.eqSolo(0);
+    await waitFor("solo reported", (s) => s.eqSolo === 0, 5000);
+    if ((await backend.settings.get()).listening.eqBands.length !== 1) throw new Error("settings: solo changed the saved bands");
+    await backend.settings.eqSolo(null);
+    await waitFor("solo off", (s) => (s.eqSolo ?? null) === null, 5000);
+    log.push("EQ solo on and off");
     await backend.stop();
     await waitFor("stopped", (s) => s.state === "stopped", 5000);
 

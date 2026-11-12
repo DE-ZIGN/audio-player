@@ -76,6 +76,8 @@ public:
     // goes on at the same position on the new output.
     void setOutput(const ap::engine::OutputChoice& output);
     void setListening(const ap::engine::ListeningSettings& settings);
+    // Solo one EQ band (nullopt: off); not saved.
+    void setEqSolo(std::optional<std::size_t> band);
     // The rate of what is playing now (0 when nothing has been opened), for the EQ curve.
     std::uint32_t currentSampleRate() const;
 

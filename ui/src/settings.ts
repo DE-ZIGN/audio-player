@@ -4,7 +4,7 @@
 export type ListeningMode = "original" | "processed";
 export type ReplayGainMode = "off" | "track" | "album";
 export type IspSafeMode = "off" | "measured" | "fixed";
-export type EqFilterType = "peak" | "lowShelf" | "highShelf" | "lowPass" | "highPass";
+export type EqFilterType = "peak" | "lowShelf" | "highShelf" | "lowPass" | "highPass" | "bandPass" | "notch";
 
 export interface EqBand {
   type: EqFilterType;
@@ -21,6 +21,8 @@ export interface ListeningSettings {
   ispSafeProcessed: IspSafeMode;
   eqEnabled: boolean;
   eqBands: EqBand[];
+  eqAutoPreamp: boolean; // false: eqManualPreampDb is used (what goes over 0 dB is left to the limiter)
+  eqManualPreampDb: number; // -30 .. 0
 }
 
 export interface OutputChoice {
@@ -81,6 +83,8 @@ export const defaultListening: ListeningSettings = {
   ispSafeProcessed: "measured",
   eqEnabled: true,
   eqBands: [],
+  eqAutoPreamp: true,
+  eqManualPreampDb: 0,
 };
 
 export const defaultOutput: OutputChoice = { kind: "wasapi", id: "", name: "", allowDop: false };
@@ -93,6 +97,8 @@ export const FILTER_LABELS: Record<EqFilterType, string> = {
   highShelf: "ハイシェルフ",
   lowPass: "ローパス",
   highPass: "ハイパス",
+  bandPass: "バンドパス",
+  notch: "ノッチ",
 };
 
 export const ISP_LABELS: Record<IspSafeMode, string> = {
@@ -110,6 +116,8 @@ export const REPLAY_GAIN_LABELS: Record<ReplayGainMode, string> = {
 export function hasGain(type: EqFilterType): boolean {
   return type === "peak" || type === "lowShelf" || type === "highShelf";
 }
+
+export const PREAMP_LIMITS = { min: -30, max: 0 };
 
 const sign = (x: number) => (x > 0 ? "+" : x < 0 ? "−" : "±");
 

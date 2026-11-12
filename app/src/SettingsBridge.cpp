@@ -4,6 +4,7 @@
 
 #include <ap/engine/output/asio_output.h>
 
+#include <algorithm>
 #include <cmath>
 #include <optional>
 
@@ -37,6 +38,8 @@ const char* toString(EqFilterType t)
         case EqFilterType::HighShelf: return "highShelf";
         case EqFilterType::LowPass:   return "lowPass";
         case EqFilterType::HighPass:  return "highPass";
+        case EqFilterType::BandPass:  return "bandPass";
+        case EqFilterType::Notch:     return "notch";
     }
     return "peak";
 }
@@ -44,7 +47,7 @@ const char* toString(EqFilterType t)
 std::optional<EqFilterType> filterFrom(const juce::String& s)
 {
     for (const auto t : {EqFilterType::Peak, EqFilterType::LowShelf, EqFilterType::HighShelf, EqFilterType::LowPass,
-                         EqFilterType::HighPass})
+                         EqFilterType::HighPass, EqFilterType::BandPass, EqFilterType::Notch})
         if (s == toString(t))
             return t;
     return std::nullopt;
@@ -110,6 +113,8 @@ juce::var listeningVar(const ListeningSettings& l)
     o->setProperty("ispSafeProcessed", toString(l.ispSafeProcessed));
     o->setProperty("eqEnabled", l.eqEnabled);
     o->setProperty("eqBands", bandsVar(l.eqBands));
+    o->setProperty("eqAutoPreamp", l.eqAutoPreamp);
+    o->setProperty("eqManualPreampDb", l.eqManualPreampDb);
     return juce::var(o);
 }
 
@@ -122,6 +127,9 @@ ListeningSettings listeningFrom(const juce::var& v)
     l.ispSafeProcessed = ispSafeFrom(v.getProperty("ispSafeProcessed", "").toString());
     l.eqEnabled = static_cast<bool>(v.getProperty("eqEnabled", true));
     l.eqBands = bandsFrom(v.getProperty("eqBands", {}));
+    l.eqAutoPreamp = static_cast<bool>(v.getProperty("eqAutoPreamp", true));
+    const double preamp = v.getProperty("eqManualPreampDb", 0.0);
+    l.eqManualPreampDb = std::isfinite(preamp) ? std::clamp(preamp, -30.0, 0.0) : 0.0;
     return l;
 }
 
@@ -281,6 +289,13 @@ juce::WebBrowserComponent::Options SettingsBridge::registerFunctions(juce::WebBr
                                     setOutputAsync(args[0], std::move(done));
                             })
         .withNativeFunction("settingsImportEq", [this](Args, Completion done) { importEqAsync(std::move(done)); })
+        .withNativeFunction("settingsEqSolo",
+                            [this](Args args, Completion done) {
+                                const int i = args.isEmpty() ? -1 : static_cast<int>(args[0]);
+                                player_.setEqSolo(i >= 0 ? std::optional<std::size_t>(static_cast<std::size_t>(i))
+                                                         : std::nullopt);
+                                done(true);
+                            })
         .withNativeFunction("settingsEqCurve", [this](Args args, Completion done) {
             const auto bands = bandsFrom(args.isEmpty() ? juce::var() : args[0]);
             const auto current = player_.currentSampleRate();

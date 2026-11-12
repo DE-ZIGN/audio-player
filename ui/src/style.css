@@ -742,6 +742,7 @@ label.check {
 }
 .eq-curve {
   display: block;
+  cursor: pointer;
   width: 100%;
   height: 160px;
   margin-top: 10px;
@@ -778,41 +779,6 @@ label.check {
 .settings.original-mode .eq-curve .curve,
 .settings.original-mode .eq-curve .curve-out {
   stroke: var(--muted);
-}
-.eq-bands {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  font-size: 13px;
-}
-.eq-bands th {
-  text-align: left;
-  font-weight: 400;
-  color: var(--muted);
-  font-size: 12px;
-  padding: 4px 6px;
-  border-bottom: 1px solid var(--line);
-}
-.eq-bands td {
-  padding: 3px 6px;
-  border-bottom: 1px solid var(--line);
-}
-.eq-bands tr.off td:not(:first-child) {
-  opacity: 0.45;
-}
-.eq-bands input.num {
-  width: 88px;
-  text-align: right;
-}
-.eq-bands input.num:disabled {
-  opacity: 0.35;
-}
-.eq-bands input.invalid {
-  border-color: var(--error);
-}
-.eq-bands .empty-row {
-  color: var(--muted);
-  padding: 10px 6px;
 }
 .themes {
   border: 1px solid var(--line);
@@ -1028,4 +994,299 @@ dd {
   .levels {
     display: none;
   }
+}
+
+/* --- EQ editor (task 6-3) ------------------------------------------------- */
+.eq-dialog {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  width: min(1240px, 96vw);
+  height: min(860px, 94vh);
+  padding: 14px 18px;
+  overflow: hidden;
+}
+.eq-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.eq-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+.eq-dialog .dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.eq-dialog .dialog-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.eq-state {
+  color: var(--muted);
+  font-size: 12px;
+}
+.eq-mode-note {
+  margin: 0;
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+.eq-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.eq-range {
+  color: var(--muted);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.eq-dialog select {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 6px;
+}
+.eq-graph-wrap {
+  flex: 1;
+  min-height: 220px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  overflow: hidden;
+}
+.eq-graph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  touch-action: none;
+  cursor: crosshair;
+}
+.eq-graph.over-node {
+  cursor: grab;
+}
+.eq-graph .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.eq-graph .zero {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+.eq-graph .axis {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.eq-graph .band-area {
+  fill: var(--accent-soft);
+  stroke: none;
+}
+.eq-graph .curve,
+.eq-graph .curve-out {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+}
+.eq-graph .curve-out {
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  opacity: 0.75;
+}
+.eq-graph .inactive {
+  stroke: var(--muted);
+}
+.eq-graph .node circle {
+  fill: var(--surface-2);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.eq-graph .node text {
+  fill: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.eq-graph .node.selected circle {
+  fill: var(--accent);
+}
+.eq-graph .node.selected text {
+  fill: var(--accent-text);
+}
+.eq-graph .node.off circle {
+  stroke: var(--muted);
+  stroke-dasharray: 3 2;
+}
+.eq-graph .node.solo circle {
+  stroke-width: 4;
+}
+.eq-hint {
+  margin: 0;
+}
+.eq-dialog .notice {
+  margin: 0;
+  white-space: pre-line;
+}
+.eq-bottom {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 14px;
+  min-height: 190px;
+}
+.eq-band-panel,
+.eq-preamp-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 10px 12px;
+  min-width: 0;
+}
+.eq-preamp-panel h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.eq-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.eq-chips .note {
+  margin: 4px 0;
+}
+.eq-chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 12px;
+  padding: 3px 8px;
+  background: var(--surface);
+}
+.eq-chip b {
+  font-weight: 600;
+}
+.eq-chip.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.eq-chip.off {
+  opacity: 0.55;
+}
+.eq-chip.solo b::after {
+  content: " S";
+  color: var(--accent);
+}
+.eq-controls {
+  padding-top: 8px;
+}
+.eq-control-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.eq-control-head .link {
+  margin-left: auto;
+}
+.eq-solo.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.eq-knobs {
+  display: flex;
+  gap: 28px;
+  margin-top: 8px;
+}
+.menu hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 4px 0;
+}
+
+/* --- knob ----------------------------------------------------------------- */
+.knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 92px;
+}
+.knob-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.knob-dial {
+  width: 64px;
+  height: 64px;
+  cursor: ns-resize;
+  border-radius: 50%;
+  touch-action: none;
+}
+.knob-dial:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.knob-dial svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.knob-track,
+.knob-fill {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.knob-track {
+  stroke: var(--line);
+}
+.knob-fill {
+  stroke: var(--accent);
+}
+.knob-cap {
+  fill: var(--surface);
+  stroke: var(--line);
+}
+.knob-pointer {
+  stroke: var(--text);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.knob-value {
+  background: none;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  min-width: 80px;
+}
+.knob-value:hover:not(:disabled) {
+  border-color: var(--line);
+}
+.knob-input {
+  width: 80px;
+  font-size: 13px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 1px 4px;
+}
+.knob.disabled {
+  opacity: 0.35;
+}
+.knob.disabled .knob-dial {
+  cursor: default;
 }

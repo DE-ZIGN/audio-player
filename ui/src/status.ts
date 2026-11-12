@@ -157,8 +157,17 @@ export interface MeterStatus {
   reading: MeterReading | null;
 }
 
+// The safety limiter since the settings or the queue last changed (task 6-3).
+export interface LimiterStats {
+  events: number;
+  limitedFrames: number;
+  maxReductionDb: number; // 0 or negative
+}
+
 export interface PlaybackStatus {
   state: PlayerState;
+  limiter: LimiterStats;
+  eqSolo: number | null; // the EQ band played alone (task 6-3), not saved
   path: SignalPath | null;
   stages: StageState[]; // processing path: the stages running now
   bitPerfect: BitPerfectVerdict | null; // set with path
@@ -188,6 +197,8 @@ export interface PlaybackStatus {
 
 export const emptyStatus: PlaybackStatus = {
   state: "empty",
+  limiter: { events: 0, limitedFrames: 0, maxReductionDb: 0 },
+  eqSolo: null,
   path: null,
   stages: [],
   bitPerfect: null,

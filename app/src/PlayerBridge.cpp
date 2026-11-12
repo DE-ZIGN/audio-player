@@ -361,6 +361,7 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
     for (const auto& file : files)
         queueMeta_.push_back({0, file.getFileName().toStdString(), {}, std::nullopt});
     ++queueVersion_;
+    chain_.limiter->resetStats();
 
     player_.setQueue(std::move(items));
     pushStatus(true);
@@ -402,6 +403,7 @@ juce::String PlayerBridge::playQueue(std::vector<QueueFile> files, std::size_t s
     for (auto& f : files)
         queueMeta_.push_back({f.libraryId, std::move(f.name), std::move(f.artist), f.seconds});
     ++queueVersion_;
+    chain_.limiter->resetStats();
     player_.setQueue(std::move(items), std::min(start, files.size() - 1));
     auto s = player_.status();
     if (s.state == PlayerState::Error)
@@ -509,6 +511,17 @@ juce::var PlayerBridge::statusAsVar() const
         stages.add(juce::var(so));
     }
     o->setProperty("stages", stages);
+    // The safety limiter (CLAUDE.md chapter 4: how often and by how much it
+    // acted), since the settings or the queue last changed.
+    {
+        const auto ls = chain_.limiter->stats();
+        auto* lo = new juce::DynamicObject();
+        lo->setProperty("events", static_cast<double>(ls.events));
+        lo->setProperty("limitedFrames", static_cast<double>(ls.limitedFrames));
+        lo->setProperty("maxReductionDb", ls.maxReductionDb);
+        o->setProperty("limiter", juce::var(lo));
+    }
+    o->setProperty("eqSolo", chain_.eqSolo() ? juce::var(static_cast<int>(*chain_.eqSolo())) : juce::var());
     if (s.bitPerfect)
     {
         const auto& v = *s.bitPerfect;
@@ -588,6 +601,13 @@ void PlayerBridge::setOutput(const OutputChoice& output)
 void PlayerBridge::setListening(const ListeningSettings& settings)
 {
     chain_.apply(settings); // the player reopens the output if the path changes
+    chain_.limiter->resetStats(); // the count shown is for the settings in use
+    pushStatus(true);
+}
+
+void PlayerBridge::setEqSolo(std::optional<std::size_t> band)
+{
+    chain_.setEqSolo(band);
     pushStatus(true);
 }
 

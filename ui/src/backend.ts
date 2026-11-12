@@ -67,7 +67,8 @@ export interface SettingsApi {
   outputs(): Promise<OutputsInfo>;
   setOutput(o: OutputChoice): Promise<SetResult>; // an ASIO driver is checked first (seconds)
   importEq(): Promise<EqImport>; // shows a file dialog
-  eqCurve(bands: EqBand[]): Promise<EqCurve>;
+  eqCurve(bands: EqBand[]): Promise<EqCurve>; // the engine's (the page draws with eqResponse.ts)
+  eqSolo(band: number | null): Promise<void>; // play one band alone; not saved
   onOutputsChanged(listener: () => void): void;
 }
 
@@ -162,6 +163,9 @@ class AppSettings implements SettingsApi {
   }
   async eqCurve(bands: EqBand[]) {
     return (await this.fn("settingsEqCurve")(bands)) as EqCurve;
+  }
+  async eqSolo(band: number | null) {
+    await this.fn("settingsEqSolo")(band ?? -1);
   }
   onOutputsChanged(listener: () => void) {
     window.__JUCE__!.backend.addEventListener(OUTPUTS_EVENT, () => listener());
@@ -297,7 +301,10 @@ export const DEMO_QUEUE: MockTrack[] = [
 export class MockBackend implements Backend {
   readonly kind = "mock" as const;
   readonly library: LibraryApi;
-  readonly settings: MockSettings = new MockSettings((l) => this.applyListening(l));
+  readonly settings: MockSettings = new MockSettings(
+    (l) => this.applyListening(l),
+    (band) => this.update({ ...this.status, eqSolo: band }),
+  );
   private listening: ListeningSettings | null = null;
   private status: PlaybackStatus = { ...emptyStatus };
   private listeners: ((s: PlaybackStatus) => void)[] = [];

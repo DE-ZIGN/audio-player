@@ -368,7 +368,10 @@ async function main() {
   document
     .querySelector<HTMLButtonElement>('.nav[data-view="settings"]')
     ?.addEventListener("click", () => void settings.refresh());
-  backend.onStatus(render);
+  backend.onStatus((s) => {
+    render(s);
+    settings.onStatus(s);
+  });
   backend.library.onChanged((c) => {
     els.counts.textContent = countsText(c);
     els.statusDot.classList.toggle("busy", c.scanning || c.toMeasure > 0);

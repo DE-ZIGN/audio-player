@@ -147,20 +147,13 @@
               <label class="check"><input type="checkbox" id="eq-enabled" /> EQ を使う</label>
               <span class="spacer-flex"></span>
               <button type="button" id="eq-import">ファイルから読み込む…</button>
-              <button type="button" id="eq-add">バンドを足す</button>
-              <button type="button" id="eq-clear" class="link">すべて消す</button>
+              <button type="button" id="eq-open" class="primary">EQ を開く</button>
             </div>
-            <svg class="eq-curve" id="eq-curve" viewBox="0 0 560 160" preserveAspectRatio="none" role="img" aria-label="EQ の周波数特性"></svg>
+            <svg class="eq-curve" id="eq-curve" viewBox="0 0 560 160" preserveAspectRatio="none" role="button" tabindex="0" aria-label="EQ の周波数特性（クリックで EQ を開く）"></svg>
             <p class="note" id="eq-preamp"></p>
             <p class="notice" id="eq-warnings" hidden></p>
-            <table class="eq-bands" id="eq-bands">
-              <thead>
-                <tr><th>使う</th><th>種類</th><th>周波数（Hz）</th><th>ゲイン（dB）</th><th>Q</th><th></th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
             <p class="note">
-              最小位相の IIR（バイクアッド）で 64bit 浮動小数点。最大のブーストの分だけ自動でプリアンプを下げ、EQ そのものではどの周波数も 0 dB を超えないようにします。読み込めるのは AutoEQ の ParametricEQ.txt と Equalizer APO の書き方です（ファイルのプリアンプの値は使わず、こちらで決めます）。
+              最小位相の IIR（バイクアッド）で 64bit 浮動小数点。プリアンプは、自動なら最大のブーストの分だけ下げ、EQ そのものではどの周波数も 0 dB を超えないようにします。手で決めることもでき、そのとき超えた分は保険のリミッターが受け持ちます（働いた回数と量を表示します）。読み込めるのは AutoEQ の ParametricEQ.txt と Equalizer APO の書き方です（ファイルのプリアンプの値は使いません）。
             </p>
           </div>
 
@@ -190,6 +183,54 @@
         <span id="backend-kind" class="backend-kind"></span>
       </footer>
     </div>
+
+    <!-- The EQ editor (task 6-3): nodes on the curve and knobs. -->
+    <dialog id="eq-dialog" class="eq-dialog" aria-label="EQ">
+      <div class="dialog-head">
+        <h2>EQ</h2>
+        <span class="eq-state" id="eqd-state"></span>
+        <span class="spacer-flex"></span>
+        <button id="eqd-close" type="button" class="icon" aria-label="閉じる">✕</button>
+      </div>
+      <p class="notice eq-mode-note" id="eqd-mode-note" hidden>
+        <span id="eqd-mode-text"></span>
+        <button type="button" id="eqd-to-processed" class="link">音作りモードにする</button>
+      </p>
+      <div class="eq-toolbar">
+        <label class="check"><input type="checkbox" id="eqd-enabled" /> EQ を使う</label>
+        <label class="eq-range">縦の範囲
+          <select id="eqd-range">
+            <option value="6">±6 dB</option>
+            <option value="12" selected>±12 dB</option>
+            <option value="24">±24 dB</option>
+          </select>
+        </label>
+        <span class="spacer-flex"></span>
+        <button type="button" id="eqd-import">ファイルから読み込む…</button>
+        <button type="button" id="eqd-clear" class="link">すべて消す</button>
+      </div>
+      <div class="eq-graph-wrap">
+        <svg id="eqd-graph" class="eq-graph" role="application" aria-label="EQ のグラフ。ダブルクリックでバンドを足す"></svg>
+      </div>
+      <p class="note eq-hint">
+        何もないところをダブルクリック：バンドを足す ・ ノードをドラッグ：左右で周波数、上下でゲイン（ゲインのない種類は Q） ・ ノードの上でホイール：Q ・ Shift：細かく ・ ノードをダブルクリックか Delete：消す ・ 右クリック：メニュー
+      </p>
+      <p class="notice" id="eqd-warnings" hidden></p>
+      <div class="eq-bottom">
+        <section class="eq-band-panel">
+          <div class="eq-chips" id="eqd-chips" role="tablist" aria-label="バンド"></div>
+          <div class="eq-controls" id="eqd-controls"></div>
+        </section>
+        <section class="eq-preamp-panel">
+          <h3>プリアンプ</h3>
+          <label class="check"><input type="checkbox" id="eqd-auto-preamp" /> 自動（最大のブーストの分だけ下げる）</label>
+          <div id="eqd-preamp-knob"></div>
+          <p class="note" id="eqd-preamp-note"></p>
+          <p class="note" id="eqd-limiter"></p>
+        </section>
+      </div>
+      <div class="menu" id="eqd-menu" role="menu" hidden></div>
+    </dialog>
 
     <!-- 曲の右クリックのメニュー -->
     <div id="menu" class="menu" role="menu" hidden></div>

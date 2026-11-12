@@ -27,6 +27,8 @@ namespace ap::app {
 //   settingsImportEq()         a file dialog for an AutoEQ / Equalizer APO file;
 //                              { ok, cancelled?, bands, warnings, filePreampDb?, message? }
 //   settingsEqCurve(bands)     { sampleRate, preampDb, skipped, points: [[Hz, dB], ...] }
+//                              (preampDb: the automatic one)
+//   settingsEqSolo(i)          solo EQ band i (-1: off); not saved
 // Event (C++ -> JavaScript): "outputsChanged" when an output device was
 // added, removed, enabled or disabled, or the Windows default changed.
 class SettingsBridge final
