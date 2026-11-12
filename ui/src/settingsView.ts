@@ -123,6 +123,14 @@ export class SettingsView {
     }
   }
 
+  // The output check's button for the ISP warning (task 6-4): the ISP-safe
+  // gain of the mode in use, measured.
+  async enableIspSafe(mode: ListeningSettings["mode"]) {
+    if (!this.loaded) await this.refresh(); // never send defaults over what is saved
+    if (!this.loaded) return;
+    this.change(mode === "processed" ? { ispSafeProcessed: "measured" } : { ispSafeOriginal: "measured" });
+  }
+
   // The playback status (for the EQ editor: the limiter's count, the solo).
   onStatus(s: PlaybackStatus) {
     this.editor.showStatus(s.limiter, s.eqSolo);

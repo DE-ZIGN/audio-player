@@ -889,37 +889,342 @@ label.check {
   flex: 1;
 }
 
-/* --- output check (simple; the full screen is 6-4) ----------------------- */
+/* --- output check (task 6-4, concept image UI-OUTPUT-CHECK, flat) ------- */
 .output-dialog {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  width: min(760px, 92vw);
-  max-height: 88vh;
-  padding: 16px;
+  width: min(1240px, 96vw);
+  height: min(860px, 94vh);
+  padding: 14px 18px;
+  overflow: hidden;
+}
+.output-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .output-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
 }
 .dialog-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 .dialog-head h2 {
   margin: 0;
   font-size: 18px;
 }
-.panel {
-  border-top: 1px solid var(--line);
-  margin-top: 12px;
-  padding-top: 8px;
-}
-.panel h3 {
+.oc-file {
+  color: var(--muted);
   font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oc-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 250px;
+  gap: 16px;
+}
+.oc-main {
+  min-width: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.output-dialog h3 {
+  font-size: 13px;
+  font-weight: 600;
   color: var(--muted);
   margin: 0 0 8px;
+}
+.output-dialog h3 small {
+  font-weight: 400;
+  margin-left: 4px;
+}
+.oc-diagram {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.oc-box {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 10px 8px;
+  text-align: center;
+  font-size: 12px;
+}
+.oc-box-title {
+  font-weight: 600;
+  font-size: 13px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.oc-line {
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.oc-line.warn {
+  color: var(--warn);
+}
+.oc-processing {
+  flex: 1.5 1 0;
+  text-align: left;
+}
+.oc-processing .oc-box-title {
+  text-align: center;
+}
+.oc-processing.active {
+  border-color: var(--accent);
+}
+.oc-badge {
+  text-align: center;
+  font-size: 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2px 6px;
+  margin: 0 auto 6px;
+  width: fit-content;
+}
+.oc-processing.active .oc-badge {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.oc-stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.oc-stages li {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 2px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+.oc-stages li.on {
+  color: var(--text);
+}
+.oc-state {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.oc-stages li.on .oc-state {
+  color: var(--accent);
+}
+.oc-stages li .oc-state.warn {
+  color: var(--warn);
+}
+.oc-arrow {
+  color: var(--accent);
+  font-size: 18px;
+  flex: none;
+}
+.oc-isp {
+  margin: 12px 0 0;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+}
+.oc-isp button {
+  flex: none;
+}
+.oc-verdict {
+  margin-top: 16px;
+}
+.oc-verdict-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.oc-verdict-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  font-size: 20px;
+}
+.oc-verdict-head.ok {
+  color: var(--accent);
+}
+.oc-verdict-head.ng {
+  color: var(--text);
+}
+.oc-verdict-head.ng .oc-verdict-mark {
+  color: var(--muted);
+}
+.oc-checks {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 22px 150px 1fr;
+  row-gap: 6px;
+  font-size: 13px;
+}
+.oc-checks li {
+  display: contents;
+}
+.oc-mark {
+  text-align: center;
+  font-weight: 600;
+}
+.oc-checks li.ok .oc-mark {
+  color: var(--accent);
+}
+.oc-checks li.ng .oc-mark {
+  color: var(--error);
+}
+.oc-checks li.warn .oc-mark,
+.oc-checks li.warn .oc-check-detail {
+  color: var(--warn);
+}
+.oc-checks li.info .oc-mark {
+  color: var(--muted);
+}
+.oc-check-detail {
+  color: var(--muted);
+}
+.oc-scope {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.oc-details {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.oc-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.oc-meters {
+  border-left: 1px solid var(--line);
+  padding-left: 16px;
+  overflow-y: auto;
+}
+.oc-tp {
+  display: flex;
+  gap: 10px;
+  height: 230px;
+  padding: 8px 0 8px;
+}
+.oc-bars {
+  display: flex;
+  gap: 14px;
+}
+.oc-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+.oc-bar {
+  position: relative;
+  width: 26px;
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.oc-bar .fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0;
+  background: var(--level);
+  transition: height 90ms linear;
+}
+.oc-bar .fill.over {
+  background: var(--error);
+}
+.oc-bar-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.oc-scale {
+  position: relative;
+  width: 30px;
+  margin-bottom: 20px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.oc-scale span {
+  position: absolute;
+  left: 0;
+  transform: translateY(50%);
+}
+.oc-values {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+.oc-value {
+  display: grid;
+  grid-template-columns: 16px 56px 1fr;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.oc-value-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.oc-value-now {
+  font-size: 18px;
+}
+.oc-value-max {
+  color: var(--muted);
+  font-size: 12px;
+}
+.oc-value.over .oc-value-max {
+  color: var(--warn);
+}
+.oc-loudness {
+  display: flex;
+  gap: 14px;
+  height: 150px;
+}
+.oc-loudness .oc-bar {
+  flex: none;
+  height: 100%;
+}
+.oc-loudness dl {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+.oc-loudness dt {
+  font-size: 12px;
+}
+.oc-loudness dd {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.oc-loudness dd.big {
+  font-size: 22px;
 }
 dl {
   display: grid;
@@ -933,9 +1238,6 @@ dt {
 }
 dd {
   margin: 0;
-}
-.meters dd {
-  font-variant-numeric: tabular-nums;
 }
 .transitions {
   margin: 0;

@@ -96,6 +96,7 @@ private:
         std::optional<double> seconds;
     };
     ap::engine::ListeningChain chain_; // ReplayGain, EQ, volume, ISP-safe, limiter
+    ap::engine::ListeningSettings listening_; // as last applied (the mode and ISP-safe go in the status)
     mutable std::mutex outputMutex_;   // guards output_ and outputNotice_
     ap::engine::OutputChoice output_;
     std::string outputNotice_; // why playback is not on the chosen output (Japanese), if it is not

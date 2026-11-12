@@ -224,6 +224,8 @@ export interface MockTrack {
   sampleRate: number;
   seconds: number;
   dsdRate?: number; // DSD file sent as DoP at sampleRate (= dsdRate / 16)
+  truePeakDb?: number | null; // measured at import (the ISP warning, task 6-4)
+  container?: string; // from the library ("FLAC", "ALAC", ...)
 }
 
 const fmt24 = (sampleRate: number) => ({
@@ -236,7 +238,7 @@ const fmt24 = (sampleRate: number) => ({
 
 // What a WASAPI exclusive output reports for a track (10 ms periods).
 const mockPath = (t: MockTrack): SignalPath => ({
-  container: t.dsdRate ? "DSF" : t.name.endsWith(".flac") ? "FLAC" : "WAV",
+  container: t.container || (t.dsdRate ? "DSF" : t.name.endsWith(".flac") ? "FLAC" : "WAV"),
   processing: false,
   processingStages: [],
   processingRequired: false,
@@ -334,7 +336,13 @@ export class MockBackend implements Backend {
         });
         if (found.length === 0) return { ok: false, message: "再生できる曲がありません" };
         this.halt();
-        this.tracks = found.map((t) => ({ name: t.title, sampleRate: t.sampleRate ?? 44100, seconds: t.seconds ?? 200 }));
+        this.tracks = found.map((t) => ({
+          name: t.title,
+          sampleRate: t.sampleRate ?? 44100,
+          seconds: t.seconds ?? 200,
+          truePeakDb: t.analysis === "ok" ? t.truePeakDb : null,
+          container: t.container,
+        }));
         this.setQueueItems(found.map((t) => ({ id: t.id, name: t.title, artist: t.artist, seconds: t.seconds })));
         const i = Math.min(start, found.length - 1);
         this.update({ ...this.withQueue(emptyStatus), state: "stopped", ...this.trackFields(i) });
@@ -349,7 +357,13 @@ export class MockBackend implements Backend {
         });
         this.tracks = [
           ...this.tracks.slice(0, cur + 1),
-          ...found.map((t) => ({ name: t.title, sampleRate: t.sampleRate ?? 44100, seconds: t.seconds ?? 200 })),
+          ...found.map((t) => ({
+            name: t.title,
+            sampleRate: t.sampleRate ?? 44100,
+            seconds: t.seconds ?? 200,
+            truePeakDb: t.analysis === "ok" ? t.truePeakDb : null,
+            container: t.container,
+          })),
         ];
         this.setQueueItems([
           ...this.queueItems.slice(0, cur + 1),
@@ -417,8 +431,12 @@ export class MockBackend implements Backend {
     const stages = this.mockStages();
     const processing = stages.length > 0;
     const s = this.status;
+    const l = this.listening;
+    const mode = l?.mode ?? "original";
     this.update({
       ...this.withQueue(s),
+      mode,
+      ispSafe: l ? (mode === "processed" ? l.ispSafeProcessed : l.ispSafeOriginal) : "off",
       stages,
       path: s.path && { ...s.path, processing, processingStages: stages.map((x) => x.name), dither: processing },
       bitPerfect: s.bitPerfect && { ...s.bitPerfect, bitPerfect: !processing, dither: processing },
@@ -440,6 +458,7 @@ export class MockBackend implements Backend {
       integrity: { state: t.name.endsWith(".flac") ? ("pending" as const) : ("notAvailable" as const), decodeErrors: 0 },
       totalFrames: Math.round(t.sampleRate * t.seconds),
       positionFrames: 0,
+      trackTruePeakDb: t.truePeakDb ?? null,
     };
   }
 

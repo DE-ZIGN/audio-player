@@ -246,6 +246,7 @@ PlayerBridge::PlayerBridge(Player::OutputFactory outputFactory, const AppSetting
                               // the direct, bit-perfect path (task 3-2).
                               .processing = chain_.chain()})
 {
+    listening_ = settings.listening;
     chain_.apply(settings.listening);
     startTimerHz(10);
 }
@@ -522,6 +523,15 @@ juce::var PlayerBridge::statusAsVar() const
         o->setProperty("limiter", juce::var(lo));
     }
     o->setProperty("eqSolo", chain_.eqSolo() ? juce::var(static_cast<int>(*chain_.eqSolo())) : juce::var());
+    // For the output check (task 6-4): the mode, the ISP-safe gain of that
+    // mode, and the current track's measured true peak (the ISP warning).
+    const bool processed = listening_.mode == ListeningMode::Processed;
+    o->setProperty("mode", processed ? "processed" : "original");
+    const auto isp = processed ? listening_.ispSafeProcessed : listening_.ispSafeOriginal;
+    o->setProperty("ispSafe", isp == IspSafeMode::Measured ? "measured" : isp == IspSafeMode::Fixed ? "fixed" : "off");
+    o->setProperty("trackTruePeakDb", s.trackTruePeak && *s.trackTruePeak > 0.0
+                                          ? juce::var(20.0 * std::log10(*s.trackTruePeak))
+                                          : juce::var());
     if (s.bitPerfect)
     {
         const auto& v = *s.bitPerfect;
@@ -600,6 +610,7 @@ void PlayerBridge::setOutput(const OutputChoice& output)
 
 void PlayerBridge::setListening(const ListeningSettings& settings)
 {
+    listening_ = settings;
     chain_.apply(settings); // the player reopens the output if the path changes
     chain_.limiter->resetStats(); // the count shown is for the settings in use
     pushStatus(true);

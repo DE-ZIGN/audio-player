@@ -235,59 +235,86 @@
     <!-- 曲の右クリックのメニュー -->
     <div id="menu" class="menu" role="menu" hidden></div>
 
-    <!-- 出力の確認（簡易版。経路図とメーターの画面は 6-4） -->
+    <!-- The output check (task 6-4, CLAUDE.md chapter 8): the signal path, the
+         BIT-PERFECT judgement with its reasons, and the meters. -->
     <dialog id="output-dialog" class="output-dialog">
       <div class="dialog-head">
         <h2>出力の確認</h2>
+        <span class="oc-file" id="oc-file"></span>
+        <span class="spacer-flex"></span>
         <button id="output-close" type="button" class="icon" aria-label="閉じる">✕</button>
       </div>
-      <section class="panel path">
-        <h3>経路</h3>
-        <dl>
-          <dt>入力</dt>
-          <dd id="source-format">—</dd>
-          <dt>ファイルの検証</dt>
-          <dd id="integrity">—</dd>
-          <dt>出力デバイス</dt>
-          <dd><span id="output-name">—</span><p class="notice" id="output-notice" hidden></p></dd>
-          <dt>出力の方式</dt>
-          <dd id="output-mode">—</dd>
-          <dt>Windows の音量</dt>
-          <dd id="volume">—</dd>
-          <dt>送る形式</dt>
-          <dd id="output-format">—</dd>
-          <dt>詰め替え</dt>
-          <dd id="repack">—</dd>
-          <dt>処理</dt>
-          <dd id="processing">なし（原音経路：音量・変換・ディザをかけません）</dd>
-          <dt>ビットパーフェクト</dt>
-          <dd id="bit-perfect">—</dd>
-          <dt>自己確認</dt>
-          <dd id="self-check">—</dd>
-          <dt>曲の切り替え</dt>
-          <dd><ul class="transitions" id="transitions"><li>—</li></ul></dd>
-          <dt>音切れ</dt>
-          <dd id="dropouts">—</dd>
-          <dt>再生スレッド</dt>
-          <dd id="priority">—</dd>
-        </dl>
-        <p class="notice" id="dop-note" hidden></p>
-        <p class="error" id="integrity-failures" hidden></p>
-      </section>
-      <section class="panel meters">
-        <h3>メーター</h3>
-        <dl>
-          <dt>True Peak</dt>
-          <dd id="meter-peak">—</dd>
-          <dt>この曲の最大</dt>
-          <dd id="meter-track-peak">—</dd>
-          <dt>ラウドネス</dt>
-          <dd id="meter-loudness">—</dd>
-          <dt>この曲の統合値</dt>
-          <dd id="meter-integrated">—</dd>
-        </dl>
-        <p class="note" id="meter-note"></p>
-      </section>
+      <div class="oc-body">
+        <div class="oc-main">
+          <section class="oc-path" aria-label="経路">
+            <h3>経路</h3>
+            <div class="oc-diagram" id="oc-diagram"></div>
+          </section>
+          <div class="notice oc-isp" id="oc-isp" hidden>
+            <span id="oc-isp-text"></span>
+            <button type="button" id="oc-isp-on">ISP セーフをオンにする（計測した値で下げる）</button>
+          </div>
+          <section class="oc-verdict" id="oc-verdict" aria-label="BIT-PERFECT の判定"></section>
+          <details class="oc-details">
+            <summary>詳細</summary>
+            <dl>
+              <dt>入力</dt>
+              <dd id="source-format">—</dd>
+              <dt>ファイルの検証</dt>
+              <dd id="integrity">—</dd>
+              <dt>出力デバイス</dt>
+              <dd><span id="output-name">—</span><p class="notice" id="output-notice" hidden></p></dd>
+              <dt>出力の方式</dt>
+              <dd id="output-mode">—</dd>
+              <dt>Windows の音量</dt>
+              <dd id="volume">—</dd>
+              <dt>送る形式</dt>
+              <dd id="output-format">—</dd>
+              <dt>詰め替え</dt>
+              <dd id="repack">—</dd>
+              <dt>処理</dt>
+              <dd id="processing">なし（原音経路：音量・変換・ディザをかけません）</dd>
+              <dt>ビットパーフェクト</dt>
+              <dd id="bit-perfect">—</dd>
+              <dt>自己確認</dt>
+              <dd id="self-check">—</dd>
+              <dt>曲の切り替え</dt>
+              <dd><ul class="transitions" id="transitions"><li>—</li></ul></dd>
+              <dt>音切れ</dt>
+              <dd id="dropouts">—</dd>
+              <dt>再生スレッド</dt>
+              <dd id="priority">—</dd>
+            </dl>
+            <p class="notice" id="dop-note" hidden></p>
+            <p class="error" id="integrity-failures" hidden></p>
+          </details>
+        </div>
+        <aside class="oc-meters" aria-label="メーター">
+          <h3>True Peak <small>dBTP</small></h3>
+          <div class="oc-tp">
+            <div class="oc-bars" id="oc-peaks"></div>
+            <div class="oc-scale" aria-hidden="true">
+              <span style="bottom: 100%">0</span><span style="bottom: 90%">−6</span><span style="bottom: 80%">−12</span>
+              <span style="bottom: 60%">−24</span><span style="bottom: 40%">−36</span><span style="bottom: 20%">−48</span>
+              <span style="bottom: 0%">−60</span>
+            </div>
+          </div>
+          <div class="oc-values" id="oc-peak-values"></div>
+          <h3>ラウドネス <small>LUFS</small></h3>
+          <div class="oc-loudness">
+            <div class="oc-bar loud"><div class="fill" id="oc-loud-fill"></div></div>
+            <dl>
+              <dt>瞬時（0.4 秒）</dt>
+              <dd id="oc-momentary">—</dd>
+              <dt>短時間（3 秒）</dt>
+              <dd id="oc-short">—</dd>
+              <dt>この曲の統合値</dt>
+              <dd id="oc-integrated" class="big">—</dd>
+            </dl>
+          </div>
+          <p class="note" id="meter-note"></p>
+        </aside>
+      </div>
     </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>

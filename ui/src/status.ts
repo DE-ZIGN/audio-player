@@ -168,6 +168,11 @@ export interface PlaybackStatus {
   state: PlayerState;
   limiter: LimiterStats;
   eqSolo: number | null; // the EQ band played alone (task 6-3), not saved
+  // Task 6-4: the mode, the ISP-safe gain of that mode, and the current
+  // track's measured true peak (null: not measured), for the ISP warning.
+  mode: "original" | "processed";
+  ispSafe: "off" | "measured" | "fixed";
+  trackTruePeakDb: number | null;
   path: SignalPath | null;
   stages: StageState[]; // processing path: the stages running now
   bitPerfect: BitPerfectVerdict | null; // set with path
@@ -199,6 +204,9 @@ export const emptyStatus: PlaybackStatus = {
   state: "empty",
   limiter: { events: 0, limitedFrames: 0, maxReductionDb: 0 },
   eqSolo: null,
+  mode: "original",
+  ispSafe: "off",
+  trackTruePeakDb: null,
   path: null,
   stages: [],
   bitPerfect: null,

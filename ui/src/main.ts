@@ -4,6 +4,7 @@ import { afterInsert, afterMove, afterRemove, dbToSlider, sliderToDb, volumeLabe
 import { countsText } from "./libraryFormat";
 import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
 import { SettingsView } from "./settingsView";
+import { OutputView } from "./outputView";
 import { lengthText } from "./libraryFormat";
 import {
   bitPerfectText,
@@ -17,11 +18,6 @@ import {
   formatTime,
   integrityFailuresText,
   integrityText,
-  meterIntegratedText,
-  meterLoudnessText,
-  meterNote,
-  meterPeakText,
-  meterTrackPeakText,
   outputModeText,
   outputTags,
   priorityText,
@@ -83,11 +79,6 @@ const els = {
   repack: $("repack"),
   error: $("error"),
   backendKind: $("backend-kind"),
-  meterPeak: $("meter-peak"),
-  meterTrackPeak: $("meter-track-peak"),
-  meterLoudness: $("meter-loudness"),
-  meterIntegrated: $("meter-integrated"),
-  meterNote: $("meter-note"),
 };
 
 const SEEK_STEPS = 1000;
@@ -293,11 +284,6 @@ function render(s: PlaybackStatus) {
     }),
   );
 
-  els.meterPeak.textContent = meterPeakText(s);
-  els.meterTrackPeak.textContent = meterTrackPeakText(s);
-  els.meterLoudness.textContent = meterLoudnessText(s);
-  els.meterIntegrated.textContent = meterIntegratedText(s);
-  els.meterNote.textContent = meterNote(s);
 
   const err = errorText(s);
   if (err) {
@@ -368,9 +354,12 @@ async function main() {
   document
     .querySelector<HTMLButtonElement>('.nav[data-view="settings"]')
     ?.addEventListener("click", () => void settings.refresh());
+  void settings.refresh(); // the settings as saved, before anything changes them
+  const outputView = new OutputView((mode) => settings.enableIspSafe(mode));
   backend.onStatus((s) => {
     render(s);
     settings.onStatus(s);
+    outputView.render(s);
   });
   backend.library.onChanged((c) => {
     els.counts.textContent = countsText(c);
@@ -435,7 +424,7 @@ async function main() {
   } catch {
     // no storage: 100%
   }
-  els.output.addEventListener("click", () => els.outputDialog.showModal());
+  els.output.addEventListener("click", () => outputView.open());
   els.outputClose.addEventListener("click", () => els.outputDialog.close());
 
   els.seek.addEventListener("input", () => {

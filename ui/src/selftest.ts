@@ -5,6 +5,7 @@
 
 import type { Backend } from "./backend";
 import { autoPreampDb, responsePoints } from "./eqResponse";
+import { ispWarning, pathModel, verdictModel } from "./outputCheck";
 import type { EqBand } from "./settings";
 import type { PlaybackStatus } from "./status";
 
@@ -85,6 +86,18 @@ export async function runSelfTest(
     await backend.play();
     await waitFor("playing with progress", (s) => s.state === "playing" && s.positionFrames > 0, 5000);
     log.push("playing, position advances (event)");
+
+    // The output check (task 6-4) from the real status: the direct path in
+    // 原音モード, nothing against BIT-PERFECT but the dummy output.
+    const direct = await waitFor("path reported", (s) => s.path !== null && s.bitPerfect !== null, 5000);
+    const dm = pathModel(direct);
+    const dv = verdictModel(direct);
+    if (direct.mode !== "original" || direct.ispSafe !== "off") throw new Error(`output check: mode ${direct.mode} / ${direct.ispSafe}`);
+    if (dm.processing.badge !== "BYPASS（原音経路）" || dm.processing.rows.some((r) => r.on))
+      throw new Error(`output check: processing ${JSON.stringify(dm.processing)}`);
+    if (!dv || dv.checks.some((c) => c.state === "ng")) throw new Error(`output check: ${JSON.stringify(dv)}`);
+    if (ispWarning(direct) !== null) throw new Error("output check: ISP warning for a track without a measured peak");
+    log.push(`output check: ${dm.file.lines.join(" ")} → ${dm.decoder.lines.join(" ")} → ${dm.processing.badge} → ${dm.output.lines.join(" ")}`);
 
     // The meters (task 4-4) arrive through the bridge while playing.
     const measuring = await waitFor(
@@ -173,6 +186,11 @@ export async function runSelfTest(
       5000,
     );
     log.push(`processing path: ${processed.stages.map((st) => st.name).join(", ")}`);
+    const pv = verdictModel(processed);
+    const eqRow = pathModel(processed).processing.rows.find((r) => r.name === "EQ");
+    if (!pv || pv.bitPerfect || !eqRow?.on || processed.mode !== "processed")
+      throw new Error(`output check (processing): ${JSON.stringify(pv)} ${JSON.stringify(eqRow)}`);
+    log.push(`output check: ${pv.title}; EQ ${eqRow.value}`);
     // Solo (not saved) and back.
     await backend.settings.eqSolo(0);
     await waitFor("solo reported", (s) => s.eqSolo === 0, 5000);
