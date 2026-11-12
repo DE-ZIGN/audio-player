@@ -220,6 +220,7 @@ describe("meters", () => {
           channels: 2,
           truePeakRecent: [-3.14, 0.4],
           truePeakMax: [-1.2, 0.4],
+          vu: [-16, -15],
           momentaryLufs: -14.2,
           shortTermLufs: -14.9,
           integratedLufs: -15.04,

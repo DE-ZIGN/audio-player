@@ -302,6 +302,7 @@ const mockMeter = (t: MockTrack, index: number, playedFrames: number, measuring:
       channels: 2,
       truePeakRecent: [round(-3.1 + wobble), round(-3.8 + wobble)],
       truePeakMax: [-0.92, -1.17],
+      vu: [round(-16.4 + wobble * 2), round(-17.1 + wobble * 2)],
       momentaryLufs: round(-13.6 + wobble),
       shortTermLufs: round(-14.1 + wobble / 3),
       integratedLufs: playedFrames >= t.sampleRate * 0.4 ? -14.3 : "-inf",

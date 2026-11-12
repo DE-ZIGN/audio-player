@@ -148,6 +148,7 @@ juce::var meterVar(const MeterStatus& m)
         ro->setProperty("channels", static_cast<int>(r.channels));
         ro->setProperty("truePeakRecent", peaksVar(r.truePeakRecent));
         ro->setProperty("truePeakMax", peaksVar(r.truePeakMax));
+        ro->setProperty("vu", peaksVar(r.vu)); // the standard view's needles (task 6-8)
         ro->setProperty("momentaryLufs", levelVar(r.momentaryLufs));
         ro->setProperty("shortTermLufs", levelVar(r.shortTermLufs));
         ro->setProperty("integratedLufs", levelVar(r.integratedLufs));

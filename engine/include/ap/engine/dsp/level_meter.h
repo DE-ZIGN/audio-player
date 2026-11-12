@@ -10,6 +10,10 @@
 //   short-term (3 s) windows that slide across track boundaries, and the
 //   integrated loudness (gated) since the track started. Mono is measured as
 //   dual mono, as in the analysis (task 3-4).
+// - VU (task 6-8, the standard view's needles): per channel, the rectified
+//   signal averaged with a VU meter's ballistics (two one-pole stages of 45 ms:
+//   99% of a steady tone in 300 ms, critically damped), scaled so a sine
+//   reads its RMS. For the needle only; the exact values are the above.
 //
 // Measures only. Single-threaded: the caller feeds and reads it from one thread.
 
@@ -27,6 +31,7 @@ struct LevelReading
     double momentaryLufs = 0.0;         // -infinity for silence
     double shortTermLufs = 0.0;
     double integratedLufs = 0.0;        // since the track started; -infinity until something passes the gate
+    std::vector<double> vu;             // per channel, linear (a sine reads its RMS)
     std::uint64_t trackFrames = 0;      // measured since the track started
 };
 
@@ -34,6 +39,7 @@ class LevelMeter
 {
 public:
     static constexpr double kRecentSeconds = 0.1;
+    static constexpr double kVuSeconds = 0.3; // to 99% of a steady tone
 
     LevelMeter(std::uint32_t sampleRate, std::uint16_t channels);
     ~LevelMeter();
@@ -66,6 +72,7 @@ private:
         double recentPrev = 0.0; // the last complete block
         double recentNow = 0.0;  // the block being filled
         double trackMax = 0.0;
+        double vu1 = 0.0, vu2 = 0.0; // the two averaging stages
     };
 
     void push(Channel& c, double x) noexcept;
@@ -74,6 +81,7 @@ private:
     std::uint32_t rate_ = 0;
     std::uint16_t channels_ = 0;
     std::vector<Channel> ch_;
+    double vuCoef_ = 0.0;           // per-sample coefficient of each averaging stage
     std::uint64_t blockFrames_ = 0; // frames in a "recent" block
     std::uint64_t blockFill_ = 0;
     // Interpolated values lag the input by the interpolator's delay; after

@@ -141,3 +141,51 @@ TEST_CASE("finish() lets a peak in the last samples count", "[meter]")
     CHECK(m.reading().truePeakMax[0] == analysis.truePeak());
     CHECK(m.reading().trackFrames == 1000); // the implied silence is not counted as audio
 }
+
+// Task 6-8: the VU meter's value. A rectified average with the VU meter's
+// ballistics (99% of a steady tone in 300 ms, no overshoot), reading as the
+// RMS of a sine (so a sine at -18 dBFS RMS reads -18).
+TEST_CASE("VU: a steady sine reads its RMS level", "[meter][vu]")
+{
+    LevelMeter m(kRate, 2);
+    const double amplitude = std::pow(10.0, -18.0 / 20.0) * std::sqrt(2.0); // -18 dBFS RMS
+    m.process(sine(kRate, amplitude));
+    const auto r = m.reading();
+    REQUIRE(r.vu.size() == 2);
+    CHECK_THAT(db(r.vu[0]), WithinAbs(-18.0, 0.05));
+    CHECK_THAT(db(r.vu[1]), WithinAbs(-18.0, 0.05));
+}
+
+TEST_CASE("VU: 99% in 300 ms, not at once, no overshoot", "[meter][vu]")
+{
+    LevelMeter m(kRate, 1);
+    const double amplitude = 0.5;
+    const double target = amplitude / std::sqrt(2.0);
+    const auto tone = sine(kRate * 2, amplitude, 1);
+    double peak = 0.0;
+    std::size_t at = 0;
+    double at150 = 0.0, at300 = 0.0;
+    for (std::size_t block = 480; at + block <= tone.size(); at += block)
+    {
+        m.process(std::span(tone).subspan(at, block));
+        const double v = m.reading().vu[0];
+        peak = std::max(peak, v);
+        if (at + block == kRate * 15 / 100)
+            at150 = v;
+        if (at + block == kRate * 30 / 100)
+            at300 = v;
+    }
+    CHECK(at150 < 0.9 * target); // a needle, not a peak meter
+    CHECK(at300 >= 0.99 * target);
+    CHECK(at300 <= 1.005 * target);
+    CHECK(peak <= 1.005 * target); // critically damped: no overshoot beyond the ripple
+}
+
+TEST_CASE("VU: silence reads nothing, and the needle falls back", "[meter][vu]")
+{
+    LevelMeter m(kRate, 2);
+    CHECK(m.reading().vu == std::vector<double>{0.0, 0.0});
+    m.process(sine(kRate, 0.5));
+    m.process(std::vector<double>(kRate * 2, 0.0));
+    CHECK(m.reading().vu[0] < 0.005);
+}

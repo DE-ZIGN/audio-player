@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <stdexcept>
 
 namespace ap::engine {
@@ -57,6 +58,9 @@ LevelMeter::LevelMeter(std::uint32_t sampleRate, std::uint16_t channels)
     // being filled, so it covers the last 0.1 to 0.2 s.
     blockFrames_ = std::max<std::uint64_t>(1, static_cast<std::uint64_t>(std::llround(kRecentSeconds * rate_)));
     silence_.assign(channels, 0.0);
+    // Two equal one-pole stages reach 99% of a step at 6.64 time constants;
+    // 6.7 leaves room for the ripple of a rectified tone (99% by 300 ms).
+    vuCoef_ = std::exp(-1.0 / (kVuSeconds / 6.7 * rate_));
     windows_ = makeState(rate_, channels_, EBUR128_MODE_S); // includes M
     try
     {
@@ -86,6 +90,9 @@ void LevelMeter::push(Channel& c, double x) noexcept
     c.recentNow = std::max(c.recentNow, p);
     if (carryOver_ == 0)
         c.trackMax = std::max(c.trackMax, p);
+    // VU: the rectified signal through two averaging stages.
+    c.vu1 = std::abs(x) + vuCoef_ * (c.vu1 - std::abs(x));
+    c.vu2 = c.vu1 + vuCoef_ * (c.vu2 - c.vu1);
 }
 
 void LevelMeter::finishFrame() noexcept
@@ -153,6 +160,8 @@ LevelReading LevelMeter::reading() const
     {
         r.truePeakRecent.push_back(std::max(c.recentPrev, c.recentNow));
         r.truePeakMax.push_back(c.trackMax);
+        // The average of a rectified sine is 2/pi of its peak; its RMS is 1/sqrt 2.
+        r.vu.push_back(c.vu2 * std::numbers::pi / (2.0 * std::numbers::sqrt2));
     }
     double m = 0.0, s = 0.0, i = 0.0;
     if (ebur128_loudness_momentary(st(windows_), &m) != EBUR128_SUCCESS

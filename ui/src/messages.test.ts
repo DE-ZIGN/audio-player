@@ -578,6 +578,7 @@ describe("Meters (task 4-4)", () => {
     channels: 2,
     truePeakRecent: [-3.24, -4.06],
     truePeakMax: [-0.52, -0.71],
+    vu: [-18, -18.5],
     momentaryLufs: -14.23,
     shortTermLufs: -15.01,
     integratedLufs: -14.76,

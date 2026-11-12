@@ -141,6 +141,7 @@ export interface MeterReading {
   channels: number;
   truePeakRecent: Level[]; // dBTP per channel, about the last 0.1 s
   truePeakMax: Level[]; // dBTP per channel, since the track started
+  vu: Level[]; // dBFS per channel: a sine's RMS with a VU meter's 300 ms ballistics (task 6-8)
   momentaryLufs: Level; // 400 ms
   shortTermLufs: Level; // 3 s
   integratedLufs: Level; // since the track started (gated)
