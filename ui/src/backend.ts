@@ -15,6 +15,17 @@ import type {
   TrackRow,
 } from "./library";
 import { MockLibrary } from "./mockLibrary";
+import { MockSettings } from "./mockSettings";
+import type {
+  EqBand,
+  EqCurve,
+  EqImport,
+  ListeningSettings,
+  OutputChoice,
+  OutputsInfo,
+  SetResult,
+  SettingsInfo,
+} from "./settings";
 
 // The play queue as the app holds it (task 6-2). id 0: not from the library.
 export interface QueueItemInfo {
@@ -49,9 +60,21 @@ export interface LibraryApi {
   onChanged(listener: (c: LibraryCounts) => void): void;
 }
 
+// The settings screen (task 6-3), see app/src/SettingsBridge.h.
+export interface SettingsApi {
+  get(): Promise<SettingsInfo>;
+  setListening(l: ListeningSettings): Promise<SetResult>;
+  outputs(): Promise<OutputsInfo>;
+  setOutput(o: OutputChoice): Promise<SetResult>; // an ASIO driver is checked first (seconds)
+  importEq(): Promise<EqImport>; // shows a file dialog
+  eqCurve(bands: EqBand[]): Promise<EqCurve>;
+  onOutputsChanged(listener: () => void): void;
+}
+
 export interface Backend {
   readonly kind: "app" | "mock";
   readonly library: LibraryApi;
+  readonly settings: SettingsApi;
   openFile(): Promise<OpenResult>;
   play(): Promise<void>;
   stop(): Promise<void>;
@@ -79,6 +102,7 @@ declare global {
 
 export const STATUS_EVENT = "playbackStatus";
 export const LIBRARY_EVENT = "libraryChanged";
+export const OUTPUTS_EVENT = "outputsChanged";
 
 type NativeFn = (name: string) => (...args: unknown[]) => Promise<unknown>;
 
@@ -119,14 +143,41 @@ class AppLibrary implements LibraryApi {
   }
 }
 
+class AppSettings implements SettingsApi {
+  constructor(private readonly fn: NativeFn) {}
+  async get() {
+    return (await this.fn("settingsGet")()) as SettingsInfo;
+  }
+  async setListening(l: ListeningSettings) {
+    return ((await this.fn("settingsSetListening")(l)) as SetResult | null) ?? { ok: false };
+  }
+  async outputs() {
+    return ((await this.fn("settingsOutputs")()) as OutputsInfo | null) ?? { wasapi: [], asio: [] };
+  }
+  async setOutput(o: OutputChoice) {
+    return ((await this.fn("settingsSetOutput")(o)) as SetResult | null) ?? { ok: false };
+  }
+  async importEq() {
+    return ((await this.fn("settingsImportEq")()) as EqImport | null) ?? { ok: false };
+  }
+  async eqCurve(bands: EqBand[]) {
+    return (await this.fn("settingsEqCurve")(bands)) as EqCurve;
+  }
+  onOutputsChanged(listener: () => void) {
+    window.__JUCE__!.backend.addEventListener(OUTPUTS_EVENT, () => listener());
+  }
+}
+
 class AppBackend implements Backend {
   readonly kind = "app" as const;
   readonly library: LibraryApi;
+  readonly settings: SettingsApi;
   constructor(
     private readonly fn: NativeFn,
     coverBase: string,
   ) {
     this.library = new AppLibrary(fn, coverBase);
+    this.settings = new AppSettings(fn);
   }
 
   async openFile(): Promise<OpenResult> {
@@ -246,6 +297,8 @@ export const DEMO_QUEUE: MockTrack[] = [
 export class MockBackend implements Backend {
   readonly kind = "mock" as const;
   readonly library: LibraryApi;
+  readonly settings: MockSettings = new MockSettings((l) => this.applyListening(l));
+  private listening: ListeningSettings | null = null;
   private status: PlaybackStatus = { ...emptyStatus };
   private listeners: ((s: PlaybackStatus) => void)[] = [];
   private timer: ReturnType<typeof setInterval> | undefined;
@@ -330,12 +383,37 @@ export class MockBackend implements Backend {
 
   async setVolume(db: number | "-inf") {
     this.volumeDb = db === "-inf" ? db : Math.min(0, db);
-    const processing = this.volumeDb !== 0;
+    this.updateStages();
+  }
+
+  private applyListening(l: ListeningSettings) {
+    this.listening = l;
+    this.updateStages();
+  }
+
+  // The stages the settings and the volume make run (made-up values for the mock).
+  private mockStages() {
+    const l = this.listening;
+    const stages: { name: string; gainDb: number | "-inf" | null }[] = [];
+    const processed = l?.mode === "processed";
+    if (processed && l.replayGain !== "off") stages.push({ name: "replaygain", gainDb: -4.2 });
+    if (processed && l.eqEnabled && l.eqBands.some((b) => b.enabled && (b.gainDb !== 0 || b.type.endsWith("Pass"))))
+      stages.push({ name: "eq", gainDb: -3.0 });
+    if (this.volumeDb !== 0) stages.push({ name: "volume", gainDb: this.volumeDb });
+    const isp = l ? (processed ? l.ispSafeProcessed : l.ispSafeOriginal) : "off";
+    if (isp !== "off") stages.push({ name: "isp-safe", gainDb: isp === "fixed" ? -3 : -1.2 });
+    if (stages.length > 0) stages.push({ name: "limiter", gainDb: null });
+    return stages;
+  }
+
+  private updateStages() {
+    const stages = this.mockStages();
+    const processing = stages.length > 0;
     const s = this.status;
     this.update({
       ...this.withQueue(s),
-      stages: processing ? [{ name: "volume", gainDb: this.volumeDb }] : [],
-      path: s.path && { ...s.path, processing },
+      stages,
+      path: s.path && { ...s.path, processing, processingStages: stages.map((x) => x.name), dither: processing },
       bitPerfect: s.bitPerfect && { ...s.bitPerfect, bitPerfect: !processing, dither: processing },
     });
   }
@@ -373,6 +451,7 @@ export class MockBackend implements Backend {
       repack: "widerContainer",
       dropouts: { ...this.status.dropouts, realtimePriority: true },
     });
+    this.updateStages();
     this.timer = setInterval(() => {
       const rate = this.status.sourceFormat?.sampleRate ?? 48000;
       const next = this.status.positionFrames + rate / 10;
@@ -419,6 +498,7 @@ export class MockBackend implements Backend {
           },
         ],
       });
+      this.updateStages();
     }, 100);
   }
   async stop() {

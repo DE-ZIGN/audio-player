@@ -36,10 +36,24 @@ std::vector<PlayerBridge::QueueFile> toFiles(std::vector<LibraryBridge::QueueEnt
     return files;
 }
 
+juce::File settingsFile(const MainOptions& o)
+{
+    return o.libraryFolder.getChildFile("settings.txt");
+}
+
+ap::engine::AppSettings startSettingsFor(const MainOptions& o)
+{
+    auto s = SettingsBridge::load(settingsFile(o));
+    if (o.allowDop)
+        s.output.allowDop = true;
+    return s;
+}
+
 } // namespace
 
 MainComponent::MainComponent(MainOptions options)
-    : options_(std::move(options)), bridge_(outputFactoryFor(options_), options_.allowDop),
+    : options_(std::move(options)), startSettings_(startSettingsFor(options_)),
+      bridge_(outputFactoryFor(options_), startSettings_), settings_(settingsFile(options_), startSettings_, bridge_),
       library_(
           options_.libraryFolder,
           [this](std::vector<LibraryBridge::QueueEntry> entries, std::size_t start) {
@@ -79,6 +93,7 @@ MainComponent::MainComponent(MainOptions options)
             });
     browserOptions = bridge_.registerFunctions(browserOptions);
     browserOptions = library_.registerFunctions(browserOptions);
+    browserOptions = settings_.registerFunctions(browserOptions);
 
     if (!juce::WebBrowserComponent::areOptionsSupported(browserOptions))
     {
@@ -98,6 +113,7 @@ MainComponent::MainComponent(MainOptions options)
     browser_ = std::make_unique<juce::WebBrowserComponent>(browserOptions);
     bridge_.attach(browser_.get());
     library_.attach(browser_.get());
+    settings_.attach(browser_.get());
     addAndMakeVisible(*browser_);
     resized(); // setSize() above ran before the browser existed
     juce::String url = useDevServer ? options_.devServerUrl : juce::WebBrowserComponent::getResourceProviderRoot();

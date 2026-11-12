@@ -1,6 +1,10 @@
 #include "PlayerBridge.h"
 
+#include "AsioCheck.h"
+
 #include <cmath>
+#include <ap/engine/output/asio_output.h>
+#include <ap/engine/output/device_selection.h>
 #include <ap/engine/output/wasapi_exclusive_output.h>
 #include <ap/engine/audio_file.h>
 #include <ap/engine/prefetching_source.h>
@@ -232,16 +236,17 @@ juce::var formatVar(const PcmFormat& f)
 
 } // namespace
 
-PlayerBridge::PlayerBridge(Player::OutputFactory outputFactory, bool allowDop)
-    : player_(outputFactory ? std::move(outputFactory)
-                            : Player::OutputFactory([] { return std::make_unique<WasapiExclusiveOutput>(); }),
+PlayerBridge::PlayerBridge(Player::OutputFactory outputFactory, const AppSettings& settings)
+    : output_(settings.output),
+      player_(outputFactory ? std::move(outputFactory) : Player::OutputFactory([this] { return openChosenOutput(); }),
               PlaybackOptions{.allowRepack = true,
-                              .allowDop = allowDop,
-                              // The digital volume (task 6-2). At 0 dB the chain is bypassed:
+                              .allowDop = settings.output.allowDop,
+                              // The volume (task 6-2) and the settings screen's stages
+                              // (task 6-3). With nothing active the chain is bypassed:
                               // the direct, bit-perfect path (task 3-2).
-                              .processing = std::make_shared<ProcessingChain>(
-                                  std::vector<std::shared_ptr<ProcessingStage>>{volume_})})
+                              .processing = chain_.chain()})
 {
+    chain_.apply(settings.listening);
     startTimerHz(10);
 }
 
@@ -302,7 +307,7 @@ juce::WebBrowserComponent::Options PlayerBridge::registerFunctions(juce::WebBrow
             {
                 const auto& v = args[0];
                 const double db = v.isString() ? -HUGE_VAL : static_cast<double>(v);
-                volume_->setGainDb(std::isnan(db) ? 0.0 : std::min(0.0, db));
+                chain_.volume->setGainDb(std::isnan(db) ? 0.0 : std::min(0.0, db));
             }
             pushStatus(true);
             done(true);
@@ -443,7 +448,7 @@ juce::var PlayerBridge::statusAsVar() const
     o->setProperty("queueIndex", static_cast<int>(s.queueIndex));
     o->setProperty("queueLength", static_cast<int>(s.queueLength));
     o->setProperty("queueVersion", queueVersion_);
-    const double vol = volume_->gainDb();
+    const double vol = chain_.volume->gainDb();
     o->setProperty("volumeDb", std::isfinite(vol) ? juce::var(vol) : juce::var("-inf"));
 
     juce::Array<juce::var> transitions;
@@ -486,6 +491,10 @@ juce::var PlayerBridge::statusAsVar() const
     o->setProperty("outputFormat", s.plan ? formatVar(s.plan->output) : juce::var());
     o->setProperty("repack", s.plan ? toString(s.plan->repack) : "none");
     o->setProperty("outputName", juce::String::fromUTF8(s.outputName.c_str()));
+    {
+        std::lock_guard lock(outputMutex_);
+        o->setProperty("outputNotice", juce::String::fromUTF8(outputNotice_.c_str()));
+    }
     o->setProperty("path", s.path ? pathVar(*s.path) : juce::var());
 
     // The stages running now with their values, and the BIT-PERFECT judgement (task 4-2).
@@ -558,6 +567,86 @@ juce::var PlayerBridge::statusAsVar() const
     e->setProperty("acceptedRates", rates);
     o->setProperty("error", juce::var(e));
     return juce::var(o);
+}
+
+void PlayerBridge::setOutput(const OutputChoice& output)
+{
+    const bool wasPlaying = player_.status().state == PlayerState::Playing;
+    if (wasPlaying)
+        player_.stop(); // keeps the track and the position
+    {
+        std::lock_guard lock(outputMutex_);
+        output_ = output;
+        outputNotice_.clear();
+    }
+    player_.setAllowDop(output.allowDop);
+    if (wasPlaying)
+        player_.play();
+    pushStatus(true);
+}
+
+void PlayerBridge::setListening(const ListeningSettings& settings)
+{
+    chain_.apply(settings); // the player reopens the output if the path changes
+    pushStatus(true);
+}
+
+std::uint32_t PlayerBridge::currentSampleRate() const
+{
+    const auto s = player_.status();
+    return s.sourceFormat ? s.sourceFormat->sampleRate : 0;
+}
+
+std::unique_ptr<AudioOutput> PlayerBridge::openChosenOutput()
+{
+    OutputChoice c;
+    {
+        std::lock_guard lock(outputMutex_);
+        c = output_;
+    }
+    auto setNotice = [this](std::string text) {
+        std::lock_guard lock(outputMutex_);
+        outputNotice_ = std::move(text);
+    };
+
+    if (c.kind == OutputKind::Asio)
+    {
+        const auto drivers = listAsioDrivers();
+        const AsioDriverInfo* driver = nullptr;
+        for (const auto& d : drivers)
+            if (_stricmp(d.clsid.c_str(), c.id.c_str()) == 0)
+                driver = &d;
+        for (const auto& d : drivers)
+            if (driver == nullptr && d.name == c.name)
+                driver = &d;
+        if (driver == nullptr)
+        {
+            setNotice("選んだ ASIO ドライバー（" + c.name + "）が見つかりません。設定で出力を選び直してください");
+            throw OutputException(OutputError::DeviceNotFound, "ASIO driver not found: " + c.name);
+        }
+        // A driver that crashes its host is caught in a child process first (task 1-4).
+        const auto check = checkAsioDriver(*driver);
+        if (check.status != AsioProbeResult::Status::Ok)
+        {
+            setNotice(asioProblemText(check));
+            throw OutputException(OutputError::DeviceError, "ASIO driver check failed: " + check.message);
+        }
+        setNotice({});
+        return std::make_unique<AsioOutput>(driver->name, AsioOutput::factoryFor(*driver));
+    }
+
+    std::string id; // empty: the Windows default device
+    std::string notice;
+    if (!c.id.empty() || !c.name.empty())
+    {
+        const auto r = resolveOutputDevice({c.id, c.name}, WasapiExclusiveOutput::listDevices());
+        if (r.match == DeviceMatch::DefaultDevice)
+            notice = "選んだ出力（" + c.name + "）が見つからないため、Windows の既定のデバイスで再生しています";
+        if (r.device)
+            id = r.device->id;
+    }
+    setNotice(std::move(notice));
+    return std::make_unique<WasapiExclusiveOutput>(id);
 }
 
 void PlayerBridge::pushStatus(bool force)

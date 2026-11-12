@@ -2,6 +2,7 @@
 
 #include "LibraryBridge.h"
 #include "PlayerBridge.h"
+#include "SettingsBridge.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
@@ -16,9 +17,10 @@ struct MainOptions
     juce::String devServerUrl;
     // Folder with the built UI.
     juce::File uiRoot;
-    // Send DSD files as DoP (only for DACs that decode DoP; until the settings screen in 6-3).
+    // Send DSD files as DoP on the saved output for this run, whatever the
+    // settings say (only for DACs that decode DoP; normally set in the settings screen).
     bool allowDop = false;
-    // Holds the library database and the cover cache (task 6-1).
+    // Holds the library database, the cover cache (task 6-1) and settings.txt (task 6-3).
     juce::File libraryFolder;
     // Called once the page has started and talked to the bridge.
     std::function<void()> onUiReady;
@@ -41,7 +43,9 @@ public:
 
 private:
     MainOptions options_;
+    ap::engine::AppSettings startSettings_; // as saved, read before the player is made
     PlayerBridge bridge_;
+    SettingsBridge settings_;
     LibraryBridge library_;
     std::unique_ptr<juce::WebBrowserComponent> browser_;
     juce::String problem_; // shown instead of the UI when it cannot be loaded

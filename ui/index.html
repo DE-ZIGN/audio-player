@@ -89,14 +89,87 @@
         <div class="grid" id="grid" hidden><div class="spacer" id="grid-spacer"></div></div>
         <p class="empty" id="empty" hidden></p>
 
+        <!-- The settings screen (task 6-3). Saved by the app on every change. -->
         <section class="settings" id="settings" hidden>
+          <p class="error" id="settings-error" hidden></p>
+
+          <h2>出力</h2>
+          <div class="setting">
+            <label for="output-device">出力デバイス</label>
+            <select id="output-device"></select>
+            <p class="note" id="output-device-note">
+              WASAPI は排他モードで出します（ほかのアプリの音は混ざりません）。ASIO ドライバーは、選んだときに別のプロセスで読み込んで確かめます。
+            </p>
+            <p class="notice" id="output-device-status" hidden></p>
+          </div>
+          <div class="setting">
+            <label class="check"><input type="checkbox" id="output-dop" /> DSD を DoP で送る</label>
+            <p class="note">
+              DoP に対応した DAC だけでオンにしてください。対応していない DAC では大きな雑音になります（DAC が対応しているかは自動では分かりません）。出力を選び直すとオフに戻ります。
+            </p>
+          </div>
+
+          <h2>モード</h2>
+          <div class="setting modes" role="radiogroup" aria-label="モード">
+            <label class="mode-card"><input type="radio" name="mode" value="original" />
+              <span><b>原音モード</b><small>ReplayGain・EQ をかけません。音量 100% で処理がなければ、ビットパーフェクトの経路で出します。</small></span>
+            </label>
+            <label class="mode-card"><input type="radio" name="mode" value="processed" />
+              <span><b>音作りモード</b><small>下の ReplayGain・EQ・ISP セーフを 64bit 浮動小数点でかけます。</small></span>
+            </label>
+          </div>
+          <p class="note" id="mode-summary"></p>
+
+          <h2>ISP セーフ</h2>
+          <div class="setting">
+            <p class="note first">
+              曲の True Peak（サンプルの間のピーク）が −0.5 dBTP 以下になるように、音量を線形に下げます。「計測した値」は取り込み時に測った曲（アルバムの ReplayGain ではアルバム）の True Peak から、測っていない曲は −3 dB。どちらも保険のリミッター（−0.3 dBTP）を通します。
+            </p>
+            <div class="pair">
+              <label for="isp-original">原音モードでは</label>
+              <select id="isp-original"></select>
+              <label for="isp-processed">音作りモードでは</label>
+              <select id="isp-processed"></select>
+            </div>
+          </div>
+
+          <h2>ReplayGain <small class="for-mode">音作りモードでかけます</small></h2>
+          <div class="setting">
+            <div class="radios" id="replaygain"></div>
+            <p class="note">
+              曲（またはアルバム）の統合ラウドネスを −18 LUFS に合わせます。値は取り込み時の解析から。上げるときは True Peak が 0 dBTP を超えない分までにします。解析していない曲にはかけません。
+            </p>
+          </div>
+
+          <h2>EQ <small class="for-mode">音作りモードでかけます</small></h2>
+          <div class="setting">
+            <div class="eq-tools">
+              <label class="check"><input type="checkbox" id="eq-enabled" /> EQ を使う</label>
+              <span class="spacer-flex"></span>
+              <button type="button" id="eq-import">ファイルから読み込む…</button>
+              <button type="button" id="eq-add">バンドを足す</button>
+              <button type="button" id="eq-clear" class="link">すべて消す</button>
+            </div>
+            <svg class="eq-curve" id="eq-curve" viewBox="0 0 560 160" preserveAspectRatio="none" role="img" aria-label="EQ の周波数特性"></svg>
+            <p class="note" id="eq-preamp"></p>
+            <p class="notice" id="eq-warnings" hidden></p>
+            <table class="eq-bands" id="eq-bands">
+              <thead>
+                <tr><th>使う</th><th>種類</th><th>周波数（Hz）</th><th>ゲイン（dB）</th><th>Q</th><th></th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <p class="note">
+              最小位相の IIR（バイクアッド）で 64bit 浮動小数点。最大のブーストの分だけ自動でプリアンプを下げ、EQ そのものではどの周波数も 0 dB を超えないようにします。読み込めるのは AutoEQ の ParametricEQ.txt と Equalizer APO の書き方です（ファイルのプリアンプの値は使わず、こちらで決めます）。
+            </p>
+          </div>
+
           <h2>見た目</h2>
           <fieldset class="themes">
             <legend>テーマ（色だけが変わります）</legend>
             <label><input type="radio" name="theme" value="amber" /> アンバー</label>
             <label><input type="radio" name="theme" value="bluegray" /> ブルーグレー</label>
           </fieldset>
-          <p class="note">ほかの設定（出力デバイス、モード、ISP セーフ、ReplayGain、EQ）は 6-3 で作ります。</p>
         </section>
       </main>
 
@@ -135,7 +208,7 @@
           <dt>ファイルの検証</dt>
           <dd id="integrity">—</dd>
           <dt>出力デバイス</dt>
-          <dd id="output-name">—</dd>
+          <dd><span id="output-name">—</span><p class="notice" id="output-notice" hidden></p></dd>
           <dt>出力の方式</dt>
           <dd id="output-mode">—</dd>
           <dt>Windows の音量</dt>

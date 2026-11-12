@@ -178,6 +178,9 @@ export interface PlaybackStatus {
   outputFormat: FormatInfo | null;
   repack: Repack;
   outputName: string;
+  // Why playback is not on the chosen output, or why it could not start there
+  // (task 6-3: the chosen device is gone, an ASIO driver failed its check). Japanese.
+  outputNotice: string;
   positionFrames: number;
   totalFrames: number;
   error: PlaybackError;
@@ -204,6 +207,7 @@ export const emptyStatus: PlaybackStatus = {
   outputFormat: null,
   repack: "none",
   outputName: "",
+  outputNotice: "",
   positionFrames: 0,
   totalFrames: 0,
   error: { kind: "none", reason: "none", outputError: "deviceError", detail: "", acceptedRates: [] },

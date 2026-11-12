@@ -3,6 +3,7 @@ import { createBackend, type Backend, type QueueInfo } from "./backend";
 import { afterInsert, afterMove, afterRemove, dbToSlider, sliderToDb, volumeLabel, type Db } from "./queueOps";
 import { countsText } from "./libraryFormat";
 import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
+import { SettingsView } from "./settingsView";
 import { lengthText } from "./libraryFormat";
 import {
   bitPerfectText,
@@ -73,6 +74,7 @@ const els = {
   duration: $("duration"),
   sourceFormat: $("source-format"),
   outputName: $("output-name"),
+  outputNotice: $("output-notice"),
   outputMode: $("output-mode"),
   integrity: $("integrity"),
   integrityFailures: $("integrity-failures"),
@@ -268,6 +270,8 @@ function render(s: PlaybackStatus) {
   els.dopNote.hidden = note === "";
   els.dopNote.textContent = note;
   els.outputName.textContent = s.outputName || "—";
+  els.outputNotice.hidden = !s.outputNotice;
+  els.outputNotice.textContent = s.outputNotice ? `⚠ ${s.outputNotice}` : "";
   els.outputMode.textContent = s.path ? outputModeText(s.path) : "—";
   els.volume.textContent = (s.path && volumeText(s.path)) || "—";
   const rateChange = rateChangeText(s);
@@ -360,6 +364,10 @@ async function main() {
     (req) => void playRequest(req),
     (ids, where) => void enqueue(ids, where),
   );
+  const settings = new SettingsView(backend.settings);
+  document
+    .querySelector<HTMLButtonElement>('.nav[data-view="settings"]')
+    ?.addEventListener("click", () => void settings.refresh());
   backend.onStatus(render);
   backend.library.onChanged((c) => {
     els.counts.textContent = countsText(c);

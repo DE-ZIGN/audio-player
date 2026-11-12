@@ -372,9 +372,11 @@ export function errorText(s: PlaybackStatus): string {
   }
 
   if (e.kind === "output") {
+    // The app's own reason (task 6-3: an ASIO driver that failed its check, a driver that is gone).
+    if (s.outputNotice) return s.outputNotice;
     switch (e.outputError) {
       case "deviceNotFound":
-        return "出力デバイスが見つかりません。";
+        return "出力デバイスが見つかりません。つなぎ直すか、設定の「出力」で選び直してください。";
       case "deviceInUse":
         return "他のアプリがこのデバイスを排他モードで使っています。そのアプリを止めてから試してください。";
       case "exclusiveModeNotAllowed":
@@ -398,8 +400,7 @@ export function errorText(s: PlaybackStatus): string {
   if (e.kind === "dopNotAllowed")
     return (
       `${s.queueIndex + 1} 曲目は DSD です。DSD を DoP で送る設定がオフなので再生しません。` +
-      "DoP に対応していない DAC では大きなノイズになるため、対応している DAC のときだけオンにしてください" +
-      "（設定画面ができるまでは、起動時に --allow-dop を付けます）。"
+      "DoP に対応していない DAC では大きな雑音になるため、対応している DAC のときだけ、設定の「出力」でオンにしてください。"
     );
 
   return `エラー: ${e.detail}`;

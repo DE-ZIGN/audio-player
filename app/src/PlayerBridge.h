@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ap/engine/dsp/volume.h>
+#include <ap/engine/listening_settings.h>
 #include <ap/engine/player.h>
 
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <mutex>
 
 namespace ap::app {
 
@@ -24,13 +25,17 @@ namespace ap::app {
 //   playAt(i)    goes to queue track i (task 6-2)
 //   getQueue()   { version, items: [{ id, name, artist, seconds }] }; id 0: not from the library
 //   setVolume(dB) the digital volume (0 = 100%: no processing, bit-perfect; "-inf" mutes)
+// The output and the processing settings come from the settings screen
+// (SettingsBridge, task 6-3) through setOutput() and setListening().
 // Event (C++ -> JavaScript): "playbackStatus" with the status object,
 // sent at most 10 times per second and only when it changed.
 class PlayerBridge final : private juce::Timer
 {
 public:
-    // Default: exclusive WASAPI on the default device.
-    explicit PlayerBridge(ap::engine::Player::OutputFactory outputFactory = {}, bool allowDop = false);
+    // Without an output factory, plays on `output` (exclusive WASAPI or ASIO);
+    // with one (the self-test's dummy output), on that, and setOutput() only
+    // changes whether DoP is allowed.
+    PlayerBridge(ap::engine::Player::OutputFactory outputFactory, const ap::engine::AppSettings& settings);
     ~PlayerBridge() override;
 
     juce::WebBrowserComponent::Options registerFunctions(juce::WebBrowserComponent::Options options);
@@ -67,11 +72,20 @@ public:
 
     juce::var statusAsVar() const;
 
+    // Plays on another output from now on. While playing, playback stops and
+    // goes on at the same position on the new output.
+    void setOutput(const ap::engine::OutputChoice& output);
+    void setListening(const ap::engine::ListeningSettings& settings);
+    // The rate of what is playing now (0 when nothing has been opened), for the EQ curve.
+    std::uint32_t currentSampleRate() const;
+
 private:
     void timerCallback() override;
     void openFileAsync(juce::WebBrowserComponent::NativeFunctionCompletion completion);
     void pushStatus(bool force);
     static ap::engine::QueueItem itemFor(const QueueFile& f);
+    // Runs on the playback thread. Throws OutputException.
+    std::unique_ptr<ap::engine::AudioOutput> openChosenOutput();
 
     struct QueueMeta
     {
@@ -79,7 +93,10 @@ private:
         std::string name, artist;
         std::optional<double> seconds;
     };
-    std::shared_ptr<ap::engine::VolumeStage> volume_ = std::make_shared<ap::engine::VolumeStage>();
+    ap::engine::ListeningChain chain_; // ReplayGain, EQ, volume, ISP-safe, limiter
+    mutable std::mutex outputMutex_;   // guards output_ and outputNotice_
+    ap::engine::OutputChoice output_;
+    std::string outputNotice_; // why playback is not on the chosen output (Japanese), if it is not
     std::vector<QueueMeta> queueMeta_; // parallel to the player's queue
     int queueVersion_ = 0;
 

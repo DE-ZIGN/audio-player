@@ -119,6 +119,53 @@ export async function runSelfTest(
     if (stopped.positionFrames <= 0 || stopped.positionFrames >= total) throw new Error(`stop position ${stopped.positionFrames}`);
     log.push(`restart and stop at ${stopped.positionFrames}`);
 
+    // The settings (task 6-3): 音作りモード with an EQ takes the processing
+    // path; back in 原音モード the direct path again. The last run stays a
+    // direct one, so the app's byte check of the dummy output still applies.
+    const saved = await backend.settings.get();
+    if (saved.listening.mode !== "original" || saved.listening.ispSafeOriginal !== "off")
+      throw new Error(`settings: unexpected defaults ${JSON.stringify(saved.listening)}`);
+    const eqBand = { type: "peak" as const, frequency: 1000, gainDb: 6, q: 1, enabled: true };
+    const set = await backend.settings.setListening({ ...saved.listening, mode: "processed", eqBands: [eqBand] });
+    if (!set.ok || !set.eq || Math.abs(set.eq.preampDb + 6) > 0.05)
+      throw new Error(`settings: EQ preamp ${JSON.stringify(set)}`);
+    const back = await backend.settings.get();
+    if (back.listening.mode !== "processed" || back.listening.eqBands.length !== 1)
+      throw new Error(`settings: not kept ${JSON.stringify(back.listening)}`);
+    const curve = await backend.settings.eqCurve([eqBand]);
+    const at1k = curve.points.reduce((best, p) => (Math.abs(p[0] - 1000) < Math.abs(best[0] - 1000) ? p : best));
+    if (Math.abs(at1k[1] - 6) > 0.3) throw new Error(`settings: curve at ${at1k[0]} Hz is ${at1k[1]} dB`);
+    const outputs = await backend.settings.outputs();
+    log.push(
+      `settings: 音作りモード with EQ, preamp ${set.eq.preampDb.toFixed(2)} dB, ` +
+        `${outputs.wasapi.length} WASAPI devices, ${outputs.asio.length} ASIO drivers listed`,
+    );
+
+    await backend.seek(0);
+    await backend.play();
+    const processed = await waitFor(
+      "processing path in 音作りモード",
+      (s) => s.state === "playing" && s.path !== null && s.path.processing && s.stages.some((st) => st.name === "eq"),
+      5000,
+    );
+    log.push(`processing path: ${processed.stages.map((st) => st.name).join(", ")}`);
+    await backend.stop();
+    await waitFor("stopped", (s) => s.state === "stopped", 5000);
+
+    await backend.settings.setListening(saved.listening);
+    if ((await backend.settings.get()).listening.mode !== "original") throw new Error("settings: not back to 原音モード");
+    await backend.seek(0);
+    await backend.play();
+    await waitFor(
+      "direct path in 原音モード",
+      (s) => s.state === "playing" && s.positionFrames > 0 && s.path !== null && !s.path.processing,
+      5000,
+    );
+    await backend.stop();
+    const last = await waitFor("stopped", (s) => s.state === "stopped", 5000);
+    if (last.positionFrames <= 0 || last.positionFrames >= total) throw new Error(`stop position ${last.positionFrames}`);
+    log.push(`原音モード again: direct path, stopped at ${last.positionFrames}`);
+
     // The library (task 6-1): the test WAV's folder is watched; its track
     // reaches the list through the scan, the tag reading and the bridge.
     // (In the app only: the browser's mock library is checked by its own tests.)

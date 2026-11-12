@@ -17,6 +17,10 @@ target_sources(ap_app PRIVATE
     src/MainComponent.h
     src/PlayerBridge.cpp
     src/PlayerBridge.h
+    src/SettingsBridge.cpp
+    src/SettingsBridge.h
+    src/AsioCheck.cpp
+    src/AsioCheck.h
     src/LibraryBridge.cpp
     src/LibraryBridge.h
     src/UiResources.cpp

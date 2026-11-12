@@ -387,10 +387,18 @@ describe("errorText", () => {
   it("explains a device held by another application", () => {
     expect(errorText(withError({ kind: "output", outputError: "deviceInUse" }))).toContain("他のアプリ");
   });
-  it("explains that DoP is off and why", () => {
+  it("explains that DoP is off and why, and where to switch it on", () => {
     const t = errorText(withError({ kind: "dopNotAllowed" }));
     expect(t).toContain("DoP");
-    expect(t).toContain("ノイズ");
+    expect(t).toContain("雑音");
+    expect(t).toContain("設定の「出力」");
+    expect(t).not.toContain("--allow-dop");
+  });
+  it("an output that could not be opened: the app's reason comes first (task 6-3)", () => {
+    const notice = "この ASIO ドライバーは使えません。初期化に失敗しました（x）";
+    const t = errorText({ ...withError({ kind: "output", outputError: "deviceError", detail: "ASIO driver check failed" }), outputNotice: notice });
+    expect(t).toBe(notice);
+    expect(errorText(withError({ kind: "output", outputError: "deviceNotFound" }))).toContain("設定");
   });
   it("explains disabled exclusive mode", () => {
     expect(errorText(withError({ kind: "output", outputError: "exclusiveModeNotAllowed" }))).toContain("排他的に制御");

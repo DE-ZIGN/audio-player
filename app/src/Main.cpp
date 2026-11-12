@@ -1,3 +1,4 @@
+#include "AsioCheck.h"
 #include "MainComponent.h"
 
 #include <ap/engine/pcm_source.h>
@@ -70,6 +71,9 @@ private:
 //                       one in self-test mode)
 //   --smoke-test        start, wait until the UI reports ready, then quit
 //                       (exit code 0; 1 if the UI did not become ready in time)
+//   --asio-probe-one {CLSID}  (internal) load that ASIO driver, print what it
+//                       reports and quit: the app checks drivers in a child
+//                       process, since some crash the process that loads them
 //   --self-test=WAV     the page plays/seeks/stops WAV through the bridge into a
 //                       dummy output (--self-test-output=RAW, default in TEMP);
 //                       exit code 0 if the page and the output check pass.
@@ -84,6 +88,12 @@ public:
     void initialise(const juce::String& commandLine) override
     {
         const auto args = juce::StringArray::fromTokens(commandLine, true);
+        if (const auto probe = args.indexOf("--asio-probe-one"); probe >= 0)
+        {
+            setApplicationReturnValue(runAsioProbeChild(args[probe + 1].unquoted().toStdString()));
+            quit();
+            return;
+        }
         smokeTest_ = args.contains("--smoke-test");
 
         MainOptions options;
