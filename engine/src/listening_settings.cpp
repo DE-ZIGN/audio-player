@@ -224,7 +224,7 @@ AppSettings settingsFromText(std::string_view text)
 
 ListeningChain::ListeningChain()
     : chain_(std::make_shared<ProcessingChain>(
-          std::vector<std::shared_ptr<ProcessingStage>>{replayGain, eq, volume, ispSafe, limiter}))
+          std::vector<std::shared_ptr<ProcessingStage>>{replayGain, eq, volume, ispSafe, requantize, limiter}))
 {
 }
 

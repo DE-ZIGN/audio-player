@@ -21,6 +21,7 @@
 #include <ap/engine/dsp/limiter.h>
 #include <ap/engine/dsp/processing.h>
 #include <ap/engine/dsp/replay_gain.h>
+#include <ap/engine/dsp/requantize.h>
 #include <ap/engine/dsp/volume.h>
 
 #include <memory>
@@ -86,7 +87,8 @@ std::string settingsToText(const AppSettings& settings);
 AppSettings settingsFromText(std::string_view text);
 
 // The stages in their fixed order (CLAUDE.md chapter 4): ReplayGain, EQ,
-// volume, ISP-safe gain, safety limiter (then dither, in play()).
+// volume, ISP-safe gain, (the ABX's requantization, task 6-6), safety
+// limiter (then dither, in play()).
 class ListeningChain
 {
 public:
@@ -110,6 +112,7 @@ public:
     const std::shared_ptr<EqStage> eq = std::make_shared<EqStage>();
     const std::shared_ptr<VolumeStage> volume = std::make_shared<VolumeStage>();
     const std::shared_ptr<IspSafeStage> ispSafe = std::make_shared<IspSafeStage>();
+    const std::shared_ptr<RequantizeStage> requantize = std::make_shared<RequantizeStage>(); // ABX only, off otherwise
     const std::shared_ptr<SafetyLimiter> limiter = std::make_shared<SafetyLimiter>();
 
 private:

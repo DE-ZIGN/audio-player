@@ -37,6 +37,8 @@ add_library(ap_engine STATIC
     src/dsp/eq.cpp
     src/dsp/comparison.cpp
     src/listening_settings.cpp
+    src/looping_source.cpp
+    src/dsp/requantize.cpp
     src/output/dummy_output.cpp
     src/output/delivery_check.cpp
     src/output/output_meter.cpp
