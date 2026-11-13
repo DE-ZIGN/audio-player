@@ -6,6 +6,7 @@ import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
 import { applyStandardZoom, applyUiView, currentUiView, loadUiView, onUiViewChange, otherView, saveUiView, VIEW_LABELS, type UiView } from "./uiView";
 import { SettingsView } from "./settingsView";
 import { VuMeter } from "./vuMeter";
+import { paintRange } from "./rangeFill";
 import { OutputView } from "./outputView";
 import { AbxView } from "./abxView";
 import { lengthText } from "./libraryFormat";
@@ -156,6 +157,7 @@ function renderTopBar(s: PlaybackStatus) {
 
   // The volume as the app has it (unless the slider is being moved).
   if (!volumeDragging) els.volSlider.value = String(Math.round(dbToSlider(s.volumeDb) * 1000));
+  paintRange(els.volSlider);
   els.volLabel.textContent = volumeLabel(s.volumeDb);
   els.volLabel.classList.toggle("changed", s.volumeDb !== 0);
   els.mute.textContent = s.volumeDb === "-inf" ? "🔇" : "🔊";
@@ -257,6 +259,7 @@ function render(s: PlaybackStatus) {
     els.position.textContent = formatTime(s.positionFrames, rate);
     els.seek.value = String(s.totalFrames > 0 ? Math.round((s.positionFrames / s.totalFrames) * SEEK_STEPS) : 0);
   }
+  paintRange(els.seek);
   renderTopBar(s);
   renderQueue(s);
 
@@ -483,6 +486,10 @@ async function main() {
   els.output.addEventListener("click", () => outputView.open());
   els.outputClose.addEventListener("click", () => els.outputDialog.close());
 
+  for (const r of [els.seek, els.volSlider]) {
+    r.addEventListener("input", () => paintRange(r));
+    paintRange(r);
+  }
   els.seek.addEventListener("input", () => {
     dragging = true;
     els.position.textContent = formatTime(seekTarget(), current?.sourceFormat?.sampleRate ?? 0);
