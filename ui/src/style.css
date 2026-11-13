@@ -1770,10 +1770,10 @@ dd {
      2026-11-13): one image pixel is 2/3 of a CSS pixel. See the block
      "sizes from the concept image" at the end. */
   --row-h: 28px;
-  --topbar-h: 75px; /* the bar (70 px) and the dark gap under it (5 px) */
+  --topbar-h: 72px; /* the bar (70 px) and the dark gap under it (2 px) */
   --sidebar-w: 137px;
-  --queue-w: 277px;
-  --status-h: 22px; /* on the wood of the frame's foot */
+  --queue-w: 279px;
+  --status-h: 21px; /* on the wood of the frame's foot */
   --tile-min: 120px;
   --tile-text: 40px;
   --tile-gap: 36px;
@@ -1862,78 +1862,67 @@ dd {
   opacity: 0.45;
 }
 
-/* --- the standard view's photo-like parts, drawn with CSS and SVG (task 6-8)
-   Wood, metal and amber light without pictures (a first step: pictures made
-   by image generation may replace the textures later, through the variables
-   below). No text is baked into any texture. */
+/* --- the standard view's photo-like parts (task 6-8) -------------------------
+   Cut out of the concept image UI-STANDARD-v1 (tools/ui_mockup_parts.py), with
+   what was printed or drawn on them removed: text, icons, scales and the
+   needle are drawn by the page (CLAUDE.md chapter 8). The image is read as
+   drawn for a 150% screen, so each picture is shown at 2/3 of its pixels. */
 :root {
-  /* Wood grain and a fine grain for panels: SVG noise, stretched along the grain. */
-  /* Pictures made by image generation (tools/ui_textures.py), no text in them. */
-  --wood: url("./textures/wood.jpg");
-  --panel: url("./textures/panel.jpg");
-  --metal: url("./textures/metal.jpg");
+  --frame: url("./textures/frame.jpg"); /* the wood: a border image, slices 0 12 31 11 */
+  --bar: url("./textures/bar.jpg");
+  --panel-side: url("./textures/panel-side.jpg");
+  --panel-main: url("./textures/panel-main.jpg");
+  --panel-queue: url("./textures/panel-queue.jpg");
   --button: url("./textures/button.jpg");
   --button-play: url("./textures/play.jpg");
-  --wood-drawn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.09' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0.30 0.09  0 0 0 0.17 0.045  0 0 0 0.09 0.02  0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='600' height='600' filter='url(%23w)'/%3E%3C/svg%3E");
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 0.85  0 0 0 0 0.6  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23g)'/%3E%3C/svg%3E");
-  --brushed: repeating-linear-gradient(90deg, rgba(255, 236, 205, 0.022) 0 1px, transparent 1px 3px);
 }
 .vu-meters {
   display: none;
 }
 [data-ui-view="standard"] body {
-  background: #2a170c var(--wood);
-  background-size: 480px 480px;
+  background: #0b0806;
 }
-[data-ui-view="standard"] .shell {
-  border: 6px solid transparent;
-  border-radius: 7px;
-  background: var(--bg) padding-box;
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.7),
-    inset 0 2px 14px rgba(0, 0, 0, 0.6);
-  height: 100vh;
+/* The wood around the window: the sides and the foot (the status line sits
+   on the foot). Behind the page, so it takes no clicks. */
+[data-ui-view="standard"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-style: solid;
+  border-width: 0 8px var(--status-h) 7px;
+  border-image: var(--frame) 0 12 31 11 / 0 8px var(--status-h) 7px stretch;
 }
 [data-ui-view="standard"] .topbar {
-  background:
-    linear-gradient(180deg, rgba(255, 225, 180, 0.07) 0%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.38) 100%),
-    var(--metal) center / auto 300px repeat-x;
-  border-bottom: 1px solid #5a4029;
-  box-shadow: 0 1px 0 rgba(255, 210, 150, 0.06), 0 6px 14px rgba(0, 0, 0, 0.45);
+  background: var(--bar) center / 100% 100% no-repeat;
+  border-bottom: 0;
   position: relative;
   z-index: 1;
 }
-[data-ui-view="standard"] .sidebar,
-[data-ui-view="standard"] .queue-panel {
-  background: linear-gradient(180deg, rgba(60, 40, 24, 0.28), rgba(0, 0, 0, 0.2)), var(--panel);
-  background-size: auto, 256px 256px;
+[data-ui-view="standard"] .sidebar {
+  background: var(--panel-side) center / 100% 100% no-repeat;
 }
 [data-ui-view="standard"] .content {
-  background: radial-gradient(ellipse at 50% 0%, rgba(70, 48, 28, 0.3) 0%, rgba(0, 0, 0, 0) 70%), var(--panel);
-  background-size: auto, 256px 256px;
-  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.55);
+  background: var(--panel-main) center / 100% 100% no-repeat;
 }
-[data-ui-view="standard"] .statusbar {
-  background: linear-gradient(180deg, #1a120c, #110b07);
+[data-ui-view="standard"] .queue-panel {
+  background: var(--panel-queue) center / 100% 100% no-repeat;
 }
-/* Metal buttons with an amber ring for play. */
+/* Round buttons from the concept image; the symbols are text on top. */
 [data-ui-view="standard"] .transport button.icon {
   border-radius: 50%;
-  width: 34px;
-  height: 34px;
   background: var(--button) center / cover;
   border: none;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.65);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   color: #f1e2c6;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
 }
 [data-ui-view="standard"] .transport button.play {
-  width: 44px;
-  height: 44px;
   background: var(--button-play) center / cover;
   border: none;
   color: var(--accent);
-  box-shadow: 0 0 12px rgba(244, 166, 64, 0.35);
+  box-shadow: 0 0 12px rgba(244, 166, 64, 0.3);
 }
 [data-ui-view="standard"] .transport button:disabled {
   opacity: 0.5;
@@ -1947,15 +1936,18 @@ dd {
   gap: 8px;
   flex: none;
 }
+.vu-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
 .vu {
-  width: 92px;
-  height: 54px;
+  width: 91px;
+  height: 42px;
   display: block;
-  border-radius: 5px;
-  box-shadow:
-    0 0 0 2px #4b3522,
-    0 0 0 3px #1b120b,
-    0 3px 8px rgba(0, 0, 0, 0.6);
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
 }
 .vu-face {
   transition: filter 300ms ease;
@@ -1981,7 +1973,7 @@ dd {
 }
 .vu-num {
   fill: #2a1a0c;
-  font-size: 7px;
+  font-size: 8px;
   text-anchor: middle;
   font-family: var(--font-display);
 }
@@ -1990,26 +1982,24 @@ dd {
 }
 .vu-label {
   fill: #2a1a0c;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 600;
   text-anchor: middle;
   font-family: var(--font-display);
 }
 .vu-ch {
-  fill: #2a1a0c;
-  font-size: 7px;
-  text-anchor: end;
+  font-family: var(--font-display);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text);
 }
 .vu-needle {
   stroke: #1c120a;
   stroke-width: 1.3;
   stroke-linecap: round;
   transform-box: view-box;
-  transform-origin: 60px 78px;
+  transform-origin: 68px 156px; /* the pivot (vuMeter.ts CX, CY) */
   transition: transform 110ms linear;
-}
-.vu-base {
-  fill: #141110; /* the face's own black band, over the needle's foot */
 }
 .vu-meters.lamp-off .vu-face {
   filter: brightness(0.62) saturate(0.75);
@@ -2072,24 +2062,22 @@ dd {
   border: 0;
   border-radius: 0;
   padding: 1px 8px 0;
-  column-gap: 4px;
+  column-gap: 2px;
   box-shadow: none;
   background: linear-gradient(#0b0806, #0b0806) top / 100% calc(100% - var(--status-h)) no-repeat content-box;
 }
 [data-ui-view="standard"] .topbar {
-  margin-bottom: 5px;
+  margin-bottom: 2px;
   padding: 0 14px;
   gap: 12px;
-  border-radius: 0 0 3px 3px;
 }
+/* The panels' pictures carry their own rim and rounded corners. */
 [data-ui-view="standard"] .sidebar,
 [data-ui-view="standard"] .content,
 [data-ui-view="standard"] .queue-panel {
-  border: 1px solid rgba(0, 0, 0, 0.85);
-  border-radius: 6px;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 220, 170, 0.05),
-    inset 0 0 22px rgba(0, 0, 0, 0.5);
+  border: 0;
+  border-radius: 4px;
+  box-shadow: none;
 }
 [data-ui-view="standard"] .statusbar {
   background: none;
@@ -2137,24 +2125,25 @@ dd {
   gap: 8px;
 }
 [data-ui-view="standard"] .transport button.icon {
-  width: 29px;
-  height: 29px;
+  width: 30px;
+  height: 30px;
   min-width: 0;
   padding: 0;
   font-size: 11px;
 }
 [data-ui-view="standard"] .transport button.play {
-  width: 36px;
-  height: 36px;
+  width: 37px;
+  height: 37px;
   font-size: 14px;
 }
 [data-ui-view="standard"] .time {
   font-size: 12px;
   color: var(--text);
 }
-[data-ui-view="standard"] .vu {
-  width: 89px;
-  height: 40px;
+[data-ui-view="standard"] .vu-meters {
+  align-self: stretch;
+  align-items: center;
+  gap: 10px;
 }
 /* The output field: the tags in a row, no heading; a judgement other than
    BIT-PERFECT (DIGITAL VOL -6.0 dB and the like) goes on a line under them,

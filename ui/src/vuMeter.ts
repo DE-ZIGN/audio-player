@@ -6,12 +6,12 @@
 // keeps moving in 原音モード, where only its light is lowered.
 
 import type { Level } from "./status";
-// The face behind the scale: a picture made by image generation, with nothing
-// printed on it (tools/ui_textures.py).
+// The face behind the scale: cut out of the concept image with its print
+// removed (tools/ui_mockup_parts.py).
 import faceUrl from "./textures/vu-face.jpg";
 
 export const VU_REFERENCE_DBFS = -18; // 0 VU
-export const VU_SWEEP = 96; // degrees
+export const VU_SWEEP = 45; // degrees: a long needle on a pivot far below the face, as on the concept image
 export const VU_MARKS = [-20, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3];
 const TOP = Math.pow(10, 3 / 20); // +3 VU, the end of the scale
 
@@ -33,7 +33,10 @@ export function needleAngle(vu: number): number {
 // --- drawing ----------------------------------------------------------------------
 
 const SVG = "http://www.w3.org/2000/svg";
-const W = 120, H = 70, CX = 60, CY = 78, R = 56; // the pivot sits below the face
+// In the face picture's own pixels (137 x 63, shown at 2/3: 91 x 42 CSS px).
+// The arc and the pivot are measured on the concept image (UI-STANDARD-v1).
+const W = 137, H = 63, CX = 68, CY = 156, R = 130;
+const FACE = { x: 6, y: 6, w: 126, h: 52 }; // the paper inside the bezel
 
 function el<K extends keyof SVGElementTagNameMap>(name: K, attrs: Record<string, string | number>) {
   const e = document.createElementNS(SVG, name);
@@ -47,43 +50,48 @@ function point(angle: number, radius: number) {
 }
 
 export class VuMeter {
-  readonly el: SVGSVGElement;
+  readonly el: HTMLDivElement;
   private readonly needle: SVGLineElement;
 
   constructor(label: string) {
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, class: "vu", role: "img", "aria-label": `VU メーター ${label}` });
     svg.append(el("image", { href: faceUrl, x: 0, y: 0, width: W, height: H, preserveAspectRatio: "none", class: "vu-face" }));
-    // The red zone from 0 VU to +3.
-    const a0 = point(needleAngle(0), R), a3 = point(needleAngle(3), R);
-    svg.append(el("path", { d: `M ${a0.x} ${a0.y} A ${R} ${R} 0 0 1 ${a3.x} ${a3.y}`, class: "vu-red" }));
-    const scale = point(needleAngle(-20), R), end = point(needleAngle(0), R);
+    // The red zone from 0 VU to +3, just inside the arc.
+    const a0 = point(needleAngle(0), R - 2.5), a3 = point(needleAngle(3), R - 2.5);
+    svg.append(el("path", { d: `M ${a0.x} ${a0.y} A ${R - 2.5} ${R - 2.5} 0 0 1 ${a3.x} ${a3.y}`, class: "vu-red" }));
+    const scale = point(needleAngle(-20), R), end = point(needleAngle(3), R);
     svg.append(el("path", { d: `M ${scale.x} ${scale.y} A ${R} ${R} 0 0 1 ${end.x} ${end.y}`, class: "vu-arc" }));
     for (const m of VU_MARKS) {
       const angle = needleAngle(m);
       const p1 = point(angle, R), p2 = point(angle, R + (m % 5 === 0 || m >= -3 ? 6 : 4));
       svg.append(el("line", { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, class: m > 0 ? "vu-tick red" : "vu-tick" }));
-      if ([-20, -10, -7, -5, -3, 0, 3].includes(m)) {
+      if ([-20, -10, -7, -5, -3, -1, 0, 1, 3].includes(m)) {
         const t = point(angle, R + 12);
         const text = el("text", { x: t.x, y: t.y + 3, class: m > 0 ? "vu-num red" : "vu-num" });
         text.textContent = m > 0 ? `+${m}` : String(m);
         svg.append(text);
       }
     }
-    const vu = el("text", { x: CX, y: 50, class: "vu-label" });
+    const vu = el("text", { x: CX, y: 46, class: "vu-label" });
     vu.textContent = "VU";
-    const ch = el("text", { x: W - 8, y: H - 7, class: "vu-ch" });
-    ch.textContent = label;
-    svg.append(vu, ch);
-    // The needle shows only above the black band that hides its foot (a clip:
-    // a moving needle may be painted on its own layer, above later elements).
+    svg.append(vu);
+    // The needle shows only on the paper (a clip: a moving needle may be
+    // painted on its own layer, above later elements).
     const clipId = `vu-clip-${label}-${Math.random().toString(36).slice(2, 8)}`;
     const clip = el("clipPath", { id: clipId });
-    clip.append(el("rect", { x: 0, y: 0, width: W, height: H - 12 }));
+    clip.append(el("rect", { x: FACE.x, y: FACE.y, width: FACE.w, height: FACE.h }));
     const holder = el("g", { "clip-path": `url(#${clipId})` });
-    this.needle = el("line", { x1: CX, y1: CY, x2: CX, y2: CY - R - 4, class: "vu-needle" });
+    this.needle = el("line", { x1: CX, y1: CY, x2: CX, y2: CY - R - 8, class: "vu-needle" });
     holder.append(this.needle);
-    svg.append(clip, holder, el("rect", { x: 1, y: H - 12, width: W - 2, height: 11, rx: 0, class: "vu-base" }));
-    this.el = svg;
+    svg.append(clip, holder);
+    // The channel under the meter, as on the concept image.
+    const unit = document.createElement("div");
+    unit.className = "vu-unit";
+    const ch = document.createElement("span");
+    ch.className = "vu-ch";
+    ch.textContent = label;
+    unit.append(svg, ch);
+    this.el = unit;
     this.set("-inf");
   }
 
