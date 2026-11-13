@@ -24,7 +24,9 @@ const PAGE = 200;
 const rowH = () => cssPixels("--row-h", 30);
 const tileMin = () => cssPixels("--tile-min", 168);
 const tileText = () => cssPixels("--tile-text", 48);
-const TILE_GAP = 18;
+// Gaps between tiles, across and down (each view sets its own).
+const tileGap = () => cssPixels("--tile-gap", 18);
+const tileRowGap = () => cssPixels("--tile-row-gap", 18);
 const PLAY_LIMIT = 1000; // tracks put in the queue from a long list
 
 const TRACK_SORTS: [TrackSort, string][] = [
@@ -408,8 +410,9 @@ export class LibraryView {
   private drawGrid() {
     const grid = this.els.grid;
     const width = grid.clientWidth - 4;
-    const { columns, tile } = gridLayout({ width, minTile: tileMin(), gap: TILE_GAP });
-    const tileRowH = tile + tileText() + TILE_GAP;
+    const gap = tileGap();
+    const { columns, tile } = gridLayout({ width, minTile: tileMin(), gap });
+    const tileRowH = tile + tileText() + tileRowGap();
     const rowsTotal = Math.ceil(this.total / columns);
     this.els.gridSpacer.style.height = `${rowsTotal * tileRowH}px`;
     const range = visibleRange({ scrollTop: grid.scrollTop, viewport: grid.clientHeight, rowHeight: tileRowH, total: rowsTotal, overscan: 2 });
@@ -422,7 +425,7 @@ export class LibraryView {
       const el = document.createElement("div");
       el.className = "tile";
       el.style.width = `${tile}px`;
-      el.style.left = `${(i % columns) * (tile + TILE_GAP)}px`;
+      el.style.left = `${(i % columns) * (tile + gap)}px`;
       el.style.top = `${Math.floor(i / columns) * tileRowH}px`;
       if (a) {
         const img = document.createElement("img");

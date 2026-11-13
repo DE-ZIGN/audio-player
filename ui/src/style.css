@@ -1766,14 +1766,18 @@ dd {
    photo-like parts (wood frame, metal, VU meters) come with 6-8. The library
    view's colour themes do not apply here. */
 :root[data-ui-view="standard"] {
-  --row-h: 34px;
-  --topbar-h: 84px;
-  /* The same widths as the library view: at the 1280 px the window opens
-     with, the track list keeps all its columns (True Peak included). */
-  --sidebar-w: 216px;
-  --queue-w: 300px;
-  --tile-min: 188px;
-  --tile-text: 54px;
+  /* Sizes from the concept images, read as drawn for a 150% screen (decided
+     2026-11-13): one image pixel is 2/3 of a CSS pixel. See the block
+     "sizes from the concept image" at the end. */
+  --row-h: 28px;
+  --topbar-h: 75px; /* the bar (70 px) and the dark gap under it (5 px) */
+  --sidebar-w: 137px;
+  --queue-w: 277px;
+  --status-h: 22px; /* on the wood of the frame's foot */
+  --tile-min: 120px;
+  --tile-text: 40px;
+  --tile-gap: 36px;
+  --tile-row-gap: 14px;
   --font-display: Cambria, Georgia, "Yu Mincho", "YuMincho", serif;
   --font-list: Cambria, "Yu Mincho", "YuMincho", serif;
   --bg: #120d09;
@@ -2046,32 +2050,253 @@ dd {
   letter-spacing: 0.08em;
 }
 /* Up to about 1360 px (the window opens at 1280): the standard view's top bar
-   fits with smaller VU meters, volume and buttons, and the seek bar keeps a
-   usable length. Widths stay fixed (nothing moves as values change). */
+   fits with a narrower volume and title, and the seek bar keeps a usable
+   length. Widths stay fixed (nothing moves as values change). */
 @media (max-width: 1360px) {
-  [data-ui-view="standard"] .topbar {
-    gap: 10px;
-  }
-  [data-ui-view="standard"] .vu-meters {
-    gap: 6px;
-  }
-  [data-ui-view="standard"] .vu {
-    width: 72px;
-    height: 42px;
-  }
   [data-ui-view="standard"] .volume-box {
     width: 150px;
-  }
-  [data-ui-view="standard"] .transport button.icon {
-    width: 32px;
-    height: 32px;
-  }
-  [data-ui-view="standard"] .transport button.play {
-    width: 40px;
-    height: 40px;
   }
   [data-ui-view="standard"] .now {
     flex-basis: 120px;
     min-width: 100px;
   }
 }
+
+/* --- sizes from the concept image (task 6-8, 2026-11-13) --------------------
+   UI-STANDARD-v1 and UI-STANDARD-LIST-v1 read as drawn for a 150% screen:
+   a 1115×605 page matches the image. Measured with the overlay
+   (dev server, ?mockup=UI-STANDARD-v1&zoom=1.5). Wood shows only around
+   the edge: 8 px at the sides, the foot under the panels (the status line
+   sits on it); the panels are separated by dark grooves. */
+[data-ui-view="standard"] .shell {
+  border: 0;
+  border-radius: 0;
+  padding: 1px 8px 0;
+  column-gap: 4px;
+  box-shadow: none;
+  background: linear-gradient(#0b0806, #0b0806) top / 100% calc(100% - var(--status-h)) no-repeat content-box;
+}
+[data-ui-view="standard"] .topbar {
+  margin-bottom: 5px;
+  padding: 0 14px;
+  gap: 12px;
+  border-radius: 0 0 3px 3px;
+}
+[data-ui-view="standard"] .sidebar,
+[data-ui-view="standard"] .content,
+[data-ui-view="standard"] .queue-panel {
+  border: 1px solid rgba(0, 0, 0, 0.85);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 220, 170, 0.05),
+    inset 0 0 22px rgba(0, 0, 0, 0.5);
+}
+[data-ui-view="standard"] .statusbar {
+  background: none;
+  border: 0;
+  padding: 0 10px;
+  font-size: 11px;
+  color: rgba(241, 228, 204, 0.72);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9);
+}
+/* The serif everywhere but the settings' form. */
+[data-ui-view="standard"] .topbar,
+[data-ui-view="standard"] .sidebar,
+[data-ui-view="standard"] .queue-panel,
+[data-ui-view="standard"] .content-head,
+[data-ui-view="standard"] .table-head,
+[data-ui-view="standard"] .album-head,
+[data-ui-view="standard"] .grid {
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* Top bar: groups divided by thin lines. */
+[data-ui-view="standard"] .now-cover {
+  width: 47px;
+  height: 47px;
+  border-radius: 2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+[data-ui-view="standard"] .now-title {
+  font-size: 16px;
+}
+[data-ui-view="standard"] .now-sub {
+  font-size: 12px;
+}
+[data-ui-view="standard"] .transport,
+[data-ui-view="standard"] .seek,
+[data-ui-view="standard"] .vu-meters,
+[data-ui-view="standard"] .output-field {
+  border-left: 1px solid rgba(255, 222, 176, 0.2);
+  box-shadow: -1px 0 0 rgba(0, 0, 0, 0.6);
+  padding-left: 12px;
+}
+[data-ui-view="standard"] .transport {
+  align-items: center;
+  gap: 8px;
+}
+[data-ui-view="standard"] .transport button.icon {
+  width: 29px;
+  height: 29px;
+  min-width: 0;
+  padding: 0;
+  font-size: 11px;
+}
+[data-ui-view="standard"] .transport button.play {
+  width: 36px;
+  height: 36px;
+  font-size: 14px;
+}
+[data-ui-view="standard"] .time {
+  font-size: 12px;
+  color: var(--text);
+}
+[data-ui-view="standard"] .vu {
+  width: 89px;
+  height: 40px;
+}
+/* The output field: the tags in a row, no heading; a judgement other than
+   BIT-PERFECT (DIGITAL VOL -6.0 dB and the like) goes on a line under them,
+   as plain text. Fixed widths: nothing else in the bar moves. */
+[data-ui-view="standard"] .output-label {
+  display: none;
+}
+[data-ui-view="standard"] .output-field {
+  justify-content: center;
+  align-self: stretch;
+  border-top: 0;
+  border-bottom: 0;
+  border-right: 0;
+  border-radius: 0;
+  padding: 0 0 0 12px;
+}
+[data-ui-view="standard"] .output-tags {
+  grid-template-columns: 34px 50px 42px 74px;
+  gap: 3px;
+}
+[data-ui-view="standard"] .output-tags .tag {
+  font-size: 10.5px;
+  padding: 1px 3px;
+}
+[data-ui-view="standard"] .output-tags .tag.warn {
+  grid-column: 1 / -1;
+  border: 0;
+  background: none;
+  color: var(--text);
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+/* Side bar: roomy items, the chosen one lit amber with a bright edge. */
+[data-ui-view="standard"] .sidebar {
+  padding: 24px 0 8px 3px;
+  gap: 8px;
+}
+[data-ui-view="standard"] .nav {
+  height: 33px;
+  padding: 0 8px 0 12px;
+  gap: 12px;
+  border-radius: 0 3px 3px 0;
+}
+[data-ui-view="standard"] .nav-icon {
+  width: 19px;
+  font-size: 15px;
+}
+[data-ui-view="standard"] .folders {
+  margin-top: 8px;
+}
+[data-ui-view="standard"] .open-file,
+[data-ui-view="standard"] .view-switch {
+  margin-left: 3px;
+  margin-right: 6px;
+  width: auto;
+  white-space: nowrap;
+  font-size: 10.5px;
+  letter-spacing: 0;
+  padding: 4px 2px;
+}
+
+/* Content: the heading, then the search, sort and view buttons at the right. */
+[data-ui-view="standard"] .content {
+  padding: 15px 18px 0 22px;
+}
+[data-ui-view="standard"] .content-head h1 {
+  font-size: 26px;
+}
+[data-ui-view="standard"] #search {
+  flex: 0 1 243px;
+  margin-left: auto;
+  height: 24px;
+  padding: 2px 10px;
+}
+[data-ui-view="standard"] #search,
+[data-ui-view="standard"] #sort {
+  font-size: 13px;
+}
+[data-ui-view="standard"] #sort {
+  width: 115px;
+  height: 24px;
+  padding: 0 4px;
+}
+[data-ui-view="standard"] .view-toggle button {
+  height: 24px;
+  min-width: 29px;
+}
+[data-ui-view="standard"] .table-head {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+[data-ui-view="standard"] .table-head button {
+  font-size: 12px;
+  font-family: inherit;
+}
+[data-ui-view="standard"] .row {
+  border-bottom-color: rgba(150, 112, 74, 0.2);
+}
+[data-ui-view="standard"] .grid {
+  margin-left: 17px; /* the tiles sit a little in from the heading */
+}
+[data-ui-view="standard"] .tile-title {
+  font-size: 14px;
+  margin-top: 4px;
+}
+[data-ui-view="standard"] .tile-sub {
+  font-size: 11.5px;
+}
+
+/* The album's head: a large cover with amber light around it. */
+[data-ui-view="standard"] .album-cover {
+  width: 130px;
+  height: 130px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--accent), 0 0 14px rgba(244, 166, 64, 0.4);
+}
+[data-ui-view="standard"] .album-info h2 {
+  font-size: 31px;
+  font-weight: 400;
+}
+[data-ui-view="standard"] .album-artist {
+  font-size: 17px;
+}
+[data-ui-view="standard"] .album-meta {
+  font-size: 14px;
+}
+
+/* Queue: a line under the head, roomy rows with lines between. */
+[data-ui-view="standard"] .queue-panel {
+  padding: 14px 10px 0 18px;
+}
+[data-ui-view="standard"] .queue-count {
+  font-size: 13px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(150, 112, 74, 0.35);
+}
+[data-ui-view="standard"] .queue-list li {
+  font-size: 14px;
+  padding: 8px 6px;
+  border-bottom-color: rgba(150, 112, 74, 0.2);
+}
+
