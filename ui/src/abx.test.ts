@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { defaultRegion, keyAction, lowerTailP, regionText, resultText, upperTailP, type AbxResultInfo } from "./abx";
+import {
+  defaultRegion,
+  keyAction,
+  lowerTailP,
+  presetPairProblem,
+  regionText,
+  resultText,
+  sideLabels,
+  upperTailP,
+  type AbxResultInfo,
+} from "./abx";
 
 const finished = (correct: number, trials = 16, over: Partial<AbxResultInfo> = {}): AbxResultInfo => ({
   finished: true,
@@ -80,5 +90,24 @@ describe("region and keys", () => {
     expect(keyAction("Escape")).toBe("abort");
     expect(keyAction("q")).toBe("abort");
     expect(keyAction("Enter")).toBeNull();
+  });
+});
+
+describe("設定 A と設定 B (task 6-9)", () => {
+  it("names the sides after the presets", () => {
+    const l = sideLabels({ kind: "presets", aName: "EQ なし（平ら）", bName: "HD 600" });
+    expect(l.a).toBe("EQ なし（平ら）");
+    expect(l.b).toBe("HD 600");
+    expect(l.title).toBe("設定 A「EQ なし（平ら）」と 設定 B「HD 600」");
+  });
+  it("keeps the fixed names for the other kinds", () => {
+    expect(sideLabels({ kind: "processed" })).toEqual({ a: "原音", b: "音作り", title: "原音 と 音作り（今の設定）" });
+    expect(sideLabels({ kind: "16bit" }).b).toBe("16bit");
+    expect(sideLabels({ kind: "presets" }).a).toBe("設定 A"); // names not known yet
+  });
+  it("two different settings are needed", () => {
+    expect(presetPairProblem("x", "x", 3)).toContain("違う");
+    expect(presetPairProblem("x", "y", 3)).toBe("");
+    expect(presetPairProblem("flat", "flat", 1)).toContain("プリセット");
   });
 });

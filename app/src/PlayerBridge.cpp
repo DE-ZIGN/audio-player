@@ -1,5 +1,7 @@
 #include "PlayerBridge.h"
 
+#include "EqVar.h"
+
 #include "AsioCheck.h"
 
 #include <cmath>
@@ -753,7 +755,28 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
     if (s.dop)
         return fail("DSD（DoP）の曲は ABX で比べられません（DoP のデータには処理をかけないため）");
     const auto file = queueMeta_[s.queueIndex];
-    const std::string kind = request.getProperty("kind", "processed").toString() == "16bit" ? "16bit" : "processed";
+    const auto kindName = request.getProperty("kind", "processed").toString();
+    const std::string kind = kindName == "16bit" ? "16bit" : kindName == "presets" ? "presets" : "processed";
+    // 設定 A と設定 B (task 6-9): two EQ presets, each on top of the current
+    // settings in 音作りモード (ReplayGain, ISP-safe and the volume as they are).
+    ListeningSettings settingsA, settingsB;
+    std::string nameA, nameB;
+    if (kind == "presets")
+    {
+        const auto a = presetFrom(request.getProperty("a", {}));
+        const auto b = presetFrom(request.getProperty("b", {}));
+        if (!a || !b)
+            return fail("比べる 2 つの設定を選んでください");
+        for (auto [settings, preset] : {std::pair{&settingsA, &*a}, std::pair{&settingsB, &*b}})
+        {
+            *settings = listening_;
+            settings->mode = ListeningMode::Processed;
+            settings->eqEnabled = true;
+            applyEqPreset(*settings, *preset);
+        }
+        nameA = a->name;
+        nameB = b->name;
+    }
     const auto rate = s.sourceFormat->sampleRate;
     const double startSeconds = std::max(0.0, static_cast<double>(request.getProperty("startSeconds", 0.0)));
     const double seconds = std::clamp(static_cast<double>(request.getProperty("seconds", 30.0)), 2.0, 600.0);
@@ -771,16 +794,22 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
 
     // The loudness match over the region, with the same settings as will play.
     juce::Thread::launch([this, alive = alive_, file, kind, rate, start, length, trials, listening, volumeDb, saved = s,
-                          done = std::move(done)]() mutable {
+                          settingsA, settingsB, nameA, nameB, done = std::move(done)]() mutable {
         double match = 0.0;
         std::string error;
         try
         {
             // A chain like the one that will play: the settings (or, for 16 bit,
             // only the requantization) and the volume.
-            ListeningChain offline;
+            ListeningChain offline, reference;
             if (kind == "processed")
                 offline.apply(listening);
+            else if (kind == "presets")
+            {
+                offline.apply(settingsB);
+                reference.apply(settingsA);
+                reference.volume->setGainDb(volumeDb);
+            }
             else
             {
                 ListeningSettings plain;
@@ -790,14 +819,15 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
             offline.volume->setGainDb(volumeDb);
             auto src = openAudioFile(file.path);
             src->seek(start);
-            match = measureMatchDb(*src, *offline.chain(), TrackInfo{0, file.replayGain}, length);
+            match = measureMatchDb(*src, *offline.chain(), TrackInfo{0, file.replayGain}, length,
+                                   kind == "presets" ? reference.chain().get() : nullptr);
         }
         catch (const std::exception& e)
         {
             error = e.what();
         }
         juce::MessageManager::callAsync([this, alive, file, kind, rate, start, length, trials, match, error, saved,
-                                         done = std::move(done)]() mutable {
+                                         settingsA, settingsB, nameA, nameB, done = std::move(done)]() mutable {
             if (!*alive)
                 return;
             abxPreparing_ = false;
@@ -815,6 +845,8 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
             session.length = length;
             session.rate = rate;
             session.matchDb = match;
+            session.nameA = nameA;
+            session.nameB = nameB;
             session.queue = queueMeta_;
             session.index = saved.queueIndex;
             session.position = saved.positionFrames;
@@ -827,6 +859,15 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
                 plain.ispSafeOriginal = IspSafeMode::Off;
                 chain_.apply(plain);
                 chain_.requantize->setBits(16);
+            }
+            else if (kind == "presets")
+            {
+                // B plays through the main chain, A through a second one fed the same input.
+                chain_.apply(settingsB);
+                abxReference_ = std::make_shared<ListeningChain>();
+                abxReference_->apply(settingsA);
+                abxReference_->volume->setGainDb(chain_.volume->gainDb());
+                chain_.chain()->setReference(abxReference_->chain());
             }
             auto& ab = chain_.chain()->comparison();
             ab.setFixedMatchDb(match);
@@ -863,6 +904,8 @@ void PlayerBridge::abxFinish()
     player_.stop();
     auto& ab = chain_.chain()->comparison();
     chain_.chain()->setComparing(false);
+    chain_.chain()->setReference(nullptr);
+    abxReference_.reset();
     ab.setFixedMatchDb(std::nullopt);
     chain_.requantize->setBits(0);
     chain_.apply(listening_);
@@ -889,6 +932,11 @@ juce::var PlayerBridge::abxVar() const
     o->setProperty("running", a.running);
     o->setProperty("preparing", false);
     o->setProperty("kind", juce::String(a.kind));
+    if (a.kind == "presets")
+    {
+        o->setProperty("aName", juce::String::fromUTF8(a.nameA.c_str()));
+        o->setProperty("bName", juce::String::fromUTF8(a.nameB.c_str()));
+    }
     o->setProperty("trial", std::min(a.test.trial(), a.test.trials()));
     o->setProperty("trials", a.test.trials());
     o->setProperty("listening", a.listening == AbxChoice::A ? "A" : a.listening == AbxChoice::B ? "B" : "X");

@@ -1,5 +1,7 @@
 #include "SettingsBridge.h"
 
+#include "EqVar.h"
+
 #include "AsioCheck.h"
 
 #include <ap/engine/output/asio_output.h>
@@ -29,30 +31,6 @@ const char* toString(IspSafeMode m)
     return m == IspSafeMode::Measured ? "measured" : m == IspSafeMode::Fixed ? "fixed" : "off";
 }
 
-const char* toString(EqFilterType t)
-{
-    switch (t)
-    {
-        case EqFilterType::Peak:      return "peak";
-        case EqFilterType::LowShelf:  return "lowShelf";
-        case EqFilterType::HighShelf: return "highShelf";
-        case EqFilterType::LowPass:   return "lowPass";
-        case EqFilterType::HighPass:  return "highPass";
-        case EqFilterType::BandPass:  return "bandPass";
-        case EqFilterType::Notch:     return "notch";
-    }
-    return "peak";
-}
-
-std::optional<EqFilterType> filterFrom(const juce::String& s)
-{
-    for (const auto t : {EqFilterType::Peak, EqFilterType::LowShelf, EqFilterType::HighShelf, EqFilterType::LowPass,
-                         EqFilterType::HighPass, EqFilterType::BandPass, EqFilterType::Notch})
-        if (s == toString(t))
-            return t;
-    return std::nullopt;
-}
-
 ReplayGainMode replayGainFrom(const juce::String& s)
 {
     return s == "track" ? ReplayGainMode::Track : s == "album" ? ReplayGainMode::Album : ReplayGainMode::Off;
@@ -66,42 +44,6 @@ IspSafeMode ispSafeFrom(const juce::String& s)
 std::string utf8(const juce::var& v)
 {
     return v.toString().toStdString();
-}
-
-juce::var bandsVar(const std::vector<EqBand>& bands)
-{
-    juce::Array<juce::var> a;
-    for (const auto& b : bands)
-    {
-        auto* o = new juce::DynamicObject();
-        o->setProperty("type", toString(b.type));
-        o->setProperty("frequency", b.frequency);
-        o->setProperty("gainDb", b.gainDb);
-        o->setProperty("q", b.q);
-        o->setProperty("enabled", b.enabled);
-        a.add(juce::var(o));
-    }
-    return a;
-}
-
-// Bands with a known type and finite, positive frequency and Q. At most 32.
-std::vector<EqBand> bandsFrom(const juce::var& v)
-{
-    std::vector<EqBand> out;
-    if (const auto* a = v.getArray())
-        for (const auto& b : *a)
-        {
-            const auto type = filterFrom(b.getProperty("type", "").toString());
-            const double f = b.getProperty("frequency", 0.0);
-            const double g = b.getProperty("gainDb", 0.0);
-            const double q = b.getProperty("q", 0.0);
-            if (!type || !std::isfinite(f) || !std::isfinite(g) || !std::isfinite(q) || f <= 0.0 || q <= 0.0)
-                continue;
-            out.push_back(EqBand{*type, f, g, q, static_cast<bool>(b.getProperty("enabled", true))});
-            if (out.size() == EqStage::kMaxBands)
-                break;
-        }
-    return out;
 }
 
 juce::var listeningVar(const ListeningSettings& l)
@@ -224,6 +166,7 @@ juce::var SettingsBridge::settingsVar() const
     auto* o = new juce::DynamicObject();
     o->setProperty("output", outputVar(settings_.output));
     o->setProperty("listening", listeningVar(settings_.listening));
+    o->setProperty("eqPresets", presetsVar(settings_.eqPresets));
     return juce::var(o);
 }
 
@@ -248,6 +191,20 @@ juce::WebBrowserComponent::Options SettingsBridge::registerFunctions(juce::WebBr
                                 const auto rate = player_.currentSampleRate();
                                 r.getDynamicObject()->setProperty(
                                     "eq", eqInfo(settings_.listening.eqBands, rate > 0 ? rate : 48000.0));
+                                done(r);
+                            })
+        .withNativeFunction("settingsSetEqPresets",
+                            [this](Args args, Completion done) {
+                                // The whole list, as the page has it (task 6-9).
+                                if (args.isEmpty())
+                                {
+                                    done(result(false));
+                                    return;
+                                }
+                                settings_.eqPresets = presetsFrom(args[0]);
+                                save();
+                                auto r = result(true);
+                                r.getDynamicObject()->setProperty("eqPresets", presetsVar(settings_.eqPresets));
                                 done(r);
                             })
         .withNativeFunction("settingsOutputs",

@@ -29,6 +29,8 @@ namespace ap::app {
 //   settingsEqCurve(bands)     { sampleRate, preampDb, skipped, points: [[Hz, dB], ...] }
 //                              (preampDb: the automatic one)
 //   settingsEqSolo(i)          solo EQ band i (-1: off); not saved
+//   settingsSetEqPresets(list) the named EQ presets, the whole list (task 6-9);
+//                              saved; { ok, eqPresets }. settingsGet() has them as eqPresets.
 // Event (C++ -> JavaScript): "outputsChanged" when an output device was
 // added, removed, enabled or disabled, or the Windows default changed.
 class SettingsBridge final

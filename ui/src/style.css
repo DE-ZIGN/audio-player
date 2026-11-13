@@ -790,6 +790,50 @@ label.check {
   gap: 8px;
   flex-wrap: wrap;
 }
+/* EQ presets (task 6-9): on the settings screen and in the EQ dialog. */
+.eq-presets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.eq-preset-choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.eq-preset-choice select {
+  min-width: 220px;
+  max-width: 340px;
+  color: var(--text);
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 6px;
+}
+.eq-preset-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.eq-preset-form input {
+  width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+}
+.eq-preset-message {
+  font-size: 12px;
+}
+button.danger {
+  border-color: var(--warn);
+  color: var(--warn);
+}
 .eq-curve {
   display: block;
   cursor: pointer;
@@ -1679,6 +1723,32 @@ dd {
 }
 .abx-dialog fieldset .notice {
   margin: 4px 0 0;
+}
+/* 設定 A と設定 B (task 6-9): the two presets. */
+.abx-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  margin: 2px 0 4px 24px;
+}
+.abx-presets label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.abx-presets select {
+  min-width: 200px;
+  font-weight: 400;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 6px;
+}
+.abx-presets .note {
+  flex-basis: 100%;
+  margin: 0;
 }
 .abx-region {
   display: grid;

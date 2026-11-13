@@ -4,6 +4,7 @@
 // bytes that reached its dummy output.
 
 import type { Backend } from "./backend";
+import { FLAT_PRESET, type EqPreset } from "./eqPresets";
 import { autoPreampDb, responsePoints } from "./eqResponse";
 import { ispWarning, pathModel, verdictModel } from "./outputCheck";
 import { applyUiView, currentUiView, type UiView } from "./uiView";
@@ -239,6 +240,41 @@ export async function runSelfTest(
     );
     await backend.abx.close();
     await waitFor("ABX closed", (s) => (s.abx ?? null) === null, 5000);
+
+    // EQ presets and the ABX's 設定 A と設定 B (task 6-9): the list is saved
+    // and read back; A = no EQ, B = a preset, each on the current settings.
+    const savedPresets = saved.eqPresets ?? [];
+    const presetB: EqPreset = { name: "自己テスト +6 dB", bands: [eqBand], autoPreamp: true, manualPreampDb: 0 };
+    const stored = await backend.settings.setEqPresets([...savedPresets, presetB]);
+    const readBack = (await backend.settings.get()).eqPresets ?? [];
+    if (!stored.ok || readBack.at(-1)?.name !== presetB.name || readBack.at(-1)?.bands.length !== 1)
+      throw new Error(`EQ presets: not kept ${JSON.stringify(readBack.at(-1))}`);
+    const pair = await backend.abx.start({
+      kind: "presets",
+      startSeconds: 0,
+      seconds: 2,
+      trials: 2,
+      a: FLAT_PRESET,
+      b: presetB,
+    });
+    if (!pair.ok) throw new Error(`ABX 設定 A と設定 B: ${pair.message}`);
+    const pairRunning = await waitFor(
+      "ABX of two presets playing",
+      (s) => s.abx?.running === true && s.abx.kind === "presets" && s.state === "playing" && s.path?.comparison === true,
+      5000,
+    );
+    if (pairRunning.abx?.aName !== FLAT_PRESET.name || pairRunning.abx?.bName !== presetB.name)
+      throw new Error(`ABX 設定 A と設定 B: names ${pairRunning.abx?.aName} / ${pairRunning.abx?.bName}`);
+    await backend.abx.choose("B");
+    await waitFor("ABX listening to B", (s) => s.abx?.listening === "B", 5000);
+    await backend.abx.abort();
+    await waitFor("ABX of two presets stopped", (s) => s.abx?.running === false && s.state === "stopped", 5000);
+    await backend.abx.close();
+    await waitFor("ABX closed", (s) => (s.abx ?? null) === null, 5000);
+    await backend.settings.setEqPresets(savedPresets); // the user's list as it was
+    log.push(
+      `EQ presets saved and read back; ABX 設定 A「${FLAT_PRESET.name}」と 設定 B「${presetB.name}」: match ${pair.matchDb?.toFixed(2)} dB, aborted`,
+    );
 
     await backend.settings.setListening(saved.listening);
     if ((await backend.settings.get()).listening.mode !== "original") throw new Error("settings: not back to 原音モード");

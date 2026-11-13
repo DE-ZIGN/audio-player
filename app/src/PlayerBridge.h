@@ -30,10 +30,13 @@ namespace ap::app {
 // (SettingsBridge, task 6-3) through setOutput() and setListening().
 //
 // ABX (task 6-6), on the current track:
-//   abxStart({ startSeconds, seconds, trials, kind })  kind "processed" (原音 と
-//       音作り) or "16bit" (原音 と 16bit・TPDF). Works out the loudness match
-//       over the region (on a background thread), then plays the region over
-//       and over through the comparison. { ok, message?, matchDb }
+//   abxStart({ startSeconds, seconds, trials, kind, a?, b? })  kind "processed"
+//       (原音 と 音作り), "16bit" (原音 と 16bit・TPDF) or "presets" (設定 A と
+//       設定 B, task 6-9: a and b are EQ presets { name, bands, autoPreamp,
+//       manualPreampDb }, each put on the current settings in 音作りモード).
+//       Works out the loudness match over the region (on a background
+//       thread), then plays the region over and over through the comparison.
+//       { ok, message?, matchDb }
 //   abxChoose("A" | "B" | "X"), abxAnswer("A" | "B")  (X is A / X is B)
 //   abxAbort(), abxClose() (forgets the finished result)
 // When the test ends (answered or aborted) the queue, the track and the
@@ -111,6 +114,7 @@ private:
         std::uint64_t start = 0, length = 0;
         std::uint32_t rate = 0;
         double matchDb = 0.0;
+        std::string nameA, nameB; // 設定 A と設定 B: the presets' names
         ap::engine::AbxChoice listening = ap::engine::AbxChoice::A;
         bool running = true;
         // What was playing before, to put back.
@@ -119,6 +123,8 @@ private:
         std::uint64_t position = 0;
     };
     std::optional<AbxSession> abx_;
+    // 設定 A と設定 B (task 6-9): side A's chain while the ABX runs.
+    std::shared_ptr<ap::engine::ListeningChain> abxReference_;
     bool abxPreparing_ = false;
     std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
 

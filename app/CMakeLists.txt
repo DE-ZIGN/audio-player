@@ -18,6 +18,7 @@ target_sources(ap_app PRIVATE
     src/PlayerBridge.cpp
     src/PlayerBridge.h
     src/SettingsBridge.cpp
+    src/EqVar.cpp
     src/SettingsBridge.h
     src/AsioCheck.cpp
     src/AsioCheck.h

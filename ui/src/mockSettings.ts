@@ -2,6 +2,7 @@
 // this in the engine (app/src/SettingsBridge.cpp); here the page's own copy of
 // the EQ formulas (eqResponse.ts) stands in, so the page can be worked on.
 
+import type { EqPreset } from "./eqPresets";
 import { autoPreampDb, responsePoints, skippedBands } from "./eqResponse";
 import {
   defaultListening,
@@ -12,6 +13,7 @@ import {
   type ListeningSettings,
   type OutputChoice,
   type OutputsInfo,
+  type PresetsResult,
   type SetResult,
   type SettingsInfo,
 } from "./settings";
@@ -49,6 +51,9 @@ export class MockSettings {
   private output: OutputChoice = { ...defaultOutput };
   private listening: ListeningSettings = { ...defaultListening, eqBands: [] };
   private outputsListeners: (() => void)[] = [];
+  private eqPresets: EqPreset[] = [
+    { name: "テスト用（低音 +5.5）", bands: structuredClone(MOCK_PRESET), autoPreamp: true, manualPreampDb: 0 },
+  ];
 
   constructor(
     private readonly onListening: (l: ListeningSettings) => void = () => {},
@@ -56,7 +61,7 @@ export class MockSettings {
   ) {}
 
   async get(): Promise<SettingsInfo> {
-    return structuredClone({ output: this.output, listening: this.listening });
+    return structuredClone({ output: this.output, listening: this.listening, eqPresets: this.eqPresets });
   }
   async setListening(l: ListeningSettings): Promise<SetResult> {
     this.listening = structuredClone(l);
@@ -91,6 +96,10 @@ export class MockSettings {
   }
   async eqSolo(band: number | null): Promise<void> {
     this.onSolo(band);
+  }
+  async setEqPresets(list: EqPreset[]): Promise<PresetsResult> {
+    this.eqPresets = structuredClone(list);
+    return { ok: true, eqPresets: structuredClone(this.eqPresets) };
   }
   onOutputsChanged(listener: () => void) {
     this.outputsListeners.push(listener);

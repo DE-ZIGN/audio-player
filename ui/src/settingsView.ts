@@ -5,6 +5,8 @@
 
 import type { SettingsApi } from "./backend";
 import { EqEditor } from "./eqEditor";
+import { PresetBar, type PresetHost } from "./eqPresetBar";
+import { applyPreset, type EqPreset } from "./eqPresets";
 import { autoPreampDb, responsePoints } from "./eqResponse";
 import {
   activeBands,
@@ -41,6 +43,8 @@ export class SettingsView {
   private sendTimer: ReturnType<typeof setTimeout> | undefined;
   private loaded = false;
   private readonly editor: EqEditor;
+  private presets: EqPreset[] = []; // task 6-9, the app's list
+  private readonly presetBars: PresetBar[];
 
   private readonly els = {
     section: $("settings"),
@@ -86,6 +90,26 @@ export class SettingsView {
       (processed) => this.change({ mode: processed ? "processed" : "original" }),
     );
 
+    // EQ presets (task 6-9): the same bar on this screen and in the EQ dialog.
+    const presetHost: PresetHost = {
+      chosen: "",
+      listening: () => this.listening,
+      presets: () => this.presets,
+      // Choosing a preset puts its curve into the EQ and switches the EQ on (as reading a file does).
+      apply: (p) => {
+        const l = applyPreset(this.listening, p);
+        this.change({ eqBands: l.eqBands, eqAutoPreamp: l.eqAutoPreamp, eqManualPreampDb: l.eqManualPreampDb, eqEnabled: true });
+      },
+      save: async (list) => {
+        const r = await this.api.setEqPresets(list);
+        if (!r.ok) return r.message ?? "プリセットを保存できませんでした";
+        this.presets = r.eqPresets ?? list;
+        this.renderPresets();
+        return null;
+      },
+    };
+    this.presetBars = [new PresetBar($("eq-presets"), presetHost), new PresetBar($("eqd-presets"), presetHost)];
+
     for (const r of document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))
       r.addEventListener("change", () => r.checked && this.change({ mode: r.value as ListeningSettings["mode"] }));
     this.els.ispOriginal.addEventListener("change", () =>
@@ -115,6 +139,7 @@ export class SettingsView {
       const s = await this.api.get();
       this.listening = s.listening;
       this.output = s.output;
+      this.presets = s.eqPresets ?? [];
       this.loaded = true;
       this.renderListening();
       await this.refreshOutputs();
@@ -221,6 +246,11 @@ export class SettingsView {
     this.els.section.classList.toggle("original-mode", l.mode === "original");
     this.drawCurve();
     this.editor.render();
+    this.renderPresets();
+  }
+
+  private renderPresets() {
+    for (const b of this.presetBars) b.render();
   }
 
   private async importEq() {

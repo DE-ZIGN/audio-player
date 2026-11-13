@@ -3,6 +3,7 @@
 // server opened directly) a mock backend simulates playback so the page can
 // be worked on without the app.
 
+import type { EqPreset } from "./eqPresets";
 import { emptyStatus, type BitPerfectVerdict, type MeterStatus, type PlaybackStatus, type SignalPath } from "./status";
 import type {
   ActionResult,
@@ -26,6 +27,7 @@ import type {
   OutputsInfo,
   SetResult,
   SettingsInfo,
+  PresetsResult,
 } from "./settings";
 
 // The play queue as the app holds it (task 6-2). id 0: not from the library.
@@ -70,6 +72,7 @@ export interface SettingsApi {
   importEq(): Promise<EqImport>; // shows a file dialog
   eqCurve(bands: EqBand[]): Promise<EqCurve>; // the engine's (the page draws with eqResponse.ts)
   eqSolo(band: number | null): Promise<void>; // play one band alone; not saved
+  setEqPresets(list: EqPreset[]): Promise<PresetsResult>; // the whole list (task 6-9); saved
   onOutputsChanged(listener: () => void): void;
 }
 
@@ -177,6 +180,9 @@ class AppSettings implements SettingsApi {
   }
   async eqSolo(band: number | null) {
     await this.fn("settingsEqSolo")(band ?? -1);
+  }
+  async setEqPresets(list: EqPreset[]) {
+    return ((await this.fn("settingsSetEqPresets")(list)) as PresetsResult | null) ?? { ok: false };
   }
   onOutputsChanged(listener: () => void) {
     window.__JUCE__!.backend.addEventListener(OUTPUTS_EVENT, () => listener());
@@ -348,7 +354,8 @@ export class MockBackend implements Backend {
         startFrames: Math.round(r.startSeconds * rate),
         lengthFrames: Math.round(r.seconds * rate),
         rate,
-        matchDb: r.kind === "16bit" ? 0 : 3.21,
+        matchDb: r.kind === "16bit" ? 0 : r.kind === "presets" ? -1.42 : 3.21,
+        ...(r.kind === "presets" ? { aName: r.a?.name, bName: r.b?.name } : {}),
         result: null,
       };
       this.update({ ...this.status, abx, positionFrames: abx.startFrames });

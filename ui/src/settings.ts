@@ -1,6 +1,8 @@
 // The settings screen's data (task 6-3), as app/src/SettingsBridge.cpp sends
 // and takes it, and the pure parts of the screen (texts, limits, the curve).
 
+import type { EqPreset } from "./eqPresets";
+
 export type ListeningMode = "original" | "processed";
 export type ReplayGainMode = "off" | "track" | "album";
 export type IspSafeMode = "off" | "measured" | "fixed";
@@ -35,6 +37,7 @@ export interface OutputChoice {
 export interface SettingsInfo {
   output: OutputChoice;
   listening: ListeningSettings;
+  eqPresets?: EqPreset[]; // task 6-9
 }
 
 export interface OutputDevice {
@@ -68,6 +71,11 @@ export interface EqImport {
   filePreampDb?: number | null;
 }
 
+export interface PresetsResult {
+  ok: boolean;
+  message?: string;
+  eqPresets?: EqPreset[];
+}
 export interface SetResult {
   ok: boolean;
   message?: string;

@@ -7,12 +7,14 @@ import type { AbxApi } from "./backend";
 import {
   defaultRegion,
   keyAction,
-  KINDS,
+  presetPairProblem,
   regionText,
   resultText,
+  sideLabels,
   type AbxChoice,
   type AbxKind,
 } from "./abx";
+import { FLAT_PRESET, type EqPreset } from "./eqPresets";
 import type { PlaybackStatus } from "./status";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -25,6 +27,7 @@ function clock(seconds: number): string {
 export class AbxView {
   private status: PlaybackStatus | null = null;
   private preparing = false;
+  private presets: EqPreset[] = []; // 設定 A と設定 B (task 6-9)
 
   private readonly els = {
     dialog: $<HTMLDialogElement>("abx-dialog"),
@@ -32,6 +35,9 @@ export class AbxView {
     close: $<HTMLButtonElement>("abx-close"),
     setup: $("abx-setup"),
     kindNote: $("abx-kind-note"),
+    presetBox: $("abx-presets"),
+    presetA: $<HTMLSelectElement>("abx-preset-a"),
+    presetB: $<HTMLSelectElement>("abx-preset-b"),
     start: $<HTMLInputElement>("abx-start"),
     startText: $("abx-start-text"),
     here: $<HTMLButtonElement>("abx-here"),
@@ -59,8 +65,12 @@ export class AbxView {
     done: $<HTMLButtonElement>("abx-done"),
   };
 
-  constructor(private readonly api: AbxApi) {
+  constructor(
+    private readonly api: AbxApi,
+    private readonly loadPresets: () => Promise<EqPreset[]>,
+  ) {
     const e = this.els;
+    for (const sel of [e.presetA, e.presetB]) sel.addEventListener("change", () => this.renderSetupNotes());
     e.close.addEventListener("click", () => void this.close());
     e.done.addEventListener("click", () => void this.close());
     e.again.addEventListener("click", async () => {
@@ -139,6 +149,30 @@ export class AbxView {
     e.error.hidden = true;
     this.fillRegion(true);
     this.renderSetupNotes();
+    void this.refreshPresets();
+  }
+
+  // The presets to choose from: "EQ なし" first, then the saved ones. The
+  // choices made before stay when they still exist.
+  private async refreshPresets() {
+    try {
+      this.presets = await this.loadPresets();
+    } catch {
+      this.presets = [];
+    }
+    const fill = (sel: HTMLSelectElement, fallback: string) => {
+      const before = sel.value;
+      sel.replaceChildren(new Option(FLAT_PRESET.name, "flat"), ...this.presets.map((p) => new Option(p.name, `p:${p.name}`)));
+      const values = [...sel.options].map((o) => o.value);
+      sel.value = values.includes(before) ? before : values.includes(fallback) ? fallback : values[0];
+    };
+    fill(this.els.presetA, "flat");
+    fill(this.els.presetB, this.presets[0] ? `p:${this.presets[0].name}` : "flat");
+    this.renderSetupNotes();
+  }
+
+  private presetFor(value: string): EqPreset | undefined {
+    return value === "flat" ? FLAT_PRESET : this.presets.find((p) => `p:${p.name}` === value);
   }
 
   private fillRegion(fromPosition: boolean) {
@@ -160,13 +194,18 @@ export class AbxView {
     let problem = "";
     if (!s || s.state === "empty" || !s.sourceFormat) problem = "ABX で聴く曲を、先に再生してください。";
     else if (s.dop) problem = "DSD（DoP）の曲は ABX で比べられません（DoP のデータには処理をかけないため）。";
-    e.startBtn.disabled = problem !== "" || this.preparing;
+    const presets = this.kind() === "presets";
+    e.presetBox.hidden = !presets;
+    const pairProblem = presets ? presetPairProblem(e.presetA.value, e.presetB.value, 1 + this.presets.length) : "";
+    e.startBtn.disabled = problem !== "" || pairProblem !== "" || this.preparing;
     if (problem) {
       e.error.hidden = false;
       e.error.textContent = problem;
     }
-    let note = "";
-    if (this.kind() === "processed" && s?.mode === "original")
+    let note = pairProblem;
+    if (note) {
+      // (the pair's problem, above)
+    } else if (this.kind() === "processed" && s?.mode === "original")
       note =
         "今は原音モードなので、B も原音と同じ音です（確かめ用の対照として使えます）。音作りの設定と比べるには、設定画面で音作りモードにしてから始めてください。";
     else if (this.kind() === "16bit" && s?.sourceFormat?.sampleType === "int" && s.sourceFormat.validBits <= 16)
@@ -181,11 +220,13 @@ export class AbxView {
     e.startBtn.disabled = true;
     e.preparing.hidden = false;
     e.error.hidden = true;
+    const kind = this.kind();
     const r = await this.api.start({
-      kind: this.kind(),
+      kind,
       startSeconds: Number(e.start.value),
       seconds: Number(e.length.value),
       trials: Number(e.trials.value),
+      ...(kind === "presets" ? { a: this.presetFor(e.presetA.value), b: this.presetFor(e.presetB.value) } : {}),
     });
     this.preparing = false;
     e.preparing.hidden = true;
@@ -206,8 +247,9 @@ export class AbxView {
     e.run.hidden = false;
     e.trial.textContent = `${a.trial} / ${a.trials} 回目`;
     e.region.textContent = regionText(a.startFrames, a.lengthFrames, a.rate);
-    e.aLabel.textContent = KINDS[a.kind].a;
-    e.bLabel.textContent = KINDS[a.kind].b;
+    const labels = sideLabels(a);
+    e.aLabel.textContent = labels.a;
+    e.bLabel.textContent = labels.b;
     for (const b of document.querySelectorAll<HTMLButtonElement>(".abx-choice")) {
       const on = b.dataset.choice === a.listening;
       b.classList.toggle("active", on);
@@ -215,7 +257,7 @@ export class AbxView {
     }
     const sign = a.matchDb > 0 ? "+" : a.matchDb < 0 ? "−" : "±";
     e.match.textContent =
-      `比べるもの：${KINDS[a.kind].title}。B を ${sign}${Math.abs(a.matchDb).toFixed(2)} dB にして、A と同じ音量に合わせています（この区間で解析）。` +
+      `比べるもの：${labels.title}。B を ${sign}${Math.abs(a.matchDb).toFixed(2)} dB にして、A と同じ音量に合わせています（この区間で解析）。` +
       "答えると X が入れ替わります（聴いている音はそのまま）。";
   }
 

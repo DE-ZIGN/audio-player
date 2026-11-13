@@ -156,6 +156,7 @@
               <button type="button" id="eq-import">ファイルから読み込む…</button>
               <button type="button" id="eq-open" class="primary">EQ を開く</button>
             </div>
+            <div id="eq-presets"></div>
             <svg class="eq-curve" id="eq-curve" viewBox="0 0 560 160" preserveAspectRatio="none" role="button" tabindex="0" aria-label="EQ の周波数特性（クリックで EQ を開く）"></svg>
             <p class="note" id="eq-preamp"></p>
             <p class="notice" id="eq-warnings" hidden></p>
@@ -221,6 +222,7 @@
         <button type="button" id="eqd-import">ファイルから読み込む…</button>
         <button type="button" id="eqd-clear" class="link">すべて消す</button>
       </div>
+      <div id="eqd-presets"></div>
       <div class="eq-graph-wrap">
         <svg id="eqd-graph" class="eq-graph" role="application" aria-label="EQ のグラフ。ダブルクリックでバンドを足す"></svg>
       </div>
@@ -258,6 +260,12 @@
           <legend>比べるもの</legend>
           <label class="check"><input type="radio" name="abx-kind" value="processed" checked /> 原音 と 音作り（今の設定）</label>
           <label class="check"><input type="radio" name="abx-kind" value="16bit" /> 原音 と 16bit（TPDF ディザ）</label>
+          <label class="check"><input type="radio" name="abx-kind" value="presets" /> 設定 A と 設定 B（EQ のプリセット）</label>
+          <div class="abx-presets" id="abx-presets" hidden>
+            <label>A <select id="abx-preset-a" aria-label="設定 A"></select></label>
+            <label>B <select id="abx-preset-b" aria-label="設定 B"></select></label>
+            <p class="note">どちらも音作りモードで、今の ReplayGain・ISP セーフ・音量をかけ、EQ だけを A と B で変えます。B の音量は A に合わせます。</p>
+          </div>
           <p class="notice" id="abx-kind-note" hidden></p>
         </fieldset>
         <div class="abx-region">

@@ -2,7 +2,9 @@
 // engine (AbxTest, task 4-1): results stay hidden until the last trial,
 // "distinguished" means p < 0.05, and the texts never say which sounds better.
 
-export type AbxKind = "processed" | "16bit";
+import type { EqPreset } from "./eqPresets";
+
+export type AbxKind = "processed" | "16bit" | "presets";
 export type AbxChoice = "A" | "B" | "X";
 
 export interface AbxResultInfo {
@@ -27,6 +29,8 @@ export interface AbxStatus {
   lengthFrames: number;
   rate: number;
   matchDb: number; // the gain on B to match A's loudness
+  aName?: string; // 設定 A と設定 B: the presets' names
+  bName?: string;
   result: AbxResultInfo | null; // when it has ended
 }
 
@@ -35,12 +39,30 @@ export interface AbxRequest {
   startSeconds: number;
   seconds: number;
   trials: number;
+  a?: EqPreset; // 設定 A と設定 B (task 6-9)
+  b?: EqPreset;
 }
 
 export const KINDS: Record<AbxKind, { title: string; a: string; b: string }> = {
   processed: { title: "原音 と 音作り（今の設定）", a: "原音", b: "音作り" },
   "16bit": { title: "原音 と 16bit（TPDF ディザ）", a: "原音", b: "16bit" },
+  presets: { title: "設定 A と 設定 B（EQ のプリセット）", a: "設定 A", b: "設定 B" },
 };
+
+// What the A and B buttons and the run's description call the two sides.
+export function sideLabels(a: { kind: AbxKind; aName?: string; bName?: string }) {
+  if (a.kind === "presets" && a.aName && a.bName)
+    return { a: a.aName, b: a.bName, title: `設定 A「${a.aName}」と 設定 B「${a.bName}」` };
+  return { ...KINDS[a.kind] };
+}
+
+// The two settings chosen for 設定 A と設定 B ("" when they can be compared).
+// `choices`: how many there are to choose from (the flat one included).
+export function presetPairProblem(a: string, b: string, choices: number): string {
+  if (choices < 2) return "比べるプリセットがありません。設定画面の EQ で、今の EQ をプリセットとして保存してください。";
+  if (a === b) return "A と B に違う設定を選んでください。";
+  return "";
+}
 
 function choose(n: number, k: number): number {
   let c = 1;
