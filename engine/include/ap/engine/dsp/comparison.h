@@ -121,8 +121,9 @@ class ProcessingChain;
 // playing one) and returns how much the processed side must be lifted to be as
 // loud as the original (dB, K-weighted energies). With an EQ the answer
 // depends on the music, so it is worked out over the same part that is
-// compared. Throws std::invalid_argument for DoP.
+// compared. With `reference` (設定 A と設定 B, task 6-9), side A is that
+// chain's output instead of the source itself. Throws std::invalid_argument for DoP.
 double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo& track,
-                      std::optional<std::uint64_t> frames = std::nullopt);
+                      std::optional<std::uint64_t> frames = std::nullopt, ProcessingChain* reference = nullptr);
 
 } // namespace ap::engine

@@ -75,10 +75,29 @@ struct OutputChoice
     bool operator==(const OutputChoice&) const = default;
 };
 
+// An EQ curve under a name (task 6-9): the bands and the preamp. Whether the
+// EQ is used, and the mode, stay with the settings.
+struct NamedEqPreset
+{
+    std::string name;
+    std::vector<EqBand> bands; // at most EqStage::kMaxBands
+    bool autoPreamp = true;
+    double manualPreampDb = 0.0;
+
+    bool operator==(const NamedEqPreset&) const = default;
+};
+
+inline constexpr std::size_t kMaxEqPresets = 100;
+
+NamedEqPreset eqPresetFrom(const ListeningSettings& settings, std::string name);
+// Puts the preset's curve into the settings; the rest is left as it was.
+void applyEqPreset(ListeningSettings& settings, const NamedEqPreset& preset);
+
 struct AppSettings
 {
     OutputChoice output;
     ListeningSettings listening;
+    std::vector<NamedEqPreset> eqPresets; // at most kMaxEqPresets, in the user's order
 
     bool operator==(const AppSettings&) const = default;
 };

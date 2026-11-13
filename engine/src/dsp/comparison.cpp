@@ -166,7 +166,7 @@ void AbComparison::process(std::span<const double> original, std::span<double> p
 }
 
 double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo& track,
-                      std::optional<std::uint64_t> frames)
+                      std::optional<std::uint64_t> frames, ProcessingChain* reference)
 {
     if (source.dop())
         throw std::invalid_argument("DoP is not PCM audio");
@@ -189,6 +189,11 @@ double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo
 
     chain.trackStarted(track);
     chain.prepare(f.sampleRate, ch);
+    if (reference)
+    {
+        reference->trackStarted(track);
+        reference->prepare(f.sampleRate, ch);
+    }
     constexpr std::size_t kChunk = 8192;
     std::vector<std::byte> bytes(kChunk * f.bytesPerFrame());
     std::vector<double> original(kChunk * ch), processed(kChunk * ch);
@@ -205,16 +210,26 @@ double measureMatchDb(PcmSource& source, ProcessingChain& chain, const TrackInfo
         dsp::toDouble(std::span(bytes).first(n * f.bytesPerFrame()), f, std::span(original).first(n * ch));
         std::copy(original.begin(), original.begin() + static_cast<std::ptrdiff_t>(n * ch), processed.begin());
         chain.process(std::span(processed).first(n * ch), ch);
+        if (reference)
+            reference->process(std::span(original).first(n * ch), ch); // side A
         eo += energy(original, n, stOriginal);
         ep += energy(processed, n, stProcessed);
     }
-    // The chain's look-ahead: push its last frames out.
+    // The chains' look-ahead: push their last frames out.
     for (std::size_t tail = chain.latencyFrames(); tail > 0;)
     {
         const std::size_t n = std::min(tail, kChunk);
         std::fill(processed.begin(), processed.begin() + static_cast<std::ptrdiff_t>(n * ch), 0.0);
         chain.process(std::span(processed).first(n * ch), ch);
         ep += energy(processed, n, stProcessed);
+        tail -= n;
+    }
+    for (std::size_t tail = reference ? reference->latencyFrames() : 0; tail > 0;)
+    {
+        const std::size_t n = std::min(tail, kChunk);
+        std::fill(original.begin(), original.begin() + static_cast<std::ptrdiff_t>(n * ch), 0.0);
+        reference->process(std::span(original).first(n * ch), ch);
+        eo += energy(original, n, stOriginal);
         tail -= n;
     }
     if (!(eo > 1e-20) || !(ep > 1e-20))

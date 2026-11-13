@@ -316,3 +316,84 @@ TEST_CASE("Saving settings: a line break in a device name cannot add a line", "[
     CHECK(back.listening.mode == ListeningMode::Original);
     CHECK(back.output.name == "DAC mode=processed");
 }
+
+// Task 6-9: EQ presets - an EQ curve (bands and preamp) under a name, saved
+// with the settings and called up into them.
+
+TEST_CASE("EQ presets: taken from the settings and put back into them (the curve only)", "[settings][presets]")
+{
+    ListeningSettings l = everythingOn(ListeningMode::Processed);
+    l.eqBands = {EqBand{EqFilterType::LowShelf, 105.0, 5.5, 0.7, true}, EqBand{EqFilterType::Peak, 2900.0, 3.0, 1.0, false}};
+    l.eqAutoPreamp = false;
+    l.eqManualPreampDb = -2.0;
+    const NamedEqPreset p = eqPresetFrom(l, "ヘッドホン A");
+    CHECK(p.name == "ヘッドホン A");
+    CHECK(p.bands == l.eqBands);
+    CHECK_FALSE(p.autoPreamp);
+    CHECK(p.manualPreampDb == -2.0);
+
+    ListeningSettings other; // 原音モード, EQ on, no bands
+    other.eqEnabled = false;
+    applyEqPreset(other, p);
+    CHECK(other.eqBands == p.bands);
+    CHECK_FALSE(other.eqAutoPreamp);
+    CHECK(other.eqManualPreampDb == -2.0);
+    // The rest is left as it was: the mode and whether the EQ is used.
+    CHECK(other.mode == ListeningMode::Original);
+    CHECK_FALSE(other.eqEnabled);
+}
+
+TEST_CASE("EQ presets are saved with the settings and read back exactly", "[settings][presets][text]")
+{
+    AppSettings a;
+    a.listening.eqBands = {EqBand{EqFilterType::Peak, 1000.0, -3.5, 0.7071, true}};
+    a.eqPresets.push_back(NamedEqPreset{"平ら", {}, true, 0.0});
+    a.eqPresets.push_back(NamedEqPreset{"HD 600 (AutoEQ)",
+                                   {EqBand{EqFilterType::LowShelf, 105.0, 6.5, 0.7, true},
+                                    EqBand{EqFilterType::Notch, 50.0, 0.0, 30.0, false}},
+                                   false,
+                                   -1.25});
+    const auto back = settingsFromText(settingsToText(a));
+    CHECK(back == a);
+    CHECK(back.listening.eqBands == a.listening.eqBands); // the current EQ is not mixed with a preset's
+}
+
+TEST_CASE("Reading EQ presets: leniently, within limits", "[settings][presets][text]")
+{
+    std::string text = "eqpreset.band=on peak 100 1 1\n" // before any name: no preset to belong to
+                       "eqpreset.name=A\n"
+                       "eqpreset.band=on peak 100 1 1\n"
+                       "eqpreset.band=on bell 100 1 1\n" // unknown type: skipped
+                       "eqpreset.preamp=3\n"             // above 0 dB: 0 dB
+                       "eqpreset.autopreamp=0\n"
+                       "eqpreset.name=\n"                // no name: not a preset
+                       "eqpreset.band=on peak 200 1 1\n";
+    for (int i = 0; i < 40; ++i)
+        text += "eqpreset.band=on peak " + std::to_string(300 + i) + " 1 1\n";
+    const auto s = settingsFromText(text);
+    REQUIRE(s.eqPresets.size() == 1);
+    CHECK(s.eqPresets[0].name == "A");
+    CHECK(s.eqPresets[0].bands.size() == 1);
+    CHECK(s.eqPresets[0].manualPreampDb == 0.0);
+    CHECK_FALSE(s.eqPresets[0].autoPreamp);
+    CHECK(s.listening.eqBands.empty());
+
+    std::string many;
+    for (std::size_t i = 0; i < kMaxEqPresets + 5; ++i)
+        many += "eqpreset.name=P" + std::to_string(i) + "\neqpreset.band=on peak 1000 1 1\n";
+    for (int i = 0; i < 40; ++i)
+        many += "eqpreset.band=on peak " + std::to_string(300 + i) + " 1 1\n";
+    const auto m = settingsFromText(many);
+    CHECK(m.eqPresets.size() == kMaxEqPresets);
+    CHECK(m.eqPresets.back().bands.size() <= EqStage::kMaxBands);
+}
+
+TEST_CASE("Saving EQ presets: a line break in a name cannot add a line", "[settings][presets][text]")
+{
+    AppSettings a;
+    a.eqPresets.push_back(NamedEqPreset{"A\nmode=processed", {}, true, 0.0});
+    const auto back = settingsFromText(settingsToText(a));
+    CHECK(back.listening.mode == ListeningMode::Original);
+    REQUIRE(back.eqPresets.size() == 1);
+    CHECK(back.eqPresets[0].name == "A mode=processed");
+}

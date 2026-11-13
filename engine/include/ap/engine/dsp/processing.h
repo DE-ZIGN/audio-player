@@ -10,6 +10,7 @@
 #include <ap/engine/track_info.h>
 
 #include <atomic>
+#include <mutex>
 
 #include <cstddef>
 #include <cstdint>
@@ -94,6 +95,15 @@ public:
     bool comparing() const noexcept { return comparingRequested_; }
     AbComparison& comparison() noexcept { return *comparison_; }
 
+    // 設定 A と設定 B (task 6-9): while comparing, side A is this second chain's
+    // sound (the same input through other settings) instead of the input
+    // itself. nullptr: side A is the input (原音), as before. Set it while
+    // nothing plays (it is taken at prepare()). Side A is lined up in time with
+    // side B: it is delayed by this chain's latency less the reference's, so
+    // the reference must not delay more than this chain (two ListeningChains
+    // always delay the same).
+    void setReference(std::shared_ptr<ProcessingChain> reference);
+
     // True when every stage is identity: the direct path is used.
     bool bypassed() const noexcept;
 
@@ -119,8 +129,14 @@ private:
     // Tells each stage the product of the earlier stages' peak gains.
     void updateUpstreamGains() const noexcept;
 
+    std::size_t stagesLatency() const noexcept;
+
     std::vector<std::shared_ptr<ProcessingStage>> stages_;
     std::atomic<bool> comparingRequested_{false};
+    mutable std::mutex referenceMutex_; // setReference and prepare only
+    std::shared_ptr<ProcessingChain> reference_;
+    std::shared_ptr<ProcessingChain> referenceNow_; // playback thread, from prepare()
+    TrackInfo lastTrack_; // playback thread: for the reference, which is taken at prepare()
     std::unique_ptr<AbComparison> comparison_;
     // Playback thread only.
     bool comparingNow_ = false; // fixed for an output session at prepare()

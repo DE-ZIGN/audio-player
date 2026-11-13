@@ -140,7 +140,29 @@ std::optional<EqBand> bandFrom(std::string_view v)
     return EqBand{*type, *f, *g, *q, w[0] == "on"};
 }
 
+std::string bandText(const EqBand& b)
+{
+    std::ostringstream out;
+    out << (b.enabled ? "on" : "off") << ' ' << toKey(b.type) << ' ' << number(b.frequency) << ' ' << number(b.gainDb)
+        << ' ' << number(b.q);
+    return out.str();
+}
+
 } // namespace
+
+NamedEqPreset eqPresetFrom(const ListeningSettings& l, std::string name)
+{
+    return NamedEqPreset{std::move(name), l.eqBands, l.eqAutoPreamp, l.eqManualPreampDb};
+}
+
+void applyEqPreset(ListeningSettings& l, const NamedEqPreset& p)
+{
+    l.eqBands = p.bands;
+    if (l.eqBands.size() > EqStage::kMaxBands)
+        l.eqBands.resize(EqStage::kMaxBands);
+    l.eqAutoPreamp = p.autoPreamp;
+    l.eqManualPreampDb = std::min(0.0, p.manualPreampDb);
+}
 
 std::string settingsToText(const AppSettings& s)
 {
@@ -159,8 +181,16 @@ std::string settingsToText(const AppSettings& s)
     out << "eq.autopreamp=" << (l.eqAutoPreamp ? 1 : 0) << '\n';
     out << "eq.preamp=" << number(l.eqManualPreampDb) << '\n';
     for (const auto& b : l.eqBands)
-        out << "eq.band=" << (b.enabled ? "on" : "off") << ' ' << toKey(b.type) << ' ' << number(b.frequency) << ' '
-            << number(b.gainDb) << ' ' << number(b.q) << '\n';
+        out << "eq.band=" << bandText(b) << '\n';
+    // EQ presets (task 6-9): each starts with its name.
+    for (const auto& p : s.eqPresets)
+    {
+        out << "eqpreset.name=" << oneLine(p.name) << '\n';
+        out << "eqpreset.autopreamp=" << (p.autoPreamp ? 1 : 0) << '\n';
+        out << "eqpreset.preamp=" << number(p.manualPreampDb) << '\n';
+        for (const auto& b : p.bands)
+            out << "eqpreset.band=" << bandText(b) << '\n';
+    }
     return out.str();
 }
 
@@ -168,6 +198,7 @@ AppSettings settingsFromText(std::string_view text)
 {
     AppSettings s;
     auto& l = s.listening;
+    NamedEqPreset* preset = nullptr; // the preset the eqpreset.* lines belong to
     while (!text.empty())
     {
         const auto end = text.find('\n');
@@ -217,6 +248,21 @@ AppSettings settingsFromText(std::string_view text)
         {
             if (const auto b = bandFrom(value))
                 l.eqBands.push_back(*b);
+        }
+        else if (key == "eqpreset.name")
+        {
+            preset = nullptr;
+            if (!value.empty() && s.eqPresets.size() < kMaxEqPresets)
+                preset = &s.eqPresets.emplace_back(NamedEqPreset{std::string(value)});
+        }
+        else if (preset && key == "eqpreset.autopreamp")
+            preset->autoPreamp = value != "0";
+        else if (preset && key == "eqpreset.preamp")
+            preset->manualPreampDb = std::min(0.0, parseNumber(value).value_or(0.0));
+        else if (preset && key == "eqpreset.band" && preset->bands.size() < EqStage::kMaxBands)
+        {
+            if (const auto b = bandFrom(value))
+                preset->bands.push_back(*b);
         }
     }
     return s;

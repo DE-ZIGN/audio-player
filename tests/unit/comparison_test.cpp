@@ -3,6 +3,7 @@
 
 #include <ap/engine/dsp/comparison.h>
 #include <ap/engine/dsp/eq.h>
+#include <ap/engine/dsp/limiter.h>
 #include <ap/engine/dsp/loudness.h>
 #include <ap/engine/dsp/volume.h>
 #include <ap/engine/output/dummy_output.h>
@@ -227,4 +228,110 @@ TEST_CASE("Comparison: the level difference is measured lined up in time, after 
     }
     CHECK(ab.levelDifferenceReady());
     CHECK(std::abs(ab.levelDifferenceDb()) < 0.01);
+}
+
+// Task 6-9: 設定 A と設定 B. Side A is a second processing chain (the
+// reference) fed with the same input, instead of the input itself.
+
+namespace {
+std::shared_ptr<ProcessingChain> chainWith(double volumeDb, bool limiter)
+{
+    std::vector<std::shared_ptr<ProcessingStage>> stages;
+    auto vol = std::make_shared<VolumeStage>();
+    vol->setGainDb(volumeDb);
+    stages.push_back(vol);
+    if (limiter)
+        stages.push_back(std::make_shared<SafetyLimiter>());
+    return std::make_shared<ProcessingChain>(std::move(stages));
+}
+
+std::vector<double> sine(std::size_t frames, std::uint16_t channels, double amplitude)
+{
+    std::vector<double> x(frames * channels);
+    for (std::size_t i = 0; i < frames; ++i)
+        for (std::uint16_t c = 0; c < channels; ++c)
+            x[i * channels + c] = amplitude * std::sin(2 * std::numbers::pi * 1000 * static_cast<double>(i) / 48000);
+    return x;
+}
+} // namespace
+
+TEST_CASE("Comparison: with a reference chain, side A is the reference's sound and side B the chain's", "[dsp][comparison]")
+{
+    // B: volume -6 dB; A (the reference): volume -12 dB. No matching (fixed 0 dB).
+    auto chain = chainWith(-6.0, false);
+    chain->setReference(chainWith(-12.0, false));
+    chain->setComparing(true);
+    chain->comparison().setFixedMatchDb(0.0);
+    chain->prepare(48000, 1);
+    const double latency = static_cast<double>(chain->latencyFrames());
+
+    chain->comparison().select(ComparisonSide::Original);
+    auto a = sine(48000, 1, 0.5);
+    const auto in = a;
+    chain->process(a, 1);
+    const auto lag = static_cast<std::size_t>(latency);
+    for (std::size_t i = 20000; i < 20010; ++i)
+        CHECK(std::abs(a[i] - in[i - lag] * std::pow(10.0, -12.0 / 20.0)) < 1e-9);
+
+    chain->comparison().select(ComparisonSide::Processed);
+    auto b = sine(48000, 1, 0.5);
+    chain->process(b, 1);
+    for (std::size_t i = 20000; i < 20010; ++i)
+        CHECK(std::abs(b[i] - in[i - lag] * std::pow(10.0, -6.0 / 20.0)) < 1e-9);
+}
+
+TEST_CASE("Comparison: two chains of the same kind line up in time (each with its own look-ahead)", "[dsp][comparison]")
+{
+    // Both sides go through a safety limiter (the same look-ahead): an
+    // impulse comes out of A and B at the same moment.
+    auto chain = chainWith(0.0, true);
+    chain->setReference(chainWith(0.0, true));
+    chain->setComparing(true);
+    chain->comparison().setFixedMatchDb(0.0);
+    chain->prepare(48000, 1);
+    auto findImpulse = [&](ComparisonSide side) {
+        chain->comparison().select(side);
+        std::vector<double> x(48000, 0.0);
+        x[1000] = 0.25;
+        chain->process(x, 1);
+        std::size_t at = 0;
+        for (std::size_t i = 0; i < x.size(); ++i)
+            if (std::abs(x[i]) > 0.1)
+                at = i;
+        return at;
+    };
+    const auto a = findImpulse(ComparisonSide::Original);
+    const auto b = findImpulse(ComparisonSide::Processed);
+    CHECK(a == b);
+    CHECK(a == 1000 + chain->latencyFrames());
+}
+
+TEST_CASE("Comparison: the match for 設定 A と設定 B brings B to A's loudness", "[dsp][comparison]")
+{
+    std::vector<float> v(48000 * 2 * 2);
+    for (std::size_t i = 0; i < v.size() / 2; ++i)
+        v[2 * i] = v[2 * i + 1] = static_cast<float>(0.3 * std::sin(2 * std::numbers::pi * 440 * static_cast<double>(i) / 48000));
+    std::vector<std::byte> bytes(v.size() * 4);
+    std::memcpy(bytes.data(), v.data(), bytes.size());
+    MemoryPcmSource src(PcmFormat{48000, 2, 32, 32, SampleType::Float, 0x3}, bytes);
+    auto b = chainWith(-6.0, true);
+    auto a = chainWith(-12.0, true);
+    // B is 6 dB louder than A: it must come down 6 dB.
+    CHECK(std::abs(measureMatchDb(src, *b, TrackInfo{}, std::nullopt, a.get()) - (-6.0)) < 0.01);
+}
+
+TEST_CASE("Comparison: without a reference, side A is the input as before", "[dsp][comparison]")
+{
+    auto chain = chainWith(-6.0, false);
+    chain->setReference(chainWith(-12.0, false));
+    chain->setReference(nullptr);
+    chain->setComparing(true);
+    chain->comparison().setFixedMatchDb(0.0);
+    chain->comparison().select(ComparisonSide::Original);
+    chain->prepare(48000, 1);
+    auto x = sine(48000, 1, 0.5);
+    const auto in = x;
+    chain->process(x, 1);
+    const auto lag = chain->latencyFrames();
+    CHECK(std::abs(x[30000] - in[30000 - lag]) < 1e-12);
 }
