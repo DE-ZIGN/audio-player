@@ -101,6 +101,7 @@ const queueIds = () => queue.items.map((i) => i.id);
 
 // The standard view's VU meters (task 6-8).
 const vuMeters = [new VuMeter("L"), new VuMeter("R")];
+let shownTagsKey = "";
 document.getElementById("vu-meters")!.append(...vuMeters.map((m) => m.el));
 
 function levelWidth(db: number | "-inf" | undefined): number {
@@ -139,14 +140,21 @@ function renderTopBar(s: PlaybackStatus) {
   document.getElementById("vu-meters")!.classList.toggle("lamp-off", s.mode === "original");
   els.levelR.classList.toggle("over", right !== undefined && right !== "-inf" && right > 0);
 
-  els.outputTags.replaceChildren(
-    ...outputTags(s).map((t) => {
-      const span = document.createElement("span");
-      span.className = `tag ${t.kind === "plain" ? "" : t.kind}`;
-      span.textContent = t.text;
-      return span;
-    }),
-  );
+  // Redrawn only when they change: the status comes 10 times a second, and a
+  // tag replaced between pressing and releasing the mouse loses the click.
+  const tags = outputTags(s);
+  const tagsKey = JSON.stringify(tags);
+  if (tagsKey !== shownTagsKey) {
+    shownTagsKey = tagsKey;
+    els.outputTags.replaceChildren(
+      ...tags.map((t) => {
+        const span = document.createElement("span");
+        span.className = `tag ${t.kind === "plain" ? "" : t.kind}`;
+        span.textContent = t.text;
+        return span;
+      }),
+    );
+  }
 
   els.prev.disabled = !loaded;
   els.next.disabled = !loaded || s.queueIndex + 1 >= s.queueLength;
