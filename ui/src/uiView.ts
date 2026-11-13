@@ -60,3 +60,24 @@ export function cssPixels(name: string, fallback: number): number {
   const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
   return Number.isFinite(v) && v > 0 ? v : fallback;
 }
+
+// The standard view is the concept image scaled to the window (task 6-8,
+// 2026-11-13): its layout is made for 1115 x 605 CSS px (the 1672 x 908 image
+// read at 150%), and the whole view is zoomed so that it fills the window the
+// way the image would - a maximised 1920 x 1080 window shows it at about
+// 1.67 times. The smaller of the two ratios decides, so nothing is pushed out.
+export const STANDARD_DESIGN = { width: 1115, height: 605 };
+const MIN_ZOOM = 0.75;
+const MAX_ZOOM = 4;
+
+export function standardZoom(width: number, height: number): number {
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return 1;
+  const z = Math.min(width / STANDARD_DESIGN.width, height / STANDARD_DESIGN.height);
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+}
+
+// Sets --ui-zoom on the root element (the standard view's CSS uses it).
+export function applyStandardZoom() {
+  const z = currentUiView() === "standard" ? standardZoom(window.innerWidth, window.innerHeight) : 1;
+  document.documentElement.style.setProperty("--ui-zoom", z.toFixed(4));
+}

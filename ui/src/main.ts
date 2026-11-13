@@ -3,7 +3,7 @@ import { createBackend, type Backend, type QueueInfo } from "./backend";
 import { afterInsert, afterMove, afterRemove, dbToSlider, sliderToDb, volumeLabel, type Db } from "./queueOps";
 import { countsText } from "./libraryFormat";
 import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
-import { applyUiView, currentUiView, loadUiView, onUiViewChange, otherView, saveUiView, VIEW_LABELS, type UiView } from "./uiView";
+import { applyStandardZoom, applyUiView, currentUiView, loadUiView, onUiViewChange, otherView, saveUiView, VIEW_LABELS, type UiView } from "./uiView";
 import { SettingsView } from "./settingsView";
 import { VuMeter } from "./vuMeter";
 import { OutputView } from "./outputView";
@@ -372,6 +372,9 @@ function setUpViews() {
     applyUiView(v);
     if (storage) saveUiView(storage, v);
   };
+  // The standard view's scale first: what redraws on a change reads sizes.
+  onUiViewChange(() => applyStandardZoom());
+  addEventListener("resize", () => applyStandardZoom());
   onUiViewChange(show);
   toggle.addEventListener("click", () => choose(otherView(currentUiView())));
   for (const r of radios) r.addEventListener("change", () => r.checked && choose(r.value as UiView));

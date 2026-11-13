@@ -11,7 +11,7 @@ import type { Level } from "./status";
 import faceUrl from "./textures/vu-face.jpg";
 
 export const VU_REFERENCE_DBFS = -18; // 0 VU
-export const VU_SWEEP = 45; // degrees: a long needle on a pivot far below the face, as on the concept image
+export const VU_SWEEP = 100; // degrees, as on a real VU meter (the concept image's needle is not geometric)
 export const VU_MARKS = [-20, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3];
 const TOP = Math.pow(10, 3 / 20); // +3 VU, the end of the scale
 
@@ -34,8 +34,10 @@ export function needleAngle(vu: number): number {
 
 const SVG = "http://www.w3.org/2000/svg";
 // In the face picture's own pixels (137 x 63, shown at 2/3: 91 x 42 CSS px).
-// The arc and the pivot are measured on the concept image (UI-STANDARD-v1).
-const W = 137, H = 63, CX = 68, CY = 156, R = 130;
+// As on a real meter: the pivot at the bottom centre, just under the paper
+// (hidden by the bezel), the scale on an arc above it; the numbers sit where
+// the concept image has them.
+const W = 137, H = 63, CX = 68, CY = 78, R = 52;
 const FACE = { x: 6, y: 6, w: 126, h: 52 }; // the paper inside the bezel
 
 function el<K extends keyof SVGElementTagNameMap>(name: K, attrs: Record<string, string | number>) {
@@ -66,13 +68,13 @@ export class VuMeter {
       const p1 = point(angle, R), p2 = point(angle, R + (m % 5 === 0 || m >= -3 ? 6 : 4));
       svg.append(el("line", { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, class: m > 0 ? "vu-tick red" : "vu-tick" }));
       if ([-20, -10, -7, -5, -3, -1, 0, 1, 3].includes(m)) {
-        const t = point(angle, R + 12);
+        const t = point(angle, R + 9);
         const text = el("text", { x: t.x, y: t.y + 3, class: m > 0 ? "vu-num red" : "vu-num" });
         text.textContent = m > 0 ? `+${m}` : String(m);
         svg.append(text);
       }
     }
-    const vu = el("text", { x: CX, y: 46, class: "vu-label" });
+    const vu = el("text", { x: CX, y: 50, class: "vu-label" });
     vu.textContent = "VU";
     svg.append(vu);
     // The needle shows only on the paper (a clip: a moving needle may be
@@ -81,7 +83,7 @@ export class VuMeter {
     const clip = el("clipPath", { id: clipId });
     clip.append(el("rect", { x: FACE.x, y: FACE.y, width: FACE.w, height: FACE.h }));
     const holder = el("g", { "clip-path": `url(#${clipId})` });
-    this.needle = el("line", { x1: CX, y1: CY, x2: CX, y2: CY - R - 8, class: "vu-needle" });
+    this.needle = el("line", { x1: CX, y1: CY, x2: CX, y2: CY - R - 5, class: "vu-needle" });
     holder.append(this.needle);
     svg.append(clip, holder);
     // The channel under the meter, as on the concept image.
