@@ -58,12 +58,14 @@ public:
         }
 
         // Processing switched on or off while playing (e.g. the volume left or
-        // returned to 100%): end this session so the output is reopened at the
-        // current position for the other path. DoP is never processed.
+        // returned to 100%), or a stage's latency changed (the tube switched on
+        // or off): end this session so the output is reopened at the current
+        // position for the other path. DoP is never processed.
         if (const auto* chain = p_.options_.processing.get(); chain && !dop_ && p_.sessionPlan_)
         {
             const bool wanted = p_.sessionPlan_->processingRequired || !chain->bypassed();
-            if (wanted != p_.sessionPlan_->processing || chain->comparing() != p_.sessionPlan_->comparison)
+            if (wanted != p_.sessionPlan_->processing || chain->comparing() != p_.sessionPlan_->comparison ||
+                (p_.sessionPlan_->processing && chain->needsReprepare()))
             {
                 p_.pathChangePending_ = true;
                 p_.dataEndedAt_ = std::chrono::steady_clock::now();

@@ -88,6 +88,7 @@ void ProcessingChain::prepare(std::uint32_t sampleRate, std::uint16_t channels)
 {
     for (const auto& s : stages_)
         s->prepare(sampleRate, channels);
+    preparedLatency_ = stagesLatency();
     comparingNow_ = comparingRequested_;
     {
         std::lock_guard lock(referenceMutex_);

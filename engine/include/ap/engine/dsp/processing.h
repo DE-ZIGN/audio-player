@@ -113,6 +113,12 @@ public:
 
     std::size_t latencyFrames() const noexcept;
 
+    // True when the stages' latency is no longer what it was at prepare() (a
+    // stage with look-ahead was switched on or off, e.g. the tube stage): the
+    // player then ends the session and reopens at the position, as when the
+    // processing path is switched on or off.
+    bool needsReprepare() const noexcept { return stagesLatency() != preparedLatency_; }
+
     // The stages that run on the processing path now, with their values
     // (thread-safe; for the display), and the comparison when it is on.
     std::vector<StageState> activeStageStates() const;
@@ -130,6 +136,7 @@ private:
     void updateUpstreamGains() const noexcept;
 
     std::size_t stagesLatency() const noexcept;
+    std::size_t preparedLatency_ = 0; // the stages' latency at prepare()
 
     std::vector<std::shared_ptr<ProcessingStage>> stages_;
     std::atomic<bool> comparingRequested_{false};
