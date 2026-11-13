@@ -381,6 +381,11 @@ function setUpViews() {
 async function main() {
   loadTheme();
   setUpViews();
+  // The concept image over the page (task 6-8). Dev server only: the app's
+  // build leaves this out.
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has("mockup")) {
+    void import("./dev/mockupOverlay").then((m) => m.installMockupOverlay());
+  }
   backend = await createBackend();
   els.backendKind.textContent = backend.kind === "mock" ? "模擬エンジン（ブラウザー単体で表示中）" : "";
 
