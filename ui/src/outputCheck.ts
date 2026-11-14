@@ -3,9 +3,10 @@
 // warning and the meters show, worked out from the playback status. The
 // texts say what is done and what was measured; never that it sounds better.
 
+import { TUBE_LABELS, type TubeType } from "./settings";
 import { dsdRateName, meterNote } from "./messages";
 import { dbText } from "./settings";
-import type { FormatInfo, Level, PlaybackStatus } from "./status";
+import type { FormatInfo, Level, PlaybackStatus, StageState } from "./status";
 
 export interface PathBox {
   title: string;
@@ -115,14 +116,19 @@ export function pathModel(s: PlaybackStatus): PathModel {
   const p = s.path;
   const active = !!p && p.processing && !s.dop;
   const stage = (id: string) => (active ? s.stages.find((st) => st.name === id) : undefined);
-  const row = (name: string, id: string, value: (g: number | "-inf" | null) => string): StageRow => {
+  const row = (name: string, id: string, value: (g: number | "-inf" | null, st: StageState) => string): StageRow => {
     const st = stage(id);
-    return st ? { name, on: true, value: value(st.gainDb) } : { name, on: false, value: "OFF" };
+    return st ? { name, on: true, value: value(st.gainDb, st) } : { name, on: false, value: "OFF" };
   };
   const limiterOn = !!stage("limiter");
   const rows: StageRow[] = [
     row("ReplayGain", "replaygain", gainText),
     row("EQ", "eq", (g) => (g === null ? "ON" : `プリアンプ ${gainText(g)}`)),
+    row("トーン", "tone", (g) => (g === null ? "ON" : `プリアンプ ${gainText(g)}`)),
+    row("真空管", "tube", (g, st) => {
+      const type = TUBE_LABELS[st.detail as TubeType] ?? "ON";
+      return g === null ? type : `${type}・DRIVE ${gainText(g)}`;
+    }),
     row("デジタル音量", "volume", gainText),
     row("ISP セーフ", "isp-safe", gainText),
     limiterOn
@@ -174,6 +180,8 @@ export function pathModel(s: PlaybackStatus): PathModel {
 const STAGE_NAMES: Record<string, string> = {
   replaygain: "ReplayGain",
   eq: "パラメトリック EQ",
+  tone: "トーン",
+  tube: "真空管",
   volume: "デジタル音量",
   "isp-safe": "ISP セーフ",
 };

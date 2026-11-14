@@ -31,7 +31,7 @@ describe("mode summary", () => {
     const t = modeSummary({ ...defaultListening, replayGain: "track" });
     expect(t).toContain("原音モード");
     expect(t).toContain("何も処理しません");
-    expect(t).toContain("ReplayGain と EQ はかけません");
+    expect(t).toContain("ReplayGain・EQ・トーン・真空管はかけません");
     expect(t).not.toContain("ISP");
   });
   it("原音モード with the ISP-safe gain on says so", () => {
@@ -52,6 +52,21 @@ describe("mode summary", () => {
     expect(modeSummary(l)).toBe(
       "音作りモード：ReplayGain（アルバム）、EQ（2 バンド）、ISP セーフ（計測した値で下げる）を 64bit 浮動小数点でかけます。",
     );
+  });
+  it("音作りモード lists the tone and the tube (task 9-3)", () => {
+    const l: ListeningSettings = {
+      ...defaultListening,
+      mode: "processed",
+      ispSafeProcessed: "off",
+      toneBassDb: 3,
+      toneTrebleDb: 0,
+      tubeEnabled: true,
+      tubeType: "ppel34",
+      tubeDriveDb: -6,
+    };
+    expect(modeSummary(l)).toBe("音作りモード：トーン（BASS +3.0 dB）、真空管（PP EL34、DRIVE -6.0 dB）を 64bit 浮動小数点でかけます。");
+    // Off and flat: not listed.
+    expect(modeSummary({ ...l, tubeEnabled: false, toneBassDb: 0 })).toContain("かける処理がありません");
   });
   it("音作りモード with nothing to apply says the output is the same as 原音モード", () => {
     const t = modeSummary({ ...defaultListening, mode: "processed", ispSafeProcessed: "off" });

@@ -693,3 +693,11 @@ describe("Output field (top bar)", () => {
     expect(outputTags(emptyStatus)).toEqual([{ text: "—", kind: "plain" }]);
   });
 });
+
+describe("the tone and the tube in the texts (task 9-3)", () => {
+  it("name the tube's type and DRIVE, and the tone's preamp", () => {
+    expect(stageText({ name: "tube", gainDb: -6, detail: "se300b" })).toBe("真空管（SE 300B、DRIVE -6.0 dB）");
+    expect(stageText({ name: "tube", gainDb: 0, detail: "ppclassa" })).toBe("真空管（PP CLASS A、DRIVE 0.0 dB）");
+    expect(stageText({ name: "tone", gainDb: -4.5 })).toBe("トーン（プリアンプ -4.5 dB）");
+  });
+});

@@ -19,7 +19,8 @@ namespace ap::app {
 // the page has loaded.
 //
 // Native functions (JavaScript -> C++), see ui/src/backend.ts:
-//   settingsGet()              { output, listening } (see ui/src/settings.ts)
+//   settingsGet()              { output, listening } (see ui/src/settings.ts; the
+//                              listening settings include the tone and the tube, task 9-3)
 //   settingsSetListening(l)    applies and saves; { ok, eq: { preampDb, skipped } }
 //   settingsOutputs()          { wasapi: [{ id, name, isDefault }], asio: [{ id, name }], message? }
 //   settingsSetOutput(o)       an ASIO driver is checked in a child process first;

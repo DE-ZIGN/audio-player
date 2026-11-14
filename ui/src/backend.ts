@@ -534,11 +534,14 @@ export class MockBackend implements Backend {
   // The stages the settings and the volume make run (made-up values for the mock).
   private mockStages() {
     const l = this.listening;
-    const stages: { name: string; gainDb: number | "-inf" | null }[] = [];
+    const stages: { name: string; gainDb: number | "-inf" | null; detail?: string }[] = [];
     const processed = l?.mode === "processed";
     if (processed && l.replayGain !== "off") stages.push({ name: "replaygain", gainDb: -4.2 });
     if (processed && l.eqEnabled && l.eqBands.some((b) => b.enabled && (b.gainDb !== 0 || b.type.endsWith("Pass"))))
       stages.push({ name: "eq", gainDb: -3.0 });
+    if (processed && (l.toneBassDb !== 0 || l.toneTrebleDb !== 0))
+      stages.push({ name: "tone", gainDb: -Math.max(0, l.toneBassDb, l.toneTrebleDb) });
+    if (processed && l.tubeEnabled) stages.push({ name: "tube", gainDb: l.tubeDriveDb, detail: l.tubeType });
     if (this.volumeDb !== 0) stages.push({ name: "volume", gainDb: this.volumeDb });
     const isp = l ? (processed ? l.ispSafeProcessed : l.ispSafeOriginal) : "off";
     if (isp !== "off") stages.push({ name: "isp-safe", gainDb: isp === "fixed" ? -3 : -1.2 });

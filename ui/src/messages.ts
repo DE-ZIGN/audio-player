@@ -1,6 +1,7 @@
 // User-facing text (Japanese first). Describes what the player does; never
 // claims that something sounds better.
 
+import { TUBE_LABELS, type TubeType } from "./settings";
 import type {
   DropoutCounts,
   FormatInfo,
@@ -85,6 +86,8 @@ const stageNames: Record<string, string> = {
   volume: "デジタル音量",
   replaygain: "ReplayGain",
   eq: "パラメトリック EQ",
+  tone: "トーン",
+  tube: "真空管",
   "isp-safe": "ISP セーフ",
   limiter: "保険のリミッター",
   comparison: "聴き比べ",
@@ -127,7 +130,11 @@ function dbText(db: number | "-inf"): string {
 export function stageText(st: StageState): string {
   const name = stageNames[st.name] ?? st.name;
   if (st.gainDb === null) return name;
-  if (st.name === "eq") return `${name}（プリアンプ ${dbText(st.gainDb)}）`;
+  if (st.name === "eq" || st.name === "tone") return `${name}（プリアンプ ${dbText(st.gainDb)}）`;
+  if (st.name === "tube") {
+    const type = TUBE_LABELS[st.detail as TubeType] ?? st.detail ?? "";
+    return `${name}（${type ? `${type}、` : ""}DRIVE ${dbText(st.gainDb)}）`;
+  }
   return `${name} ${dbText(st.gainDb)}`;
 }
 

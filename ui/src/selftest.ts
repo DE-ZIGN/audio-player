@@ -207,6 +207,33 @@ export async function runSelfTest(
     await backend.stop();
     await waitFor("stopped", (s) => s.state === "stopped", 5000);
 
+    // The tone and the tube (task 9-3) on the real chain: in the path after
+    // the EQ, with the tube's type and DRIVE, then back to the EQ alone.
+    const eqListening = { ...saved.listening, mode: "processed" as const, eqBands: [eqBand] };
+    await backend.settings.setListening({ ...eqListening, toneBassDb: 3, tubeEnabled: true, tubeType: "ppel34", tubeDriveDb: -6 });
+    if ((await backend.settings.get()).listening.tubeType !== "ppel34") throw new Error("settings: the tube type was not kept");
+    await backend.seek(0);
+    await backend.play();
+    const tubed = await waitFor(
+      "the tone and the tube on the processing path",
+      (s) => s.state === "playing" && s.stages.some((st) => st.name === "tube") && s.stages.some((st) => st.name === "tone"),
+      5000,
+    );
+    const names = tubed.stages.map((st) => st.name);
+    const tubeStage = tubed.stages.find((st) => st.name === "tube")!;
+    const tubeRow = pathModel(tubed).processing.rows.find((r) => r.name === "真空管");
+    if (
+      !(names.indexOf("eq") < names.indexOf("tone") && names.indexOf("tone") < names.indexOf("tube")) ||
+      tubeStage.detail !== "ppel34" ||
+      tubeStage.gainDb !== -6 ||
+      tubeRow?.value !== "PP EL34・DRIVE −6.0 dB"
+    )
+      throw new Error(`tube: ${JSON.stringify(tubed.stages)} ${JSON.stringify(tubeRow)}`);
+    log.push(`tone and tube: ${names.join(", ")}; output check: 真空管 ${tubeRow.value}`);
+    await backend.stop();
+    await waitFor("stopped", (s) => s.state === "stopped", 5000);
+    await backend.settings.setListening(eqListening);
+
     // ABX (task 6-6) through the real bridge, still in 音作りモード with the EQ:
     // the 2 s file as the region, longer than the file plays (it loops), then
     // the queue and the position come back.

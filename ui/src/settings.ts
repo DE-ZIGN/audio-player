@@ -6,6 +6,7 @@ import type { EqPreset } from "./eqPresets";
 export type ListeningMode = "original" | "processed";
 export type ReplayGainMode = "off" | "track" | "album";
 export type IspSafeMode = "off" | "measured" | "fixed";
+export type TubeType = "se300b" | "ppel34" | "ppclassa";
 export type EqFilterType = "peak" | "lowShelf" | "highShelf" | "lowPass" | "highPass" | "bandPass" | "notch";
 
 export interface EqBand {
@@ -25,6 +26,12 @@ export interface ListeningSettings {
   eqBands: EqBand[];
   eqAutoPreamp: boolean; // false: eqManualPreampDb is used (what goes over 0 dB is left to the limiter)
   eqManualPreampDb: number; // -30 .. 0
+  // The tone controls and the tube (tasks 9-2, 9-3), in 音作りモード only.
+  toneBassDb: number; // -10 .. +10
+  toneTrebleDb: number;
+  tubeEnabled: boolean;
+  tubeType: TubeType;
+  tubeDriveDb: number; // -30 .. +6
 }
 
 export interface OutputChoice {
@@ -93,6 +100,32 @@ export const defaultListening: ListeningSettings = {
   eqBands: [],
   eqAutoPreamp: true,
   eqManualPreampDb: 0,
+  toneBassDb: 0,
+  toneTrebleDb: 0,
+  tubeEnabled: false,
+  tubeType: "se300b",
+  tubeDriveDb: -12,
+};
+
+// The tone controls and the tube's limits (engine: ToneStage, TubeStage).
+export const TONE_MAX_DB = 10;
+export const TONE_BASS_HZ = 150;
+export const TONE_TREBLE_HZ = 4500;
+export const DRIVE_MIN_DB = -30;
+export const DRIVE_MAX_DB = 6;
+export const DRIVE_DEFAULT_DB = -12;
+
+export const TUBE_LABELS: Record<TubeType, string> = {
+  se300b: "SE 300B",
+  ppel34: "PP EL34",
+  ppclassa: "PP CLASS A",
+};
+
+// What each type is (task 9-1), with what it measured: 1 kHz at -6 dBFS, DRIVE 0 dB.
+export const TUBE_NOTES: Record<TubeType, string> = {
+  se300b: "300B 1 本のシングルエンド（カソードバイアス）。主に 2 次の倍音を加えます（測定例：2 次 −37 dB、3 次 −53 dB）。",
+  ppel34: "EL34 2 本のプッシュプル（AB 級、固定バイアス）。偶数次が打ち消し合い、主に 3 次の倍音を加えます（測定例：3 次 −26 dB）。",
+  ppclassa: "EL34 2 本のプッシュプル（A 級）。同じ DRIVE なら倍音は少なめです（測定例：3 次 −40 dB）。",
 };
 
 export const defaultOutput: OutputChoice = { kind: "wasapi", id: "", name: "", allowDop: false };
@@ -142,16 +175,27 @@ export function frequencyText(hz: number): string {
 export function modeSummary(l: ListeningSettings): string {
   if (l.mode === "original") {
     const isp = l.ispSafeOriginal === "off" ? "" : `、ISP セーフ（${ISP_LABELS[l.ispSafeOriginal]}）`;
-    return `原音モード：音量 100% なら何も処理しません${isp}。ReplayGain と EQ はかけません（設定は残ります）。`;
+    return `原音モード：音量 100% なら何も処理しません${isp}。ReplayGain・EQ・トーン・真空管はかけません（設定は残ります）。`;
   }
   const parts: string[] = [];
   if (l.replayGain !== "off") parts.push(`ReplayGain（${l.replayGain === "track" ? "トラック" : "アルバム"}）`);
   const bands = activeBands(l);
   if (bands > 0) parts.push(`EQ（${bands} バンド）`);
+  const tone = [
+    l.toneBassDb !== 0 ? `BASS ${signedDb(l.toneBassDb)}` : "",
+    l.toneTrebleDb !== 0 ? `TREBLE ${signedDb(l.toneTrebleDb)}` : "",
+  ].filter((t) => t !== "");
+  if (tone.length > 0) parts.push(`トーン（${tone.join("、")}）`);
+  if (l.tubeEnabled) parts.push(`真空管（${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}）`);
   if (l.ispSafeProcessed !== "off") parts.push(`ISP セーフ（${ISP_LABELS[l.ispSafeProcessed]}）`);
   return parts.length === 0
     ? "音作りモード：かける処理がありません。音量 100% なら原音モードと同じ出力です。"
     : `音作りモード：${parts.join("、")}を 64bit 浮動小数点でかけます。`;
+}
+
+// "+3.0 dB", "-6.0 dB" ("0.0 dB" without a sign when `plus` is false and it is not above 0).
+function signedDb(db: number, plus = true): string {
+  return `${plus && db > 0 ? "+" : ""}${db.toFixed(1)} dB`;
 }
 
 // Bands that change the sound: enabled, and not a flat peak or shelf.

@@ -15,8 +15,11 @@ import {
   dbText,
   defaultListening,
   defaultOutput,
+  DRIVE_DEFAULT_DB,
   ISP_LABELS,
   MAX_BANDS,
+  TUBE_LABELS,
+  TUBE_NOTES,
   modeSummary,
   outputOptions,
   REPLAY_GAIN_LABELS,
@@ -27,6 +30,7 @@ import {
   type OutputOption,
   type OutputsInfo,
   type ReplayGainMode,
+  type TubeType,
 } from "./settings";
 import type { PlaybackStatus } from "./status";
 
@@ -34,6 +38,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const SVG = "http://www.w3.org/2000/svg";
 const CURVE = { width: 560, height: 160, minHz: 20, maxHz: 20000 };
 const RATE = 48000;
+const SLIDER_SEND_MS = 150;
 
 export class SettingsView {
   private listening: ListeningSettings = structuredClone(defaultListening);
@@ -62,6 +67,17 @@ export class SettingsView {
     curve: document.getElementById("eq-curve") as unknown as SVGSVGElement,
     preamp: $("eq-preamp"),
     warnings: $("eq-warnings"),
+    toneBass: $<HTMLInputElement>("tone-bass"),
+    toneBassValue: $("tone-bass-value"),
+    toneTreble: $<HTMLInputElement>("tone-treble"),
+    toneTrebleValue: $("tone-treble-value"),
+    toneReset: $<HTMLButtonElement>("tone-reset"),
+    tubeEnabled: $<HTMLInputElement>("tube-enabled"),
+    tubeType: $("tube-type"),
+    tubeTypeNote: $("tube-type-note"),
+    tubeDrive: $<HTMLInputElement>("tube-drive"),
+    tubeDriveValue: $("tube-drive-value"),
+    tubeDriveReset: $<HTMLButtonElement>("tube-drive-reset"),
   };
 
   constructor(private readonly api: SettingsApi) {
@@ -128,6 +144,28 @@ export class SettingsView {
         this.editor.open();
       }
     });
+    // The tone and the tube (task 9-3): sliders send a moment after they stop.
+    this.els.toneBass.addEventListener("input", () => this.change({ toneBassDb: Number(this.els.toneBass.value) }, SLIDER_SEND_MS));
+    this.els.toneTreble.addEventListener("input", () =>
+      this.change({ toneTrebleDb: Number(this.els.toneTreble.value) }, SLIDER_SEND_MS),
+    );
+    this.els.toneReset.addEventListener("click", () => this.change({ toneBassDb: 0, toneTrebleDb: 0 }));
+    this.els.tubeEnabled.addEventListener("change", () => this.change({ tubeEnabled: this.els.tubeEnabled.checked }));
+    this.els.tubeType.replaceChildren(
+      ...(Object.entries(TUBE_LABELS) as [TubeType, string][]).map(([value, label]) => {
+        const l = document.createElement("label");
+        const r = document.createElement("input");
+        r.type = "radio";
+        r.name = "tube-type";
+        r.value = value;
+        r.addEventListener("change", () => r.checked && this.change({ tubeType: value }));
+        l.append(r, ` ${label}`);
+        return l;
+      }),
+    );
+    this.els.tubeDrive.addEventListener("input", () => this.change({ tubeDriveDb: Number(this.els.tubeDrive.value) }, SLIDER_SEND_MS));
+    this.els.tubeDriveReset.addEventListener("click", () => this.change({ tubeDriveDb: DRIVE_DEFAULT_DB }));
+
     this.els.device.addEventListener("change", () => void this.chooseOutput());
     this.els.dop.addEventListener("change", () => void this.setDop());
     this.api.onOutputsChanged(() => void this.refreshOutputs());
@@ -242,11 +280,28 @@ export class SettingsView {
     this.els.ispOriginal.value = l.ispSafeOriginal;
     this.els.ispProcessed.value = l.ispSafeProcessed;
     this.els.eqEnabled.checked = l.eqEnabled;
+    this.renderToneAndTube();
     this.els.summary.textContent = modeSummary(l);
     this.els.section.classList.toggle("original-mode", l.mode === "original");
     this.drawCurve();
     this.editor.render();
     this.renderPresets();
+  }
+
+  private renderToneAndTube() {
+    const l = this.listening;
+    const e = this.els;
+    const db = (v: number) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`;
+    // Leave a slider alone while it is being dragged (it already shows the value).
+    if (document.activeElement !== e.toneBass) e.toneBass.value = String(l.toneBassDb);
+    if (document.activeElement !== e.toneTreble) e.toneTreble.value = String(l.toneTrebleDb);
+    if (document.activeElement !== e.tubeDrive) e.tubeDrive.value = String(l.tubeDriveDb);
+    e.toneBassValue.textContent = db(l.toneBassDb);
+    e.toneTrebleValue.textContent = db(l.toneTrebleDb);
+    e.tubeDriveValue.textContent = db(l.tubeDriveDb);
+    e.tubeEnabled.checked = l.tubeEnabled;
+    for (const r of e.tubeType.querySelectorAll<HTMLInputElement>('input[name="tube-type"]')) r.checked = r.value === l.tubeType;
+    e.tubeTypeNote.textContent = TUBE_NOTES[l.tubeType];
   }
 
   private renderPresets() {

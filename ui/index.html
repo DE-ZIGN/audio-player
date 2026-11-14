@@ -165,6 +165,39 @@
             </p>
           </div>
 
+          <h2>トーン <small class="for-mode">音作りモードでかけます</small></h2>
+          <div class="setting tone-controls">
+            <label class="slider-row" for="tone-bass">BASS
+              <input type="range" id="tone-bass" min="-10" max="10" step="0.5" />
+              <output id="tone-bass-value" for="tone-bass">0.0 dB</output>
+            </label>
+            <label class="slider-row" for="tone-treble">TREBLE
+              <input type="range" id="tone-treble" min="-10" max="10" step="0.5" />
+              <output id="tone-treble-value" for="tone-treble">0.0 dB</output>
+            </label>
+            <button type="button" id="tone-reset" class="link">0 に戻す</button>
+            <p class="note">
+              BASS は 150 Hz、TREBLE は 4.5 kHz を中心に、なだらかに上げ下げします（±10 dB）。上げた分はプリアンプで下げ、0 dB を超えて持ち上げません。パラメトリック EQ の後にかかります。
+            </p>
+          </div>
+
+          <h2>真空管 <small class="for-mode">音作りモードでかけます</small></h2>
+          <div class="setting tube-controls">
+            <label class="check"><input type="checkbox" id="tube-enabled" /> 真空管を使う</label>
+            <div class="radios" id="tube-type" role="radiogroup" aria-label="真空管の種類"></div>
+            <p class="note" id="tube-type-note"></p>
+            <label class="slider-row" for="tube-drive">DRIVE
+              <input type="range" id="tube-drive" min="-30" max="6" step="0.5" />
+              <output id="tube-drive-value" for="tube-drive">-12.0 dB</output>
+            </label>
+            <button type="button" id="tube-drive-reset" class="link">既定（-12 dB）に戻す</button>
+            <p class="note">
+              真空管のモデル（Koren の式）と負荷線から求めた伝達特性で、倍音を加えます（波形整形方式）。信号の大きさに応じたバイアスの変化と電源の沈み込みを、回路の時定数にもとづいて簡易に再現しています。
+              小さな音の音量は変えず、DRIVE で曲がり方（倍音の量）が変わります。DRIVE 0 dB で、0 dBFS の山がグリッドを 0 V まで振ります。
+              オン・オフを切り替えると、処理の遅れが変わるため、再生中は一瞬途切れます。
+            </p>
+          </div>
+
           <h2>見た目</h2>
           <fieldset class="themes">
             <legend>ビュー（見た目と配置だけが変わり、機能と表示する情報は同じです）</legend>

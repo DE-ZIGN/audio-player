@@ -790,6 +790,30 @@ label.check {
   gap: 8px;
   flex-wrap: wrap;
 }
+/* The tone and the tube on the settings screen (task 9-3). */
+.slider-row {
+  display: grid;
+  grid-template-columns: 70px minmax(160px, 320px) 70px;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+.slider-row input {
+  accent-color: var(--accent);
+}
+.slider-row output {
+  text-align: right;
+  color: var(--muted);
+}
+.tube-controls .radios {
+  margin: 6px 0 2px;
+}
+.settings.original-mode .tone-controls,
+.settings.original-mode .tube-controls {
+  opacity: 0.6;
+}
+
 /* EQ presets (task 6-9): on the settings screen and in the EQ dialog. */
 .eq-presets {
   display: flex;

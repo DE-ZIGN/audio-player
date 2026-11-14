@@ -564,6 +564,8 @@ juce::var PlayerBridge::statusAsVar() const
         so->setProperty("gainDb", st.gainDb && std::isfinite(*st.gainDb) ? juce::var(*st.gainDb)
                                   : st.gainDb                             ? juce::var("-inf")
                                                                           : juce::var());
+        if (!st.detail.empty())
+            so->setProperty("detail", juce::String(st.detail));
         stages.add(juce::var(so));
     }
     o->setProperty("stages", stages);

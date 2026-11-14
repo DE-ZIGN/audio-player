@@ -90,6 +90,8 @@ describe("signal path diagram", () => {
     expect(m.processing.rows.map((r) => r.name)).toEqual([
       "ReplayGain",
       "EQ",
+      "トーン",
+      "真空管",
       "デジタル音量",
       "ISP セーフ",
       "保険のリミッター",
@@ -110,6 +112,24 @@ describe("signal path diagram", () => {
     expect(row("保険のリミッター")).toMatchObject({ on: true, value: "3 回・最大 −0.8 dB", warn: true });
     expect(row("ディザ")).toMatchObject({ on: true, value: "TPDF" });
     expect(m.output.lines[1]).toBe("32bit / 96 kHz");
+  });
+  it("the tone and the tube (task 9-3): the tone's preamp, the tube's type and DRIVE", () => {
+    const s: PlaybackStatus = {
+      ...processed,
+      stages: [
+        ...processed.stages,
+        { name: "tone", gainDb: -2, detail: "" },
+        { name: "tube", gainDb: -12, detail: "ppel34" },
+      ],
+    };
+    const m = pathModel(s);
+    const row = (name: string) => m.processing.rows.find((r) => r.name === name)!;
+    expect(row("トーン")).toMatchObject({ on: true, value: "プリアンプ −2.0 dB" });
+    expect(row("真空管")).toMatchObject({ on: true, value: "PP EL34・DRIVE −12.0 dB" });
+    // Their order follows the chain: EQ, tone, tube, volume.
+    const names = m.processing.rows.map((r) => r.name);
+    expect(names.indexOf("トーン")).toBe(names.indexOf("EQ") + 1);
+    expect(names.indexOf("真空管")).toBe(names.indexOf("トーン") + 1);
   });
   it("DoP: the DSD file, no processing", () => {
     const s: PlaybackStatus = {

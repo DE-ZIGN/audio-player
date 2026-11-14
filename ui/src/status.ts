@@ -106,7 +106,8 @@ export interface IntegrityCheck {
 // A stage running on the processing path now, with the level it applies.
 export interface StageState {
   name: string; // "volume", "replaygain", "eq", "isp-safe", "limiter", "comparison"
-  gainDb: number | "-inf" | null; // the EQ's: its automatic preamp
+  gainDb: number | "-inf" | null; // the EQ's and the tone's: the automatic preamp; the tube's: DRIVE
+  detail?: string; // the tube's type ("se300b", "ppel34", "ppclassa")
 }
 
 // The BIT-PERFECT judgement made by the engine from the facts of the path

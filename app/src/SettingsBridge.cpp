@@ -57,6 +57,11 @@ juce::var listeningVar(const ListeningSettings& l)
     o->setProperty("eqBands", bandsVar(l.eqBands));
     o->setProperty("eqAutoPreamp", l.eqAutoPreamp);
     o->setProperty("eqManualPreampDb", l.eqManualPreampDb);
+    o->setProperty("toneBassDb", l.toneBassDb);
+    o->setProperty("toneTrebleDb", l.toneTrebleDb);
+    o->setProperty("tubeEnabled", l.tubeEnabled);
+    o->setProperty("tubeType", tubeTypeKey(l.tubeType));
+    o->setProperty("tubeDriveDb", l.tubeDriveDb);
     return juce::var(o);
 }
 
@@ -72,6 +77,15 @@ ListeningSettings listeningFrom(const juce::var& v)
     l.eqAutoPreamp = static_cast<bool>(v.getProperty("eqAutoPreamp", true));
     const double preamp = v.getProperty("eqManualPreampDb", 0.0);
     l.eqManualPreampDb = std::isfinite(preamp) ? std::clamp(preamp, -30.0, 0.0) : 0.0;
+    const auto number = [&v](const char* key, double fallback, double lo, double hi) {
+        const double x = v.getProperty(key, fallback);
+        return std::isfinite(x) ? std::clamp(x, lo, hi) : fallback;
+    };
+    l.toneBassDb = number("toneBassDb", 0.0, -ToneStage::kMaxDb, ToneStage::kMaxDb);
+    l.toneTrebleDb = number("toneTrebleDb", 0.0, -ToneStage::kMaxDb, ToneStage::kMaxDb);
+    l.tubeEnabled = static_cast<bool>(v.getProperty("tubeEnabled", false));
+    l.tubeType = tubeTypeFrom(v.getProperty("tubeType", "").toString().toStdString()).value_or(TubeType::Se300B);
+    l.tubeDriveDb = number("tubeDriveDb", TubeStage::kDefaultDriveDb, TubeStage::kMinDriveDb, TubeStage::kMaxDriveDb);
     return l;
 }
 
