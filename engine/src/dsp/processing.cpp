@@ -104,8 +104,11 @@ void ProcessingChain::prepare(std::uint32_t sampleRate, std::uint16_t channels)
             aLatency = referenceNow_->latencyFrames();
         }
         const std::size_t bLatency = stagesLatency();
-        // Side A is delayed by what side B takes longer.
-        comparison_->prepare(sampleRate, channels, bLatency > aLatency ? bLatency - aLatency : 0);
+        // The side that comes out first waits for the other.
+        if (bLatency >= aLatency)
+            comparison_->prepare(sampleRate, channels, bLatency - aLatency);
+        else
+            comparison_->prepare(sampleRate, channels, 0, aLatency - bLatency);
     }
 }
 

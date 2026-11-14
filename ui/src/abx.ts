@@ -2,7 +2,8 @@
 // engine (AbxTest, task 4-1): results stay hidden until the last trial,
 // "distinguished" means p < 0.05, and the texts never say which sounds better.
 
-import type { EqPreset } from "./eqPresets";
+import { FLAT_PRESET, presetFrom, type EqPreset } from "./eqPresets";
+import { TUBE_LABELS, type ListeningSettings, type TubeType } from "./settings";
 
 export type AbxKind = "processed" | "16bit" | "presets";
 export type AbxChoice = "A" | "B" | "X";
@@ -39,14 +40,14 @@ export interface AbxRequest {
   startSeconds: number;
   seconds: number;
   trials: number;
-  a?: EqPreset; // 設定 A と設定 B (task 6-9)
-  b?: EqPreset;
+  a?: SideRequest; // 設定 A と設定 B (task 6-9; the tone and the tube, task 9-4)
+  b?: SideRequest;
 }
 
 export const KINDS: Record<AbxKind, { title: string; a: string; b: string }> = {
   processed: { title: "原音 と 音作り（今の設定）", a: "原音", b: "音作り" },
   "16bit": { title: "原音 と 16bit（TPDF ディザ）", a: "原音", b: "16bit" },
-  presets: { title: "設定 A と 設定 B（EQ のプリセット）", a: "設定 A", b: "設定 B" },
+  presets: { title: "設定 A と 設定 B（EQ・トーン・真空管）", a: "設定 A", b: "設定 B" },
 };
 
 // What the A and B buttons and the run's description call the two sides.
@@ -56,12 +57,66 @@ export function sideLabels(a: { kind: AbxKind; aName?: string; bName?: string })
   return { ...KINDS[a.kind] };
 }
 
-// The two settings chosen for 設定 A と設定 B ("" when they can be compared).
-// `choices`: how many there are to choose from (the flat one included).
-export function presetPairProblem(a: string, b: string, choices: number): string {
-  if (choices < 2) return "比べるプリセットがありません。設定画面の EQ で、今の EQ をプリセットとして保存してください。";
-  if (a === b) return "A と B に違う設定を選んでください。";
-  return "";
+// --- 設定 A と設定 B (tasks 6-9, 9-4) ----------------------------------------------------
+// Each side: an EQ (the current one, none, or a saved preset), the tone (the
+// current one or none) and the tube (none or a type, with DRIVE). Everything
+// else is as it is now, in 音作りモード.
+
+export type SideTube = "none" | TubeType;
+
+export interface SideChoice {
+  eq: string; // "current" | "flat" | "p:<preset name>"
+  tone: "current" | "flat";
+  tube: SideTube;
+  drive: number; // dB, with a tube
+}
+
+export interface SideRequest extends EqPreset {
+  toneBassDb?: number;
+  toneTrebleDb?: number;
+  tubeEnabled?: boolean;
+  tubeType?: TubeType;
+  tubeDriveDb?: number;
+}
+
+const TUBE_ORDER: TubeType[] = ["se300b", "ppel34", "ppclassa"];
+
+// A: as it is now. B: the same with another tube type (or with the tube, if A has none).
+export function defaultSides(l: ListeningSettings): { a: SideChoice; b: SideChoice } {
+  const tube: SideTube = l.tubeEnabled ? l.tubeType : "none";
+  const a: SideChoice = { eq: "current", tone: "current", tube, drive: l.tubeDriveDb };
+  const other: SideTube = tube === "none" ? "se300b" : TUBE_ORDER[(TUBE_ORDER.indexOf(tube) + 1) % TUBE_ORDER.length];
+  return { a, b: { ...a, tube: other } };
+}
+
+const db = (v: number) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`;
+
+export function sideRequest(c: SideChoice, l: ListeningSettings, presets: EqPreset[]): SideRequest {
+  const eq =
+    c.eq === "current"
+      ? presetFrom(l, "今の EQ")
+      : (presets.find((p) => `p:${p.name}` === c.eq) ?? { ...FLAT_PRESET, name: "EQ なし" });
+  const bass = c.tone === "current" ? l.toneBassDb : 0;
+  const treble = c.tone === "current" ? l.toneTrebleDb : 0;
+  const parts = [eq.name];
+  const tone = [bass !== 0 ? `BASS ${db(bass)}` : "", treble !== 0 ? `TREBLE ${db(treble)}` : ""].filter((t) => t);
+  if (tone.length > 0) parts.push(`トーン（${tone.join("、")}）`);
+  parts.push(c.tube === "none" ? "真空管なし" : `${TUBE_LABELS[c.tube]}（DRIVE ${db(c.drive)}）`);
+  return {
+    ...structuredClone(eq),
+    name: parts.join("・"),
+    toneBassDb: bass,
+    toneTrebleDb: treble,
+    tubeEnabled: c.tube !== "none",
+    tubeType: c.tube === "none" ? l.tubeType : c.tube,
+    tubeDriveDb: c.drive,
+  };
+}
+
+// "" when the two sides can be compared.
+export function sidePairProblem(a: SideChoice, b: SideChoice): string {
+  const same = a.eq === b.eq && a.tone === b.tone && a.tube === b.tube && (a.tube === "none" || a.drive === b.drive);
+  return same ? "A と B に違う設定を選んでください。" : "";
 }
 
 function choose(n: number, k: number): number {

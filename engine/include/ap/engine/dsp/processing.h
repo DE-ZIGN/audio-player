@@ -101,10 +101,9 @@ public:
     // 設定 A と設定 B (task 6-9): while comparing, side A is this second chain's
     // sound (the same input through other settings) instead of the input
     // itself. nullptr: side A is the input (原音), as before. Set it while
-    // nothing plays (it is taken at prepare()). Side A is lined up in time with
-    // side B: it is delayed by this chain's latency less the reference's, so
-    // the reference must not delay more than this chain (two ListeningChains
-    // always delay the same).
+    // nothing plays (it is taken at prepare()). The two sides are lined up in
+    // time: whichever comes out first waits for the other (task 9-4: the tube
+    // may be on one side only).
     void setReference(std::shared_ptr<ProcessingChain> reference);
 
     // True when every stage is identity: the direct path is used.

@@ -335,3 +335,58 @@ TEST_CASE("Comparison: without a reference, side A is the input as before", "[ds
     const auto lag = chain->latencyFrames();
     CHECK(std::abs(x[30000] - in[30000 - lag]) < 1e-12);
 }
+
+// Task 9-4: side A may delay more than side B (e.g. A with the tube, whose
+// oversampling filters delay 64 frames, and B without): then B waits.
+
+namespace {
+// Delays by a fixed number of frames (mono), as a stage with look-ahead does.
+class DelayStage final : public ProcessingStage
+{
+public:
+    explicit DelayStage(std::size_t frames) : frames_(frames) {}
+    std::string name() const override { return "delay"; }
+    void prepare(std::uint32_t, std::uint16_t) override { line_.assign(frames_ + 1, 0.0), pos_ = 0; }
+    bool isIdentity() const noexcept override { return false; }
+    std::size_t latencyFrames() const noexcept override { return frames_; }
+    void process(std::span<double> samples, std::uint16_t) noexcept override
+    {
+        for (auto& x : samples)
+        {
+            line_[pos_] = x;
+            x = line_[(pos_ + 1) % line_.size()];
+            pos_ = (pos_ + 1) % line_.size();
+        }
+    }
+
+private:
+    std::size_t frames_;
+    std::vector<double> line_;
+    std::size_t pos_ = 0;
+};
+} // namespace
+
+TEST_CASE("Comparison: when side A delays more than side B, B waits so both line up", "[dsp][comparison]")
+{
+    auto chain = chainWith(0.0, false); // B: no latency of its own
+    chain->setReference(std::make_shared<ProcessingChain>(
+        std::vector<std::shared_ptr<ProcessingStage>>{std::make_shared<DelayStage>(100)})); // A: 100 frames
+    chain->setComparing(true);
+    chain->comparison().setFixedMatchDb(0.0);
+    chain->prepare(48000, 1);
+    auto findImpulse = [&](ComparisonSide side) {
+        chain->comparison().select(side);
+        std::vector<double> x(48000, 0.0);
+        x[1000] = 0.25;
+        chain->process(x, 1);
+        std::size_t at = 0;
+        for (std::size_t i = 0; i < x.size(); ++i)
+            if (std::abs(x[i]) > 0.1)
+                at = i;
+        return at;
+    };
+    const auto a = findImpulse(ComparisonSide::Original);
+    const auto b = findImpulse(ComparisonSide::Processed);
+    CHECK(a == b);
+    CHECK(a == 1000 + chain->latencyFrames()); // the reported latency covers the wait
+}

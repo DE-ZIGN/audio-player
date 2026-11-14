@@ -4,6 +4,7 @@
 // bytes that reached its dummy output.
 
 import type { Backend } from "./backend";
+import { sideRequest } from "./abx";
 import { FLAT_PRESET, type EqPreset } from "./eqPresets";
 import { autoPreampDb, responsePoints } from "./eqResponse";
 import { ispWarning, pathModel, verdictModel } from "./outputCheck";
@@ -301,6 +302,33 @@ export async function runSelfTest(
     await backend.settings.setEqPresets(savedPresets); // the user's list as it was
     log.push(
       `EQ presets saved and read back; ABX 設定 A「${FLAT_PRESET.name}」と 設定 B「${presetB.name}」: match ${pair.matchDb?.toFixed(2)} dB, aborted`,
+    );
+
+    // 設定 A と設定 B with the tube (task 9-4): no tube against PP EL34 at
+    // DRIVE 0 dB - the tube on one side only, so the sides delay differently
+    // and the engine lines them up. Answered to the end.
+    const current = await backend.settings.get();
+    const tubeA = sideRequest({ eq: "current", tone: "current", tube: "none", drive: 0 }, current.listening, []);
+    const tubeB = sideRequest({ eq: "current", tone: "current", tube: "ppel34", drive: 0 }, current.listening, []);
+    const tubes = await backend.abx.start({ kind: "presets", startSeconds: 0, seconds: 2, trials: 2, a: tubeA, b: tubeB });
+    if (!tubes.ok) throw new Error(`ABX tube: ${tubes.message}`);
+    const tubesRunning = await waitFor(
+      "ABX of the tube playing",
+      // (the mock engine does not run the sides' settings: the tube's stage only in the app)
+      (s) =>
+        s.abx?.running === true && s.state === "playing" && (backend.kind !== "app" || s.stages.some((st) => st.name === "tube")),
+      5000,
+    );
+    if (tubesRunning.abx?.bName !== tubeB.name) throw new Error(`ABX tube: names ${tubesRunning.abx?.aName} / ${tubesRunning.abx?.bName}`);
+    await backend.abx.choose("A");
+    await waitFor("ABX listening to A", (s) => s.abx?.listening === "A", 5000);
+    for (let i = 0; i < 2; i++) await backend.abx.answer("B");
+    const tubesEnd = await waitFor("ABX tube result", (s) => s.abx?.result?.finished === true, 5000);
+    await backend.abx.close();
+    await waitFor("ABX closed", (s) => (s.abx ?? null) === null, 5000);
+    log.push(
+      `ABX 設定 A「${tubeA.name}」と 設定 B「${tubeB.name}」: match ${tubes.matchDb?.toFixed(2)} dB, ` +
+        `${tubesEnd.abx!.result!.correct} of 2`,
     );
 
     await backend.settings.setListening(saved.listening);

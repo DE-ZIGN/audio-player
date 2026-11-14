@@ -293,11 +293,23 @@
           <legend>比べるもの</legend>
           <label class="check"><input type="radio" name="abx-kind" value="processed" checked /> 原音 と 音作り（今の設定）</label>
           <label class="check"><input type="radio" name="abx-kind" value="16bit" /> 原音 と 16bit（TPDF ディザ）</label>
-          <label class="check"><input type="radio" name="abx-kind" value="presets" /> 設定 A と 設定 B（EQ のプリセット）</label>
+          <label class="check"><input type="radio" name="abx-kind" value="presets" /> 設定 A と 設定 B（EQ・トーン・真空管）</label>
           <div class="abx-presets" id="abx-presets" hidden>
-            <label>A <select id="abx-preset-a" aria-label="設定 A"></select></label>
-            <label>B <select id="abx-preset-b" aria-label="設定 B"></select></label>
-            <p class="note">どちらも音作りモードで、今の ReplayGain・ISP セーフ・音量をかけ、EQ だけを A と B で変えます。B の音量は A に合わせます。</p>
+            <div class="abx-side">
+              <b>A</b>
+              <label>EQ <select id="abx-a-eq" aria-label="A の EQ"></select></label>
+              <label>トーン <select id="abx-a-tone" aria-label="A のトーン"><option value="current">今のトーン</option><option value="flat">なし</option></select></label>
+              <label>真空管 <select id="abx-a-tube" aria-label="A の真空管"><option value="none">なし</option><option value="se300b">SE 300B</option><option value="ppel34">PP EL34</option><option value="ppclassa">PP CLASS A</option></select></label>
+              <label>DRIVE <input type="number" id="abx-a-drive" min="-30" max="6" step="0.5" aria-label="A の DRIVE" /> dB</label>
+            </div>
+            <div class="abx-side">
+              <b>B</b>
+              <label>EQ <select id="abx-b-eq" aria-label="B の EQ"></select></label>
+              <label>トーン <select id="abx-b-tone" aria-label="B のトーン"><option value="current">今のトーン</option><option value="flat">なし</option></select></label>
+              <label>真空管 <select id="abx-b-tube" aria-label="B の真空管"><option value="none">なし</option><option value="se300b">SE 300B</option><option value="ppel34">PP EL34</option><option value="ppclassa">PP CLASS A</option></select></label>
+              <label>DRIVE <input type="number" id="abx-b-drive" min="-30" max="6" step="0.5" aria-label="B の DRIVE" /> dB</label>
+            </div>
+            <p class="note">どちらも音作りモードで、今の ReplayGain・ISP セーフ・音量をかけ、EQ・トーン・真空管を A と B で選んだものにします。B の音量は A に合わせます。真空管の DRIVE は、真空管を選んだ側だけに効きます。</p>
           </div>
           <p class="notice" id="abx-kind-note" hidden></p>
         </fieldset>

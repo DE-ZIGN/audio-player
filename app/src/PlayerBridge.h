@@ -33,7 +33,9 @@ namespace ap::app {
 //   abxStart({ startSeconds, seconds, trials, kind, a?, b? })  kind "processed"
 //       (原音 と 音作り), "16bit" (原音 と 16bit・TPDF) or "presets" (設定 A と
 //       設定 B, task 6-9: a and b are EQ presets { name, bands, autoPreamp,
-//       manualPreampDb }, each put on the current settings in 音作りモード).
+//       manualPreampDb }, each put on the current settings in 音作りモード;
+//       task 9-4: each may also set toneBassDb, toneTrebleDb, tubeEnabled,
+//       tubeType, tubeDriveDb, otherwise those stay as they are now).
 //       Works out the loudness match over the region (on a background
 //       thread), then plays the region over and over through the comparison.
 //       { ok, message?, matchDb }

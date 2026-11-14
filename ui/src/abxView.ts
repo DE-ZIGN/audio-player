@@ -6,16 +6,28 @@
 import type { AbxApi } from "./backend";
 import {
   defaultRegion,
+  defaultSides,
   keyAction,
-  presetPairProblem,
   regionText,
   resultText,
   sideLabels,
+  sidePairProblem,
+  sideRequest,
   type AbxChoice,
   type AbxKind,
+  type SideChoice,
+  type SideTube,
 } from "./abx";
-import { FLAT_PRESET, type EqPreset } from "./eqPresets";
+import type { EqPreset } from "./eqPresets";
+import { activeBands, defaultListening, type ListeningSettings, type SettingsInfo } from "./settings";
 import type { PlaybackStatus } from "./status";
+
+interface SideEls {
+  eq: HTMLSelectElement;
+  tone: HTMLSelectElement;
+  tube: HTMLSelectElement;
+  drive: HTMLInputElement;
+}
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -28,6 +40,8 @@ export class AbxView {
   private status: PlaybackStatus | null = null;
   private preparing = false;
   private presets: EqPreset[] = []; // 設定 A と設定 B (task 6-9)
+  private listening: ListeningSettings = structuredClone(defaultListening);
+  private sidesSet = false; // the sides start from the defaults each time the dialog opens
 
   private readonly els = {
     dialog: $<HTMLDialogElement>("abx-dialog"),
@@ -36,8 +50,6 @@ export class AbxView {
     setup: $("abx-setup"),
     kindNote: $("abx-kind-note"),
     presetBox: $("abx-presets"),
-    presetA: $<HTMLSelectElement>("abx-preset-a"),
-    presetB: $<HTMLSelectElement>("abx-preset-b"),
     start: $<HTMLInputElement>("abx-start"),
     startText: $("abx-start-text"),
     here: $<HTMLButtonElement>("abx-here"),
@@ -67,10 +79,11 @@ export class AbxView {
 
   constructor(
     private readonly api: AbxApi,
-    private readonly loadPresets: () => Promise<EqPreset[]>,
+    private readonly loadSettings: () => Promise<SettingsInfo>,
   ) {
     const e = this.els;
-    for (const sel of [e.presetA, e.presetB]) sel.addEventListener("change", () => this.renderSetupNotes());
+    for (const side of [this.sideA, this.sideB])
+      for (const el of [side.eq, side.tone, side.tube, side.drive]) el.addEventListener("change", () => this.renderSetupNotes());
     e.close.addEventListener("click", () => void this.close());
     e.done.addEventListener("click", () => void this.close());
     e.again.addEventListener("click", async () => {
@@ -109,7 +122,37 @@ export class AbxView {
     });
   }
 
+  private readonly sideA = this.sideEls("a");
+  private readonly sideB = this.sideEls("b");
+
+  private sideEls(k: "a" | "b"): SideEls {
+    return {
+      eq: $<HTMLSelectElement>(`abx-${k}-eq`),
+      tone: $<HTMLSelectElement>(`abx-${k}-tone`),
+      tube: $<HTMLSelectElement>(`abx-${k}-tube`),
+      drive: $<HTMLInputElement>(`abx-${k}-drive`),
+    };
+  }
+
+  private choice(side: SideEls): SideChoice {
+    const drive = Number(side.drive.value);
+    return {
+      eq: side.eq.value,
+      tone: side.tone.value === "flat" ? "flat" : "current",
+      tube: side.tube.value as SideTube,
+      drive: Number.isFinite(drive) ? Math.min(6, Math.max(-30, drive)) : this.listening.tubeDriveDb,
+    };
+  }
+
+  private setChoice(side: SideEls, c: SideChoice) {
+    side.eq.value = c.eq;
+    side.tone.value = c.tone;
+    side.tube.value = c.tube;
+    side.drive.value = String(c.drive);
+  }
+
   open() {
+    this.sidesSet = false;
     const d = this.els.dialog;
     if (!d.open) d.showModal();
     if (this.status?.abx) this.render(this.status);
@@ -149,30 +192,40 @@ export class AbxView {
     e.error.hidden = true;
     this.fillRegion(true);
     this.renderSetupNotes();
-    void this.refreshPresets();
+    void this.refreshSides();
   }
 
-  // The presets to choose from: "EQ なし" first, then the saved ones. The
-  // choices made before stay when they still exist.
-  private async refreshPresets() {
+  // The choices for 設定 A と設定 B: the EQ (the current one, none, the saved
+  // presets), the tone (current or none), the tube and DRIVE. From the
+  // defaults when the dialog opens; kept for "もう一度".
+  private async refreshSides() {
     try {
-      this.presets = await this.loadPresets();
+      const s = await this.loadSettings();
+      this.presets = s.eqPresets ?? [];
+      this.listening = s.listening;
     } catch {
       this.presets = [];
     }
-    const fill = (sel: HTMLSelectElement, fallback: string) => {
-      const before = sel.value;
-      sel.replaceChildren(new Option(FLAT_PRESET.name, "flat"), ...this.presets.map((p) => new Option(p.name, `p:${p.name}`)));
-      const values = [...sel.options].map((o) => o.value);
-      sel.value = values.includes(before) ? before : values.includes(fallback) ? fallback : values[0];
-    };
-    fill(this.els.presetA, "flat");
-    fill(this.els.presetB, this.presets[0] ? `p:${this.presets[0].name}` : "flat");
+    const l = this.listening;
+    const bands = activeBands(l);
+    const tone = [l.toneBassDb !== 0 ? `BASS ${l.toneBassDb > 0 ? "+" : ""}${l.toneBassDb.toFixed(1)}` : "", l.toneTrebleDb !== 0 ? `TREBLE ${l.toneTrebleDb > 0 ? "+" : ""}${l.toneTrebleDb.toFixed(1)}` : ""].filter((t) => t);
+    for (const side of [this.sideA, this.sideB]) {
+      const before = side.eq.value;
+      side.eq.replaceChildren(
+        new Option(`今の EQ（${bands > 0 ? `${bands} バンド` : "かかりません"}）`, "current"),
+        new Option("EQ なし", "flat"),
+        ...this.presets.map((p) => new Option(p.name, `p:${p.name}`)),
+      );
+      if ([...side.eq.options].some((o) => o.value === before)) side.eq.value = before;
+      side.tone.options[0].textContent = `今のトーン（${tone.length > 0 ? tone.join("、") + " dB" : "なし"}）`;
+    }
+    if (!this.sidesSet) {
+      const d = defaultSides(l);
+      this.setChoice(this.sideA, d.a);
+      this.setChoice(this.sideB, d.b);
+      this.sidesSet = true;
+    }
     this.renderSetupNotes();
-  }
-
-  private presetFor(value: string): EqPreset | undefined {
-    return value === "flat" ? FLAT_PRESET : this.presets.find((p) => `p:${p.name}` === value);
   }
 
   private fillRegion(fromPosition: boolean) {
@@ -196,7 +249,8 @@ export class AbxView {
     else if (s.dop) problem = "DSD（DoP）の曲は ABX で比べられません（DoP のデータには処理をかけないため）。";
     const presets = this.kind() === "presets";
     e.presetBox.hidden = !presets;
-    const pairProblem = presets ? presetPairProblem(e.presetA.value, e.presetB.value, 1 + this.presets.length) : "";
+    for (const side of [this.sideA, this.sideB]) side.drive.disabled = side.tube.value === "none";
+    const pairProblem = presets ? sidePairProblem(this.choice(this.sideA), this.choice(this.sideB)) : "";
     e.startBtn.disabled = problem !== "" || pairProblem !== "" || this.preparing;
     if (problem) {
       e.error.hidden = false;
@@ -226,7 +280,12 @@ export class AbxView {
       startSeconds: Number(e.start.value),
       seconds: Number(e.length.value),
       trials: Number(e.trials.value),
-      ...(kind === "presets" ? { a: this.presetFor(e.presetA.value), b: this.presetFor(e.presetB.value) } : {}),
+      ...(kind === "presets"
+        ? {
+            a: sideRequest(this.choice(this.sideA), this.listening, this.presets),
+            b: sideRequest(this.choice(this.sideB), this.listening, this.presets),
+          }
+        : {}),
     });
     this.preparing = false;
     e.preparing.hidden = true;

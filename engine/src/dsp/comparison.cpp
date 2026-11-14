@@ -59,7 +59,8 @@ double AbComparison::KWeighting::weightedSquare(const double* frame, std::uint16
     return sum;
 }
 
-void AbComparison::prepare(std::uint32_t sampleRate, std::uint16_t channels, std::size_t chainLatency)
+void AbComparison::prepare(std::uint32_t sampleRate, std::uint16_t channels, std::size_t chainLatency,
+                           std::size_t processedWait)
 {
     channels_ = channels;
     limiter_.prepare(sampleRate, channels);
@@ -80,6 +81,9 @@ void AbComparison::prepare(std::uint32_t sampleRate, std::uint16_t channels, std
     delayFrames_ = chainLatency + limiter_.latencyFrames() + 1;
     delay_.assign(delayFrames_ * channels, 0.0);
     delayPos_ = 0;
+    processedWait_ = processedWait;
+    wait_.assign((processedWait + 1) * channels, 0.0);
+    waitPos_ = 0;
     mix_ = selected_ == ComparisonSide::Processed ? 1.0 : 0.0;
     mixStep_ = 1.0 / std::max(1.0, sampleRate * kCrossfadeSeconds);
 }
@@ -125,6 +129,19 @@ void AbComparison::process(std::span<const double> original, std::span<double> p
     const double* o = original.data();
     for (std::size_t f = 0; f < frames; ++f, p += channels, o += channels)
     {
+        if (processedWait_ > 0)
+        {
+            // The processed side waits for side A.
+            const std::size_t n = processedWait_ + 1;
+            double* in = wait_.data() + waitPos_ * channels;
+            const double* out = wait_.data() + ((waitPos_ + 1) % n) * channels;
+            for (std::uint16_t c = 0; c < channels; ++c)
+            {
+                in[c] = p[c];
+                p[c] = out[c];
+            }
+            waitPos_ = (waitPos_ + 1) % n;
+        }
         double* slot = delay_.data() + delayPos_ * channels;
         const double* oldest = delay_.data() + ((delayPos_ + 1) % delayFrames_) * channels;
         for (std::uint16_t c = 0; c < channels; ++c)

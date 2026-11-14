@@ -414,7 +414,7 @@ async function main() {
     ?.addEventListener("click", () => void settings.refresh());
   void settings.refresh(); // the settings as saved, before anything changes them
   const outputView = new OutputView((mode) => settings.enableIspSafe(mode));
-  const abxView = new AbxView(backend.abx, async () => (await backend.settings.get()).eqPresets ?? []);
+  const abxView = new AbxView(backend.abx, () => backend.settings.get());
   const openAbx = async () => {
     els.outputDialog.close();
     abxView.render(await backend.getStatus()); // the track and position to start from

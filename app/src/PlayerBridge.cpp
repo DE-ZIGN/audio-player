@@ -769,12 +769,30 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
         const auto b = presetFrom(request.getProperty("b", {}));
         if (!a || !b)
             return fail("比べる 2 つの設定を選んでください");
-        for (auto [settings, preset] : {std::pair{&settingsA, &*a}, std::pair{&settingsB, &*b}})
+        const auto sideA = request.getProperty("a", {}), sideB = request.getProperty("b", {});
+        for (auto [settings, preset, side] :
+             {std::tuple{&settingsA, &*a, &sideA}, std::tuple{&settingsB, &*b, &sideB}})
         {
             *settings = listening_;
             settings->mode = ListeningMode::Processed;
             settings->eqEnabled = true;
             applyEqPreset(*settings, *preset);
+            // The tone and the tube (task 9-4), when the side says: otherwise as they are now.
+            const auto number = [side](const char* key, double now, double lo, double hi) {
+                if (!side->hasProperty(key))
+                    return now;
+                const double x = side->getProperty(key, now);
+                return std::isfinite(x) ? std::clamp(x, lo, hi) : now;
+            };
+            settings->toneBassDb = number("toneBassDb", settings->toneBassDb, -ToneStage::kMaxDb, ToneStage::kMaxDb);
+            settings->toneTrebleDb = number("toneTrebleDb", settings->toneTrebleDb, -ToneStage::kMaxDb, ToneStage::kMaxDb);
+            if (side->hasProperty("tubeEnabled"))
+                settings->tubeEnabled = static_cast<bool>(side->getProperty("tubeEnabled", false));
+            if (side->hasProperty("tubeType"))
+                settings->tubeType =
+                    tubeTypeFrom(side->getProperty("tubeType", "").toString().toStdString()).value_or(settings->tubeType);
+            settings->tubeDriveDb =
+                number("tubeDriveDb", settings->tubeDriveDb, TubeStage::kMinDriveDb, TubeStage::kMaxDriveDb);
         }
         nameA = a->name;
         nameB = b->name;

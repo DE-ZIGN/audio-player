@@ -74,9 +74,13 @@ public:
     // The comparison's own limiter on the processed side.
     LimiterStats limiterStats() const noexcept { return limiter_.stats(); }
 
-    // Playback thread. `chainLatency`: frames by which the chain delays the processed side.
-    void prepare(std::uint32_t sampleRate, std::uint16_t channels, std::size_t chainLatency);
-    std::size_t latencyFrames() const noexcept { return limiter_.latencyFrames(); }
+    // Playback thread. `chainLatency`: frames by which the chain delays the
+    // processed side more than the original side (which then waits);
+    // `processedWait`: frames by which the processed side must wait instead
+    // (side A delays more, task 9-4: e.g. A with the tube and B without).
+    void prepare(std::uint32_t sampleRate, std::uint16_t channels, std::size_t chainLatency,
+                 std::size_t processedWait = 0);
+    std::size_t latencyFrames() const noexcept { return limiter_.latencyFrames() + processedWait_; }
 
     // original: the chain's input; processed: the chain's output (both the same
     // length). Writes the mix into processed. Allocates only on the first call.
@@ -109,6 +113,10 @@ private:
     std::vector<double> delay_;
     std::size_t delayFrames_ = 1;
     std::size_t delayPos_ = 0;
+    // Processed side, when side A delays more.
+    std::size_t processedWait_ = 0;
+    std::vector<double> wait_;
+    std::size_t waitPos_ = 0;
     double mix_ = 1.0; // 0 = original, 1 = processed
     double mixStep_ = 0.0;
 };

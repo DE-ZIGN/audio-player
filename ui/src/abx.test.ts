@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { defaultListening } from "./settings";
 import {
   defaultRegion,
   keyAction,
   lowerTailP,
-  presetPairProblem,
+  defaultSides,
+  sidePairProblem,
+  sideRequest,
   regionText,
   resultText,
   sideLabels,
@@ -106,8 +109,52 @@ describe("設定 A と設定 B (task 6-9)", () => {
     expect(sideLabels({ kind: "presets" }).a).toBe("設定 A"); // names not known yet
   });
   it("two different settings are needed", () => {
-    expect(presetPairProblem("x", "x", 3)).toContain("違う");
-    expect(presetPairProblem("x", "y", 3)).toBe("");
-    expect(presetPairProblem("flat", "flat", 1)).toContain("プリセット");
+    const side = { eq: "current", tone: "current" as const, tube: "se300b" as const, drive: -12 };
+    expect(sidePairProblem(side, { ...side })).toContain("違う");
+    expect(sidePairProblem(side, { ...side, tube: "ppel34" })).toBe("");
+    expect(sidePairProblem(side, { ...side, drive: -6 })).toBe("");
+    // Without the tube, DRIVE does not matter.
+    expect(sidePairProblem({ ...side, tube: "none" }, { ...side, tube: "none", drive: 0 })).toContain("違う");
+  });
+});
+
+describe("設定 A と設定 B with the tone and the tube (task 9-4)", () => {
+  const listening = {
+    ...defaultListening,
+    mode: "processed" as const,
+    eqBands: [{ type: "peak" as const, frequency: 1000, gainDb: 3, q: 1, enabled: true }],
+    toneBassDb: 2,
+    tubeEnabled: true,
+    tubeType: "se300b" as const,
+    tubeDriveDb: -10,
+  };
+  const presets = [{ name: "HD 600", bands: [], autoPreamp: false, manualPreampDb: -2 }];
+
+  it("by default compares the current settings with another tube type (or the tube on and off)", () => {
+    const { a, b } = defaultSides(listening);
+    expect(a).toEqual({ eq: "current", tone: "current", tube: "se300b", drive: -10 });
+    expect(b).toEqual({ eq: "current", tone: "current", tube: "ppel34", drive: -10 });
+    const off = defaultSides({ ...listening, tubeEnabled: false });
+    expect(off.a.tube).toBe("none");
+    expect(off.b.tube).toBe("se300b");
+  });
+
+  it("turns a side into what the app takes, with a name for it", () => {
+    const r = sideRequest({ eq: "current", tone: "current", tube: "ppclassa", drive: -6 }, listening, presets);
+    expect(r).toMatchObject({
+      bands: listening.eqBands,
+      toneBassDb: 2,
+      toneTrebleDb: 0,
+      tubeEnabled: true,
+      tubeType: "ppclassa",
+      tubeDriveDb: -6,
+    });
+    expect(r.name).toBe("今の EQ・トーン（BASS +2.0 dB）・PP CLASS A（DRIVE -6.0 dB）");
+    const flat = sideRequest({ eq: "flat", tone: "flat", tube: "none", drive: -12 }, listening, presets);
+    expect(flat).toMatchObject({ bands: [], toneBassDb: 0, toneTrebleDb: 0, tubeEnabled: false });
+    expect(flat.name).toBe("EQ なし・真空管なし");
+    const preset = sideRequest({ eq: "p:HD 600", tone: "flat", tube: "none", drive: -12 }, listening, presets);
+    expect(preset).toMatchObject({ bands: [], autoPreamp: false, manualPreampDb: -2 });
+    expect(preset.name).toBe("HD 600・真空管なし");
   });
 });
