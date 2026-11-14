@@ -195,3 +195,71 @@ describe("shuffle and repeat on the SE amp (task 9-9)", () => {
     expect(VOLUME_READOUT.x).toBeGreaterThan(MODE_BUTTONS.repeat.x + MODE_BUTTONS.repeat.r);
   });
 });
+
+// The push-pull amp's cutting script, read as text.
+import ppPy from "../../tools/ui_amp_pp_parts.py?raw";
+
+describe("the two amps (task 9-9: SE 300B, and push-pull for PP EL34 / PP CLASS A)", () => {
+  it("the look follows the tube type", async () => {
+    const { LAYOUTS, lookOf } = await import("./amp");
+    expect(lookOf("se300b")).toBe("se");
+    expect(lookOf("ppel34")).toBe("pp");
+    expect(lookOf("ppclassa")).toBe("pp");
+    expect(LAYOUTS.se.look).toBe("se");
+    expect(LAYOUTS.pp.look).toBe("pp");
+  });
+  it("both have the same controls: mode, tube type, space, crossfeed, AUTO, the five knobs and the transport", async () => {
+    const { LAYOUTS } = await import("./amp");
+    for (const l of Object.values(LAYOUTS)) {
+      const has = (n: string) => n in l.lamps || n in l.keys;
+      const mode = (has("pure") && has("tube")) || l.modeToggle !== null;
+      expect(mode, l.look).toBe(true);
+      for (const n of ["se300b", "ppel34", "ppclassa", "off", "club", "hall", "arena", "auto"]) expect(has(n), `${l.look} ${n}`).toBe(true);
+      expect(has("crossfeed") || l.crossfeedToggle !== null, l.look).toBe(true);
+      expect(Object.keys(l.knobs).sort()).toEqual(["bass", "drive", "mix", "treble", "volume"]);
+      expect(Object.keys(l.transport).sort()).toEqual(["next", "play", "prev", "repeat", "shuffle", "stop"]);
+    }
+  });
+  it("the push-pull amp's parts sit on its picture and do not overlap", async () => {
+    const { PP_LAYOUT: l } = await import("./amp");
+    const inside = (x: number, y: number) => x >= 0 && x <= AMP_SIZE.width && y - AMP_TOP >= 0 && y - AMP_TOP <= AMP_SIZE.height;
+    const boxes = Object.values(l.keys);
+    for (const b of boxes) expect(inside(b.x0, b.y0) && inside(b.x1, b.y1)).toBe(true);
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++) {
+        const [a, b] = [boxes[i], boxes[j]];
+        expect(a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0).toBe(true);
+      }
+    const round = Object.values(l.transport);
+    for (const t of round) expect(inside(t.x - t.r, t.y + t.r) && inside(t.x + t.r, t.y - t.r)).toBe(true);
+    for (let i = 0; i < round.length; i++)
+      for (let j = i + 1; j < round.length; j++)
+        expect(Math.hypot(round[i].x - round[j].x, round[i].y - round[j].y)).toBeGreaterThan(round[i].r + round[j].r);
+    // Stop and the volume's number past the right-hand vent (x 1232..1509), on the wood.
+    expect(l.transport.stop.x - l.transport.stop.r).toBeGreaterThan(1509);
+    expect(l.readout.x).toBeGreaterThan(l.transport.stop.x + l.transport.stop.r);
+  });
+  it("the push-pull amp's knobs, buttons and switch are where tools/ui_amp_pp_parts.py found them", async () => {
+    const { PP_LAYOUT: l } = await import("./amp");
+    const n = Number;
+    for (const [name, k] of Object.entries(l.knobs)) {
+      const m = ppPy.match(new RegExp(`'${name}': \\(\\(([\\d.]+), ([\\d.]+)\\), ([\\d.]+)`));
+      expect(m, name).not.toBeNull();
+      expect([n(m![1]), n(m![2])]).toEqual([k.x, k.y]);
+    }
+    for (const [name, b] of Object.entries(l.keys)) {
+      const m = ppPy.match(new RegExp(`'${name}': \\((\\d+), (\\d+), (\\d+), (\\d+)\\)`));
+      expect(m, name).not.toBeNull();
+      expect([n(m![1]), n(m![2]), n(m![3]), n(m![4])]).toEqual([b.x0, b.y0, b.x1, b.y1]);
+    }
+    for (const name of ["shuffle", "prev", "play", "next", "repeat"] as const) {
+      const m = ppPy.match(new RegExp(`'${name}': \\(([\\d.]+), ([\\d.]+), ([\\d.]+)\\)`));
+      expect(m, name).not.toBeNull();
+      const t = l.transport[name];
+      expect([n(m![1]), n(m![2]), n(m![3])]).toEqual([t.x, t.y, t.r]);
+    }
+    const x = ppPy.match(/^XFEED = \((\d+), (\d+), (\d+), (\d+)\)/m)!;
+    const c = l.crossfeedToggle!;
+    expect([n(x[1]), n(x[2]), n(x[3]), n(x[4])]).toEqual([c.x0, c.y0, c.x1, c.y1]);
+  });
+});

@@ -414,13 +414,16 @@ export async function runSelfTest(
       if (!tpRect || tpRect.width === 0 || tpRect.right > body.right + 1) throw new Error(`${v} view: the True Peak column is not in view`);
       if (v === "amp") {
         // The amp's pictures are in the build, and its five knobs are on them.
+        // Both amps (SE and push-pull), one shown at a time.
         const scenes = [...document.querySelectorAll<HTMLImageElement>(".amp-scene")];
-        if (scenes.length !== 2 || scenes.some((i) => !i.complete || i.naturalWidth !== 1672))
+        if (scenes.length !== 4 || scenes.some((i) => !i.complete || i.naturalWidth !== 1672))
           throw new Error(`amp view: the pictures did not load (${scenes.map((i) => i.naturalWidth).join(", ")})`);
-        const knobs = [...document.querySelectorAll(".amp-knob")].filter((k) => k.getBoundingClientRect().width > 10);
+        const shown = document.querySelectorAll(".amp-stage.active");
+        if (shown.length !== 1) throw new Error(`amp view: ${shown.length} amps shown`);
+        const knobs = [...shown[0].querySelectorAll(".amp-knob")].filter((k) => k.getBoundingClientRect().width > 10);
         if (knobs.length !== 5) throw new Error(`amp view: ${knobs.length} knobs in view`);
         const prev = document.getElementById("prev")!;
-        if (!prev.closest(".amp-stage")) throw new Error("amp view: the transport is not on the amp");
+        if (!prev.closest(".amp-stage.active")) throw new Error("amp view: the transport is not on the amp shown");
       }
       // Shuffle and repeat are in every view (task 9-9).
       for (const id of ["shuffle", "repeat"]) {

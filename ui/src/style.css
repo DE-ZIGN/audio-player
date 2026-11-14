@@ -2645,8 +2645,9 @@ html[data-look="real"] {
 }
 [data-ui-view="amp"] .amp {
   grid-area: amp;
-  display: flex;
-  justify-content: center;
+  display: grid;
+  justify-items: center;
+  align-items: start;
   overflow: hidden;
   margin: -1px -8px 0;
   background: #0b0806;
@@ -2655,12 +2656,16 @@ html[data-look="real"] {
 }
 .amp-stage {
   position: relative;
-  flex: none;
+  grid-area: 1 / 1; /* the two amps one over the other */
   zoom: 0.666667; /* image px to CSS px */
   user-select: none;
-  /* The round buttons cut from this picture. */
-  --button: url("./textures/amp/button.jpg");
-  --button-play: url("./textures/amp/play.jpg");
+  /* --button, --button-play and the transport's places are set per amp (ampView.ts). */
+  transition: opacity 0.7s ease;
+}
+/* SE 300B or push-pull: the amp for the tube type fades in over the other. */
+.amp-stage:not(.active) {
+  opacity: 0;
+  pointer-events: none;
 }
 .amp-scene {
   position: absolute;
@@ -2906,28 +2911,49 @@ html[data-look="real"] {
 }
 [data-look="real"] .amp-stage .transport button.icon {
   position: absolute;
-  top: 499.5px; /* 575 - 42 - 33.5 */
-  width: 67px;
-  height: 67px;
+  left: var(--x);
+  top: var(--y);
+  width: var(--d);
+  height: var(--d);
   font-size: 22px;
   pointer-events: auto;
   color: #f6e2bc;
 }
+/* Each amp sets where its buttons are (amp.ts: SE_LAYOUT, PP_LAYOUT). */
+[data-look="real"] .amp-stage .transport #shuffle {
+  --x: var(--shuffle-x);
+  --y: var(--shuffle-y);
+  --d: var(--shuffle-d);
+}
 [data-look="real"] .amp-stage .transport #prev {
-  left: 636.5px;
+  --x: var(--prev-x);
+  --y: var(--prev-y);
+  --d: var(--prev-d);
 }
 [data-look="real"] .amp-stage .transport button.play {
-  left: 742px;
-  top: 496px;
-  width: 74px;
-  height: 74px;
+  --x: var(--play-x);
+  --y: var(--play-y);
+  --d: var(--play-d);
   font-size: 26px;
 }
 [data-look="real"] .amp-stage .transport #stop {
-  left: 856.5px;
+  --x: var(--stop-x);
+  --y: var(--stop-y);
+  --d: var(--stop-d);
 }
 [data-look="real"] .amp-stage .transport #next {
-  left: 966.5px;
+  --x: var(--next-x);
+  --y: var(--next-y);
+  --d: var(--next-d);
+}
+[data-look="real"] .amp-stage .transport #repeat {
+  --x: var(--repeat-x);
+  --y: var(--repeat-y);
+  --d: var(--repeat-d);
+}
+/* The push-pull amp's stop is small, past the vent. */
+[data-look="real"] .amp-stage-pp .transport #stop {
+  font-size: 15px;
 }
 /* The volume as a number, and mute, beside the transport. */
 .amp-volume-slot {
@@ -3105,19 +3131,10 @@ html[data-look="real"] {
   bottom: 0;
   font-size: 8px;
 }
-/* On the SE amp's wood (amp.ts MODE_BUTTONS: centres 560 and 1110, r 28). */
+/* On the amp's wood (amp.ts: the transport's places). */
 [data-look="real"] .amp-stage .transport #shuffle,
 [data-look="real"] .amp-stage .transport #repeat {
-  top: 505px; /* 575 - 42 - 28 */
-  width: 56px;
-  height: 56px;
   font-size: 22px;
-}
-[data-look="real"] .amp-stage .transport #shuffle {
-  left: 532px;
-}
-[data-look="real"] .amp-stage .transport #repeat {
-  left: 1082px;
 }
 [data-look="real"] .amp-stage .transport #repeat[data-repeat="one"]::after {
   right: 9px;
@@ -3133,4 +3150,93 @@ html[data-look="real"] {
     0 0 8px rgba(255, 170, 60, 0.95),
     0 0 2px rgba(255, 200, 120, 0.9),
     0 1px 1px #000;
+}
+
+/* --- the push-pull amp's push buttons (task 9-9) -------------------------------
+   Their dark bodies are on the picture; the page writes the labels and
+   lights the chosen one (amber; PURE blue-white, as the SE amp's PURE lamp). */
+.amp-key {
+  position: absolute;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-family: Cambria, Georgia, serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: #eadcc2;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9);
+  cursor: pointer;
+  transition: box-shadow 0.25s ease, color 0.25s ease;
+}
+.amp-key-off,
+.amp-key-club,
+.amp-key-hall,
+.amp-key-arena {
+  font-size: 15px;
+}
+.amp-key.on {
+  color: #ffd27a;
+  text-shadow:
+    0 0 6px rgba(255, 170, 60, 0.9),
+    0 1px 1px rgba(0, 0, 0, 0.8);
+  box-shadow:
+    inset 0 0 0 2px #ffbb45,
+    inset 0 0 14px rgba(255, 140, 30, 0.45),
+    0 0 10px 2px rgba(255, 160, 40, 0.55);
+}
+.amp-key-pure.on {
+  color: #e2fbff;
+  text-shadow:
+    0 0 6px rgba(120, 220, 250, 0.9),
+    0 1px 1px rgba(0, 0, 0, 0.8);
+  box-shadow:
+    inset 0 0 0 2px #9fe6fa,
+    inset 0 0 14px rgba(90, 200, 235, 0.35),
+    0 0 10px 2px rgba(90, 200, 235, 0.45);
+}
+.amp-key:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.amp-key.dim {
+  color: #8d806c;
+}
+.amp-key.dim.on {
+  color: #b09060;
+  box-shadow: inset 0 0 0 1px rgba(255, 187, 69, 0.4);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9);
+}
+.amp-key:focus-visible {
+  outline: 2px solid rgba(244, 166, 64, 0.8);
+  outline-offset: 3px;
+}
+.amp-toggle:disabled {
+  cursor: default;
+}
+.amp-toggle.dim {
+  filter: brightness(0.75);
+}
+/* The push-pull amp prints its words light, embossed (as its concept image). */
+.amp-stage-pp .amp-word {
+  color: #f1e4c9;
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.95),
+    0 0 3px rgba(0, 0, 0, 0.7);
+}
+/* Its volume number and mute fit between the stop button and the edge. */
+.amp-stage-pp .amp-volume-slot {
+  gap: 4px;
+}
+.amp-stage-pp .amp-volume-slot #mute {
+  width: 30px;
+  height: 30px;
+  font-size: 18px;
+}
+[data-look="real"] .amp-stage-pp .amp-volume-slot .vol-label {
+  font-size: 15px;
+  min-width: 3.7em;
 }
