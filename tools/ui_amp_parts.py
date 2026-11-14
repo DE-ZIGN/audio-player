@@ -27,8 +27,9 @@ What comes out (ui/src/textures/amp/):
                            between them, so the tubes light up and go dark.
   button.jpg, play.jpg     the round buttons on the wood (plain and the
                            amber-ringed one), their symbols removed
-  toggle-up.jpg,           the MODE toggle, lever up (PURE) and down (TUBE)
-  toggle-down.jpg
+  toggle-up.png,           the MODE toggle, lever up (PURE) and down (TUBE),
+  toggle-down.png          cut out (transparent round it): the amp pictures
+                           have no toggle, so neither lever shows through
 
 Removed from the amp and drawn by the program instead (CLAUDE.md chapter 8:
 text and scales are drawn by the program; only the needles, knobs and lamps
@@ -42,8 +43,10 @@ move):
   - the words in the badge on the wood, and the round buttons with their
     glow (the two pictures draw them differently; the page puts its own
     back: prev, play / pause, stop, next).
-The knobs' bodies, the toggle's nut, the dividers, the screws, the tubes and
-the transformer stay as drawn: the page draws a pointer on each knob.
+The toggle (lever and nut) is taken off the amp pictures too and cut out on
+its own, lever up from the dark picture and lever down from the lit one.
+The knobs' bodies, the dividers, the screws, the tubes and the transformer
+stay as drawn: the page draws a pointer on each knob.
 Only numpy and Pillow are needed.
 """
 import os
@@ -102,7 +105,14 @@ VOLUME = (837.5, 456.5)  # the knob's centre
 VOLUME_FACE_R = 74       # its face and the knurled ring
 VOLUME_POINTER = {'lit': 35.0, 'pure': 140.0}  # degrees from up, clockwise: the drawn pointer
 
-TOGGLE = (118, 414, 184, 500)
+# The MODE toggle: a box centred on the nut (about x 151, y 449), tall enough
+# for the lever up (ball top at y 401) and down (ball bottom at y 497) with
+# their shadows; clear
+# of the PURE and TUBE lamps (their glow reaches x 180). The lit picture draws
+# its toggle (lever down) 2 px right and 5 px higher than the dark one: it is
+# cut from a box moved by as much, so the nut stays put when the lever moves.
+TOGGLE_DOWN_SHIFT = (2, -5)
+TOGGLE = (117, 391, 183, 509)
 
 # The VU meters: the paper inside the bezel, and the channel letter under it.
 VU_PAPER = {'L': (140, 185, 357, 301), 'R': (1318, 185, 1536, 301)}
@@ -204,6 +214,47 @@ def panel_without_words_and_lamps(img: np.ndarray, seed: int, words_drawn: bool 
     made = fill_rows(part, mask, unsafe)
     # Only the words and the lamps are replaced; the knobs stay as drawn.
     return blend(part, made, mask, 2)
+
+
+def not_metal_se(shape) -> np.ndarray:
+    """On the panel, what is not plain brushed metal (no streaks are copied from there)."""
+    m = rect_mask(shape, DIVIDERS, origin=PANEL[:2])
+    for (cx, cy), r in KNOBS:
+        m |= disc(shape, cx, cy, r, PANEL[:2])
+    for cx, cy in SCREWS:
+        m |= disc(shape, cx, cy, 13, PANEL[:2])
+    for cx, cy in LAMPS.values():
+        m |= disc(shape, cx, cy, LAMP_GLOW_R, PANEL[:2])
+    return m
+
+
+def without_box(img: np.ndarray, box, panel, not_metal) -> np.ndarray:
+    """The panel with `box` filled with brushed metal, row by row."""
+    part = crop(img, panel)
+    shape = part.shape[:2]
+    mask = rect_mask(shape, [box], origin=panel[:2])
+    made = fill_rows(part, mask, not_metal(shape))
+    return put(img, blend(part, made, mask, 2), panel)
+
+
+def cut_out(img: np.ndarray, empty: np.ndarray, box) -> np.ndarray:
+    """What `img` has in `box` that `empty` (the same picture with the box
+    filled with metal) has not: the toggle with its shadow, as RGBA."""
+    a = crop(img, box)
+    b = crop(empty, box)
+    d = np.abs(a - b).max(axis=2)
+    core = dilate(d > 0.14, 3)  # the toggle itself, not stray streaks
+    alpha = np.clip((d - 0.05) / 0.08, 0, 1) * core
+    alpha = np.maximum(alpha, feather(core & (d > 0.09), 1))
+    for _ in range(1):
+        alpha = box_blur(box_blur(alpha[..., None], 1, 0), 1, 1)[..., 0]
+    return np.concatenate([a, np.clip(alpha, 0, 1)[..., None]], axis=2)
+
+
+def save_png(rgba: np.ndarray, name: str, folder: str = ''):
+    path = os.path.join(folder or OUT, name)
+    Image.fromarray((np.clip(rgba, 0, 1) * 255 + 0.5).astype(np.uint8), 'RGBA').save(path, optimize=True)
+    print(f'{name}: {rgba.shape[1]} x {rgba.shape[0]}, {os.path.getsize(path) // 1024} KB')
 
 
 def put_dark_lamps(panel: np.ndarray, lamp: np.ndarray) -> np.ndarray:
@@ -331,7 +382,11 @@ def put(img: np.ndarray, part: np.ndarray, box) -> np.ndarray:
 
 
 def amp(img: np.ndarray, lamp: np.ndarray, pointer: float, drawn, seed: int, words_drawn: bool = True) -> np.ndarray:
-    out = without_pointer(img, pointer)
+    # The page puts the toggle back (either picture's: both boxes are cleared).
+    dx, dy = TOGGLE_DOWN_SHIFT
+    out = without_box(img, (TOGGLE[0] + min(0, dx), TOGGLE[1] + min(0, dy), TOGGLE[2] + max(0, dx), TOGGLE[3] + max(0, dy)),
+                      PANEL, not_metal_se)
+    out = without_pointer(out, pointer)
     panel = put_dark_lamps(panel_without_words_and_lamps(out, seed, words_drawn), lamp)
     out = put(out, panel, PANEL)
     for ch in 'LR':
@@ -391,8 +446,10 @@ def main():
     save(amp(pure, lamp, VOLUME_POINTER['pure'], DRAWN_BUTTONS['pure'], 11, words_drawn), 'se-pure.jpg', quality=86)
     save(button(lit, *BUTTONS[1], r=BUTTON_R + 2, icon_r=17), 'button.jpg')
     save(button(lit, *BUTTONS[2], r=BUTTON_R + 4, icon_r=17), 'play.jpg')
-    save(crop(pure, TOGGLE), 'toggle-up.jpg', quality=92)
-    save(crop(lit, TOGGLE), 'toggle-down.jpg', quality=92)
+    save_png(cut_out(pure, without_box(pure, TOGGLE, PANEL, not_metal_se), TOGGLE), 'toggle-up.png')
+    dx, dy = TOGGLE_DOWN_SHIFT
+    down = (TOGGLE[0] + dx, TOGGLE[1] + dy, TOGGLE[2] + dx, TOGGLE[3] + dy)
+    save_png(cut_out(lit, without_box(lit, down, PANEL, not_metal_se), down), 'toggle-down.png')
     if debug:
         save_to(lamp, 'lamp.jpg', quality=92, folder=debug)
         mask = rect_mask((BOTTOM - TOP, 1672), WORDS, origin=(0, TOP))

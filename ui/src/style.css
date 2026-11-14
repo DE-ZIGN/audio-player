@@ -2754,8 +2754,8 @@ html[data-look="real"] {
   outline-offset: 3px;
 }
 
-/* The MODE switch: the lever up (PURE) or down (TUBE), both cut from the
-   pictures; the edges fade into the panel. */
+/* The switches (SE: MODE, PP: CROSSFEED): the lever up or down, cut out of
+   the pictures (transparent round them); the pictures have no toggle. */
 .amp-toggle {
   position: absolute;
   min-width: 0;
@@ -2763,8 +2763,6 @@ html[data-look="real"] {
   border: 0;
   background: none;
   cursor: pointer;
-  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 72%, transparent 100%);
-  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 72%, transparent 100%);
 }
 .amp-toggle img {
   position: absolute;

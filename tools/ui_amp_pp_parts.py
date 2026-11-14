@@ -25,7 +25,8 @@ repository), read as drawn for a 150% screen:
 What comes out (ui/src/textures/amp/):
   pp-lit.jpg, pp-pure.jpg   the amp (x 0..1672, y 42..624), as se-lit / se-pure
   pp-button.jpg, pp-play.jpg  the round buttons on the wood, symbols removed
-  pp-xfeed-on.jpg, pp-xfeed-off.jpg  the CROSSFEED toggle, lever up and down
+  pp-xfeed-on.png, pp-xfeed-off.png  the CROSSFEED toggle, lever up and down, cut
+                                out (the amp pictures have no toggle)
 
 Removed and drawn by the page: the words (when the source has them), the
 buttons' lit state (every push button is made dark; the page lights the
@@ -43,7 +44,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ui_mockup_parts import blend, box_blur, crop, dilate, feather, load, luminance, push_pull, rect_mask, blur  # noqa: E402
 from ui_mockup_parts import save as save_to  # noqa: E402
-from ui_amp_parts import TOP, BOTTOM, disc, fill_rows, put, button  # noqa: E402
+from ui_amp_parts import TOP, BOTTOM, disc, fill_rows, put, button, without_box, cut_out, save_png  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'ui', 'src', 'textures', 'amp')
@@ -178,6 +179,14 @@ def not_metal(shape) -> np.ndarray:
     return m
 
 
+def not_metal_pp(shape) -> np.ndarray:
+    m = not_metal(shape) & ~rect_mask(shape, [XFEED], origin=PANEL[:2])
+    m |= rect_mask(shape, [(PANEL[0], PANEL[1], 44, PANEL[3]), (1606, PANEL[1], PANEL[2], PANEL[3])], origin=PANEL[:2])  # the bevels
+    # The push buttons with their rims and shadows.
+    keys = [(b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5) for g in KEYS.values() for b in g.values()]
+    return m | rect_mask(shape, keys, origin=PANEL[:2])
+
+
 def halo_filled(img: np.ndarray, box) -> np.ndarray:
     part = crop(img, PANEL)
     shape = part.shape[:2]
@@ -286,7 +295,8 @@ def wood_without_buttons(img: np.ndarray, words_drawn: bool) -> np.ndarray:
 
 
 def amp(img: np.ndarray, words_drawn: bool):
-    out, lit = keys_dark(img, words_drawn)
+    out = without_box(img, XFEED, PANEL, not_metal_pp)  # the page puts the toggle back
+    out, lit = keys_dark(out, words_drawn)
     for (c, R, pointers) in KNOBS.values():
         out = knob_without_pointers(out, c, R, pointers)
     if words_drawn:
@@ -300,15 +310,10 @@ def amp(img: np.ndarray, words_drawn: bool):
 
 
 def xfeed(img: np.ndarray, down: bool) -> np.ndarray:
-    part = crop(img, XFEED)
-    if not down:
-        return part
-    # Lever down: the toggle turned over about the nut's centre.
-    c = XFEED_NUT_Y - XFEED[1]
-    h = part.shape[0]
-    flipped = part[::-1]
-    shift = (h - 1 - c) - c  # where the nut lands after the flip
-    return np.roll(flipped, -shift, axis=0)
+    on = cut_out(img, without_box(img, XFEED, PANEL, not_metal_pp), XFEED)
+    # Lever down: the toggle turned over about the nut (the box is centred on it).
+    assert XFEED[1] + XFEED[3] == 2 * XFEED_NUT_Y
+    return on[::-1].copy() if down else on
 
 
 def main():
@@ -348,8 +353,8 @@ def main():
     src = lit
     save(button(src, *ROUND['prev'][:2], r=ROUND['prev'][2] + 2, icon_r=15), 'pp-button.jpg')
     save(button(src, *ROUND['play'][:2], r=ROUND['play'][2] + 4, icon_r=19), 'pp-play.jpg')
-    save(xfeed(lit, False), 'pp-xfeed-on.jpg', quality=92)
-    save(xfeed(lit, True), 'pp-xfeed-off.jpg', quality=92)
+    save_png(xfeed(lit, False), 'pp-xfeed-on.png', folder=OUT)
+    save_png(xfeed(lit, True), 'pp-xfeed-off.png', folder=OUT)
     if debug:
         save_to(lit[TOP:BOTTOM], 'pp-source.jpg', quality=86, folder=debug)
 
