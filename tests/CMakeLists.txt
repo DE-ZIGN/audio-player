@@ -106,7 +106,8 @@ add_executable(ap_engine_unit_tests
     unit/listening_settings_test.cpp
     unit/looping_source_test.cpp
     unit/tube_test.cpp
-    unit/tone_test.cpp)
+    unit/tone_test.cpp
+    unit/crossfeed_test.cpp)
 
 target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine ap_test_support ap_catch_main)
 target_compile_definitions(ap_engine_unit_tests PRIVATE

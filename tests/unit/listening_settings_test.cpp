@@ -489,3 +489,42 @@ TEST_CASE("Reading tube and tone settings: unknown or out of range keeps them wi
     CHECK(s.listening.toneBassDb == -ToneStage::kMaxDb);
     CHECK(s.listening.toneTrebleDb == 0.0);
 }
+
+// Task 9-5: the crossfeed in the settings.
+
+TEST_CASE("Crossfeed: off by default, applied only in 音作りモード, after the tube", "[settings][crossfeed]")
+{
+    const ListeningSettings d;
+    CHECK_FALSE(d.crossfeedEnabled);
+    CHECK(d.crossfeedLevel == CrossfeedLevel::Default);
+
+    ListeningSettings s;
+    s.crossfeedEnabled = true;
+    s.crossfeedLevel = CrossfeedLevel::Cmoy;
+    ListeningChain c;
+    c.apply(s); // 原音モード
+    CHECK_FALSE(c.crossfeed->enabled());
+
+    s.mode = ListeningMode::Processed;
+    s.ispSafeProcessed = IspSafeMode::Off;
+    s.tubeEnabled = true;
+    c.apply(s);
+    CHECK(c.crossfeed->enabled());
+    CHECK(c.crossfeed->level() == CrossfeedLevel::Cmoy);
+    c.chain()->prepare(48000, 2);
+    CHECK(c.chain()->activeStageNames() == std::vector<std::string>{"tube", "crossfeed", "limiter"});
+}
+
+TEST_CASE("Crossfeed settings are saved and read back; unknown levels keep the default", "[settings][crossfeed][text]")
+{
+    for (const auto level : {CrossfeedLevel::Default, CrossfeedLevel::Cmoy, CrossfeedLevel::Jmeier})
+    {
+        AppSettings a;
+        a.listening.crossfeedEnabled = true;
+        a.listening.crossfeedLevel = level;
+        CHECK(settingsFromText(settingsToText(a)) == a);
+    }
+    const auto s = settingsFromText("crossfeed.enabled=1\ncrossfeed.level=loud\n");
+    CHECK(s.listening.crossfeedEnabled);
+    CHECK(s.listening.crossfeedLevel == CrossfeedLevel::Default);
+}

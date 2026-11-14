@@ -16,6 +16,7 @@
 // library in the engine), read back leniently: unknown keys and bad values
 // keep the defaults, so an older or damaged file never stops the app.
 
+#include <ap/engine/dsp/crossfeed.h>
 #include <ap/engine/dsp/eq.h>
 #include <ap/engine/dsp/isp_safe.h>
 #include <ap/engine/dsp/limiter.h>
@@ -57,6 +58,9 @@ struct ListeningSettings
     bool tubeEnabled = false;
     TubeType tubeType = TubeType::Se300B;
     double tubeDriveDb = TubeStage::kDefaultDriveDb;
+    // Crossfeed for headphones (task 9-5), in 音作りモード only.
+    bool crossfeedEnabled = false;
+    CrossfeedLevel crossfeedLevel = CrossfeedLevel::Default;
 
     bool operator==(const ListeningSettings&) const = default;
 };
@@ -114,7 +118,7 @@ std::string settingsToText(const AppSettings& settings);
 AppSettings settingsFromText(std::string_view text);
 
 // The stages in their fixed order (CLAUDE.md chapter 4): ReplayGain, EQ,
-// tone, tube, volume, ISP-safe gain, (the ABX's requantization, task 6-6),
+// tone, tube, crossfeed, volume, ISP-safe gain, (the ABX's requantization, task 6-6),
 // safety limiter (then dither, in play()). The tube comes before the volume,
 // so how much it bends does not change with the listening level (DRIVE
 // decides it).
@@ -141,6 +145,7 @@ public:
     const std::shared_ptr<EqStage> eq = std::make_shared<EqStage>();
     const std::shared_ptr<ToneStage> tone = std::make_shared<ToneStage>();
     const std::shared_ptr<TubeStage> tube = std::make_shared<TubeStage>();
+    const std::shared_ptr<CrossfeedStage> crossfeed = std::make_shared<CrossfeedStage>();
     const std::shared_ptr<VolumeStage> volume = std::make_shared<VolumeStage>();
     const std::shared_ptr<IspSafeStage> ispSafe = std::make_shared<IspSafeStage>();
     const std::shared_ptr<RequantizeStage> requantize = std::make_shared<RequantizeStage>(); // ABX only, off otherwise

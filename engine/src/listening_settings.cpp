@@ -188,6 +188,8 @@ std::string settingsToText(const AppSettings& s)
     out << "tube.enabled=" << (l.tubeEnabled ? 1 : 0) << '\n';
     out << "tube.type=" << tubeTypeKey(l.tubeType) << '\n';
     out << "tube.drive=" << number(l.tubeDriveDb) << '\n';
+    out << "crossfeed.enabled=" << (l.crossfeedEnabled ? 1 : 0) << '\n';
+    out << "crossfeed.level=" << crossfeedLevelKey(l.crossfeedLevel) << '\n';
     // EQ presets (task 6-9): each starts with its name.
     for (const auto& p : s.eqPresets)
     {
@@ -266,6 +268,10 @@ AppSettings settingsFromText(std::string_view text)
         else if (key == "tube.drive")
             l.tubeDriveDb = std::clamp(parseNumber(value).value_or(TubeStage::kDefaultDriveDb), TubeStage::kMinDriveDb,
                                        TubeStage::kMaxDriveDb);
+        else if (key == "crossfeed.enabled")
+            l.crossfeedEnabled = value == "1";
+        else if (key == "crossfeed.level")
+            l.crossfeedLevel = crossfeedLevelFrom(value).value_or(CrossfeedLevel::Default);
         else if (key == "eqpreset.name")
         {
             preset = nullptr;
@@ -287,7 +293,7 @@ AppSettings settingsFromText(std::string_view text)
 
 ListeningChain::ListeningChain()
     : chain_(std::make_shared<ProcessingChain>(
-          std::vector<std::shared_ptr<ProcessingStage>>{replayGain, eq, tone, tube, volume, ispSafe, requantize, limiter}))
+          std::vector<std::shared_ptr<ProcessingStage>>{replayGain, eq, tone, tube, crossfeed, volume, ispSafe, requantize, limiter}))
 {
 }
 
@@ -305,6 +311,8 @@ void ListeningChain::apply(const ListeningSettings& s)
     tube->setType(s.tubeType);
     tube->setDriveDb(s.tubeDriveDb);
     tube->setEnabled(processed && s.tubeEnabled);
+    crossfeed->setLevel(s.crossfeedLevel);
+    crossfeed->setEnabled(processed && s.crossfeedEnabled);
 }
 
 void ListeningChain::setEqSolo(std::optional<std::size_t> band)
