@@ -195,6 +195,7 @@ export class SettingsView {
           if (r.ok) {
             this.tubeAutoOn = t.enabled;
             this.els.summary.textContent = modeSummary(this.listening, this.tubeAutoOn);
+            this.notify();
           }
           return r;
         },
@@ -205,6 +206,31 @@ export class SettingsView {
     this.els.device.addEventListener("change", () => void this.chooseOutput());
     this.els.dop.addEventListener("change", () => void this.setDop());
     this.api.onOutputsChanged(() => void this.refreshOutputs());
+  }
+
+  // --- for the amp view (task 9-9): the same settings, changed from its knobs ---
+
+  private readonly listeners: (() => void)[] = [];
+
+  // The listening settings as the app has them; null until they are read.
+  get current(): ListeningSettings | null {
+    return this.loaded ? this.listening : null;
+  }
+
+  get tubeAutoEnabled(): boolean {
+    return this.tubeAutoOn;
+  }
+
+  changeListening(part: Partial<ListeningSettings>, delayMs = 0) {
+    if (this.loaded) this.change(part, delayMs);
+  }
+
+  onListening(listener: () => void) {
+    this.listeners.push(listener);
+  }
+
+  private notify() {
+    for (const l of this.listeners) l();
   }
 
   // Called when the screen is shown: reads what the app has now.
@@ -327,6 +353,7 @@ export class SettingsView {
     this.drawCurve();
     this.editor.render();
     this.renderPresets();
+    this.notify();
   }
 
   private renderToneAndTube() {

@@ -1,18 +1,30 @@
-// The two views (task 6-7, CLAUDE.md chapter 8): the standard view (realistic,
-// wood and amber light; its photo-like parts come with 6-8) and the library
-// view (modern and flat, two colour themes). Only the look and the sizes
-// differ: the page is the same parts with the same functions and information,
-// switched by an attribute on the root element and the CSS variables it sets.
-// The first start is the standard view; then the view last used.
+// The views (task 6-7, CLAUDE.md chapter 8): the standard view (realistic,
+// wood and amber light; its photo-like parts come with 6-8), the library
+// view (modern and flat, two colour themes) and the amp view (task 9-9: a
+// tube amp on top, the standard view's panels under it). Only the look and
+// the layout differ: the page is the same parts with the same functions and
+// information, switched by attributes on the root element and the CSS
+// variables they set. The first start is the standard view; then the view
+// last used.
 
-export type UiView = "standard" | "library";
+export type UiView = "standard" | "library" | "amp";
+export const UI_VIEWS: UiView[] = ["standard", "amp", "library"];
 
 export const UI_VIEW_KEY = "uiView";
 
 export const VIEW_LABELS: Record<UiView, string> = {
   standard: "標準ビュー",
   library: "ライブラリビュー",
+  amp: "アンプビュー",
 };
+
+// The realistic look (wood, metal, amber light) is shared by the standard
+// and the amp views: their panels, lists and type are the same.
+export type UiLook = "real" | "flat";
+
+export function lookOf(view: UiView): UiLook {
+  return view === "library" ? "flat" : "real";
+}
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -21,7 +33,8 @@ export interface StorageLike {
 
 export function loadUiView(storage: StorageLike): UiView {
   try {
-    return storage.getItem(UI_VIEW_KEY) === "library" ? "library" : "standard";
+    const v = storage.getItem(UI_VIEW_KEY);
+    return v === "library" || v === "amp" ? v : "standard";
   } catch {
     return "standard";
   }
@@ -35,12 +48,14 @@ export function saveUiView(storage: StorageLike, view: UiView) {
   }
 }
 
-export function otherView(view: UiView): UiView {
-  return view === "standard" ? "library" : "standard";
+// The views the side bar offers to switch to: the other two, in a fixed order.
+export function otherViews(view: UiView): UiView[] {
+  return UI_VIEWS.filter((v) => v !== view);
 }
 
 export function currentUiView(): UiView {
-  return document.documentElement.dataset.uiView === "library" ? "library" : "standard";
+  const v = document.documentElement.dataset.uiView;
+  return v === "library" || v === "amp" ? v : "standard";
 }
 
 // Shows the view (without saving it). Listeners redraw what depends on sizes.
@@ -48,6 +63,7 @@ const listeners: ((v: UiView) => void)[] = [];
 
 export function applyUiView(view: UiView) {
   document.documentElement.dataset.uiView = view;
+  document.documentElement.dataset.look = lookOf(view);
   for (const l of listeners) l(view);
 }
 
@@ -76,8 +92,10 @@ export function standardZoom(width: number, height: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 }
 
-// Sets --ui-zoom on the root element (the standard view's CSS uses it).
+// Sets --ui-zoom on the root element (the standard and amp views' CSS use
+// it; the amp view is drawn for the same 1115 x 605, from its own concept
+// images at the same 150%).
 export function applyStandardZoom() {
-  const z = currentUiView() === "standard" ? standardZoom(window.innerWidth, window.innerHeight) : 1;
+  const z = lookOf(currentUiView()) === "real" ? standardZoom(window.innerWidth, window.innerHeight) : 1;
   document.documentElement.style.setProperty("--ui-zoom", z.toFixed(4));
 }

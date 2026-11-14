@@ -347,7 +347,7 @@ button.icon.plain {
   background: #6b6b6b;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
 }
-[data-ui-view="standard"] .seek input:disabled::-webkit-slider-thumb {
+[data-look="real"] .seek input:disabled::-webkit-slider-thumb {
   background: #6b5a48;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7);
 }
@@ -1442,21 +1442,23 @@ dd {
   }
 }
 
-/* Narrow windows: the queue goes first, then the side bar. */
+/* Narrow windows: the queue goes first, then the side bar. Only in the
+   library view: the standard and amp views are laid out for 1115 px and
+   zoomed to the window, so they keep every panel. */
 @media (max-width: 1100px) {
-  .shell {
+  [data-look="flat"] .shell {
     grid-template-columns: var(--sidebar-w) 1fr 0;
   }
-  .queue-panel {
+  [data-look="flat"] .queue-panel {
     display: none;
   }
 }
 @media (max-width: 760px) {
-  .shell {
+  [data-look="flat"] .shell {
     grid-template-columns: 0 1fr 0;
   }
-  .sidebar,
-  .levels {
+  [data-look="flat"] .sidebar,
+  [data-look="flat"] .levels {
     display: none;
   }
 }
@@ -1970,7 +1972,7 @@ dd {
    through the variables below. Dark wood and metal, amber light; the
    photo-like parts (wood frame, metal, VU meters) come with 6-8. The library
    view's colour themes do not apply here. */
-:root[data-ui-view="standard"] {
+:root[data-look="real"] {
   /* Sizes from the concept images, read as drawn for a 150% screen (decided
      2026-11-13): one image pixel is 2/3 of a CSS pixel. See the block
      "sizes from the concept image" at the end. */
@@ -2014,38 +2016,38 @@ dd {
   /* Times and levels line up (Cambria has lining figures; Georgia does not). */
   font-variant-numeric: lining-nums tabular-nums;
 }
-[data-ui-view="standard"] .shell {
+[data-look="real"] .shell {
   border: 4px solid #3b2516;
   border-radius: 4px;
   box-shadow: inset 0 0 0 1px #5a3a22;
 }
-[data-ui-view="standard"] .topbar {
+[data-look="real"] .topbar {
   background: linear-gradient(180deg, #2b211a 0%, #1a130e 55%, #140f0b 100%);
   border-bottom-color: #4a3422;
 }
-[data-ui-view="standard"] .sidebar,
-[data-ui-view="standard"] .queue-panel {
+[data-look="real"] .sidebar,
+[data-look="real"] .queue-panel {
   background: linear-gradient(180deg, #1c150f, #140f0a);
 }
-[data-ui-view="standard"] .now-title {
+[data-look="real"] .now-title {
   font-size: 17px;
   font-weight: 400;
 }
-[data-ui-view="standard"] .content-head h1 {
+[data-look="real"] .content-head h1 {
   font-size: 27px;
   font-weight: 400;
 }
-[data-ui-view="standard"] .queue-panel h2 {
+[data-look="real"] .queue-panel h2 {
   font-size: 23px;
   font-weight: 400;
 }
-[data-ui-view="standard"] .nav.active {
+[data-look="real"] .nav.active {
   box-shadow: 0 0 10px rgba(244, 166, 64, 0.22);
 }
-[data-ui-view="standard"] .tile-title {
+[data-look="real"] .tile-title {
   font-size: 14px;
 }
-[data-ui-view="standard"] .output-field .tag {
+[data-look="real"] .output-field .tag {
   border-color: #5a4028;
 }
 
@@ -2082,16 +2084,16 @@ dd {
 }
 /* The page's own background stays clear: it would cover the wood, which is
    painted behind it. */
-html[data-ui-view="standard"] {
+html[data-look="real"] {
   background: #0b0806;
 }
-[data-ui-view="standard"] body {
+[data-look="real"] body {
   background: none;
 }
 /* The wood around the window: the sides and the foot (the status line sits
    on the foot). Behind the page, so it takes no clicks. Scaled with the view
    (--ui-zoom, uiView.ts), outside it. */
-[data-ui-view="standard"] body::before {
+[data-look="real"] body::before {
   --fz: var(--ui-zoom, 1);
   content: "";
   position: fixed;
@@ -2102,25 +2104,25 @@ html[data-ui-view="standard"] {
   border-width: 0 calc(8px * var(--fz)) calc(var(--status-h) * var(--fz)) calc(7px * var(--fz));
   border-image: var(--frame) 0 12 31 11 / 0 calc(8px * var(--fz)) calc(var(--status-h) * var(--fz)) calc(7px * var(--fz)) stretch;
 }
-[data-ui-view="standard"] .topbar {
+[data-look="real"] .topbar {
   background: var(--bar) center / 100% 100% no-repeat;
   border-bottom: 0;
   position: relative;
   z-index: 1;
 }
-[data-ui-view="standard"] .sidebar {
+[data-look="real"] .sidebar {
   background: var(--panel-side) center / 100% 100% no-repeat;
 }
-[data-ui-view="standard"] .content {
+[data-look="real"] .content {
   background: var(--panel-main) center / 100% 100% no-repeat;
 }
-[data-ui-view="standard"] .queue-panel {
+[data-look="real"] .queue-panel {
   background: var(--panel-queue) center / 100% 100% no-repeat;
 }
 /* Round buttons from the concept image; the symbols are text on top. */
 /* They stand out of the plate: a dark side under the face, a shadow on the
    metal below, light on the upper rim; pressed, they sink. */
-[data-ui-view="standard"] .transport button.icon {
+[data-look="real"] .transport button.icon {
   border-radius: 50%;
   background: var(--button) center / cover;
   border: none;
@@ -2134,7 +2136,7 @@ html[data-ui-view="standard"] {
   color: #f1e2c6;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
 }
-[data-ui-view="standard"] .transport button.play {
+[data-look="real"] .transport button.play {
   background: var(--button-play) center / cover;
   border: none;
   color: var(--accent);
@@ -2145,21 +2147,21 @@ html[data-ui-view="standard"] {
     0 0 12px rgba(244, 166, 64, 0.3),
     inset 0 1px 1px rgba(255, 232, 196, 0.3);
 }
-[data-ui-view="standard"] .transport button:active:not(:disabled) {
+[data-look="real"] .transport button:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow:
     0 1px 0 #140d08,
     0 2px 3px rgba(0, 0, 0, 0.6),
     inset 0 1px 2px rgba(0, 0, 0, 0.45);
 }
-[data-ui-view="standard"] .transport button:disabled {
+[data-look="real"] .transport button:disabled {
   opacity: 0.5;
 }
 /* The VU meters: the face lit amber; the light is lowered in 原音モード. */
-[data-ui-view="standard"] .levels {
+[data-look="real"] .levels {
   display: none;
 }
-[data-ui-view="standard"] .vu-meters {
+[data-look="real"] .vu-meters {
   display: flex;
   gap: 8px;
   flex: none;
@@ -2241,35 +2243,35 @@ html[data-ui-view="standard"] {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), 0 0 10px rgba(255, 176, 80, 0.28);
 }
 /* The output field: amber-edged tags. */
-[data-ui-view="standard"] .output-field .tag {
+[data-look="real"] .output-field .tag {
   border-color: #5f442a;
   background: rgba(0, 0, 0, 0.25);
 }
 /* Lists: the playing row glows amber. */
-[data-ui-view="standard"] .row.playing,
-[data-ui-view="standard"] .queue-list li.current {
+[data-look="real"] .row.playing,
+[data-look="real"] .queue-list li.current {
   background: linear-gradient(90deg, rgba(244, 166, 64, 0.26), rgba(244, 166, 64, 0.1));
   box-shadow: inset 0 0 0 1px rgba(244, 166, 64, 0.55);
 }
-[data-ui-view="standard"] .row {
+[data-look="real"] .row {
   border-bottom-color: rgba(120, 90, 60, 0.18);
   font-size: 13px; /* the serif is wider: all the columns keep their room */
 }
 /* Album covers: a little depth; amber light around the one playing. */
-[data-ui-view="standard"] .tile img,
-[data-ui-view="standard"] .tile .cover-blank {
+[data-look="real"] .tile img,
+[data-look="real"] .tile .cover-blank {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
   border-radius: 3px;
 }
-[data-ui-view="standard"] .tile.selected img,
-[data-ui-view="standard"] .tile.playing img {
+[data-look="real"] .tile.selected img,
+[data-look="real"] .tile.playing img {
   box-shadow: 0 0 0 2px var(--accent), 0 0 16px rgba(244, 166, 64, 0.45);
 }
-[data-ui-view="standard"] .nav.active {
+[data-look="real"] .nav.active {
   background: linear-gradient(90deg, rgba(244, 166, 64, 0.28), rgba(244, 166, 64, 0.06));
   border: 1px solid rgba(244, 166, 64, 0.45);
 }
-[data-ui-view="standard"] .view-switch {
+[data-look="real"] .view-switch {
   border-color: #8a6234;
   color: #e8c48a;
   background: rgba(0, 0, 0, 0.25);
@@ -2279,10 +2281,10 @@ html[data-ui-view="standard"] {
    (uiView.ts), so its top bar takes the narrow sizes at every window size:
    a narrower volume and title, and the seek bar keeps a usable length.
    Widths stay fixed (nothing moves as values change). */
-[data-ui-view="standard"] .volume-box {
+[data-look="real"] .volume-box {
   width: 130px;
 }
-[data-ui-view="standard"] .now {
+[data-look="real"] .now {
   flex: 0 1 110px;
   width: 110px;
   min-width: 90px;
@@ -2296,7 +2298,7 @@ html[data-ui-view="standard"] {
    sits on it); the panels are separated by dark grooves. */
 /* The whole view is the concept image scaled to the window (uiView.ts,
    standardZoom): laid out for 1115 x 605 and zoomed. */
-[data-ui-view="standard"] .shell {
+[data-look="real"] .shell {
   zoom: var(--ui-zoom, 1);
   height: calc(100vh / var(--ui-zoom, 1));
   border: 0;
@@ -2306,20 +2308,20 @@ html[data-ui-view="standard"] {
   box-shadow: none;
   background: linear-gradient(#0b0806, #0b0806) top / 100% calc(100% - var(--status-h)) no-repeat content-box;
 }
-[data-ui-view="standard"] .topbar {
+[data-look="real"] .topbar {
   margin-bottom: 2px;
   padding: 0 14px;
   gap: 10px;
 }
 /* The panels' pictures carry their own rim and rounded corners. */
-[data-ui-view="standard"] .sidebar,
-[data-ui-view="standard"] .content,
-[data-ui-view="standard"] .queue-panel {
+[data-look="real"] .sidebar,
+[data-look="real"] .content,
+[data-look="real"] .queue-panel {
   border: 0;
   border-radius: 4px;
   box-shadow: none;
 }
-[data-ui-view="standard"] .statusbar {
+[data-look="real"] .statusbar {
   background: none;
   border: 0;
   padding: 0 10px;
@@ -2328,83 +2330,83 @@ html[data-ui-view="standard"] {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9);
 }
 /* The serif everywhere but the settings' form. */
-[data-ui-view="standard"] .topbar,
-[data-ui-view="standard"] .sidebar,
-[data-ui-view="standard"] .queue-panel,
-[data-ui-view="standard"] .content-head,
-[data-ui-view="standard"] .table-head,
-[data-ui-view="standard"] .album-head,
-[data-ui-view="standard"] .grid {
+[data-look="real"] .topbar,
+[data-look="real"] .sidebar,
+[data-look="real"] .queue-panel,
+[data-look="real"] .content-head,
+[data-look="real"] .table-head,
+[data-look="real"] .album-head,
+[data-look="real"] .grid {
   font-family: var(--font-display);
   font-variant-numeric: lining-nums tabular-nums;
 }
 
 /* Top bar: groups divided by thin lines. */
-[data-ui-view="standard"] .now-cover {
+[data-look="real"] .now-cover {
   width: 47px;
   height: 47px;
   border-radius: 2px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
 }
-[data-ui-view="standard"] .now-title {
+[data-look="real"] .now-title {
   font-size: 15px;
 }
-[data-ui-view="standard"] .now-sub {
+[data-look="real"] .now-sub {
   font-size: 11px;
 }
-[data-ui-view="standard"] .transport,
-[data-ui-view="standard"] .seek,
-[data-ui-view="standard"] .vu-meters,
-[data-ui-view="standard"] .output-field {
+[data-look="real"] .transport,
+[data-look="real"] .seek,
+[data-look="real"] .vu-meters,
+[data-look="real"] .output-field {
   border-left: 1px solid rgba(255, 222, 176, 0.2);
   box-shadow: -1px 0 0 rgba(0, 0, 0, 0.6);
   padding-left: 12px;
 }
-[data-ui-view="standard"] .transport {
+[data-look="real"] .transport {
   align-items: center;
   gap: 8px;
 }
-[data-ui-view="standard"] .transport button.icon {
+[data-look="real"] .transport button.icon {
   width: 30px;
   height: 30px;
   min-width: 0;
   padding: 0;
   font-size: 10px;
 }
-[data-ui-view="standard"] .transport button.play {
+[data-look="real"] .transport button.play {
   width: 37px;
   height: 37px;
   font-size: 13px;
 }
-[data-ui-view="standard"] .time {
+[data-look="real"] .time {
   font-size: 11px;
   color: var(--text);
 }
-[data-ui-view="standard"] .seek input {
+[data-look="real"] .seek input {
   min-width: 0; /* the slider gives way, not the times */
 }
 /* The standard view's knob: a small amber ball, as on the concept image. */
-[data-ui-view="standard"] .seek input::-webkit-slider-thumb,
-[data-ui-view="standard"] #vol-slider::-webkit-slider-thumb {
+[data-look="real"] .seek input::-webkit-slider-thumb,
+[data-look="real"] #vol-slider::-webkit-slider-thumb {
   background: radial-gradient(circle at 38% 32%, #ffe0a6 0%, #f4a640 48%, #a95f17 100%);
   box-shadow: 0 0 0 1px rgba(50, 26, 6, 0.85), 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 6px rgba(244, 166, 64, 0.5);
 }
-[data-ui-view="standard"] .seek input,
-[data-ui-view="standard"] #vol-slider {
+[data-look="real"] .seek input,
+[data-look="real"] #vol-slider {
   --range-lit: #f2a640;
   --range-rest: rgba(150, 138, 124, 0.42);
 }
-[data-ui-view="standard"] .vu-meters {
+[data-look="real"] .vu-meters {
   align-self: stretch;
   align-items: center;
   gap: 10px;
 }
 /* The output field: no heading; the format's three tags in a row and the
    judgement in a box under them. Fixed widths: nothing else in the bar moves. */
-[data-ui-view="standard"] .output-label {
+[data-look="real"] .output-label {
   display: none;
 }
-[data-ui-view="standard"] .output-field {
+[data-look="real"] .output-field {
   justify-content: center;
   align-self: stretch;
   border-top: 0;
@@ -2415,82 +2417,82 @@ html[data-ui-view="standard"] {
 }
 /* The whole field is one button: the tags take no clicks of their own, and
    on hover (or keyboard focus) the field lights up as a whole. */
-[data-ui-view="standard"] .output-field {
+[data-look="real"] .output-field {
   position: relative;
 }
-[data-ui-view="standard"] .output-field > * {
+[data-look="real"] .output-field > * {
   pointer-events: none;
   position: relative;
 }
-[data-ui-view="standard"] .output-field::before {
+[data-look="real"] .output-field::before {
   content: "";
   position: absolute;
   inset: 6px -6px 6px 5px;
   border-radius: 4px;
   transition: background 120ms ease, box-shadow 120ms ease;
 }
-[data-ui-view="standard"] .output-field:hover:not(:disabled),
-[data-ui-view="standard"] .output-field:focus-visible {
+[data-look="real"] .output-field:hover:not(:disabled),
+[data-look="real"] .output-field:focus-visible {
   border-left-color: rgba(255, 222, 176, 0.2); /* the divider stays as it is */
   outline: none;
 }
-[data-ui-view="standard"] .output-field:hover:not(:disabled)::before,
-[data-ui-view="standard"] .output-field:focus-visible::before {
+[data-look="real"] .output-field:hover:not(:disabled)::before,
+[data-look="real"] .output-field:focus-visible::before {
   background: rgba(244, 166, 64, 0.14);
   box-shadow: inset 0 0 0 1px rgba(244, 166, 64, 0.55), 0 0 12px rgba(244, 166, 64, 0.22);
 }
-[data-ui-view="standard"] .output-field:hover:not(:disabled) .tag,
-[data-ui-view="standard"] .output-field:focus-visible .tag {
+[data-look="real"] .output-field:hover:not(:disabled) .tag,
+[data-look="real"] .output-field:focus-visible .tag {
   border-color: rgba(244, 166, 64, 0.6);
   color: #fff3dc;
 }
-[data-ui-view="standard"] .output-field:hover:not(:disabled) .tag.warn,
-[data-ui-view="standard"] .output-field:focus-visible .tag.warn {
+[data-look="real"] .output-field:hover:not(:disabled) .tag.warn,
+[data-look="real"] .output-field:focus-visible .tag.warn {
   color: var(--warn);
 }
-[data-ui-view="standard"] .output-field:active::before {
+[data-look="real"] .output-field:active::before {
   background: rgba(244, 166, 64, 0.22);
 }
-[data-ui-view="standard"] .output-tags {
+[data-look="real"] .output-tags {
   grid-template-columns: 32px 48px 40px;
   gap: 3px;
 }
-[data-ui-view="standard"] .output-tags .tag {
+[data-look="real"] .output-tags .tag {
   font-size: 9.5px;
   padding: 1px 2px;
 }
 /* The judgement - BIT-PERFECT, or what keeps it from being so (DIGITAL VOL
    -4.6 dB, 処理あり and the like) - in one box under the three tags. */
-[data-ui-view="standard"] .output-tags .tag.ok,
-[data-ui-view="standard"] .output-tags .tag.warn {
+[data-look="real"] .output-tags .tag.ok,
+[data-look="real"] .output-tags .tag.warn {
   grid-column: 1 / -1;
   text-align: center;
   letter-spacing: 0.03em;
 }
-[data-ui-view="standard"] .output-tags .tag.warn {
+[data-look="real"] .output-tags .tag.warn {
   color: var(--warn);
 }
 
 /* Side bar: roomy items, the chosen one lit amber with a bright edge. */
-[data-ui-view="standard"] .sidebar {
+[data-look="real"] .sidebar {
   padding: 24px 0 8px 3px;
   gap: 8px;
 }
-[data-ui-view="standard"] .nav {
+[data-look="real"] .nav {
   height: 33px;
   padding: 0 8px 0 12px;
   gap: 12px;
   border-radius: 0 3px 3px 0;
 }
-[data-ui-view="standard"] .nav-icon {
+[data-look="real"] .nav-icon {
   width: 19px;
   font-size: 14px;
 }
-[data-ui-view="standard"] .folders {
+[data-look="real"] .folders {
   margin-top: 8px;
 }
-[data-ui-view="standard"] .open-file,
-[data-ui-view="standard"] .view-switch {
+[data-look="real"] .open-file,
+[data-look="real"] .view-switch {
   margin-left: 3px;
   margin-right: 6px;
   width: auto;
@@ -2501,89 +2503,89 @@ html[data-ui-view="standard"] {
 }
 
 /* Content: the heading, then the search, sort and view buttons at the right. */
-[data-ui-view="standard"] .content {
+[data-look="real"] .content {
   padding: 15px 18px 0 22px;
 }
-[data-ui-view="standard"] .content-head h1 {
+[data-look="real"] .content-head h1 {
   font-size: 25px;
 }
-[data-ui-view="standard"] #search {
+[data-look="real"] #search {
   flex: 0 1 243px;
   margin-left: auto;
   height: 24px;
   padding: 2px 10px;
 }
-[data-ui-view="standard"] #search,
-[data-ui-view="standard"] #sort {
+[data-look="real"] #search,
+[data-look="real"] #sort {
   font-size: 12px;
 }
-[data-ui-view="standard"] #sort {
+[data-look="real"] #sort {
   width: 115px;
   height: 24px;
   padding: 0 4px;
 }
-[data-ui-view="standard"] .view-toggle button {
+[data-look="real"] .view-toggle button {
   height: 24px;
   min-width: 29px;
 }
-[data-ui-view="standard"] .table-head {
+[data-look="real"] .table-head {
   font-size: 11px;
   letter-spacing: 0.04em;
 }
-[data-ui-view="standard"] .table-head button {
+[data-look="real"] .table-head button {
   font-size: 11px;
   font-family: inherit;
 }
-[data-ui-view="standard"] .row {
+[data-look="real"] .row {
   border-bottom-color: rgba(150, 112, 74, 0.2);
 }
 /* All the columns (True Peak included) fit the concept image's width. */
-[data-ui-view="standard"] .table-head,
-[data-ui-view="standard"] .row {
+[data-look="real"] .table-head,
+[data-look="real"] .row {
   grid-template-columns: 16px minmax(100px, 2.2fr) minmax(76px, 1.6fr) minmax(76px, 1.6fr) 48px 78px 56px 88px 30px;
   gap: 6px;
   padding: 0 4px;
 }
-[data-ui-view="standard"] .grid {
+[data-look="real"] .grid {
   margin-left: 17px; /* the tiles sit a little in from the heading */
 }
-[data-ui-view="standard"] .tile-title {
+[data-look="real"] .tile-title {
   font-size: 13px;
   margin-top: 4px;
 }
-[data-ui-view="standard"] .tile-sub {
+[data-look="real"] .tile-sub {
   font-size: 10.5px;
 }
 
 /* The album's head: a large cover with amber light around it. */
-[data-ui-view="standard"] .album-cover {
+[data-look="real"] .album-cover {
   width: 130px;
   height: 130px;
   border-radius: 2px;
   box-shadow: 0 0 0 1px var(--accent), 0 0 14px rgba(244, 166, 64, 0.4);
 }
-[data-ui-view="standard"] .album-info h2 {
+[data-look="real"] .album-info h2 {
   font-size: 30px;
   font-weight: 400;
 }
-[data-ui-view="standard"] .album-artist {
+[data-look="real"] .album-artist {
   font-size: 16px;
 }
-[data-ui-view="standard"] .album-meta {
+[data-look="real"] .album-meta {
   font-size: 13px;
 }
 
 /* Queue: a line under the head, roomy rows with lines between. */
-[data-ui-view="standard"] .queue-panel {
+[data-look="real"] .queue-panel {
   padding: 14px 10px 0 18px;
 }
-[data-ui-view="standard"] .queue-count {
+[data-look="real"] .queue-count {
   font-size: 12px;
   padding-bottom: 8px;
   margin-bottom: 4px;
   border-bottom: 1px solid rgba(150, 112, 74, 0.35);
 }
-[data-ui-view="standard"] .queue-list li {
+[data-look="real"] .queue-list li {
   font-size: 13px;
   padding: 8px 6px;
   border-bottom-color: rgba(150, 112, 74, 0.2);
@@ -2591,18 +2593,469 @@ html[data-ui-view="standard"] {
 
 /* Text one size smaller in the standard view (2026-11-13, the user): the
    parts that otherwise take the shared sizes. */
-[data-ui-view="standard"] .nav {
+[data-look="real"] .nav {
   font-size: 14px;
 }
-[data-ui-view="standard"] .folders-head,
-[data-ui-view="standard"] .folder-list .folder-count,
-[data-ui-view="standard"] .vol-label,
-[data-ui-view="standard"] .row .mark {
+[data-look="real"] .folders-head,
+[data-look="real"] .folder-list .folder-count,
+[data-look="real"] .vol-label,
+[data-look="real"] .row .mark {
   font-size: 10px;
 }
-[data-ui-view="standard"] .folder-list li {
+[data-look="real"] .folder-list li {
   font-size: 12px;
 }
-[data-ui-view="standard"] .album-meta .tag {
+[data-look="real"] .album-meta .tag {
   font-size: 10px;
+}
+
+/* --- the amp view (task 9-9; concept images UI-AMP-SE and UI-AMP-SE-PURE) ----
+   A tube amp on top, the standard view's panels under it (the shared
+   realistic look, [data-look="real"]). The amp is the concept image's own
+   pixels (tools/ui_amp_parts.py) shown at 2/3 (150%), with the page's words,
+   lamps, pointers and needles on it; the whole view is zoomed with the
+   window like the standard view (--ui-zoom). */
+.amp,
+.amp-now,
+.nav.amp-only {
+  display: none;
+}
+[data-ui-view="amp"] .nav.amp-only {
+  display: flex;
+}
+[data-ui-view="amp"] .shell {
+  --amp-h: 388px; /* the picture: 582 image px */
+  grid-template-rows: var(--amp-h) 1fr var(--status-h);
+  grid-template-areas:
+    "amp amp amp"
+    "side main queue"
+    "status status status";
+  row-gap: 3px;
+}
+[data-ui-view="amp"] .topbar {
+  display: none;
+}
+[data-ui-view="amp"] .amp {
+  grid-area: amp;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  margin: -1px -8px 0;
+  background: #0b0806;
+  position: relative;
+  z-index: 1;
+}
+.amp-stage {
+  position: relative;
+  flex: none;
+  zoom: 0.666667; /* image px to CSS px */
+  user-select: none;
+  /* The round buttons cut from this picture. */
+  --button: url("./textures/amp/button.jpg");
+  --button-play: url("./textures/amp/play.jpg");
+}
+.amp-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+/* The tubes warm up slowly and go dark a little faster. */
+.amp-scene-lit {
+  opacity: 0;
+  transition: opacity 1.4s ease-out;
+}
+.amp-stage[data-lit="1"] .amp-scene-lit {
+  opacity: 1;
+  transition: opacity 2.6s ease-in;
+}
+
+/* Words on the panel: engraved, in the concept image's serif capitals. */
+.amp-word {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: Cambria, Georgia, "Yu Mincho", serif;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: #22160c;
+  text-shadow:
+    0 1px 0 rgba(255, 233, 200, 0.4),
+    0 -1px 0 rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+.amp-word.left {
+  transform: translate(0, -50%);
+  align-items: flex-start;
+}
+
+/* Lamps: dark in their sockets (on the picture); lit by the page. */
+.amp-lamp {
+  position: absolute;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.amp-lamp:disabled {
+  cursor: default;
+  opacity: 1; /* a lamp shows a state even where it takes no click */
+}
+/* The two lamps that are not on the picture get a socket of their own. */
+.amp-lamp-crossfeed,
+.amp-lamp-auto {
+  background: radial-gradient(circle at 45% 38%, #6e5a44 0%, #2b1f15 58%, #110b07 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(0, 0, 0, 0.7),
+    0 1px 0 rgba(255, 232, 196, 0.35);
+}
+.amp-lamp.on {
+  background: radial-gradient(circle at 50% 44%, #fff8d8 0%, #ffd665 28%, #f39a1d 62%, #8f4306 100%);
+  box-shadow:
+    0 0 5px 1px rgba(255, 186, 70, 0.85),
+    0 0 18px 6px rgba(255, 150, 40, 0.38);
+}
+.amp-lamp-pure.on {
+  background: radial-gradient(circle at 50% 44%, #f4feff 0%, #b5f0ff 30%, #48bcd9 64%, #124e5c 100%);
+  box-shadow:
+    0 0 5px 1px rgba(150, 232, 255, 0.85),
+    0 0 18px 6px rgba(90, 200, 235, 0.35);
+}
+/* 原音モード: what only acts in 音作りモード is not lit (the layout stays). */
+.amp-lamp.dim.on {
+  opacity: 0.28;
+  box-shadow: none;
+}
+.amp-lamp:focus-visible,
+.amp-toggle:focus-visible,
+.amp-badge:focus-visible {
+  outline: 2px solid rgba(244, 166, 64, 0.8);
+  outline-offset: 3px;
+}
+
+/* The MODE switch: the lever up (PURE) or down (TUBE), both cut from the
+   pictures; the edges fade into the panel. */
+.amp-toggle {
+  position: absolute;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 72%, transparent 100%);
+  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 72%, transparent 100%);
+}
+.amp-toggle img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.amp-toggle .amp-toggle-down,
+.amp-toggle.down .amp-toggle-up {
+  opacity: 0;
+}
+.amp-toggle.down .amp-toggle-down {
+  opacity: 1;
+}
+
+/* Knobs: the bodies are on the picture; the page turns a pointer. */
+.amp-knob {
+  position: absolute;
+  border-radius: 50%;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.amp-knob:focus-visible {
+  outline: 2px solid rgba(244, 166, 64, 0.7);
+  outline-offset: 4px;
+}
+.amp-knob.disabled {
+  cursor: default;
+}
+.amp-knob svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+.amp-pointer line {
+  stroke-linecap: round;
+}
+.amp-pointer-line {
+  stroke: #1e140b;
+  stroke-width: 3.2;
+}
+.amp-pointer-edge {
+  stroke: rgba(255, 238, 210, 0.55);
+  stroke-width: 1.4;
+}
+.amp-pointer-light {
+  stroke: #fff1d2;
+  stroke-width: 3;
+  opacity: 0.85;
+}
+.amp-pointer-glow {
+  stroke: rgba(255, 196, 110, 0.5);
+  stroke-width: 9;
+  filter: blur(3px);
+}
+.amp-knob.disabled .amp-pointer {
+  opacity: 0.45;
+}
+[data-mode="pure"] .amp-pointer-glow {
+  opacity: 0.25;
+}
+
+/* VU meters on the picture's paper: the scale and the needle. */
+.amp-vu {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: none;
+}
+.amp-vu .vu-arc {
+  stroke-width: 2.2;
+}
+.amp-vu .vu-red {
+  stroke-width: 6;
+}
+.amp-vu .vu-tick {
+  stroke-width: 2;
+}
+.amp-vu .vu-num {
+  font-size: 17px;
+}
+.amp-vu .vu-label {
+  font-size: 30px;
+}
+.amp-vu .vu-needle {
+  stroke-width: 2.6;
+}
+.amp-vu-hump {
+  fill: #120c08;
+}
+.amp-ch {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: Cambria, Georgia, serif;
+  font-size: 22px;
+  color: #ead8b6;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* The badge on the wood: BIT-PERFECT, TUBE PROCESSING, or what keeps it
+   from being bit-perfect. It opens the output check. */
+.amp-badge {
+  position: absolute;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: Cambria, Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  color: #ffd38a;
+  text-shadow: 0 0 6px rgba(255, 166, 60, 0.75);
+  cursor: pointer;
+}
+.amp-badge[data-kind="ok"] {
+  color: #d2f7ff;
+  text-shadow: 0 0 6px rgba(110, 220, 250, 0.8);
+}
+.amp-badge[data-kind="warn"] {
+  letter-spacing: 0.06em;
+}
+.amp-badge:disabled {
+  cursor: default;
+}
+
+/* The transport, moved onto the wood: prev, play / pause (the amber ring),
+   stop, next, where the picture has its buttons. */
+.amp-transport-slot {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+[data-look="real"] .amp-stage .transport {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+[data-look="real"] .amp-stage .transport button.icon {
+  position: absolute;
+  top: 499.5px; /* 575 - 42 - 33.5 */
+  width: 67px;
+  height: 67px;
+  font-size: 22px;
+  pointer-events: auto;
+  color: #f6e2bc;
+}
+[data-look="real"] .amp-stage .transport #prev {
+  left: 636.5px;
+}
+[data-look="real"] .amp-stage .transport button.play {
+  left: 742px;
+  top: 496px;
+  width: 74px;
+  height: 74px;
+  font-size: 26px;
+}
+[data-look="real"] .amp-stage .transport #stop {
+  left: 856.5px;
+}
+[data-look="real"] .amp-stage .transport #next {
+  left: 966.5px;
+}
+/* The volume as a number, and mute, beside the transport. */
+.amp-volume-slot {
+  position: absolute;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+[data-look="real"] .amp-volume-slot .vol-label {
+  font-family: Cambria, Georgia, serif;
+  font-size: 18px;
+  color: #ecd9b6;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  min-width: 4em;
+}
+.amp-volume-slot #mute {
+  font-size: 22px;
+  width: 40px;
+  height: 40px;
+}
+
+/* Under the amp: the side bar's items closer together (the panel is short),
+   and 再生中 in the middle panel. */
+[data-ui-view="amp"] .sidebar {
+  padding-top: 10px;
+  gap: 3px;
+  overflow-y: auto;
+}
+[data-ui-view="amp"] .nav {
+  height: 27px;
+}
+[data-ui-view="amp"] .amp-now:not([hidden]) {
+  display: grid;
+  order: 99; /* under the list */
+}
+/* 再生中: the cover, the title, the seek bar and the output field, as on the
+   concept image. */
+[data-ui-view="amp"][data-content-view="now"] .amp-now {
+  flex: 1;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 18px;
+  padding: 2px 6px 10px;
+  min-height: 0;
+}
+[data-ui-view="amp"] .amp-now .now-cover {
+  width: 150px;
+  height: 150px;
+  border-radius: 3px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.75);
+}
+[data-ui-view="amp"] .amp-now-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+[data-ui-view="amp"] .amp-now .now {
+  width: auto;
+  flex: none;
+  min-width: 0;
+}
+[data-ui-view="amp"] .amp-now .now-title {
+  font-size: 22px;
+  font-weight: 400;
+}
+[data-ui-view="amp"] .amp-now .now-sub {
+  font-size: 14px;
+  margin-top: 4px;
+}
+[data-ui-view="amp"] .amp-now .seek,
+[data-ui-view="amp"] .amp-now .output-field {
+  border-left: 0;
+  box-shadow: none;
+  padding-left: 0;
+  flex: none;
+}
+[data-ui-view="amp"] .amp-now .time {
+  font-size: 13px;
+}
+/* The output field in one row: the format's tags, then the judgement. */
+[data-ui-view="amp"] .amp-now .output-field {
+  align-self: flex-start;
+  padding: 4px 10px;
+}
+[data-ui-view="amp"] .amp-now .output-field::before {
+  inset: 0;
+  box-shadow: inset 0 0 0 1px rgba(150, 112, 74, 0.45);
+}
+[data-ui-view="amp"] .amp-now .output-tags {
+  display: flex;
+  gap: 6px;
+}
+[data-ui-view="amp"] .amp-now .output-tags .tag {
+  font-size: 12px;
+  padding: 2px 6px;
+}
+/* Elsewhere (the list, the albums, the settings): one line under them. */
+[data-ui-view="amp"]:not([data-content-view="now"]) .amp-now {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -16px;
+  padding: 4px 16px 6px;
+  border-top: 1px solid rgba(150, 112, 74, 0.35);
+}
+[data-ui-view="amp"]:not([data-content-view="now"]) .amp-now .now-cover {
+  width: 26px;
+  height: 26px;
+}
+[data-ui-view="amp"]:not([data-content-view="now"]) .amp-now-info {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+[data-ui-view="amp"]:not([data-content-view="now"]) .amp-now .now {
+  flex: 0 1 220px;
+}
+[data-ui-view="amp"]:not([data-content-view="now"]) .amp-now .now-title {
+  font-size: 13px;
+}
+[data-ui-view="amp"]:not([data-content-view="now"]) .amp-now .now-sub {
+  display: none;
+}
+[data-ui-view="amp"]:not([data-content-view="now"]) .amp-now .seek {
+  flex: 1 1 auto;
+}
+[data-ui-view="amp"]:not([data-content-view="now"]) .amp-now .output-field {
+  align-self: center;
+  padding: 2px 6px;
+}
+
+/* The side bar's view buttons: two, one under the other. */
+.view-switches {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }

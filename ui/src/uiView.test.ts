@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadUiView, otherView, saveUiView, STANDARD_DESIGN, standardZoom, UI_VIEW_KEY, VIEW_LABELS, type StorageLike } from "./uiView";
+import { loadUiView, lookOf, otherViews, saveUiView, STANDARD_DESIGN, standardZoom, UI_VIEW_KEY, VIEW_LABELS, type StorageLike } from "./uiView";
 
 class MemoryStorage implements StorageLike {
   values = new Map<string, string>();
@@ -34,7 +34,7 @@ describe("which view the app starts in (CLAUDE.md chapter 8)", () => {
   });
   it("an unknown value or no storage: the standard view", () => {
     const s = new MemoryStorage();
-    s.setItem(UI_VIEW_KEY, "amp");
+    s.setItem(UI_VIEW_KEY, "tube");
     expect(loadUiView(s)).toBe("standard");
     expect(loadUiView(new BrokenStorage())).toBe("standard");
     expect(() => saveUiView(new BrokenStorage(), "library")).not.toThrow();
@@ -42,8 +42,18 @@ describe("which view the app starts in (CLAUDE.md chapter 8)", () => {
   it("names and the switch", () => {
     expect(VIEW_LABELS.standard).toBe("標準ビュー");
     expect(VIEW_LABELS.library).toBe("ライブラリビュー");
-    expect(otherView("standard")).toBe("library");
-    expect(otherView("library")).toBe("standard");
+    expect(VIEW_LABELS.amp).toBe("アンプビュー");
+    expect(otherViews("standard")).toEqual(["amp", "library"]);
+    expect(otherViews("amp")).toEqual(["standard", "library"]);
+    expect(otherViews("library")).toEqual(["standard", "amp"]);
+  });
+  it("the amp view (task 9-9) is kept too, and shares the standard view's realistic look", () => {
+    const s = new MemoryStorage();
+    saveUiView(s, "amp");
+    expect(loadUiView(s)).toBe("amp");
+    expect(lookOf("amp")).toBe("real");
+    expect(lookOf("standard")).toBe("real");
+    expect(lookOf("library")).toBe("flat");
   });
 });
 

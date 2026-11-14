@@ -9,7 +9,8 @@ import type { AlbumRow, AlbumSort, Folder, LibraryCounts, TrackRow, TrackSort } 
 import { dbtpText, formatText, lengthText, rateText, truePeakCell } from "./libraryFormat";
 import { gridLayout, pagesFor, visibleRange } from "./virtual";
 
-export type View = "tracks" | "albums" | "album" | "settings";
+// "now" is the amp view's 再生中 (task 9-9): the panel shows what is playing.
+export type View = "tracks" | "albums" | "album" | "settings" | "now";
 export type Theme = "amber" | "bluegray";
 
 export interface PlayRequest {
@@ -133,7 +134,11 @@ export class LibraryView {
     this.els.albumBack.addEventListener("click", () => this.show("albums"));
     this.els.body.addEventListener("scroll", () => this.schedule());
     this.els.grid.addEventListener("scroll", () => this.schedule());
-    onUiViewChange(() => this.schedule()); // row and tile sizes differ between the views
+    onUiViewChange((v) => {
+      // 再生中 is the amp view's own; elsewhere the top bar shows what is playing.
+      if (v !== "amp" && this.view === "now") this.show("tracks");
+      this.schedule(); // row and tile sizes differ between the views
+    });
     new ResizeObserver(() => this.schedule()).observe(this.els.body);
     new ResizeObserver(() => this.schedule()).observe(this.els.grid);
     this.els.addFolder.addEventListener("click", async () => {
@@ -167,7 +172,9 @@ export class LibraryView {
     document.querySelectorAll<HTMLButtonElement>(".nav").forEach((b) =>
       b.classList.toggle("active", b.dataset.view === (view === "album" ? "albums" : view)),
     );
-    const library = view !== "settings";
+    document.documentElement.dataset.contentView = view;
+    const library = view !== "settings" && view !== "now";
+    this.els.title.parentElement!.hidden = view === "now";
     this.els.search.hidden = !library;
     this.els.sort.hidden = !library || view === "album";
     this.els.viewList.parentElement!.hidden = !library || view === "album";
@@ -179,6 +186,10 @@ export class LibraryView {
     this.els.albumHead.hidden = view !== "album";
     this.els.title.textContent =
       view === "settings" ? "設定" : view === "albums" ? "アルバム" : view === "album" ? "アルバム" : "ライブラリ";
+    if (view === "now") {
+      this.els.empty.hidden = true;
+      return;
+    }
     if (view === "settings") {
       this.els.empty.hidden = true;
       for (const r of document.querySelectorAll<HTMLInputElement>('input[name="theme"]'))

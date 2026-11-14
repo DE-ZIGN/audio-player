@@ -3,7 +3,8 @@ import { createBackend, type Backend, type QueueInfo } from "./backend";
 import { afterInsert, afterMove, afterRemove, dbToSlider, sliderToDb, volumeLabel, type Db } from "./queueOps";
 import { countsText } from "./libraryFormat";
 import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
-import { applyStandardZoom, applyUiView, currentUiView, loadUiView, onUiViewChange, otherView, saveUiView, VIEW_LABELS, type UiView } from "./uiView";
+import { applyStandardZoom, applyUiView, currentUiView, loadUiView, onUiViewChange, otherViews, saveUiView, VIEW_LABELS, type UiView } from "./uiView";
+import { AmpView } from "./ampView";
 import { SettingsView } from "./settingsView";
 import { VuMeter } from "./vuMeter";
 import { paintRange } from "./rangeFill";
@@ -96,6 +97,7 @@ let library: LibraryView | null = null;
 let backend: Backend;
 let volumeDragging = false;
 let unmutedDb: Db = 0;
+let ampView: AmpView | null = null; // task 9-9
 
 const queueIds = () => queue.items.map((i) => i.id);
 
@@ -251,6 +253,7 @@ function renderQueue(s: PlaybackStatus) {
 
 function render(s: PlaybackStatus) {
   current = s;
+  ampView?.update(s);
   const rate = s.sourceFormat?.sampleRate ?? 0;
   const loaded = s.state !== "empty";
 
@@ -363,13 +366,20 @@ function seekTarget(): number {
   return Math.round((Number(els.seek.value) / SEEK_STEPS) * total);
 }
 
-// The two views (task 6-7): the standard view first, then the view last used.
+// The views (tasks 6-7, 9-9): the standard view first, then the view last
+// used. The side bar offers the other two.
 function setUpViews() {
-  const toggle = document.getElementById("ui-view-toggle") as HTMLButtonElement;
+  const toggles = [
+    document.getElementById("ui-view-toggle") as HTMLButtonElement,
+    document.getElementById("ui-view-toggle-2") as HTMLButtonElement,
+  ];
   const radios = document.querySelectorAll<HTMLInputElement>('input[name="ui-view"]');
   const themeSet = document.getElementById("theme-set") as HTMLFieldSetElement;
   const show = (v: UiView) => {
-    toggle.textContent = `${VIEW_LABELS[otherView(v)]}にする`;
+    otherViews(v).forEach((o, i) => {
+      toggles[i].textContent = `${VIEW_LABELS[o]}にする`;
+      toggles[i].dataset.view = o;
+    });
     for (const r of radios) r.checked = r.value === v;
     themeSet.disabled = v !== "library";
   };
@@ -387,7 +397,7 @@ function setUpViews() {
   onUiViewChange(() => applyStandardZoom());
   addEventListener("resize", () => applyStandardZoom());
   onUiViewChange(show);
-  toggle.addEventListener("click", () => choose(otherView(currentUiView())));
+  for (const t of toggles) t.addEventListener("click", () => choose((t.dataset.view as UiView) ?? currentUiView()));
   for (const r of radios) r.addEventListener("change", () => r.checked && choose(r.value as UiView));
   applyUiView(storage ? loadUiView(storage) : "standard");
 }
@@ -414,6 +424,14 @@ async function main() {
     ?.addEventListener("click", () => void settings.refresh());
   void settings.refresh(); // the settings as saved, before anything changes them
   const outputView = new OutputView((mode) => settings.enableIspSafe(mode));
+  ampView = new AmpView({
+    listening: () => settings.current,
+    tubeAuto: () => settings.tubeAutoEnabled,
+    change: (part, delayMs) => settings.changeListening(part, delayMs),
+    onListening: (l) => settings.onListening(l),
+    volumeSlider: els.volSlider,
+    openOutputCheck: () => outputView.open(),
+  });
   const abxView = new AbxView(backend.abx, () => backend.settings.get());
   const openAbx = async () => {
     els.outputDialog.close();

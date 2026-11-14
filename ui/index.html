@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja" data-theme="amber" data-ui-view="standard">
+<html lang="ja" data-theme="amber" data-ui-view="standard" data-look="real">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,6 +12,10 @@
          information as the other views, in a flat layout. Colours are theme
          tokens (style.css): amber or blue-grey. -->
     <div class="shell">
+      <!-- The amp view's amp (task 9-9): built by ampView.ts; the transport,
+           the title, the seek bar and the output field move into it and the
+           panel under it while the amp view is shown. -->
+      <section class="amp" id="amp" aria-label="アンプ"></section>
       <header class="topbar">
         <img id="now-cover" class="now-cover" alt="" hidden />
         <div class="now-cover now-cover-empty" id="now-cover-empty"></div>
@@ -49,6 +53,7 @@
       </header>
 
       <nav class="sidebar">
+        <button type="button" class="nav amp-only" data-view="now"><span class="nav-icon">♫</span>再生中</button>
         <button type="button" class="nav active" data-view="tracks"><span class="nav-icon">♪</span>曲</button>
         <button type="button" class="nav" data-view="albums"><span class="nav-icon">◎</span>アルバム</button>
         <button type="button" class="nav" data-view="settings"><span class="nav-icon">⚙</span>設定</button>
@@ -60,7 +65,10 @@
           <ul id="folder-list" class="folder-list"></ul>
         </div>
         <button id="open" type="button" class="open-file">ファイルを開く</button>
-        <button id="ui-view-toggle" type="button" class="view-switch" title="ビューを切り替える（見た目と配置だけが変わります）">ライブラリビューにする</button>
+        <div class="view-switches">
+          <button id="ui-view-toggle" type="button" class="view-switch" title="ビューを切り替える（見た目と配置だけが変わります）">アンプビューにする</button>
+          <button id="ui-view-toggle-2" type="button" class="view-switch" title="ビューを切り替える（見た目と配置だけが変わります）">ライブラリビューにする</button>
+        </div>
       </nav>
 
       <main class="content">
@@ -91,6 +99,14 @@
         </div>
         <div class="grid" id="grid" hidden><div class="spacer" id="grid-spacer"></div></div>
         <p class="empty" id="empty" hidden></p>
+
+        <!-- The amp view's "now playing" (task 9-9): the cover, the title, the
+             seek bar and the output field, moved here from the top bar. The
+             whole panel under 再生中; a line under the list elsewhere. -->
+        <div class="amp-now" id="amp-now" hidden>
+          <div class="amp-now-cover"></div>
+          <div class="amp-now-info"></div>
+        </div>
 
         <!-- The settings screen (task 6-3). Saved by the app on every change. -->
         <section class="settings" id="settings" hidden>
@@ -240,6 +256,7 @@
           <fieldset class="themes">
             <legend>ビュー（見た目と配置だけが変わり、機能と表示する情報は同じです）</legend>
             <label><input type="radio" name="ui-view" value="standard" /> 標準ビュー（写実的）</label>
+            <label><input type="radio" name="ui-view" value="amp" /> アンプビュー（真空管アンプ風。下の欄は小さめ）</label>
             <label><input type="radio" name="ui-view" value="library" /> ライブラリビュー（平坦、曲の多い一覧向け）</label>
           </fieldset>
           <fieldset class="themes" id="theme-set">

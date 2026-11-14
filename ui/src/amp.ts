@@ -1,0 +1,216 @@
+// The amp view's model (task 9-9, CLAUDE.md chapter 8): what its knobs,
+// switch, lamps and badge show, from the settings and the playback status.
+// Every control stands for a real processing parameter: MODE is 原音モード /
+// 音作りモード, DRIVE / BASS / TREBLE / TUBE TYPE / CROSSFEED are the
+// settings of the same names, VOLUME is the digital volume. SPACE and MIX
+// stand for the space (IR) stage of task 9-6, which is not made yet: they are
+// drawn, and do nothing until it is (the user, 2026-11-14).
+//
+// Positions are the concept image's pixels (UI-AMP-SE-v1, 1672 x 941, read
+// as drawn for a 150% screen like the standard view's), the same numbers as
+// tools/ui_amp_parts.py. The amp's picture starts under the drawn title bar.
+
+import { outputTags } from "./messages";
+import { DRIVE_DEFAULT_DB, DRIVE_MAX_DB, DRIVE_MIN_DB, TONE_MAX_DB, type ListeningSettings, type TubeType } from "./settings";
+import type { PlaybackStatus } from "./status";
+
+export const AMP_TOP = 42; // the drawn title bar above it
+export const AMP_SIZE = { width: 1672, height: 582 }; // the picture: y 42..624 of the concept image
+export const AMP_SCALE = 2 / 3; // shown at 150%: one image pixel is 2/3 of a CSS pixel
+
+// --- knobs -------------------------------------------------------------------------
+
+export interface KnobSpec {
+  min: number;
+  max: number;
+  step: number;
+  defaultValue: number;
+}
+
+export const SWEEP = 270; // degrees, as the VOLUME knob's scale on the picture
+
+export const KNOB_SPECS = {
+  drive: { min: DRIVE_MIN_DB, max: DRIVE_MAX_DB, step: 0.5, defaultValue: DRIVE_DEFAULT_DB },
+  bass: { min: -TONE_MAX_DB, max: TONE_MAX_DB, step: 0.5, defaultValue: 0 },
+  treble: { min: -TONE_MAX_DB, max: TONE_MAX_DB, step: 0.5, defaultValue: 0 },
+  // The volume slider's own scale (0..1, top = 100% = no processing).
+  volume: { min: 0, max: 1, step: 0.001, defaultValue: 1 },
+  mix: { min: 0, max: 100, step: 1, defaultValue: 0 }, // task 9-6
+} satisfies Record<string, KnobSpec>;
+
+export type KnobName = keyof typeof KNOB_SPECS;
+
+const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
+
+export function snap(spec: KnobSpec, v: number): number {
+  const s = Math.round((clamp(v, spec.min, spec.max) - spec.min) / spec.step) * spec.step + spec.min;
+  return Number(clamp(s, spec.min, spec.max).toFixed(6));
+}
+
+// Where the pointer is: degrees from straight up, clockwise.
+export function knobAngle(spec: KnobSpec, v: number): number {
+  const n = (clamp(v, spec.min, spec.max) - spec.min) / (spec.max - spec.min);
+  return -SWEEP / 2 + n * SWEEP;
+}
+
+// A drag up turns it up: 200 px for the whole range (2000 with Shift).
+export function dragValue(spec: KnobSpec, start: number, dyPixels: number, fine: boolean): number {
+  return snap(spec, start - (dyPixels / (fine ? 2000 : 200)) * (spec.max - spec.min));
+}
+
+// The wheel and the arrow keys: one step (a tenth of one with Shift, at least one step).
+export function stepValue(spec: KnobSpec, v: number, direction: number, fine: boolean): number {
+  const unit = spec === KNOB_SPECS.volume ? 0.01 : spec.step * 2;
+  const step = fine ? Math.max(spec.step, unit / 10) : unit;
+  return snap(spec, v + Math.sign(direction) * step);
+}
+
+export function knobText(name: KnobName, v: number): string {
+  if (name === "mix") return "空間（9-6）はまだありません";
+  const db = `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(1)} dB`;
+  return db;
+}
+
+// --- layout (image px) -----------------------------------------------------------------
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export const KNOBS: Record<KnobName, Point & { r: number }> = {
+  drive: { x: 379, y: 459, r: 41 },
+  bass: { x: 518, y: 463, r: 31 },
+  treble: { x: 632, y: 463, r: 31 },
+  volume: { x: 837.5, y: 456.5, r: 66 },
+  mix: { x: 1264, y: 455, r: 38 },
+};
+
+export type LampName = "pure" | "tube" | "off" | "club" | "hall" | "arena" | TubeType | "crossfeed" | "auto";
+
+export const LAMPS: Record<LampName, Point & { r: number }> = {
+  pure: { x: 200.6, y: 429.4, r: 9.5 },
+  tube: { x: 200.6, y: 473, r: 9.5 },
+  off: { x: 1004, y: 450, r: 9.5 },
+  club: { x: 1056, y: 450, r: 9.5 },
+  hall: { x: 1108, y: 450, r: 9.5 },
+  arena: { x: 1164, y: 450, r: 9.5 },
+  se300b: { x: 1397, y: 448, r: 9.5 },
+  ppel34: { x: 1463, y: 446, r: 9.5 },
+  ppclassa: { x: 1531, y: 446, r: 9.5 },
+  // Not on the concept image (it has no place for them on the single-ended
+  // panel): small lamps under the SPACE row and beside TUBE TYPE.
+  crossfeed: { x: 1012, y: 509, r: 6.5 },
+  auto: { x: 1538, y: 407, r: 5.5 },
+};
+
+export const TOGGLE = { x: 118, y: 414, width: 66, height: 86 };
+
+export interface Word extends Point {
+  text: string[];
+  size: number; // image px
+  align?: "left" | "center";
+}
+
+export const WORDS: Word[] = [
+  { text: ["MODE"], x: 173, y: 391, size: 19 },
+  { text: ["PURE"], x: 222, y: 430, size: 17, align: "left" },
+  { text: ["TUBE"], x: 222, y: 473, size: 17, align: "left" },
+  { text: ["DRIVE"], x: 380, y: 403, size: 19 },
+  { text: ["BASS"], x: 520, y: 413, size: 19 },
+  { text: ["TREBLE"], x: 633, y: 413, size: 19 },
+  { text: ["VOLUME"], x: 839, y: 366, size: 19 },
+  { text: ["SPACE"], x: 1084, y: 413, size: 19 },
+  { text: ["OFF"], x: 1003, y: 479, size: 14 },
+  { text: ["CLUB"], x: 1056, y: 479, size: 14 },
+  { text: ["HALL"], x: 1109, y: 479, size: 14 },
+  { text: ["ARENA"], x: 1166, y: 479, size: 14 },
+  { text: ["MIX"], x: 1262, y: 405, size: 19 },
+  { text: ["TUBE TYPE"], x: 1462, y: 406, size: 19 },
+  { text: ["SE", "300B"], x: 1396, y: 482, size: 15 },
+  { text: ["PP", "EL34"], x: 1463, y: 482, size: 15 },
+  { text: ["PP", "CLASS A"], x: 1534, y: 482, size: 15 },
+  { text: ["CROSSFEED"], x: 1023, y: 509, size: 13, align: "left" },
+  { text: ["AUTO"], x: 1547, y: 407, size: 11, align: "left" },
+];
+
+// The VU meters' paper (the scale is drawn on it) and the channel letters.
+export const VU = {
+  L: { paper: { x0: 140, y0: 185, x1: 357, y1: 301 }, hump: { x: 248.5, y: 301 }, letter: { x: 249, y: 322 } },
+  R: { paper: { x0: 1318, y0: 185, x1: 1536, y1: 301 }, hump: { x: 1427, y: 301 }, letter: { x: 1428, y: 322 } },
+};
+
+export const BADGE = { x: 288, y: 573, width: 200, height: 30 };
+// The round buttons on the wood: prev, play / pause (the amber ring), stop, next.
+export const BUTTONS = [
+  { x: 670, y: 575, r: 33.5 },
+  { x: 779, y: 575, r: 37 },
+  { x: 890, y: 575, r: 33.5 },
+  { x: 1000, y: 575, r: 33.5 },
+];
+export const VOLUME_READOUT = { x: 1060, y: 575 };
+
+// --- what the amp shows -------------------------------------------------------------------
+
+export type AmpLook = "se" | "pp";
+
+export interface Badge {
+  text: string;
+  kind: "ok" | "tube" | "warn" | "none";
+}
+
+export interface AmpState {
+  mode: "pure" | "tube"; // the switch and its lamps: the mode chosen
+  tubesLit: boolean; // the tube stage is in the path now
+  look: AmpLook; // single-ended or push-pull, from the type playing
+  type: TubeType; // the TUBE TYPE lamp: the type playing (chosen by genre, task 9-7), else the manual one
+  auto: boolean; // the type is chosen by genre
+  crossfeed: boolean;
+  badge: Badge;
+  // Knobs that do nothing in 原音モード are shown disabled there (the layout stays).
+  processingControls: boolean;
+}
+
+const TUBE_TYPES: TubeType[] = ["se300b", "ppel34", "ppclassa"];
+
+export function playingTubeType(s: PlaybackStatus | null): TubeType | null {
+  const st = s?.stages.find((x) => x.name === "tube");
+  return st && TUBE_TYPES.includes(st.detail as TubeType) ? (st.detail as TubeType) : null;
+}
+
+export function lookOf(type: TubeType): AmpLook {
+  return type === "se300b" ? "se" : "pp";
+}
+
+// The badge on the wood: BIT-PERFECT when it is so, TUBE PROCESSING while
+// the tube is in the path, else what keeps it from being bit-perfect
+// (DIGITAL VOL -6.0 dB and the like, as the output field says it).
+export function badgeOf(s: PlaybackStatus | null): Badge {
+  if (!s || s.state === "empty" || !s.path) return { text: "", kind: "none" };
+  if (s.bitPerfect?.bitPerfect) return { text: "BIT-PERFECT", kind: "ok" };
+  if (playingTubeType(s) !== null) return { text: "TUBE PROCESSING", kind: "tube" };
+  const last = outputTags(s).at(-1);
+  return last && last.kind === "warn" ? { text: last.text, kind: "warn" } : { text: "", kind: "none" };
+}
+
+export function ampState(l: ListeningSettings | null, s: PlaybackStatus | null, tubeAuto: boolean): AmpState {
+  const mode = l ? (l.mode === "processed" ? "tube" : "pure") : s?.mode === "processed" ? "tube" : "pure";
+  const playing = playingTubeType(s);
+  const type = playing ?? l?.tubeType ?? "se300b";
+  return {
+    mode,
+    tubesLit: playing !== null && s?.mode === "processed",
+    look: lookOf(type),
+    type,
+    auto: tubeAuto,
+    crossfeed: l?.crossfeedEnabled ?? false,
+    badge: badgeOf(s),
+    processingControls: mode === "tube",
+  };
+}
+
+// The switch to TUBE also turns the tube on (the amp's TUBE is the tube):
+// 音作りモード with the tube. PURE is 原音モード; the tube setting is kept.
+export function modeChange(to: "pure" | "tube"): Partial<ListeningSettings> {
+  return to === "tube" ? { mode: "processed", tubeEnabled: true } : { mode: "original" };
+}

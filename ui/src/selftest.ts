@@ -397,13 +397,13 @@ export async function runSelfTest(
     if (counts.folders !== 1 || counts.tracks < 1) throw new Error(`library counts ${JSON.stringify(counts)}`);
     log.push(`library: ${name} is in the track list (${counts.tracks} tracks, ${counts.folders} folder)`);
 
-    // The two views (task 6-7) show the same information: the output field
-    // and the True Peak column are in view in both. Shown only, not saved:
+    // The views (tasks 6-7, 9-9) show the same information: the output field
+    // and the True Peak column are in view in each. Shown only, not saved:
     // the view the user last used stays as it was.
     const userView = currentUiView();
     const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 50)));
     const seen: string[] = [];
-    for (const v of ["standard", "library"] as UiView[]) {
+    for (const v of ["standard", "library", "amp"] as UiView[]) {
       applyUiView(v);
       await frame();
       const output = document.getElementById("output")!.getBoundingClientRect();
@@ -412,11 +412,24 @@ export async function runSelfTest(
       const tpRect = tp?.getBoundingClientRect();
       if (output.width < 100 || output.right > window.innerWidth + 1) throw new Error(`${v} view: the output field is not in view`);
       if (!tpRect || tpRect.width === 0 || tpRect.right > body.right + 1) throw new Error(`${v} view: the True Peak column is not in view`);
+      if (v === "amp") {
+        // The amp's pictures are in the build, and its five knobs are on them.
+        const scenes = [...document.querySelectorAll<HTMLImageElement>(".amp-scene")];
+        if (scenes.length !== 2 || scenes.some((i) => !i.complete || i.naturalWidth !== 1672))
+          throw new Error(`amp view: the pictures did not load (${scenes.map((i) => i.naturalWidth).join(", ")})`);
+        const knobs = [...document.querySelectorAll(".amp-knob")].filter((k) => k.getBoundingClientRect().width > 10);
+        if (knobs.length !== 5) throw new Error(`amp view: ${knobs.length} knobs in view`);
+        const prev = document.getElementById("prev")!;
+        if (!prev.closest(".amp-stage")) throw new Error("amp view: the transport is not on the amp");
+      }
       const rowH = getComputedStyle(document.documentElement).getPropertyValue("--row-h").trim();
       seen.push(`${v} (rows ${rowH})`);
     }
     applyUiView(userView);
-    log.push(`views: output field and True Peak column in view in ${seen.join(" and ")}; back to ${userView}`);
+    await frame();
+    if (userView !== "amp" && document.getElementById("prev")!.closest(".amp-stage"))
+      throw new Error("views: the transport stayed on the amp");
+    log.push(`views: output field and True Peak column in view in ${seen.join(", ")}; back to ${userView}`);
 
     return { ok: true, log };
   } catch (e) {
