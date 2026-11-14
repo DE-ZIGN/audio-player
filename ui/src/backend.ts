@@ -5,6 +5,7 @@
 
 import type { EqPreset } from "./eqPresets";
 import { chooseTubeType, type TubeAutoSettings } from "./tubeAuto";
+import type { RepeatMode } from "./playModes";
 import { emptyStatus, type BitPerfectVerdict, type MeterStatus, type PlaybackStatus, type SignalPath } from "./status";
 import type {
   ActionResult,
@@ -101,6 +102,7 @@ export interface Backend {
   playAt(index: number): Promise<void>;
   getQueue(): Promise<QueueInfo>;
   setVolume(db: number | "-inf"): Promise<void>;
+  setRepeat(mode: RepeatMode): Promise<void>; // task 9-9 (shuffle is the page's: playModes.ts)
   uiReady(): Promise<void>;
   selfTestResult(result: { ok: boolean; log: string[] }): Promise<void>;
   onStatus(listener: (status: PlaybackStatus) => void): void;
@@ -238,6 +240,9 @@ class AppBackend implements Backend {
   }
   async setVolume(db: number | "-inf") {
     await this.fn("setVolume")(db);
+  }
+  async setRepeat(mode: RepeatMode) {
+    await this.fn("setRepeat")(mode);
   }
   async uiReady() {
     await this.fn("uiReady")();
@@ -554,6 +559,11 @@ export class MockBackend implements Backend {
     this.updateStages();
   }
 
+  private repeat: RepeatMode = "off";
+  async setRepeat(mode: RepeatMode) {
+    this.repeat = mode;
+  }
+
   private applyListening(l: ListeningSettings) {
     this.listening = l;
     this.updateStages();
@@ -656,7 +666,10 @@ export class MockBackend implements Backend {
         return;
       }
       const from = this.status.queueIndex;
-      if (from + 1 >= this.tracks.length) {
+      // What follows (as Player::nextIndexLocked).
+      const to =
+        this.repeat === "one" ? from : this.repeat === "all" ? (from + 1) % this.tracks.length : from + 1;
+      if (to >= this.tracks.length) {
         this.halt();
         this.update({
           ...this.status,
@@ -666,21 +679,21 @@ export class MockBackend implements Backend {
         });
         return;
       }
-      const fields = this.trackFields(from + 1);
+      const fields = this.trackFields(to);
       const gapless = fields.sourceFormat.sampleRate === this.status.sourceFormat?.sampleRate;
       this.update({
         ...this.status,
         ...fields,
         outputFormat: { ...fields.sourceFormat, containerBits: 32 },
-        path: mockPath(this.tracks[from + 1]),
-        bitPerfect: mockVerdict(this.tracks[from + 1]),
+        path: mockPath(this.tracks[to]),
+        bitPerfect: mockVerdict(this.tracks[to]),
         // A new output session when the format changes; gapless keeps counting.
         delivery: gapless ? this.status.delivery : { matchedFrames: 0, mismatchedFrames: 0 },
         transitions: [
           ...this.status.transitions,
           {
             fromIndex: from,
-            toIndex: from + 1,
+            toIndex: to,
             kind: gapless ? "gapless" : "reopened",
             fromFormat: this.status.sourceFormat!,
             toFormat: fields.sourceFormat,

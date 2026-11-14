@@ -183,3 +183,15 @@ describe("the amp view's layout (task 9-9)", () => {
     expect(py).toMatch(new RegExp(`^TOP = ${AMP_TOP}\\b`, "m"));
   });
 });
+
+describe("shuffle and repeat on the SE amp (task 9-9)", () => {
+  it("sit on the wood, clear of the badge, the transport and the volume", async () => {
+    const { MODE_BUTTONS, VOLUME_READOUT, BADGE } = await import("./amp");
+    for (const b of Object.values(MODE_BUTTONS)) {
+      expect(b.y - b.r - AMP_TOP).toBeGreaterThan(486); // under the panel (528 - 42)
+      for (const t of BUTTONS) expect(Math.abs(b.x - t.x)).toBeGreaterThan(b.r + t.r);
+    }
+    expect(MODE_BUTTONS.shuffle.x - MODE_BUTTONS.shuffle.r).toBeGreaterThan(BADGE.x + BADGE.width / 2 + 20);
+    expect(VOLUME_READOUT.x).toBeGreaterThan(MODE_BUTTONS.repeat.x + MODE_BUTTONS.repeat.r);
+  });
+});

@@ -1442,6 +1442,14 @@ dd {
   }
 }
 
+/* Up to 1200 px in the library view: the level bars give way, so the
+   output field stays in the window (the output check shows the levels). */
+@media (max-width: 1200px) {
+  [data-look="flat"] .levels {
+    display: none;
+  }
+}
+
 /* Narrow windows: the queue goes first, then the side bar. Only in the
    library view: the standard and amp views are laid out for 1115 px and
    zoomed to the window, so they keep every panel. */
@@ -3058,4 +3066,71 @@ html[data-look="real"] {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* --- Shuffle and repeat (task 9-9) -------------------------------------------
+   In every view, either side of the transport. Lit in the accent when on;
+   repeat one carries a small "1". */
+.transport button.mode {
+  position: relative;
+  color: var(--muted);
+}
+.transport button.mode[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.transport #repeat[data-repeat="one"]::after {
+  content: "1";
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+[data-look="real"] .transport button.mode {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  color: #b9a585;
+}
+[data-look="real"] .transport button.mode[aria-pressed="true"] {
+  color: #ffc46b;
+  text-shadow:
+    0 0 6px rgba(255, 170, 60, 0.9),
+    0 1px 1px rgba(0, 0, 0, 0.8);
+}
+[data-look="real"] .transport #repeat[data-repeat="one"]::after {
+  right: 1px;
+  bottom: 0;
+  font-size: 8px;
+}
+/* On the SE amp's wood (amp.ts MODE_BUTTONS: centres 560 and 1110, r 28). */
+[data-look="real"] .amp-stage .transport #shuffle,
+[data-look="real"] .amp-stage .transport #repeat {
+  top: 505px; /* 575 - 42 - 28 */
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+}
+[data-look="real"] .amp-stage .transport #shuffle {
+  left: 532px;
+}
+[data-look="real"] .amp-stage .transport #repeat {
+  left: 1082px;
+}
+[data-look="real"] .amp-stage .transport #repeat[data-repeat="one"]::after {
+  right: 9px;
+  bottom: 8px;
+  font-size: 12px;
+}
+[data-look="real"] .amp-stage .transport button.mode {
+  color: #a8957a;
+}
+[data-look="real"] .amp-stage .transport button.mode[aria-pressed="true"] {
+  color: #ffc46b;
+  text-shadow:
+    0 0 8px rgba(255, 170, 60, 0.95),
+    0 0 2px rgba(255, 200, 120, 0.9),
+    0 1px 1px #000;
 }

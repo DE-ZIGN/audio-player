@@ -5,6 +5,20 @@ import { countsText } from "./libraryFormat";
 import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
 import { applyStandardZoom, applyUiView, currentUiView, loadUiView, onUiViewChange, otherViews, saveUiView, VIEW_LABELS, type UiView } from "./uiView";
 import { AmpView } from "./ampView";
+import {
+  loadPlayModes,
+  nextRepeat,
+  nextTrackIndex,
+  originalAfterInsert,
+  prevTrackIndex,
+  repeatLabel,
+  restoreOrder,
+  savePlayModes,
+  shuffled,
+  shuffleLabel,
+  shuffleStart,
+  type PlayModes,
+} from "./playModes";
 import { SettingsView } from "./settingsView";
 import { VuMeter } from "./vuMeter";
 import { paintRange } from "./rangeFill";
@@ -43,6 +57,8 @@ const els = {
   stop: $<HTMLButtonElement>("stop"),
   prev: $<HTMLButtonElement>("prev"),
   next: $<HTMLButtonElement>("next"),
+  shuffle: $<HTMLButtonElement>("shuffle"),
+  repeat: $<HTMLButtonElement>("repeat"),
   seek: $<HTMLInputElement>("seek"),
   fileName: $("file-name"),
   nowArtist: $("now-artist"),
@@ -100,6 +116,64 @@ let unmutedDb: Db = 0;
 let ampView: AmpView | null = null; // task 9-9
 
 const queueIds = () => queue.items.map((i) => i.id);
+
+// Shuffle and repeat (task 9-9). While shuffle is on, the order the queue had
+// before it was mixed, to put back what is left when it goes off.
+let modes: PlayModes = { shuffle: false, repeat: "off" };
+let shuffleOriginal: number[] | null = null;
+
+function storageOrNull(): Storage | null {
+  try {
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function renderModes() {
+  els.shuffle.setAttribute("aria-pressed", String(modes.shuffle));
+  els.shuffle.title = `${shuffleLabel(modes.shuffle)}（この先の曲の順番を混ぜる）`;
+  els.repeat.setAttribute("aria-pressed", String(modes.repeat !== "off"));
+  els.repeat.dataset.repeat = modes.repeat;
+  els.repeat.title = `${repeatLabel(modes.repeat)}（押すごとに オフ → 全曲 → 1 曲）`;
+  if (current) render(current);
+}
+
+// Mixes the tracks after the current one, or puts them back in their order.
+// A queue of opened files is not reordered (as the other queue edits).
+async function applyShuffle(on: boolean) {
+  if (!current || current.state === "empty") return;
+  queue = await backend.getQueue();
+  if (queue.items.length === 0 || queue.items.some((i) => i.id === 0)) return;
+  const ids = queueIds();
+  const cur = current.queueIndex;
+  const rest = ids.slice(cur + 1);
+  if (on) {
+    shuffleOriginal = ids;
+    await backend.library.replaceUpcoming(shuffled(rest));
+  } else if (shuffleOriginal) {
+    await backend.library.replaceUpcoming(restoreOrder(rest, shuffleOriginal));
+    shuffleOriginal = null;
+  }
+}
+
+function setUpPlayModes() {
+  modes = loadPlayModes(storageOrNull());
+  void backend.setRepeat(modes.repeat);
+  renderModes();
+  els.shuffle.addEventListener("click", () => {
+    modes = { ...modes, shuffle: !modes.shuffle };
+    savePlayModes(storageOrNull(), modes);
+    renderModes();
+    void applyShuffle(modes.shuffle);
+  });
+  els.repeat.addEventListener("click", () => {
+    modes = { ...modes, repeat: nextRepeat(modes.repeat) };
+    savePlayModes(storageOrNull(), modes);
+    renderModes();
+    void backend.setRepeat(modes.repeat);
+  });
+}
 
 // The standard view's VU meters (task 6-8).
 const vuMeters = [new VuMeter("L"), new VuMeter("R")];
@@ -159,7 +233,7 @@ function renderTopBar(s: PlaybackStatus) {
   }
 
   els.prev.disabled = !loaded;
-  els.next.disabled = !loaded || s.queueIndex + 1 >= s.queueLength;
+  els.next.disabled = !loaded || nextTrackIndex(s.queueIndex, s.queueLength, modes.repeat) === null;
   const playing = s.state === "playing";
   els.play.textContent = playing ? "❚❚" : "▶";
   els.play.title = playing ? "一時停止（スペース）" : "再生（スペース）";
@@ -322,7 +396,11 @@ function render(s: PlaybackStatus) {
 }
 
 async function playRequest(req: PlayRequest) {
-  const r = await backend.library.play(req.ids, req.start);
+  // Shuffle on: the chosen track first, the rest mixed.
+  shuffleOriginal = modes.shuffle ? [...req.ids] : null;
+  const r = modes.shuffle
+    ? await backend.library.play(shuffleStart(req.ids, req.start), 0)
+    : await backend.library.play(req.ids, req.start);
   if (!r.ok && r.message) {
     els.error.hidden = false;
     els.error.dataset.from = "action";
@@ -343,6 +421,8 @@ async function enqueue(ids: number[], where: "next" | "end") {
     els.error.textContent = "ファイルを開いて再生している列には、ライブラリの曲を足せません（ライブラリから再生し直してください）";
     return;
   }
+  if (modes.shuffle && shuffleOriginal)
+    shuffleOriginal = originalAfterInsert(shuffleOriginal, queueIds(), current!.queueIndex, ids, where);
   await backend.library.replaceUpcoming(afterInsert(queueIds(), current!.queueIndex, ids, where));
 }
 
@@ -456,7 +536,9 @@ async function main() {
   els.statusDot.classList.toggle("busy", counts.scanning || counts.toMeasure > 0);
   await library.start();
 
+  setUpPlayModes();
   els.open.addEventListener("click", async () => {
+    shuffleOriginal = null; // opened files are not reordered
     const r = await backend.openFile();
     if (!r.ok && !r.cancelled && r.message) {
       els.error.hidden = false;
@@ -474,11 +556,16 @@ async function main() {
     if (!current) return;
     const rate = current.sourceFormat?.sampleRate ?? 0;
     // Past the first 3 seconds: back to the start of this track; else the previous one.
+    const before = prevTrackIndex(current.queueIndex, current.queueLength, modes.repeat);
     if (rate > 0 && current.positionFrames > rate * 3) void backend.seek(0);
-    else if (current.queueIndex > 0) void backend.playAt(current.queueIndex - 1);
+    else if (before !== null) void backend.playAt(before);
     else void backend.seek(0);
   });
-  els.next.addEventListener("click", () => current && void backend.playAt(current.queueIndex + 1));
+  els.next.addEventListener("click", () => {
+    if (!current) return;
+    const after = nextTrackIndex(current.queueIndex, current.queueLength, modes.repeat);
+    if (after !== null) void backend.playAt(after);
+  });
   els.queueClear.addEventListener("click", () => void backend.library.replaceUpcoming([]));
   document.addEventListener("keydown", (e) => {
     const t = e.target as HTMLElement;

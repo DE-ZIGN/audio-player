@@ -422,6 +422,12 @@ export async function runSelfTest(
         const prev = document.getElementById("prev")!;
         if (!prev.closest(".amp-stage")) throw new Error("amp view: the transport is not on the amp");
       }
+      // Shuffle and repeat are in every view (task 9-9).
+      for (const id of ["shuffle", "repeat"]) {
+        const r = document.getElementById(id)!.getBoundingClientRect();
+        if (r.width < 10 || r.right > window.innerWidth + 1 || r.bottom > window.innerHeight + 1)
+          throw new Error(`${v} view: the ${id} button is not in view`);
+      }
       const rowH = getComputedStyle(document.documentElement).getPropertyValue("--row-h").trim();
       seen.push(`${v} (rows ${rowH})`);
     }

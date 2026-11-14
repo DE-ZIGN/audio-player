@@ -320,6 +320,13 @@ juce::WebBrowserComponent::Options PlayerBridge::registerFunctions(juce::WebBrow
             pushStatus(true);
             done(true);
         })
+        .withNativeFunction("setRepeat", [this](Args args, Completion done) {
+            const auto m = args.isEmpty() ? juce::String() : args[0].toString();
+            player_.setRepeat(m == "all" ? ap::engine::RepeatMode::All
+                              : m == "one" ? ap::engine::RepeatMode::One
+                                           : ap::engine::RepeatMode::Off);
+            done(true);
+        })
         .withNativeFunction("abxStart",
                             [this](Args args, Completion done) {
                                 abxStartAsync(args.isEmpty() ? juce::var() : args[0], std::move(done));

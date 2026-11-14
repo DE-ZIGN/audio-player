@@ -148,7 +148,13 @@ export const BUTTONS = [
   { x: 890, y: 575, r: 33.5 },
   { x: 1000, y: 575, r: 33.5 },
 ];
-export const VOLUME_READOUT = { x: 1060, y: 575 };
+// Shuffle and repeat (task 9-9): the SE picture has no buttons for them, so
+// smaller ones on the wood either side (the PP picture has them there).
+export const MODE_BUTTONS = {
+  shuffle: { x: 560, y: 575, r: 28 },
+  repeat: { x: 1110, y: 575, r: 28 },
+};
+export const VOLUME_READOUT = { x: 1170, y: 575 };
 
 // --- what the amp shows -------------------------------------------------------------------
 

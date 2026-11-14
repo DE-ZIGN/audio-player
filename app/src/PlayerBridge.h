@@ -26,6 +26,9 @@ namespace ap::app {
 //   playAt(i)    goes to queue track i (task 6-2)
 //   getQueue()   { version, items: [{ id, name, artist, seconds }] }; id 0: not from the library
 //   setVolume(dB) the digital volume (0 = 100%: no processing, bit-perfect; "-inf" mutes)
+//   setRepeat("off" | "all" | "one") what follows the last track, or each track (task 9-9).
+//                The page keeps the mode and sends it at start; shuffle is the
+//                page's own (it reorders what comes next with replaceUpcoming).
 // The output and the processing settings come from the settings screen
 // (SettingsBridge, task 6-3) through setOutput() and setListening().
 //
