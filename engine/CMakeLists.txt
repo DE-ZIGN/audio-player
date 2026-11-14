@@ -37,6 +37,7 @@ add_library(ap_engine STATIC
     src/dsp/eq.cpp
     src/dsp/comparison.cpp
     src/dsp/tube.cpp
+    src/dsp/tone.cpp
     src/listening_settings.cpp
     src/looping_source.cpp
     src/dsp/requantize.cpp
