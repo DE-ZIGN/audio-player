@@ -65,6 +65,15 @@ target_compile_features(ap_test_support PUBLIC cxx_std_20)
 ap_apply_compiler_settings(ap_test_support)
 set_target_properties(ap_test_support PROPERTIES FOLDER "tests")
 
+# The test programs' entry point: the command line read in Unicode and given
+# to Catch2 as UTF-8, so ctest can run tests with Japanese in their names
+# (support/catch_main.cpp).
+add_library(ap_catch_main OBJECT support/catch_main.cpp)
+target_link_libraries(ap_catch_main PUBLIC Catch2::Catch2 shell32)
+target_compile_features(ap_catch_main PUBLIC cxx_std_20)
+ap_apply_compiler_settings(ap_catch_main)
+set_target_properties(ap_catch_main PROPERTIES FOLDER "tests")
+
 # ---------------------------------------------------------------------------
 # Engine unit tests
 # ---------------------------------------------------------------------------
@@ -99,7 +108,7 @@ add_executable(ap_engine_unit_tests
     unit/tube_test.cpp
     unit/tone_test.cpp)
 
-target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine ap_test_support Catch2::Catch2WithMain)
+target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine ap_test_support ap_catch_main)
 target_compile_definitions(ap_engine_unit_tests PRIVATE
     AP_EXPECTED_VERSION="${PROJECT_VERSION}"
     AP_EXPECTED_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
@@ -128,7 +137,7 @@ add_executable(ap_library_tests
     unit/library_browse_test.cpp
     unit/library_covers_test.cpp)
 target_include_directories(ap_library_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/support)
-target_link_libraries(ap_library_tests PRIVATE ap_library windowscodecs ole32 Catch2::Catch2WithMain)
+target_link_libraries(ap_library_tests PRIVATE ap_library windowscodecs ole32 ap_catch_main)
 ap_apply_compiler_settings(ap_library_tests)
 ap_copy_engine_dlls(ap_library_tests) # mpg123.dll, before test discovery runs the program
 set_target_properties(ap_library_tests PROPERTIES FOLDER "tests")
@@ -156,7 +165,7 @@ if(TARGET ap_signalgen_lib)
         unit/mp3_file_source_test.cpp
         unit/aac_file_source_test.cpp)
     target_link_libraries(ap_engine_signal_tests PRIVATE
-        ap_engine ap_signalgen_lib ap_test_support ap_asiosdk ole32 Catch2::Catch2WithMain)
+        ap_engine ap_signalgen_lib ap_test_support ap_asiosdk ole32 ap_catch_main)
     ap_apply_compiler_settings(ap_engine_signal_tests)
 ap_copy_engine_dlls(ap_engine_signal_tests) # before test discovery, which runs the program
     set_target_properties(ap_engine_signal_tests PROPERTIES FOLDER "tests")
@@ -175,7 +184,7 @@ ap_copy_engine_dlls(ap_engine_signal_tests) # before test discovery, which runs 
         acceptance/isp_safe_test.cpp
         acceptance/comparison_test.cpp)
     target_link_libraries(ap_acceptance_tests PRIVATE
-        ap_engine ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
+        ap_engine ap_signalgen_lib ap_test_support ap_catch_main)
     ap_apply_compiler_settings(ap_acceptance_tests)
 ap_copy_engine_dlls(ap_acceptance_tests) # before test discovery, which runs the program
     set_target_properties(ap_acceptance_tests PROPERTIES FOLDER "tests")
@@ -193,7 +202,7 @@ if(TARGET ap_signalgen_lib)
         unit/signalgen_signals_test.cpp
         unit/wav_writer_test.cpp)
     target_link_libraries(ap_tools_unit_tests PRIVATE
-        ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
+        ap_signalgen_lib ap_test_support ap_catch_main)
     ap_apply_compiler_settings(ap_tools_unit_tests)
     set_target_properties(ap_tools_unit_tests PROPERTIES FOLDER "tests")
 
@@ -229,7 +238,7 @@ if(TARGET ap_signalgen_lib)
     add_executable(ap_signal_file_tests
         files/signal_files_test.cpp)
     target_link_libraries(ap_signal_file_tests PRIVATE
-        ap_signalgen_lib ap_test_support Catch2::Catch2WithMain)
+        ap_signalgen_lib ap_test_support ap_catch_main)
     target_compile_definitions(ap_signal_file_tests PRIVATE
         AP_SIGNAL_DIR="${AP_SIGNAL_DIR}"
         AP_SIGNAL_TEST_RATES=${rates_csv}
