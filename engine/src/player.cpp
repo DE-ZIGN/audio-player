@@ -85,10 +85,12 @@ public:
         while (got < want && !p_.stopRequested_ && p_.hasNext())
         {
             // The current track is exhausted; take the next one (opened in the
-            // background). The queue may be edited meanwhile (replaceUpcoming):
-            // the future is taken under the lock, and a track opened for a list
-            // that was replaced while it opened is dropped for the new one.
+            // background). The queue may be edited meanwhile (replaceUpcoming,
+            // setRepeat): the future is taken under the lock, and a track opened
+            // for a list that was replaced while it opened is dropped for the new one.
             std::unique_ptr<PcmSource> next;
+            std::size_t nextIndex = 0;
+            bool noneLeft = false;
             try
             {
                 for (;;)
@@ -99,23 +101,33 @@ public:
                         std::lock_guard lock(p_.mutex_);
                         load = std::move(p_.nextLoad_);
                         generation = p_.upcomingGeneration_;
+                        nextIndex = p_.nextLoadIndex_;
                     }
-                    next = load.valid() ? load.get() : nullptr;
+                    const bool loading = load.valid();
+                    next = loading ? load.get() : nullptr;
                     std::lock_guard lock(p_.mutex_);
                     if (generation == p_.upcomingGeneration_)
+                    {
+                        // Nothing was opening because nothing follows any more
+                        // (the list was emptied, or repeat turned off): the end.
+                        noneLeft = !loading && !p_.nextIndexLocked();
                         break;
+                    }
                     next.reset(); // replaced while it was opening: the new next track is opening now
                 }
-                if (!next)
+                if (!next && !noneLeft)
                     throw std::runtime_error("track could not be opened");
             }
             catch (const std::exception& e)
             {
                 p_.loadFailed_ = true;
                 p_.loadError_ = e.what();
+                p_.pendingNextIndex_ = nextIndex;
                 p_.dataEndedAt_ = std::chrono::steady_clock::now();
                 break;
             }
+            if (noneLeft)
+                break; // a short read: the queue ends after this data has played
 
             // A change between PCM and DoP is never joined, even at the same PCM format:
             // the output is reopened so the DoP check applies and the DAC can switch modes.
@@ -125,12 +137,13 @@ public:
             if (!reopen && !dop_ && p_.sessionPlan_ && !p_.sessionPlan_->processing)
                 if (auto* chain = p_.options_.processing.get())
                 {
-                    chain->trackStarted(p_.trackInfo(p_.index_ + 1));
+                    chain->trackStarted(p_.trackInfo(nextIndex));
                     reopen = !chain->bypassed();
                 }
             if (reopen)
             {
                 p_.pendingNext_ = std::move(next);
+                p_.pendingNextIndex_ = nextIndex;
                 p_.dataEndedAt_ = std::chrono::steady_clock::now();
                 break; // short read: the session ends after this data has played
             }
@@ -138,14 +151,14 @@ public:
             // Gapless: the next track's first frame directly follows this track's last frame.
             TrackTransition t;
             t.fromIndex = p_.index_;
-            t.toIndex = p_.index_ + 1;
+            t.toIndex = nextIndex;
             t.kind = TransitionKind::Gapless;
             t.fromFormat = format_;
             t.toFormat = next->format();
             {
                 std::lock_guard lock(p_.mutex_);
                 p_.retireSourceLocked();
-                ++p_.index_;
+                p_.index_ = nextIndex;
                 p_.source_ = std::move(next);
                 p_.publishTrackLocked();
                 p_.status_.transitions.push_back(t);
@@ -284,10 +297,50 @@ void Player::setTubeTypes(const std::vector<std::optional<TubeType>>& types)
 
 void Player::startLoadingNextLocked()
 {
-    if (index_ + 1 < queue_.size())
-        nextLoad_ = std::async(std::launch::async, queue_[index_ + 1].open);
+    if (const auto next = nextIndexLocked())
+    {
+        nextLoadIndex_ = *next;
+        nextLoad_ = std::async(std::launch::async, queue_[*next].open);
+    }
     else
         nextLoad_ = {};
+}
+
+std::optional<std::size_t> Player::nextIndexLocked() const
+{
+    if (queue_.empty())
+        return std::nullopt;
+    switch (repeat_)
+    {
+    case RepeatMode::One:
+        return index_;
+    case RepeatMode::All:
+        return (index_ + 1) % queue_.size();
+    case RepeatMode::Off:
+        break;
+    }
+    if (index_ + 1 < queue_.size())
+        return index_ + 1;
+    return std::nullopt;
+}
+
+void Player::setRepeat(RepeatMode mode)
+{
+    std::lock_guard lock(mutex_);
+    if (mode == repeat_)
+        return;
+    const auto before = nextIndexLocked();
+    repeat_ = mode;
+    if (queue_.empty() || nextIndexLocked() == before)
+        return; // the same track follows: what is opening stays
+    ++upcomingGeneration_;
+    startLoadingNextLocked();
+}
+
+RepeatMode Player::repeat() const
+{
+    std::lock_guard lock(mutex_);
+    return repeat_;
 }
 
 void Player::retireSourceLocked()
@@ -321,7 +374,7 @@ void Player::publishTrackLocked()
 bool Player::hasNext() const
 {
     std::lock_guard lock(mutex_);
-    return index_ + 1 < queue_.size();
+    return nextIndexLocked().has_value();
 }
 
 void Player::playAt(std::size_t index)
@@ -581,13 +634,13 @@ void Player::threadMain()
                 // The next track has another format: switch to it and reopen.
                 TrackTransition t;
                 t.fromIndex = index_;
-                t.toIndex = index_ + 1;
+                t.toIndex = pendingNextIndex_;
                 t.kind = TransitionKind::Reopened;
                 t.fromFormat = source_->format();
                 t.toFormat = pendingNext_->format();
                 std::lock_guard lock(mutex_);
                 retireSourceLocked();
-                ++index_;
+                index_ = pendingNextIndex_;
                 source_ = std::move(pendingNext_);
                 position_ = 0;
                 publishTrackLocked();
@@ -605,7 +658,7 @@ void Player::threadMain()
             {
                 std::lock_guard lock(mutex_);
                 retireSourceLocked();
-                ++index_;
+                index_ = pendingNextIndex_;
                 source_.reset();
                 status_.queueIndex = index_;
                 status_.trackName = queue_[index_].name;

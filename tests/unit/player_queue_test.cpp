@@ -389,3 +389,156 @@ TEST_CASE("replaceUpcoming many times while playing never mixes tracks up", "[en
     CHECK(s.trackName == "N19");
     CHECK(rig.output() == concat({&a, &others[19]}));
 }
+
+// --- Repeat (task 9-9: the push-pull amp's REPEAT button, in every view) -------
+
+namespace {
+
+// Splits `out` into whole tracks from `tracks`, in order; empty when it does not split.
+std::vector<int> splitInto(const std::vector<std::byte>& out, const std::vector<const std::vector<std::byte>*>& tracks)
+{
+    std::vector<int> order;
+    std::size_t at = 0;
+    while (at < out.size())
+    {
+        bool found = false;
+        for (std::size_t i = 0; i < tracks.size(); ++i)
+        {
+            const auto& t = *tracks[i];
+            if (at + t.size() <= out.size() && std::equal(t.begin(), t.end(), out.begin() + static_cast<std::ptrdiff_t>(at)))
+            {
+                order.push_back(static_cast<int>(i));
+                at += t.size();
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            return {};
+    }
+    return order;
+}
+
+} // namespace
+
+TEST_CASE("Repeat is off by default: the queue ends after the last track", "[engine][queue][repeat]")
+{
+    Rig rig;
+    Player player(rig.factory());
+    CHECK(player.repeat() == RepeatMode::Off);
+}
+
+TEST_CASE("Repeat one: the track plays again and again, gaplessly, until repeat is turned off", "[engine][queue][repeat]")
+{
+    Rig rig;
+    const auto a = trackData(48000, 2400, 0); // 50 ms
+    const auto b = trackData(48000, 2400, 1);
+    Player player(rig.factory({}, true));
+    player.setQueue({item("A", 48000, a), item("B", 48000, b)});
+    player.setRepeat(RepeatMode::One);
+    player.play();
+    std::this_thread::sleep_for(180ms);
+    CHECK(player.status().trackName == "A");
+    player.setRepeat(RepeatMode::Off); // A ends, B follows, then the end
+    player.waitUntilIdle();
+    const auto s = player.status();
+    CHECK(s.state == PlayerState::Ended);
+    CHECK(s.trackName == "B");
+    const auto order = splitInto(rig.output(), {&a, &b});
+    REQUIRE(order.size() >= 4);
+    CHECK(order.back() == 1);
+    for (std::size_t i = 0; i + 1 < order.size(); ++i)
+        CHECK(order[i] == 0); // A, A, A, ... then B: no gap, no overlap
+    CHECK(rig.sessions->size() == 1);
+    REQUIRE(!s.transitions.empty());
+    CHECK(s.transitions[0].fromIndex == 0);
+    CHECK(s.transitions[0].toIndex == 0);
+    CHECK(s.transitions[0].kind == TransitionKind::Gapless);
+}
+
+TEST_CASE("Repeat all: after the last track the first follows", "[engine][queue][repeat]")
+{
+    Rig rig;
+    const auto a = trackData(48000, 2400, 0);
+    const auto b = trackData(48000, 2400, 1);
+    const auto c = trackData(48000, 2400, 2);
+    Player player(rig.factory({}, true));
+    player.setQueue({item("A", 48000, a), item("B", 48000, b), item("C", 48000, c)});
+    player.setRepeat(RepeatMode::All);
+    player.play();
+    std::this_thread::sleep_for(250ms); // past C, round again
+    player.setRepeat(RepeatMode::Off);
+    player.waitUntilIdle();
+    const auto s = player.status();
+    CHECK(s.state == PlayerState::Ended); // not a load error, whenever repeat went off
+    CHECK(s.trackName == "C");
+    const auto order = splitInto(rig.output(), {&a, &b, &c});
+    REQUIRE(order.size() >= 6);
+    for (std::size_t i = 0; i < order.size(); ++i)
+        CHECK(order[i] == static_cast<int>(i % 3));
+    bool wrapped = false;
+    for (const auto& t : s.transitions)
+        wrapped = wrapped || (t.fromIndex == 2 && t.toIndex == 0);
+    CHECK(wrapped);
+}
+
+TEST_CASE("Repeat all over a format change reopens the output for the first track", "[engine][queue][repeat]")
+{
+    Rig rig;
+    const auto a = trackData(44100, 2205, 0);
+    const auto b = trackData(48000, 2400, 1);
+    Player player(rig.factory({}, true));
+    player.setQueue({item("A", 44100, a), item("B", 48000, b)});
+    player.setRepeat(RepeatMode::All);
+    player.play();
+    std::this_thread::sleep_for(260ms);
+    player.setRepeat(RepeatMode::Off);
+    player.waitUntilIdle();
+    const auto s = player.status();
+    CHECK(s.state == PlayerState::Ended);
+    CHECK(s.trackName == "B");
+    REQUIRE(rig.sessions->size() >= 3); // A, B, A again (each a new session)
+    CHECK((*rig.sessions)[0].sampleRate == 44100);
+    CHECK((*rig.sessions)[1].sampleRate == 48000);
+    CHECK((*rig.sessions)[2].sampleRate == 44100);
+    bool wrapped = false;
+    for (const auto& t : s.transitions)
+        wrapped = wrapped || (t.fromIndex == 1 && t.toIndex == 0 && t.kind == TransitionKind::Reopened);
+    CHECK(wrapped);
+}
+
+TEST_CASE("Repeat all with one track, and repeat while stopped", "[engine][queue][repeat]")
+{
+    Rig rig;
+    const auto a = trackData(48000, 2400, 0);
+    Player player(rig.factory({}, true));
+    player.setQueue({item("A", 48000, a)});
+    player.setRepeat(RepeatMode::All);
+    CHECK(player.repeat() == RepeatMode::All);
+    player.play();
+    std::this_thread::sleep_for(130ms);
+    player.setRepeat(RepeatMode::Off);
+    player.waitUntilIdle();
+    CHECK(player.status().state == PlayerState::Ended);
+    const auto order = splitInto(rig.output(), {&a});
+    CHECK(order.size() >= 2);
+}
+
+TEST_CASE("Emptying what comes next at a track boundary ends the queue, not with an error", "[engine][queue][edit]")
+{
+    // The next track may already be taken for playing when the list changes:
+    // finding no next track then is the end of the queue.
+    for (int round = 0; round < 10; ++round)
+    {
+        Rig rig;
+        const auto a = trackData(48000, 480, 0); // 10 ms
+        const auto b = trackData(48000, 480, 1);
+        Player player(rig.factory({}, true));
+        player.setQueue({item("A", 48000, a), item("B", 48000, b)});
+        player.play();
+        std::this_thread::sleep_for(std::chrono::milliseconds(round));
+        player.replaceUpcoming({});
+        player.waitUntilIdle();
+        CHECK(player.status().state == PlayerState::Ended);
+    }
+}

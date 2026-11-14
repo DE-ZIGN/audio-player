@@ -22,6 +22,17 @@
 
 namespace ap::engine {
 
+// What follows the last track, or each track (task 9-9: the REPEAT button).
+//   Off  the queue ends after its last track
+//   All  the first track follows the last one
+//   One  the current track plays again (playAt and the buttons still move on)
+enum class RepeatMode
+{
+    Off,
+    All,
+    One,
+};
+
 // One entry of the play queue. `open` is called when the track is needed
 // (the next track is opened in the background while the current one plays)
 // and may throw; the error is reported as PlayerErrorKind::Load.
@@ -176,6 +187,12 @@ public:
     // an album's choice changed). Takes effect from the next track start.
     void setTubeTypes(const std::vector<std::optional<TubeType>>& types);
 
+    // What follows the current track (RepeatMode). Safe while playing: the
+    // track that follows is opened again for the new mode, and joins
+    // gaplessly when the formats allow (as replaceUpcoming).
+    void setRepeat(RepeatMode mode);
+    RepeatMode repeat() const;
+
     // Whether DSD may be sent as DoP (PlaybackOptions::allowDop), changed when
     // another output is chosen (task 6-3). Takes effect from the next output
     // session; the caller stops playback before changing the output.
@@ -195,6 +212,7 @@ private:
     bool openCurrentLocked();      // opens queue_[index_] into source_; on failure sets a Load error
     void startLoadingNextLocked(); // opens queue_[index_ + 1] in the background
     bool hasNext() const;          // takes mutex_
+    std::optional<std::size_t> nextIndexLocked() const; // the track that follows index_ (RepeatMode)
     void publishTrackLocked();     // copies the current track's facts into status_
     void retireSourceLocked();     // adds the current source's dropout counters to the totals
     TrackInfo trackInfo(std::size_t index) const;       // takes mutex_
@@ -218,7 +236,10 @@ private:
     std::size_t index_ = 0;
     std::unique_ptr<PcmSource> source_;
     std::future<std::unique_ptr<PcmSource>> nextLoad_;
+    std::size_t nextLoadIndex_ = 0;          // the queue index nextLoad_ opens
     std::unique_ptr<PcmSource> pendingNext_; // next track, different format: needs a reopen
+    std::size_t pendingNextIndex_ = 0;       // its queue index (or the one that failed to open)
+    RepeatMode repeat_ = RepeatMode::Off;
     // Changes whenever the tracks after the current one are replaced: a next
     // track opened for an older list is not played.
     std::uint64_t upcomingGeneration_ = 0;
