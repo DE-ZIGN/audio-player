@@ -7,6 +7,7 @@ export type ListeningMode = "original" | "processed";
 export type ReplayGainMode = "off" | "track" | "album";
 export type IspSafeMode = "off" | "measured" | "fixed";
 export type TubeType = "se300b" | "ppel34" | "ppclassa";
+export type CrossfeedLevel = "default" | "cmoy" | "jmeier";
 export type EqFilterType = "peak" | "lowShelf" | "highShelf" | "lowPass" | "highPass" | "bandPass" | "notch";
 
 export interface EqBand {
@@ -32,6 +33,9 @@ export interface ListeningSettings {
   tubeEnabled: boolean;
   tubeType: TubeType;
   tubeDriveDb: number; // -30 .. +6
+  // Crossfeed for headphones (task 9-5), in 音作りモード only.
+  crossfeedEnabled: boolean;
+  crossfeedLevel: CrossfeedLevel;
 }
 
 export interface OutputChoice {
@@ -105,6 +109,16 @@ export const defaultListening: ListeningSettings = {
   tubeEnabled: false,
   tubeType: "se300b",
   tubeDriveDb: -12,
+  crossfeedEnabled: false,
+  crossfeedLevel: "default",
+};
+
+// The crossfeed's levels (engine: CrossfeedStage, the bs2b method): the
+// low-pass's cutoff, and how much lower the other side's low frequencies come.
+export const CROSSFEED_LEVELS: Record<CrossfeedLevel, { numbers: string; label: string }> = {
+  default: { numbers: "700 Hz・4.5 dB", label: "標準（700 Hz・4.5 dB）" },
+  cmoy: { numbers: "700 Hz・6.0 dB", label: "やや弱め（700 Hz・6.0 dB）" },
+  jmeier: { numbers: "650 Hz・9.5 dB", label: "弱め（650 Hz・9.5 dB）" },
 };
 
 // The tone controls and the tube's limits (engine: ToneStage, TubeStage).
@@ -175,7 +189,7 @@ export function frequencyText(hz: number): string {
 export function modeSummary(l: ListeningSettings): string {
   if (l.mode === "original") {
     const isp = l.ispSafeOriginal === "off" ? "" : `、ISP セーフ（${ISP_LABELS[l.ispSafeOriginal]}）`;
-    return `原音モード：音量 100% なら何も処理しません${isp}。ReplayGain・EQ・トーン・真空管はかけません（設定は残ります）。`;
+    return `原音モード：音量 100% なら何も処理しません${isp}。ReplayGain・EQ・トーン・真空管・クロスフィードはかけません（設定は残ります）。`;
   }
   const parts: string[] = [];
   if (l.replayGain !== "off") parts.push(`ReplayGain（${l.replayGain === "track" ? "トラック" : "アルバム"}）`);
@@ -187,6 +201,7 @@ export function modeSummary(l: ListeningSettings): string {
   ].filter((t) => t !== "");
   if (tone.length > 0) parts.push(`トーン（${tone.join("、")}）`);
   if (l.tubeEnabled) parts.push(`真空管（${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}）`);
+  if (l.crossfeedEnabled) parts.push(`クロスフィード（${CROSSFEED_LEVELS[l.crossfeedLevel].numbers}）`);
   if (l.ispSafeProcessed !== "off") parts.push(`ISP セーフ（${ISP_LABELS[l.ispSafeProcessed]}）`);
   return parts.length === 0
     ? "音作りモード：かける処理がありません。音量 100% なら原音モードと同じ出力です。"

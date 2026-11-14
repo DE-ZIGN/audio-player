@@ -31,7 +31,7 @@ describe("mode summary", () => {
     const t = modeSummary({ ...defaultListening, replayGain: "track" });
     expect(t).toContain("原音モード");
     expect(t).toContain("何も処理しません");
-    expect(t).toContain("ReplayGain・EQ・トーン・真空管はかけません");
+    expect(t).toContain("ReplayGain・EQ・トーン・真空管・クロスフィードはかけません");
     expect(t).not.toContain("ISP");
   });
   it("原音モード with the ISP-safe gain on says so", () => {
@@ -65,6 +65,9 @@ describe("mode summary", () => {
       tubeDriveDb: -6,
     };
     expect(modeSummary(l)).toBe("音作りモード：トーン（BASS +3.0 dB）、真空管（PP EL34、DRIVE -6.0 dB）を 64bit 浮動小数点でかけます。");
+    expect(modeSummary({ ...l, crossfeedEnabled: true, crossfeedLevel: "default" })).toContain(
+      "真空管（PP EL34、DRIVE -6.0 dB）、クロスフィード（700 Hz・4.5 dB）",
+    );
     // Off and flat: not listed.
     expect(modeSummary({ ...l, tubeEnabled: false, toneBassDb: 0 })).toContain("かける処理がありません");
   });

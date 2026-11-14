@@ -15,6 +15,7 @@ import {
   dbText,
   defaultListening,
   defaultOutput,
+  CROSSFEED_LEVELS,
   DRIVE_DEFAULT_DB,
   ISP_LABELS,
   MAX_BANDS,
@@ -30,6 +31,7 @@ import {
   type OutputOption,
   type OutputsInfo,
   type ReplayGainMode,
+  type CrossfeedLevel,
   type TubeType,
 } from "./settings";
 import type { PlaybackStatus } from "./status";
@@ -78,6 +80,8 @@ export class SettingsView {
     tubeDrive: $<HTMLInputElement>("tube-drive"),
     tubeDriveValue: $("tube-drive-value"),
     tubeDriveReset: $<HTMLButtonElement>("tube-drive-reset"),
+    crossfeedEnabled: $<HTMLInputElement>("crossfeed-enabled"),
+    crossfeedLevel: $("crossfeed-level"),
   };
 
   constructor(private readonly api: SettingsApi) {
@@ -165,6 +169,20 @@ export class SettingsView {
     );
     this.els.tubeDrive.addEventListener("input", () => this.change({ tubeDriveDb: Number(this.els.tubeDrive.value) }, SLIDER_SEND_MS));
     this.els.tubeDriveReset.addEventListener("click", () => this.change({ tubeDriveDb: DRIVE_DEFAULT_DB }));
+    // The crossfeed (task 9-5).
+    this.els.crossfeedEnabled.addEventListener("change", () => this.change({ crossfeedEnabled: this.els.crossfeedEnabled.checked }));
+    this.els.crossfeedLevel.replaceChildren(
+      ...(Object.entries(CROSSFEED_LEVELS) as [CrossfeedLevel, { label: string }][]).map(([value, { label }]) => {
+        const l = document.createElement("label");
+        const r = document.createElement("input");
+        r.type = "radio";
+        r.name = "crossfeed-level";
+        r.value = value;
+        r.addEventListener("change", () => r.checked && this.change({ crossfeedLevel: value }));
+        l.append(r, ` ${label}`);
+        return l;
+      }),
+    );
 
     this.els.device.addEventListener("change", () => void this.chooseOutput());
     this.els.dop.addEventListener("change", () => void this.setDop());
@@ -302,6 +320,9 @@ export class SettingsView {
     e.tubeEnabled.checked = l.tubeEnabled;
     for (const r of e.tubeType.querySelectorAll<HTMLInputElement>('input[name="tube-type"]')) r.checked = r.value === l.tubeType;
     e.tubeTypeNote.textContent = TUBE_NOTES[l.tubeType];
+    e.crossfeedEnabled.checked = l.crossfeedEnabled;
+    for (const r of e.crossfeedLevel.querySelectorAll<HTMLInputElement>('input[name="crossfeed-level"]'))
+      r.checked = r.value === l.crossfeedLevel;
   }
 
   private renderPresets() {

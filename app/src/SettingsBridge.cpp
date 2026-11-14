@@ -62,6 +62,8 @@ juce::var listeningVar(const ListeningSettings& l)
     o->setProperty("tubeEnabled", l.tubeEnabled);
     o->setProperty("tubeType", tubeTypeKey(l.tubeType));
     o->setProperty("tubeDriveDb", l.tubeDriveDb);
+    o->setProperty("crossfeedEnabled", l.crossfeedEnabled);
+    o->setProperty("crossfeedLevel", crossfeedLevelKey(l.crossfeedLevel));
     return juce::var(o);
 }
 
@@ -86,6 +88,9 @@ ListeningSettings listeningFrom(const juce::var& v)
     l.tubeEnabled = static_cast<bool>(v.getProperty("tubeEnabled", false));
     l.tubeType = tubeTypeFrom(v.getProperty("tubeType", "").toString().toStdString()).value_or(TubeType::Se300B);
     l.tubeDriveDb = number("tubeDriveDb", TubeStage::kDefaultDriveDb, TubeStage::kMinDriveDb, TubeStage::kMaxDriveDb);
+    l.crossfeedEnabled = static_cast<bool>(v.getProperty("crossfeedEnabled", false));
+    l.crossfeedLevel =
+        crossfeedLevelFrom(v.getProperty("crossfeedLevel", "").toString().toStdString()).value_or(CrossfeedLevel::Default);
     return l;
 }
 

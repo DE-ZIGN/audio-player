@@ -810,7 +810,8 @@ label.check {
   margin: 6px 0 2px;
 }
 .settings.original-mode .tone-controls,
-.settings.original-mode .tube-controls {
+.settings.original-mode .tube-controls,
+.settings.original-mode .crossfeed-controls {
   opacity: 0.6;
 }
 

@@ -542,6 +542,7 @@ export class MockBackend implements Backend {
     if (processed && (l.toneBassDb !== 0 || l.toneTrebleDb !== 0))
       stages.push({ name: "tone", gainDb: -Math.max(0, l.toneBassDb, l.toneTrebleDb) });
     if (processed && l.tubeEnabled) stages.push({ name: "tube", gainDb: l.tubeDriveDb, detail: l.tubeType });
+    if (processed && l.crossfeedEnabled) stages.push({ name: "crossfeed", gainDb: null, detail: l.crossfeedLevel });
     if (this.volumeDb !== 0) stages.push({ name: "volume", gainDb: this.volumeDb });
     const isp = l ? (processed ? l.ispSafeProcessed : l.ispSafeOriginal) : "off";
     if (isp !== "off") stages.push({ name: "isp-safe", gainDb: isp === "fixed" ? -3 : -1.2 });

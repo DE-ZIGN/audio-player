@@ -198,6 +198,15 @@
             </p>
           </div>
 
+          <h2>クロスフィード <small class="for-mode">音作りモードでかけます</small></h2>
+          <div class="setting crossfeed-controls">
+            <label class="check"><input type="checkbox" id="crossfeed-enabled" /> クロスフィードを使う（ヘッドホン向け）</label>
+            <div class="radios" id="crossfeed-level" role="radiogroup" aria-label="クロスフィードの強さ"></div>
+            <p class="note">
+              左右それぞれの低い音を、反対側にも少し遅れた位相で混ぜます（bs2b の方式）。数字は、混ぜる音のローパスの周波数と、低い音で反対側がまっすぐの音より何 dB 小さいか。中央の音は、低域で 0 dB、高域でやや下がります（標準で 15 kHz に −1.75 dB）。ステレオの曲だけにかけます。真空管の後にかかります。
+            </p>
+          </div>
+
           <h2>見た目</h2>
           <fieldset class="themes">
             <legend>ビュー（見た目と配置だけが変わり、機能と表示する情報は同じです）</legend>

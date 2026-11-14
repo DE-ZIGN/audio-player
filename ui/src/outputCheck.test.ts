@@ -92,6 +92,7 @@ describe("signal path diagram", () => {
       "EQ",
       "トーン",
       "真空管",
+      "クロスフィード",
       "デジタル音量",
       "ISP セーフ",
       "保険のリミッター",
@@ -120,12 +121,14 @@ describe("signal path diagram", () => {
         ...processed.stages,
         { name: "tone", gainDb: -2, detail: "" },
         { name: "tube", gainDb: -12, detail: "ppel34" },
+        { name: "crossfeed", gainDb: null, detail: "cmoy" },
       ],
     };
     const m = pathModel(s);
     const row = (name: string) => m.processing.rows.find((r) => r.name === name)!;
     expect(row("トーン")).toMatchObject({ on: true, value: "プリアンプ −2.0 dB" });
     expect(row("真空管")).toMatchObject({ on: true, value: "PP EL34・DRIVE −12.0 dB" });
+    expect(row("クロスフィード")).toMatchObject({ on: true, value: "700 Hz・6.0 dB" });
     // Their order follows the chain: EQ, tone, tube, volume.
     const names = m.processing.rows.map((r) => r.name);
     expect(names.indexOf("トーン")).toBe(names.indexOf("EQ") + 1);

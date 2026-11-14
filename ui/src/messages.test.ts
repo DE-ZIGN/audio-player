@@ -701,3 +701,10 @@ describe("the tone and the tube in the texts (task 9-3)", () => {
     expect(stageText({ name: "tone", gainDb: -4.5 })).toBe("トーン（プリアンプ -4.5 dB）");
   });
 });
+
+describe("the crossfeed in the texts (task 9-5)", () => {
+  it("names its level's numbers", () => {
+    expect(stageText({ name: "crossfeed", gainDb: null, detail: "default" })).toBe("クロスフィード（700 Hz・4.5 dB）");
+    expect(stageText({ name: "crossfeed", gainDb: null, detail: "jmeier" })).toBe("クロスフィード（650 Hz・9.5 dB）");
+  });
+});
