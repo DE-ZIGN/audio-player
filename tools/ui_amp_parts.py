@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Cuts the amp view's pictures out of its concept images (task 9-9).
 
-    python tools/ui_amp_parts.py [--src <folder>] [--out <folder>] [--debug <folder>]
+    python tools/ui_amp_parts.py [--src <folder>] [--out <folder>] [--debug <folder>] [--with-words]
+
+--with-words uses the concept images with their words even when the NOTEXT
+ones are there.
 
 The concept images (the work folder's imagegen/accepted/, outside the
 repository) are the finished look, read as drawn for a 150% screen like the
@@ -11,6 +14,11 @@ pixel.
   UI-AMP-SE-v1.png       the single-ended amp, tubes lit (音作りモード)
   UI-AMP-SE-PURE-v2.png  the same amp, tubes dark (原音モード); it lines up
                          with the lit one pixel for pixel
+  UI-AMP-SE-NOTEXT-v1.png, UI-AMP-SE-PURE-NOTEXT-v1.png
+                         the same two with the printed words already taken
+                         off (by the image tool that drew them; everything
+                         else within a pixel of the originals). Used when
+                         present: the words then need no filling in here.
 
 What comes out (ui/src/textures/amp/):
   se-lit.jpg, se-pure.jpg  the amp itself (x 0..1672, y 42..624: under the
@@ -25,7 +33,8 @@ What comes out (ui/src/textures/amp/):
 Removed from the amp and drawn by the program instead (CLAUDE.md chapter 8:
 text and scales are drawn by the program; only the needles, knobs and lamps
 move):
-  - every word printed on the panel and under the meters;
+  - every word printed on the panel and under the meters (unless the
+    NOTEXT pictures are used);
   - the lamps (lit or not) and their glow: a dark lamp is put back in every
     socket, the page lights the chosen ones;
   - the VU meters' print and needles (their paper keeps its light);
@@ -178,10 +187,10 @@ def fill_rows(part: np.ndarray, mask: np.ndarray, unsafe: np.ndarray, edge: int 
     return out
 
 
-def panel_without_words_and_lamps(img: np.ndarray, seed: int) -> np.ndarray:
+def panel_without_words_and_lamps(img: np.ndarray, seed: int, words_drawn: bool = True) -> np.ndarray:
     part = crop(img, PANEL)
     shape = part.shape[:2]
-    words = rect_mask(shape, WORDS, origin=PANEL[:2])
+    words = rect_mask(shape, WORDS, origin=PANEL[:2]) if words_drawn else np.zeros(shape, bool)
     lamps = np.zeros(shape, bool)
     for cx, cy in LAMPS.values():
         lamps |= disc(shape, cx, cy, LAMP_GLOW_R, PANEL[:2])
@@ -295,15 +304,16 @@ def bezel_without_letter(img: np.ndarray, ch: str) -> np.ndarray:
     return res
 
 
-def wood_without_badge_words_and_buttons(img: np.ndarray, drawn) -> np.ndarray:
+def wood_without_badge_words_and_buttons(img: np.ndarray, drawn, words_drawn: bool = True) -> np.ndarray:
     part = crop(img, WOOD)
     shape = part.shape[:2]
-    words = rect_mask(shape, [BADGE_WORDS], origin=WOOD[:2])
-    # The badge's inside is dark and smooth.
-    filled = push_pull(part, ~words)
-    for _ in range(2):
-        filled = box_blur(box_blur(filled, 2, 0), 2, 1)
-    part = blend(part, filled, words, 2)
+    if words_drawn:
+        words = rect_mask(shape, [BADGE_WORDS], origin=WOOD[:2])
+        # The badge's inside is dark and smooth.
+        filled = push_pull(part, ~words)
+        for _ in range(2):
+            filled = box_blur(box_blur(filled, 2, 0), 2, 1)
+        part = blend(part, filled, words, 2)
     # The buttons as drawn (the two pictures differ: four lit, three dark) and
     # their glow go; the grain runs on through. The page puts its own back.
     buttons = np.zeros(shape, bool)
@@ -320,14 +330,15 @@ def put(img: np.ndarray, part: np.ndarray, box) -> np.ndarray:
     return res
 
 
-def amp(img: np.ndarray, lamp: np.ndarray, pointer: float, drawn, seed: int) -> np.ndarray:
+def amp(img: np.ndarray, lamp: np.ndarray, pointer: float, drawn, seed: int, words_drawn: bool = True) -> np.ndarray:
     out = without_pointer(img, pointer)
-    panel = put_dark_lamps(panel_without_words_and_lamps(out, seed), lamp)
+    panel = put_dark_lamps(panel_without_words_and_lamps(out, seed, words_drawn), lamp)
     out = put(out, panel, PANEL)
     for ch in 'LR':
         out = vu_without_print(out, ch)
-        out = bezel_without_letter(out, ch)
-    out = put(out, wood_without_badge_words_and_buttons(out, drawn), WOOD)
+        if words_drawn:
+            out = bezel_without_letter(out, ch)
+    out = put(out, wood_without_badge_words_and_buttons(out, drawn, words_drawn), WOOD)
     return out[TOP:BOTTOM]
 
 
@@ -359,16 +370,25 @@ def main():
             else:
                 debug = value
                 os.makedirs(debug, exist_ok=True)
-    lit = load(os.path.join(SRC, 'UI-AMP-SE-v1.png'))
-    pure = load(os.path.join(SRC, 'UI-AMP-SE-PURE-v2.png'))
+    # The pictures with the words already off, when there are both.
+    clean = [os.path.join(SRC, n) for n in ('UI-AMP-SE-NOTEXT-v1.png', 'UI-AMP-SE-PURE-NOTEXT-v1.png')]
+    words_drawn = not all(os.path.exists(n) for n in clean)
+    if '--with-words' in args:
+        words_drawn = True
+    if words_drawn:
+        lit = load(os.path.join(SRC, 'UI-AMP-SE-v1.png'))
+        pure = load(os.path.join(SRC, 'UI-AMP-SE-PURE-v2.png'))
+    else:
+        lit, pure = load(clean[0]), load(clean[1])
+    print('from', 'the concept images (words filled in here)' if words_drawn else 'the NOTEXT pictures')
     for img in (lit, pure):
         if img.shape[:2] != (941, 1672):
             raise SystemExit(f'expected 1672 x 941 concept images, got {img.shape[1]} x {img.shape[0]}')
     os.makedirs(OUT, exist_ok=True)
 
     lamp = cut_lamp(pure)
-    save(amp(lit, lamp, VOLUME_POINTER['lit'], DRAWN_BUTTONS['lit'], seed=11), 'se-lit.jpg', quality=86)
-    save(amp(pure, lamp, VOLUME_POINTER['pure'], DRAWN_BUTTONS['pure'], seed=11), 'se-pure.jpg', quality=86)
+    save(amp(lit, lamp, VOLUME_POINTER['lit'], DRAWN_BUTTONS['lit'], 11, words_drawn), 'se-lit.jpg', quality=86)
+    save(amp(pure, lamp, VOLUME_POINTER['pure'], DRAWN_BUTTONS['pure'], 11, words_drawn), 'se-pure.jpg', quality=86)
     save(button(lit, *BUTTONS[1], r=BUTTON_R + 2, icon_r=17), 'button.jpg')
     save(button(lit, *BUTTONS[2], r=BUTTON_R + 4, icon_r=17), 'play.jpg')
     save(crop(pure, TOGGLE), 'toggle-up.jpg', quality=92)
