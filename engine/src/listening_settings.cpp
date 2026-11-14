@@ -1,5 +1,6 @@
 #include <ap/engine/listening_settings.h>
 
+#include <algorithm>
 #include <charconv>
 #include <cmath>
 #include <optional>
@@ -182,6 +183,11 @@ std::string settingsToText(const AppSettings& s)
     out << "eq.preamp=" << number(l.eqManualPreampDb) << '\n';
     for (const auto& b : l.eqBands)
         out << "eq.band=" << bandText(b) << '\n';
+    out << "tone.bass=" << number(l.toneBassDb) << '\n';
+    out << "tone.treble=" << number(l.toneTrebleDb) << '\n';
+    out << "tube.enabled=" << (l.tubeEnabled ? 1 : 0) << '\n';
+    out << "tube.type=" << tubeTypeKey(l.tubeType) << '\n';
+    out << "tube.drive=" << number(l.tubeDriveDb) << '\n';
     // EQ presets (task 6-9): each starts with its name.
     for (const auto& p : s.eqPresets)
     {
@@ -249,6 +255,17 @@ AppSettings settingsFromText(std::string_view text)
             if (const auto b = bandFrom(value))
                 l.eqBands.push_back(*b);
         }
+        else if (key == "tone.bass")
+            l.toneBassDb = std::clamp(parseNumber(value).value_or(0.0), -ToneStage::kMaxDb, ToneStage::kMaxDb);
+        else if (key == "tone.treble")
+            l.toneTrebleDb = std::clamp(parseNumber(value).value_or(0.0), -ToneStage::kMaxDb, ToneStage::kMaxDb);
+        else if (key == "tube.enabled")
+            l.tubeEnabled = value == "1";
+        else if (key == "tube.type")
+            l.tubeType = tubeTypeFrom(value).value_or(TubeType::Se300B);
+        else if (key == "tube.drive")
+            l.tubeDriveDb = std::clamp(parseNumber(value).value_or(TubeStage::kDefaultDriveDb), TubeStage::kMinDriveDb,
+                                       TubeStage::kMaxDriveDb);
         else if (key == "eqpreset.name")
         {
             preset = nullptr;
@@ -270,7 +287,7 @@ AppSettings settingsFromText(std::string_view text)
 
 ListeningChain::ListeningChain()
     : chain_(std::make_shared<ProcessingChain>(
-          std::vector<std::shared_ptr<ProcessingStage>>{replayGain, eq, volume, ispSafe, requantize, limiter}))
+          std::vector<std::shared_ptr<ProcessingStage>>{replayGain, eq, tone, tube, volume, ispSafe, requantize, limiter}))
 {
 }
 
@@ -283,6 +300,11 @@ void ListeningChain::apply(const ListeningSettings& s)
     applyEq();
     ispSafe->setUseAlbumPeak(rg == ReplayGainMode::Album);
     ispSafe->setMode(processed ? s.ispSafeProcessed : s.ispSafeOriginal);
+    tone->setBassDb(processed ? s.toneBassDb : 0.0);
+    tone->setTrebleDb(processed ? s.toneTrebleDb : 0.0);
+    tube->setType(s.tubeType);
+    tube->setDriveDb(s.tubeDriveDb);
+    tube->setEnabled(processed && s.tubeEnabled);
 }
 
 void ListeningChain::setEqSolo(std::optional<std::size_t> band)

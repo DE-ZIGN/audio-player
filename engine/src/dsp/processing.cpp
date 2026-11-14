@@ -56,7 +56,7 @@ std::vector<StageState> ProcessingChain::activeStageStates() const
     std::vector<StageState> states;
     for (const auto& s : stages_)
         if (!s->isIdentity() || s->runsWhenProcessing())
-            states.push_back({s->name(), s->displayGainDb()});
+            states.push_back({s->name(), s->displayGainDb(), s->displayDetail()});
     if (comparingRequested_)
         states.push_back({"comparison", std::nullopt});
     return states;

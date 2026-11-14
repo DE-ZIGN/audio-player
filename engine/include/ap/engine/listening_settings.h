@@ -22,6 +22,8 @@
 #include <ap/engine/dsp/processing.h>
 #include <ap/engine/dsp/replay_gain.h>
 #include <ap/engine/dsp/requantize.h>
+#include <ap/engine/dsp/tone.h>
+#include <ap/engine/dsp/tube.h>
 #include <ap/engine/dsp/volume.h>
 
 #include <memory>
@@ -49,6 +51,12 @@ struct ListeningSettings
     // what goes over is left to the safety limiter). Task 6-3.
     bool eqAutoPreamp = true;
     double eqManualPreampDb = 0.0;
+    // The tone controls and the tube (tasks 9-2, 9-3), in 音作りモード only.
+    double toneBassDb = 0.0;
+    double toneTrebleDb = 0.0;
+    bool tubeEnabled = false;
+    TubeType tubeType = TubeType::Se300B;
+    double tubeDriveDb = TubeStage::kDefaultDriveDb;
 
     bool operator==(const ListeningSettings&) const = default;
 };
@@ -106,8 +114,10 @@ std::string settingsToText(const AppSettings& settings);
 AppSettings settingsFromText(std::string_view text);
 
 // The stages in their fixed order (CLAUDE.md chapter 4): ReplayGain, EQ,
-// volume, ISP-safe gain, (the ABX's requantization, task 6-6), safety
-// limiter (then dither, in play()).
+// tone, tube, volume, ISP-safe gain, (the ABX's requantization, task 6-6),
+// safety limiter (then dither, in play()). The tube comes before the volume,
+// so how much it bends does not change with the listening level (DRIVE
+// decides it).
 class ListeningChain
 {
 public:
@@ -129,6 +139,8 @@ public:
 
     const std::shared_ptr<ReplayGainStage> replayGain = std::make_shared<ReplayGainStage>();
     const std::shared_ptr<EqStage> eq = std::make_shared<EqStage>();
+    const std::shared_ptr<ToneStage> tone = std::make_shared<ToneStage>();
+    const std::shared_ptr<TubeStage> tube = std::make_shared<TubeStage>();
     const std::shared_ptr<VolumeStage> volume = std::make_shared<VolumeStage>();
     const std::shared_ptr<IspSafeStage> ispSafe = std::make_shared<IspSafeStage>();
     const std::shared_ptr<RequantizeStage> requantize = std::make_shared<RequantizeStage>(); // ABX only, off otherwise

@@ -397,3 +397,95 @@ TEST_CASE("Saving EQ presets: a line break in a name cannot add a line", "[setti
     REQUIRE(back.eqPresets.size() == 1);
     CHECK(back.eqPresets[0].name == "A mode=processed");
 }
+
+// Task 9-3: the tube and the tone controls in the settings.
+
+TEST_CASE("Tube and tone: off and flat by default, applied only in 音作りモード", "[settings][tube]")
+{
+    const ListeningSettings d;
+    CHECK_FALSE(d.tubeEnabled);
+    CHECK(d.tubeType == TubeType::Se300B);
+    CHECK(d.tubeDriveDb == TubeStage::kDefaultDriveDb);
+    CHECK(d.toneBassDb == 0.0);
+    CHECK(d.toneTrebleDb == 0.0);
+
+    ListeningSettings s;
+    s.tubeEnabled = true;
+    s.tubeType = TubeType::PpEl34;
+    s.tubeDriveDb = -6.0;
+    s.toneBassDb = 3.0;
+    s.toneTrebleDb = -2.0;
+
+    ListeningChain c;
+    c.apply(s); // 原音モード
+    CHECK_FALSE(c.tube->enabled());
+    CHECK(c.tone->bassDb() == 0.0);
+    CHECK(c.tone->trebleDb() == 0.0);
+    CHECK(c.chain()->bypassed());
+
+    s.mode = ListeningMode::Processed;
+    c.apply(s);
+    CHECK(c.tube->enabled());
+    CHECK(c.tube->type() == TubeType::PpEl34);
+    CHECK(c.tube->driveDb() == -6.0);
+    CHECK(c.tone->bassDb() == 3.0);
+    CHECK(c.tone->trebleDb() == -2.0);
+    CHECK_FALSE(c.chain()->bypassed());
+}
+
+TEST_CASE("Tube and tone sit after the EQ and before the volume", "[settings][tube]")
+{
+    ListeningSettings s = everythingOn(ListeningMode::Processed);
+    s.tubeEnabled = true;
+    s.toneBassDb = 2.0;
+    ListeningChain c;
+    c.apply(s);
+    c.volume->setGainDb(-6.0);
+    c.chain()->trackStarted(loudTrack());
+    // (No ISP-safe gain: ReplayGain and the volume have already taken the peak below the line.)
+    CHECK(c.chain()->activeStageNames() ==
+          std::vector<std::string>{"replaygain", "eq", "tone", "tube", "volume", "limiter"});
+}
+
+TEST_CASE("Tube and tone: 音作りモード with the tube off and the tone flat is still bypassed", "[settings][tube]")
+{
+    ListeningSettings s;
+    s.mode = ListeningMode::Processed;
+    s.ispSafeProcessed = IspSafeMode::Off;
+    s.tubeEnabled = false;
+    s.tubeType = TubeType::PpClassA;
+    ListeningChain c;
+    c.apply(s);
+    CHECK(c.chain()->bypassed());
+}
+
+TEST_CASE("Tube and tone are saved with the settings and read back", "[settings][tube][text]")
+{
+    AppSettings a;
+    a.listening.tubeEnabled = true;
+    a.listening.tubeType = TubeType::PpClassA;
+    a.listening.tubeDriveDb = -7.25;
+    a.listening.toneBassDb = 4.5;
+    a.listening.toneTrebleDb = -1.5;
+    CHECK(settingsFromText(settingsToText(a)) == a);
+    for (const auto t : {TubeType::Se300B, TubeType::PpEl34, TubeType::PpClassA})
+    {
+        AppSettings b;
+        b.listening.tubeType = t;
+        CHECK(settingsFromText(settingsToText(b)).listening.tubeType == t);
+    }
+}
+
+TEST_CASE("Reading tube and tone settings: unknown or out of range keeps them within limits", "[settings][tube][text]")
+{
+    const auto s = settingsFromText("tube.enabled=1\n"
+                                    "tube.type=kt88\n"  // unknown: the default
+                                    "tube.drive=50\n"   // above the range: the top
+                                    "tone.bass=-40\n"   // below: the bottom
+                                    "tone.treble=x\n"); // not a number: 0
+    CHECK(s.listening.tubeEnabled);
+    CHECK(s.listening.tubeType == TubeType::Se300B);
+    CHECK(s.listening.tubeDriveDb == TubeStage::kMaxDriveDb);
+    CHECK(s.listening.toneBassDb == -ToneStage::kMaxDb);
+    CHECK(s.listening.toneTrebleDb == 0.0);
+}

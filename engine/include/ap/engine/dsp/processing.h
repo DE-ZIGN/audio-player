@@ -27,6 +27,7 @@ struct StageState
 {
     std::string name;             // as ProcessingStage::name()
     std::optional<double> gainDb; // the level it applies now (gain stages; the EQ's preamp), if any
+    std::string detail;           // a setting it shows besides (the tube's type), or empty
 
     bool operator==(const StageState&) const = default;
 };
@@ -59,6 +60,8 @@ public:
     virtual double peakGain() const noexcept { return 1.0; }
     // For the path display: the level it applies now, in dB (nullopt: none to show).
     virtual std::optional<double> displayGainDb() const noexcept { return std::nullopt; }
+    // For the path display: a setting to show besides the value, as a key (e.g. the tube's type).
+    virtual std::string displayDetail() const { return {}; }
     virtual void setUpstreamGain(double /*gain*/) noexcept {}
 
     // A stage that never by itself calls for processing but must run whenever

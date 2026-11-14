@@ -45,6 +45,8 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <string_view>
 #include <vector>
 
 namespace ap::engine {
@@ -55,6 +57,10 @@ enum class TubeType
     PpEl34,
     PpClassA,
 };
+
+// "se300b", "ppel34", "ppclassa": in the settings file, the status and the page.
+const char* tubeTypeKey(TubeType type) noexcept;
+std::optional<TubeType> tubeTypeFrom(std::string_view key) noexcept;
 
 // The transfer curve of one type, worked out once from the tube model.
 class TubeCurve
@@ -124,6 +130,9 @@ public:
     void prepare(std::uint32_t sampleRate, std::uint16_t channels) override;
     bool isIdentity() const noexcept override { return !enabled_; }
     std::size_t latencyFrames() const noexcept override { return enabled_ ? latency_ : 0; }
+    // For the path display: DRIVE, and the type.
+    std::optional<double> displayGainDb() const noexcept override { return driveDb_.load(); }
+    std::string displayDetail() const override { return tubeTypeKey(type_); }
     void process(std::span<double> samples, std::uint16_t channels) noexcept override;
 
 private:

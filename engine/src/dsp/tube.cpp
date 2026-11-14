@@ -7,6 +7,25 @@
 
 namespace ap::engine {
 
+const char* tubeTypeKey(TubeType type) noexcept
+{
+    switch (type)
+    {
+        case TubeType::Se300B:   return "se300b";
+        case TubeType::PpEl34:   return "ppel34";
+        case TubeType::PpClassA: return "ppclassa";
+    }
+    return "se300b";
+}
+
+std::optional<TubeType> tubeTypeFrom(std::string_view key) noexcept
+{
+    for (const auto t : {TubeType::Se300B, TubeType::PpEl34, TubeType::PpClassA})
+        if (key == tubeTypeKey(t))
+            return t;
+    return std::nullopt;
+}
+
 // --- the tube models ---------------------------------------------------------------------
 //
 // Norman Koren's equations ("Improved VT models for SPICE simulations"), with
