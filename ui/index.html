@@ -196,6 +196,35 @@
               小さな音の音量は変えず、DRIVE で曲がり方（倍音の量）が変わります。DRIVE 0 dB で、0 dBFS の山がグリッドを 0 V まで振ります。
               オン・オフを切り替えると、処理の遅れが変わるため、再生中は一瞬途切れます。
             </p>
+
+            <div class="tube-auto">
+              <h3>ジャンルで種類を選ぶ</h3>
+              <label class="check"><input type="checkbox" id="tube-auto-enabled" /> 曲のジャンルで種類を自動で選ぶ</label>
+              <p class="note" id="tube-auto-now" aria-live="polite"></p>
+              <label class="tube-auto-album" id="tube-auto-album-row" hidden>
+                このアルバム（<span id="tube-auto-album-name"></span>）
+                <select id="tube-auto-album" aria-label="このアルバムの真空管の種類"></select>
+              </label>
+              <details>
+                <summary>ジャンルの対応表（<span id="tube-auto-rule-count"></span>）</summary>
+                <table class="tube-rules">
+                  <thead><tr><th>ジャンル</th><th>種類</th><th></th></tr></thead>
+                  <tbody id="tube-auto-rules"></tbody>
+                </table>
+                <button type="button" id="tube-auto-add">行を足す</button>
+                <button type="button" id="tube-auto-reset" class="link">初期値に戻す</button>
+              </details>
+              <p class="notice" id="tube-auto-problem" hidden></p>
+              <details>
+                <summary>アルバムごとの指定（<span id="tube-auto-album-count"></span>）</summary>
+                <ul class="tube-albums" id="tube-auto-albums"></ul>
+              </details>
+              <p class="note">
+                曲ごとに、アルバムの指定 → ジャンルの対応表 → 上で手動で選んだ種類、の順で決めます。ジャンルのタグは「;」「/」「,」で区切り、大文字・小文字と全角・半角を区別せずに比べます。完全に一致する行を先に、なければジャンルの一部に含まれる行（「Vocal Jazz」の「Jazz」）を、表の上から探します。
+                種類は曲の境目で切り替わります（20 ms でなめらかに）。どの種類も小さな音の音量はそろえてあり、音楽に近い信号（DRIVE −12 dB）で差は 0.03 dB 以内です。
+                対応表の初期値は出発点で、ジャンルに合う種類を示すものではありません。ABX で比べるときは使いません。
+              </p>
+            </div>
           </div>
 
           <h2>クロスフィード <small class="for-mode">音作りモードでかけます</small></h2>

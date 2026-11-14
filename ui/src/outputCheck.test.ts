@@ -134,6 +134,21 @@ describe("signal path diagram", () => {
     expect(names.indexOf("トーン")).toBe(names.indexOf("EQ") + 1);
     expect(names.indexOf("真空管")).toBe(names.indexOf("トーン") + 1);
   });
+  it("the tube type by genre (task 9-7): says what chose the type", () => {
+    const s: PlaybackStatus = {
+      ...processed,
+      stages: [...processed.stages, { name: "tube", gainDb: -12, detail: "se300b" }],
+      tubeAuto: { album: null, genres: ["Jazz"], choice: { type: "se300b", reason: "genre", matched: "Jazz" } },
+    };
+    const row = (st: PlaybackStatus) => pathModel(st).processing.rows.find((r) => r.name === "真空管")!;
+    expect(row(s).value).toBe("SE 300B（ジャンル：Jazz）・DRIVE −12.0 dB");
+    const album: PlaybackStatus = {
+      ...s,
+      tubeAuto: { album: { key: "k", title: "W" }, genres: [], choice: { type: "se300b", reason: "album", matched: "W" } },
+    };
+    expect(row(album).value).toBe("SE 300B（アルバムの指定）・DRIVE −12.0 dB");
+    expect(row({ ...s, tubeAuto: { album: null, genres: [], choice: null } }).value).toBe("SE 300B・DRIVE −12.0 dB");
+  });
   it("DoP: the DSD file, no processing", () => {
     const s: PlaybackStatus = {
       ...direct,

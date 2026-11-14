@@ -252,6 +252,7 @@ PlayerBridge::PlayerBridge(Player::OutputFactory outputFactory, const AppSetting
                               .processing = chain_.chain()})
 {
     listening_ = settings.listening;
+    tubeAuto_ = settings.tubeAuto;
     chain_.apply(settings.listening);
     startTimerHz(10);
 }
@@ -427,10 +428,38 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
     return {};
 }
 
-QueueItem PlayerBridge::itemFor(const QueueFile& f)
+QueueItem PlayerBridge::itemFor(const QueueFile& f) const
 {
     auto path = f.path;
-    return QueueItem{f.name, [path] { return std::make_unique<PrefetchingSource>(openAudioFile(path)); }, f.replayGain};
+    const auto choice = tubeChoiceFor(f);
+    return QueueItem{f.name, [path] { return std::make_unique<PrefetchingSource>(openAudioFile(path)); }, f.replayGain,
+                     choice ? std::optional(choice->type) : std::nullopt};
+}
+
+std::optional<TubeChoice> PlayerBridge::tubeChoiceFor(const QueueFile& f) const
+{
+    return chooseTubeType(tubeAuto_, f.genres, f.albumKey);
+}
+
+void PlayerBridge::setTubeAuto(const TubeAutoSettings& settings)
+{
+    tubeAuto_ = settings;
+    if (!abx_)
+        refreshTubeTypes(); // during an ABX the sides' types play; the queue is put back with the new choices
+    pushStatus(true);
+}
+
+void PlayerBridge::refreshTubeTypes()
+{
+    std::vector<std::optional<TubeType>> types;
+    for (const auto& f : queueMeta_)
+    {
+        const auto c = tubeChoiceFor(f);
+        types.push_back(c ? std::optional(c->type) : std::nullopt);
+    }
+    player_.setTubeTypes(types);
+    const auto i = player_.status().queueIndex;
+    chain_.tube->setTrackType(i < types.size() ? types[i] : std::nullopt);
 }
 
 void PlayerBridge::replaceUpcoming(std::vector<QueueFile> files)
@@ -569,6 +598,42 @@ juce::var PlayerBridge::statusAsVar() const
         stages.add(juce::var(so));
     }
     o->setProperty("stages", stages);
+    // The tube type by genre (task 9-7): the current track's album (for an
+    // album's choice) and what chose its type, if anything did.
+    {
+        auto* ta = new juce::DynamicObject();
+        const QueueFile* f = !abx_ && s.queueIndex < queueMeta_.size() ? &queueMeta_[s.queueIndex] : nullptr;
+        if (f && !f->albumKey.empty())
+        {
+            auto* al = new juce::DynamicObject();
+            al->setProperty("key", juce::String::fromUTF8(f->albumKey.c_str()));
+            al->setProperty("title", juce::String::fromUTF8(f->album.c_str()));
+            ta->setProperty("album", juce::var(al));
+        }
+        else
+        {
+            ta->setProperty("album", juce::var());
+        }
+        juce::Array<juce::var> genres;
+        if (f)
+            for (const auto& g : f->genres)
+                genres.add(juce::String::fromUTF8(g.c_str()));
+        ta->setProperty("genres", genres);
+        const auto c = f ? tubeChoiceFor(*f) : std::nullopt;
+        if (c)
+        {
+            auto* co = new juce::DynamicObject();
+            co->setProperty("type", juce::String(tubeTypeKey(c->type)));
+            co->setProperty("reason", c->reason == TubeChoiceReason::Album ? "album" : "genre");
+            co->setProperty("matched", juce::String::fromUTF8(c->matched.c_str()));
+            ta->setProperty("choice", juce::var(co));
+        }
+        else
+        {
+            ta->setProperty("choice", juce::var());
+        }
+        o->setProperty("tubeAuto", juce::var(ta));
+    }
     // The safety limiter (CLAUDE.md chapter 4: how often and by how much it
     // acted), since the settings or the queue last changed.
     {

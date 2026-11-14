@@ -32,7 +32,8 @@ std::vector<PlayerBridge::QueueFile> toFiles(std::vector<LibraryBridge::QueueEnt
 {
     std::vector<PlayerBridge::QueueFile> files;
     for (auto& e : entries)
-        files.push_back({std::move(e.name), std::move(e.path), e.replayGain, e.id, std::move(e.artist), e.seconds});
+        files.push_back({std::move(e.name), std::move(e.path), e.replayGain, e.id, std::move(e.artist), e.seconds,
+                         std::move(e.genres), std::move(e.albumKey), std::move(e.album)});
     return files;
 }
 

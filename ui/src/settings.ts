@@ -2,6 +2,7 @@
 // and takes it, and the pure parts of the screen (texts, limits, the curve).
 
 import type { EqPreset } from "./eqPresets";
+import type { TubeAutoSettings, TubeGenreRule } from "./tubeAuto";
 
 export type ListeningMode = "original" | "processed";
 export type ReplayGainMode = "off" | "track" | "album";
@@ -49,6 +50,8 @@ export interface SettingsInfo {
   output: OutputChoice;
   listening: ListeningSettings;
   eqPresets?: EqPreset[]; // task 6-9
+  tubeAuto?: TubeAutoSettings; // task 9-7
+  tubeAutoDefaultRules?: TubeGenreRule[];
 }
 
 export interface OutputDevice {
@@ -86,6 +89,11 @@ export interface PresetsResult {
   ok: boolean;
   message?: string;
   eqPresets?: EqPreset[];
+}
+export interface TubeAutoResult {
+  ok: boolean;
+  message?: string;
+  tubeAuto?: TubeAutoSettings;
 }
 export interface SetResult {
   ok: boolean;
@@ -186,7 +194,7 @@ export function frequencyText(hz: number): string {
 }
 
 // What the chosen mode does, in one line, for the screen.
-export function modeSummary(l: ListeningSettings): string {
+export function modeSummary(l: ListeningSettings, tubeAuto = false): string {
   if (l.mode === "original") {
     const isp = l.ispSafeOriginal === "off" ? "" : `、ISP セーフ（${ISP_LABELS[l.ispSafeOriginal]}）`;
     return `原音モード：音量 100% なら何も処理しません${isp}。ReplayGain・EQ・トーン・真空管・クロスフィードはかけません（設定は残ります）。`;
@@ -200,7 +208,12 @@ export function modeSummary(l: ListeningSettings): string {
     l.toneTrebleDb !== 0 ? `TREBLE ${signedDb(l.toneTrebleDb)}` : "",
   ].filter((t) => t !== "");
   if (tone.length > 0) parts.push(`トーン（${tone.join("、")}）`);
-  if (l.tubeEnabled) parts.push(`真空管（${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}）`);
+  if (l.tubeEnabled)
+    parts.push(
+      tubeAuto
+        ? `真空管（ジャンルで自動・対応表にないときは ${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}）`
+        : `真空管（${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}）`,
+    );
   if (l.crossfeedEnabled) parts.push(`クロスフィード（${CROSSFEED_LEVELS[l.crossfeedLevel].numbers}）`);
   if (l.ispSafeProcessed !== "off") parts.push(`ISP セーフ（${ISP_LABELS[l.ispSafeProcessed]}）`);
   return parts.length === 0

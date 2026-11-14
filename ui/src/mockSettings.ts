@@ -3,6 +3,7 @@
 // the EQ formulas (eqResponse.ts) stands in, so the page can be worked on.
 
 import type { EqPreset } from "./eqPresets";
+import type { TubeAutoSettings, TubeGenreRule } from "./tubeAuto";
 import { autoPreampDb, responsePoints, skippedBands } from "./eqResponse";
 import {
   defaultListening,
@@ -16,7 +17,20 @@ import {
   type PresetsResult,
   type SetResult,
   type SettingsInfo,
+  type TubeAutoResult,
 } from "./settings";
+
+// A part of the engine's default table (engine/src/dsp/tube_auto.cpp), for the mock.
+const MOCK_TUBE_RULES: TubeGenreRule[] = [
+  { genre: "Jazz", type: "se300b" },
+  { genre: "Vocal", type: "se300b" },
+  { genre: "ジャズ", type: "se300b" },
+  { genre: "Rock", type: "ppel34" },
+  { genre: "Pop", type: "ppel34" },
+  { genre: "ロック", type: "ppel34" },
+  { genre: "Classical", type: "ppclassa" },
+  { genre: "クラシック", type: "ppclassa" },
+];
 
 export function mockEqCurve(bands: EqBand[], rate = 48000): EqCurve {
   return {
@@ -55,13 +69,27 @@ export class MockSettings {
     { name: "テスト用（低音 +5.5）", bands: structuredClone(MOCK_PRESET), autoPreamp: true, manualPreampDb: 0 },
   ];
 
+  private tubeAuto: TubeAutoSettings = { enabled: false, rules: structuredClone(MOCK_TUBE_RULES), albums: [] };
+
   constructor(
     private readonly onListening: (l: ListeningSettings) => void = () => {},
     private readonly onSolo: (band: number | null) => void = () => {},
+    private readonly onTubeAuto: (t: TubeAutoSettings) => void = () => {},
   ) {}
 
   async get(): Promise<SettingsInfo> {
-    return structuredClone({ output: this.output, listening: this.listening, eqPresets: this.eqPresets });
+    return structuredClone({
+      output: this.output,
+      listening: this.listening,
+      eqPresets: this.eqPresets,
+      tubeAuto: this.tubeAuto,
+      tubeAutoDefaultRules: MOCK_TUBE_RULES,
+    });
+  }
+  async setTubeAuto(t: TubeAutoSettings): Promise<TubeAutoResult> {
+    this.tubeAuto = structuredClone(t);
+    this.onTubeAuto(structuredClone(t));
+    return { ok: true, tubeAuto: structuredClone(t) };
   }
   async setListening(l: ListeningSettings): Promise<SetResult> {
     this.listening = structuredClone(l);

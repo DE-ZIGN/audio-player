@@ -70,6 +70,8 @@ describe("mode summary", () => {
     );
     // Off and flat: not listed.
     expect(modeSummary({ ...l, tubeEnabled: false, toneBassDb: 0 })).toContain("かける処理がありません");
+    // The tube type by genre (task 9-7).
+    expect(modeSummary(l, true)).toContain("真空管（ジャンルで自動・対応表にないときは PP EL34、DRIVE -6.0 dB）");
   });
   it("音作りモード with nothing to apply says the output is the same as 原音モード", () => {
     const t = modeSummary({ ...defaultListening, mode: "processed", ispSafeProcessed: "off" });

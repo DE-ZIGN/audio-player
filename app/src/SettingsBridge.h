@@ -32,6 +32,10 @@ namespace ap::app {
 //   settingsEqSolo(i)          solo EQ band i (-1: off); not saved
 //   settingsSetEqPresets(list) the named EQ presets, the whole list (task 6-9);
 //                              saved; { ok, eqPresets }. settingsGet() has them as eqPresets.
+//   settingsSetTubeAuto(t)     the tube type by genre (task 9-7): { enabled, rules:
+//                              [{ genre, type }], albums: [{ albumKey, album, type }] };
+//                              applied and saved; { ok, tubeAuto }. settingsGet() has it as tubeAuto,
+//                              and the default table as tubeAutoDefaultRules.
 // Event (C++ -> JavaScript): "outputsChanged" when an output device was
 // added, removed, enabled or disabled, or the Windows default changed.
 class SettingsBridge final

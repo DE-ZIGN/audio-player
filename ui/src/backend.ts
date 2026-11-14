@@ -4,6 +4,7 @@
 // be worked on without the app.
 
 import type { EqPreset } from "./eqPresets";
+import { chooseTubeType, type TubeAutoSettings } from "./tubeAuto";
 import { emptyStatus, type BitPerfectVerdict, type MeterStatus, type PlaybackStatus, type SignalPath } from "./status";
 import type {
   ActionResult,
@@ -28,6 +29,7 @@ import type {
   SetResult,
   SettingsInfo,
   PresetsResult,
+  TubeAutoResult,
 } from "./settings";
 
 // The play queue as the app holds it (task 6-2). id 0: not from the library.
@@ -73,6 +75,7 @@ export interface SettingsApi {
   eqCurve(bands: EqBand[]): Promise<EqCurve>; // the engine's (the page draws with eqResponse.ts)
   eqSolo(band: number | null): Promise<void>; // play one band alone; not saved
   setEqPresets(list: EqPreset[]): Promise<PresetsResult>; // the whole list (task 6-9); saved
+  setTubeAuto(t: TubeAutoSettings): Promise<TubeAutoResult>; // the tube type by genre (task 9-7); applied, saved
   onOutputsChanged(listener: () => void): void;
 }
 
@@ -184,6 +187,9 @@ class AppSettings implements SettingsApi {
   async setEqPresets(list: EqPreset[]) {
     return ((await this.fn("settingsSetEqPresets")(list)) as PresetsResult | null) ?? { ok: false };
   }
+  async setTubeAuto(t: TubeAutoSettings) {
+    return ((await this.fn("settingsSetTubeAuto")(t)) as TubeAutoResult | null) ?? { ok: false };
+  }
   onOutputsChanged(listener: () => void) {
     window.__JUCE__!.backend.addEventListener(OUTPUTS_EVENT, () => listener());
   }
@@ -251,7 +257,18 @@ export interface MockTrack {
   dsdRate?: number; // DSD file sent as DoP at sampleRate (= dsdRate / 16)
   truePeakDb?: number | null; // measured at import (the ISP warning, task 6-4)
   container?: string; // from the library ("FLAC", "ALAC", ...)
+  genres?: string[]; // for the tube type by genre (task 9-7)
+  albumKey?: string;
+  album?: string;
 }
+
+// Made-up genres per album for the mock library (some not in the default table).
+const MOCK_GENRES = [["Jazz"], ["Rock"], ["Classical"], ["ジャズ・ボーカル"], ["Reggae"], []];
+const mockGenres = (albumKey: string | null | undefined) => {
+  let h = 0;
+  for (const c of albumKey ?? "") h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return MOCK_GENRES[h % MOCK_GENRES.length];
+};
 
 const fmt24 = (sampleRate: number) => ({
   sampleRate,
@@ -319,8 +336,8 @@ const mockMeter = (t: MockTrack, index: number, playedFrames: number, measuring:
 
 // Three tracks with a rate change, for working on the page in a browser.
 export const DEMO_QUEUE: MockTrack[] = [
-  { name: "（試験用）01_44k.flac", sampleRate: 44100, seconds: 8 },
-  { name: "（試験用）02_44k.flac", sampleRate: 44100, seconds: 8 },
+  { name: "（試験用）01_44k.flac", sampleRate: 44100, seconds: 8, genres: ["Jazz"], albumKey: "demo\u001fDemo", album: "Demo" },
+  { name: "（試験用）02_44k.flac", sampleRate: 44100, seconds: 8, genres: ["Rock"], albumKey: "demo\u001fDemo", album: "Demo" },
   { name: "（試験用）03_96k.wav", sampleRate: 96000, seconds: 8 },
   { name: "（試験用）04_dsd64.dsf", sampleRate: 176400, seconds: 8, dsdRate: 2822400 },
 ];
@@ -332,7 +349,12 @@ export class MockBackend implements Backend {
   readonly settings: MockSettings = new MockSettings(
     (l) => this.applyListening(l),
     (band) => this.update({ ...this.status, eqSolo: band }),
+    (t) => {
+      this.tubeAuto = t;
+      this.updateStages();
+    },
   );
+  private tubeAuto: TubeAutoSettings | null = null;
   private listening: ListeningSettings | null = null;
   private abxX: boolean[] = []; // per trial: X is B
   private abxCorrect = 0;
@@ -461,6 +483,9 @@ export class MockBackend implements Backend {
           seconds: t.seconds ?? 200,
           truePeakDb: t.analysis === "ok" ? t.truePeakDb : null,
           container: t.container,
+          genres: mockGenres(t.albumKey),
+          albumKey: t.albumKey ?? "",
+          album: t.album,
         }));
         this.setQueueItems(found.map((t) => ({ id: t.id, name: t.title, artist: t.artist, seconds: t.seconds })));
         const i = Math.min(start, found.length - 1);
@@ -482,6 +507,9 @@ export class MockBackend implements Backend {
             seconds: t.seconds ?? 200,
             truePeakDb: t.analysis === "ok" ? t.truePeakDb : null,
             container: t.container,
+            genres: mockGenres(t.albumKey),
+            albumKey: t.albumKey ?? "",
+            album: t.album,
           })),
         ];
         this.setQueueItems([
@@ -541,13 +569,25 @@ export class MockBackend implements Backend {
       stages.push({ name: "eq", gainDb: -3.0 });
     if (processed && (l.toneBassDb !== 0 || l.toneTrebleDb !== 0))
       stages.push({ name: "tone", gainDb: -Math.max(0, l.toneBassDb, l.toneTrebleDb) });
-    if (processed && l.tubeEnabled) stages.push({ name: "tube", gainDb: l.tubeDriveDb, detail: l.tubeType });
+    if (processed && l.tubeEnabled)
+      stages.push({ name: "tube", gainDb: l.tubeDriveDb, detail: this.mockTubeAuto()?.choice?.type ?? l.tubeType });
     if (processed && l.crossfeedEnabled) stages.push({ name: "crossfeed", gainDb: null, detail: l.crossfeedLevel });
     if (this.volumeDb !== 0) stages.push({ name: "volume", gainDb: this.volumeDb });
     const isp = l ? (processed ? l.ispSafeProcessed : l.ispSafeOriginal) : "off";
     if (isp !== "off") stages.push({ name: "isp-safe", gainDb: isp === "fixed" ? -3 : -1.2 });
     if (stages.length > 0) stages.push({ name: "limiter", gainDb: null });
     return stages;
+  }
+
+  // The current track's album and tube choice (task 9-7), as the app reports them.
+  private mockTubeAuto() {
+    const t = this.status.state === "empty" ? undefined : this.tracks[this.status.queueIndex];
+    if (!t) return undefined;
+    return {
+      album: t.albumKey ? { key: t.albumKey, title: t.album ?? "" } : null,
+      genres: t.genres ?? [],
+      choice: this.tubeAuto ? chooseTubeType(this.tubeAuto, t.genres ?? [], t.albumKey ?? "") : null,
+    };
   }
 
   private updateStages() {
@@ -561,6 +601,7 @@ export class MockBackend implements Backend {
       mode,
       ispSafe: l ? (mode === "processed" ? l.ispSafeProcessed : l.ispSafeOriginal) : "off",
       stages,
+      tubeAuto: this.mockTubeAuto(),
       path: s.path && { ...s.path, processing, processingStages: stages.map((x) => x.name), dither: processing },
       bitPerfect: s.bitPerfect && { ...s.bitPerfect, bitPerfect: !processing, dither: processing },
     });

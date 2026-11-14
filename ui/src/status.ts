@@ -1,6 +1,8 @@
 // Shape of the playback status the app sends to the UI (event "playbackStatus"
 // and native function "getStatus"). Must match app/src/PlayerBridge.cpp.
 
+import type { TubeAutoStatus } from "./tubeAuto";
+
 export type PlayerState = "empty" | "stopped" | "playing" | "ended" | "error";
 export type SampleType = "int" | "float";
 export type Repack = "none" | "widerContainer" | "zeroPadded";
@@ -180,6 +182,7 @@ export interface PlaybackStatus {
   abx: AbxStatus | null; // an ABX running or just ended (task 6-6)
   path: SignalPath | null;
   stages: StageState[]; // processing path: the stages running now
+  tubeAuto?: TubeAutoStatus; // the tube type by genre (task 9-7): the current track's album and choice
   bitPerfect: BitPerfectVerdict | null; // set with path
   delivery: DeliveryResult | null; // direct path only
   meter: MeterStatus;

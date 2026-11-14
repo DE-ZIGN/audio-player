@@ -48,6 +48,10 @@ public:
         std::int64_t id = 0;
         std::string artist;
         std::optional<double> seconds;
+        // For choosing the tube type (task 9-7).
+        std::vector<std::string> genres;
+        std::string albumKey; // empty: not in an album
+        std::string album;
     };
     using PlayQueue = std::function<juce::String(std::vector<QueueEntry>, std::size_t start)>;
     using ReplaceUpcoming = std::function<void(std::vector<QueueEntry>)>;

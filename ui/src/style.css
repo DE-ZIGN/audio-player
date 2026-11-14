@@ -809,6 +809,50 @@ label.check {
 .tube-controls .radios {
   margin: 6px 0 2px;
 }
+/* The tube type by genre (task 9-7). */
+.tube-auto {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+}
+.tube-auto h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.tube-auto-album {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+.tube-auto details {
+  margin: 8px 0;
+}
+.tube-auto summary {
+  cursor: pointer;
+}
+.tube-rules {
+  border-collapse: collapse;
+  margin: 6px 0;
+}
+.tube-rules th {
+  text-align: left;
+  font-weight: normal;
+  opacity: 0.7;
+  padding: 2px 6px;
+}
+.tube-rules td {
+  padding: 2px 6px;
+}
+.tube-rules input[type="text"] {
+  width: 14em;
+}
+.tube-albums {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
 .settings.original-mode .tone-controls,
 .settings.original-mode .tube-controls,
 .settings.original-mode .crossfeed-controls {

@@ -126,7 +126,9 @@ export function pathModel(s: PlaybackStatus): PathModel {
     row("EQ", "eq", (g) => (g === null ? "ON" : `プリアンプ ${gainText(g)}`)),
     row("トーン", "tone", (g) => (g === null ? "ON" : `プリアンプ ${gainText(g)}`)),
     row("真空管", "tube", (g, st) => {
-      const type = TUBE_LABELS[st.detail as TubeType] ?? "ON";
+      const c = s.tubeAuto?.choice;
+      const why = c ? (c.reason === "album" ? "（アルバムの指定）" : `（ジャンル：${c.matched}）`) : "";
+      const type = (TUBE_LABELS[st.detail as TubeType] ?? "ON") + why;
       return g === null ? type : `${type}・DRIVE ${gainText(g)}`;
     }),
     row("クロスフィード", "crossfeed", (_g, st) => CROSSFEED_LEVELS[st.detail as CrossfeedLevel]?.numbers ?? "ON"),

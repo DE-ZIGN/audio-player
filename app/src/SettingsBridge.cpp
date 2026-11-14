@@ -136,6 +136,72 @@ juce::var eqInfo(const std::vector<EqBand>& bands, double rate)
     return juce::var(o);
 }
 
+
+// The tube type by genre (task 9-7), to and from the page.
+juce::var tubeAutoVar(const TubeAutoSettings& t)
+{
+    auto* o = new juce::DynamicObject();
+    o->setProperty("enabled", t.enabled);
+    juce::Array<juce::var> rules, albums;
+    for (const auto& r : t.rules)
+    {
+        auto* x = new juce::DynamicObject();
+        x->setProperty("genre", juce::String::fromUTF8(r.genre.c_str()));
+        x->setProperty("type", juce::String(tubeTypeKey(r.type)));
+        rules.add(juce::var(x));
+    }
+    for (const auto& a : t.albums)
+    {
+        auto* x = new juce::DynamicObject();
+        x->setProperty("albumKey", juce::String::fromUTF8(a.albumKey.c_str()));
+        x->setProperty("album", juce::String::fromUTF8(a.album.c_str()));
+        x->setProperty("type", juce::String(tubeTypeKey(a.type)));
+        albums.add(juce::var(x));
+    }
+    o->setProperty("rules", rules);
+    o->setProperty("albums", albums);
+    return juce::var(o);
+}
+
+// Rules with a known type and a genre (trimmed, one line, at most
+// kMaxTubeGenreLength bytes; a genre that compares equal to an earlier one is
+// dropped); albums with a known type and a key (one choice per album).
+TubeAutoSettings tubeAutoFrom(const juce::var& v)
+{
+    TubeAutoSettings t;
+    t.enabled = static_cast<bool>(v.getProperty("enabled", false));
+    t.rules.clear();
+    auto text = [](const juce::var& x) {
+        return x.toString().replace("\r", " ").replace("\n", " ").replace("\t", " ").trim().toStdString();
+    };
+    std::vector<std::string> seen;
+    if (const auto* rules = v.getProperty("rules", juce::var()).getArray())
+        for (const auto& r : *rules)
+        {
+            const auto type = tubeTypeFrom(r.getProperty("type", "").toString().toStdString());
+            auto genre = text(r.getProperty("genre", ""));
+            if (genre.size() > kMaxTubeGenreLength)
+                genre = juce::String::fromUTF8(genre.c_str(), static_cast<int>(kMaxTubeGenreLength)).toStdString();
+            const auto key = normalizedGenre(genre);
+            if (!type || key.empty() || std::find(seen.begin(), seen.end(), key) != seen.end()
+                || t.rules.size() >= kMaxTubeGenreRules)
+                continue;
+            seen.push_back(key);
+            t.rules.push_back({std::move(genre), *type});
+        }
+    if (const auto* albums = v.getProperty("albums", juce::var()).getArray())
+        for (const auto& a : *albums)
+        {
+            const auto type = tubeTypeFrom(a.getProperty("type", "").toString().toStdString());
+            const auto key = a.getProperty("albumKey", "").toString().replace("\r", " ").replace("\n", " ").replace("\t", " ").toStdString();
+            if (!type || key.empty() || t.albums.size() >= kMaxTubeAlbumChoices
+                || std::any_of(t.albums.begin(), t.albums.end(), [&](const auto& x) { return x.albumKey == key; }))
+                continue;
+            t.albums.push_back({key, text(a.getProperty("album", "")), *type});
+        }
+    return t;
+}
+
 } // namespace
 
 AppSettings SettingsBridge::load(const juce::File& file)
@@ -186,6 +252,8 @@ juce::var SettingsBridge::settingsVar() const
     o->setProperty("output", outputVar(settings_.output));
     o->setProperty("listening", listeningVar(settings_.listening));
     o->setProperty("eqPresets", presetsVar(settings_.eqPresets));
+    o->setProperty("tubeAuto", tubeAutoVar(settings_.tubeAuto));
+    o->setProperty("tubeAutoDefaultRules", tubeAutoVar(TubeAutoSettings{}).getProperty("rules", juce::var()));
     return juce::var(o);
 }
 
@@ -224,6 +292,21 @@ juce::WebBrowserComponent::Options SettingsBridge::registerFunctions(juce::WebBr
                                 save();
                                 auto r = result(true);
                                 r.getDynamicObject()->setProperty("eqPresets", presetsVar(settings_.eqPresets));
+                                done(r);
+                            })
+        .withNativeFunction("settingsSetTubeAuto",
+                            [this](Args args, Completion done) {
+                                // The whole of it, as the page has it (task 9-7).
+                                if (args.isEmpty())
+                                {
+                                    done(result(false));
+                                    return;
+                                }
+                                settings_.tubeAuto = tubeAutoFrom(args[0]);
+                                player_.setTubeAuto(settings_.tubeAuto);
+                                save();
+                                auto r = result(true);
+                                r.getDynamicObject()->setProperty("tubeAuto", tubeAutoVar(settings_.tubeAuto));
                                 done(r);
                             })
         .withNativeFunction("settingsOutputs",

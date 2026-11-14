@@ -35,6 +35,7 @@ import {
   type TubeType,
 } from "./settings";
 import type { PlaybackStatus } from "./status";
+import { TubeAutoView } from "./tubeAutoView";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const SVG = "http://www.w3.org/2000/svg";
@@ -52,6 +53,8 @@ export class SettingsView {
   private readonly editor: EqEditor;
   private presets: EqPreset[] = []; // task 6-9, the app's list
   private readonly presetBars: PresetBar[];
+  private readonly tubeAuto: TubeAutoView; // task 9-7
+  private tubeAutoOn = false;
 
   private readonly els = {
     section: $("settings"),
@@ -184,6 +187,21 @@ export class SettingsView {
       }),
     );
 
+    this.tubeAuto = new TubeAutoView(
+      {
+        ...this.api,
+        setTubeAuto: async (t) => {
+          const r = await this.api.setTubeAuto(t);
+          if (r.ok) {
+            this.tubeAutoOn = t.enabled;
+            this.els.summary.textContent = modeSummary(this.listening, this.tubeAutoOn);
+          }
+          return r;
+        },
+      },
+      () => this.listening.tubeType,
+    );
+
     this.els.device.addEventListener("change", () => void this.chooseOutput());
     this.els.dop.addEventListener("change", () => void this.setDop());
     this.api.onOutputsChanged(() => void this.refreshOutputs());
@@ -196,6 +214,10 @@ export class SettingsView {
       this.listening = s.listening;
       this.output = s.output;
       this.presets = s.eqPresets ?? [];
+      if (s.tubeAuto) {
+        this.tubeAutoOn = s.tubeAuto.enabled;
+        this.tubeAuto.load(s.tubeAuto, s.tubeAutoDefaultRules ?? []);
+      }
       this.loaded = true;
       this.renderListening();
       await this.refreshOutputs();
@@ -215,6 +237,7 @@ export class SettingsView {
   // The playback status (for the EQ editor: the limiter's count, the solo).
   onStatus(s: PlaybackStatus) {
     this.editor.showStatus(s.limiter, s.eqSolo);
+    this.tubeAuto.onStatus(s);
   }
 
   // --- output ---------------------------------------------------------------
@@ -299,7 +322,7 @@ export class SettingsView {
     this.els.ispProcessed.value = l.ispSafeProcessed;
     this.els.eqEnabled.checked = l.eqEnabled;
     this.renderToneAndTube();
-    this.els.summary.textContent = modeSummary(l);
+    this.els.summary.textContent = modeSummary(l, this.tubeAutoOn);
     this.els.section.classList.toggle("original-mode", l.mode === "original");
     this.drawCurve();
     this.editor.render();
@@ -320,6 +343,7 @@ export class SettingsView {
     e.tubeEnabled.checked = l.tubeEnabled;
     for (const r of e.tubeType.querySelectorAll<HTMLInputElement>('input[name="tube-type"]')) r.checked = r.value === l.tubeType;
     e.tubeTypeNote.textContent = TUBE_NOTES[l.tubeType];
+    this.tubeAuto?.renderNow(); // names the manual type
     e.crossfeedEnabled.checked = l.crossfeedEnabled;
     for (const r of e.crossfeedLevel.querySelectorAll<HTMLInputElement>('input[name="crossfeed-level"]'))
       r.checked = r.value === l.crossfeedLevel;

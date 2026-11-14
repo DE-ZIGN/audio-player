@@ -182,7 +182,8 @@ std::vector<LibraryBridge::QueueEntry> LibraryBridge::entriesFor(const juce::var
         {
             const auto id = static_cast<juce::int64>(idVar);
             auto st = db_->database().prepare(
-                "SELECT f.path, d.title, d.artist, t.frames * 1.0 / COALESCE(t.sample_rate, t.dsd_rate) "
+                "SELECT f.path, d.title, d.artist, t.frames * 1.0 / COALESCE(t.sample_rate, t.dsd_rate), "
+                "d.album, d.album_key "
                 "FROM tracks AS t JOIN files AS f ON f.id = t.file_id "
                 "JOIN track_display AS d ON d.track_id = t.id WHERE t.id = ? AND f.present = 1");
             st.bind(1, static_cast<std::int64_t>(id));
@@ -194,6 +195,14 @@ std::vector<LibraryBridge::QueueEntry> LibraryBridge::entriesFor(const juce::var
             e.artist = st.text(2);
             if (!st.isNull(3))
                 e.seconds = st.real(3);
+            e.album = st.text(4);
+            if (!st.isNull(5))
+                e.albumKey = st.text(5);
+            auto g = db_->database().prepare(
+                "SELECT value FROM track_values WHERE track_id = ? AND field = 'genre' ORDER BY idx");
+            g.bind(1, static_cast<std::int64_t>(id));
+            while (g.step())
+                e.genres.push_back(g.text(0));
             entries.push_back(std::move(e));
         }
     return entries;

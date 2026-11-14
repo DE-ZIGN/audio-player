@@ -245,6 +245,28 @@ export async function runSelfTest(
     )
       throw new Error(`tube: ${JSON.stringify(tubed.stages)} ${JSON.stringify(tubeRow)}`);
     log.push(`tone and tube: ${names.join(", ")}; output check: 真空管 ${tubeRow.value}`);
+
+    // The tube type by genre (task 9-7) through the real bridge: saved and read
+    // back; a file opened by itself has no genre or album, so the manual type plays.
+    const savedAuto = (await backend.settings.get()).tubeAuto;
+    const auto = {
+      enabled: true,
+      rules: [{ genre: "Selftest Genre", type: "se300b" as const }],
+      albums: [{ albumKey: "selftest\u001falbum", album: "Selftest Album", type: "ppclassa" as const }],
+    };
+    const setAuto = await backend.settings.setTubeAuto(auto);
+    if (!setAuto.ok || JSON.stringify((await backend.settings.get()).tubeAuto) !== JSON.stringify(auto))
+      throw new Error(`tube auto: not kept ${JSON.stringify(setAuto)}`);
+    const autoStatus = await waitFor("the tube choice in the status", (s) => s.tubeAuto !== undefined, 3000);
+    if (
+      autoStatus.tubeAuto?.choice !== null ||
+      autoStatus.tubeAuto.album !== null ||
+      autoStatus.tubeAuto.genres.length !== 0 ||
+      (backend.kind === "app" && autoStatus.stages.find((st) => st.name === "tube")?.detail !== "ppel34")
+    )
+      throw new Error(`tube auto: ${JSON.stringify(autoStatus.tubeAuto)} ${JSON.stringify(autoStatus.stages)}`);
+    if (savedAuto) await backend.settings.setTubeAuto(savedAuto);
+    log.push("tube auto: saved and read back; no genre, so the manual type (PP EL34) plays");
     await backend.stop();
     await waitFor("stopped", (s) => s.state === "stopped", 5000);
     await backend.settings.setListening(eqListening);

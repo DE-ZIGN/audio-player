@@ -77,6 +77,10 @@ public:
         std::int64_t libraryId = 0; // 0: not from the library
         std::string artist;
         std::optional<double> seconds;
+        // For choosing the tube type (task 9-7).
+        std::vector<std::string> genres;
+        std::string albumKey; // empty: not in an album
+        std::string album;
     };
     juce::String playQueue(std::vector<QueueFile> files, std::size_t start);
     // Replaces the tracks after the current one; the current track plays on (task 6-2).
@@ -92,6 +96,9 @@ public:
     // goes on at the same position on the new output.
     void setOutput(const ap::engine::OutputChoice& output);
     void setListening(const ap::engine::ListeningSettings& settings);
+    // The tube type by genre (task 9-7): applied to the queue at once (the
+    // current track switches with the usual crossfade).
+    void setTubeAuto(const ap::engine::TubeAutoSettings& settings);
     // Solo one EQ band (nullopt: off); not saved.
     void setEqSolo(std::optional<std::size_t> band);
     // The rate of what is playing now (0 when nothing has been opened), for the EQ curve.
@@ -101,7 +108,9 @@ private:
     void timerCallback() override;
     void openFileAsync(juce::WebBrowserComponent::NativeFunctionCompletion completion);
     void pushStatus(bool force);
-    static ap::engine::QueueItem itemFor(const QueueFile& f);
+    ap::engine::QueueItem itemFor(const QueueFile& f) const;
+    std::optional<ap::engine::TubeChoice> tubeChoiceFor(const QueueFile& f) const;
+    void refreshTubeTypes(); // the queue's chosen types again, after the settings changed
     // Runs on the playback thread. Throws OutputException.
     std::unique_ptr<ap::engine::AudioOutput> openChosenOutput();
 
@@ -133,6 +142,7 @@ private:
     using QueueMeta = QueueFile; // what each queue entry was made from
     ap::engine::ListeningChain chain_; // ReplayGain, EQ, volume, ISP-safe, limiter
     ap::engine::ListeningSettings listening_; // as last applied (the mode and ISP-safe go in the status)
+    ap::engine::TubeAutoSettings tubeAuto_;
     mutable std::mutex outputMutex_;   // guards output_ and outputNotice_
     ap::engine::OutputChoice output_;
     std::string outputNotice_; // why playback is not on the chosen output (Japanese), if it is not
