@@ -322,6 +322,7 @@ struct TubeStage::Impl
     TubeType current = TubeType::Se300B;
     TubeType from = TubeType::Se300B;
     std::size_t fadeLeft = 0, fadeLength = 1;
+    bool fresh = true; // nothing processed since prepare()
     std::vector<double> scratch; // the oversampled frame
 
     double shape(TubeType type, TypeState& s, double u, double drv) const noexcept
@@ -397,7 +398,8 @@ void TubeStage::prepare(std::uint32_t sampleRate, std::uint16_t channels)
     }
     m.dcCoef = std::exp(-2.0 * std::numbers::pi * kDcBlockHz / sampleRate);
     m.drive = std::pow(10.0, driveDb_ / 20.0);
-    m.current = m.from = type_;
+    m.current = m.from = playingType();
+    m.fresh = true;
     m.fadeLeft = 0;
     m.fadeLength = std::max<std::size_t>(1, static_cast<std::size_t>(kSmoothingSeconds * osRate));
 }
@@ -410,7 +412,14 @@ void TubeStage::process(std::span<double> samples, std::uint16_t channels) noexc
     const std::size_t frames = samples.size() / channels;
     const unsigned L = m.factor;
     const double target = std::pow(10.0, driveDb_ / 20.0);
-    const TubeType wanted = type_;
+    const TubeType wanted = playingType();
+    if (m.fresh)
+    {
+        // Nothing played since prepare(): start in the type that plays (the
+        // session's first track may have its own), without a fade.
+        m.fresh = false;
+        m.current = m.from = wanted;
+    }
     if (wanted != m.current && m.fadeLeft == 0)
     {
         // Crossfade from the old type to the new one; the new one starts at its idle point.

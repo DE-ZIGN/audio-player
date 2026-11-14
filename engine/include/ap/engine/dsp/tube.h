@@ -39,6 +39,10 @@
 // Switching the stage on or off changes its latency (the oversampling
 // filters), so the player reopens the output (see ProcessingChain::needsReprepare).
 // The type and DRIVE change smoothly (20 ms) without a reopen.
+//
+// The type that plays (task 9-7): the track's, when the genre table or an
+// album's choice gave it one (TrackInfo::tubeType, at the track's first
+// sample), else the manual type (setType).
 
 #include <ap/engine/dsp/processing.h>
 
@@ -118,8 +122,16 @@ public:
     // Thread-safe.
     void setEnabled(bool on) noexcept { enabled_ = on; }
     bool enabled() const noexcept { return enabled_; }
-    void setType(TubeType t) noexcept { type_ = t; }
+    void setType(TubeType t) noexcept { type_ = t; } // the manual type
     TubeType type() const noexcept { return type_; }
+    // The current track's chosen type (task 9-7); none: the manual type. Set
+    // by trackStarted; the app sets it too when the choice changes mid-track.
+    void setTrackType(std::optional<TubeType> t) noexcept { trackType_ = t ? static_cast<int>(*t) : -1; }
+    TubeType playingType() const noexcept
+    {
+        const int t = trackType_;
+        return t < 0 ? type_.load() : static_cast<TubeType>(t);
+    }
     void setDriveDb(double db) noexcept;
     double driveDb() const noexcept { return driveDb_; }
 
@@ -132,7 +144,8 @@ public:
     std::size_t latencyFrames() const noexcept override { return enabled_ ? latency_ : 0; }
     // For the path display: DRIVE, and the type.
     std::optional<double> displayGainDb() const noexcept override { return driveDb_.load(); }
-    std::string displayDetail() const override { return tubeTypeKey(type_); }
+    std::string displayDetail() const override { return tubeTypeKey(playingType()); }
+    void trackStarted(const TrackInfo& track) noexcept override { setTrackType(track.tubeType); }
     void process(std::span<double> samples, std::uint16_t channels) noexcept override;
 
 private:
@@ -140,6 +153,7 @@ private:
     std::unique_ptr<Impl> impl_;
     std::atomic<bool> enabled_{false};
     std::atomic<TubeType> type_{TubeType::Se300B};
+    std::atomic<int> trackType_{-1};
     std::atomic<double> driveDb_{kDefaultDriveDb};
     unsigned factor_ = 1;
     std::size_t latency_ = 0;

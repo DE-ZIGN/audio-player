@@ -109,6 +109,14 @@ std::string oneLine(std::string s)
     return s;
 }
 
+std::string tabless(std::string s)
+{
+    for (auto& c : s)
+        if (c == '\t')
+            c = ' ';
+    return s;
+}
+
 std::vector<std::string_view> words(std::string_view s)
 {
     std::vector<std::string_view> out;
@@ -199,6 +207,15 @@ std::string settingsToText(const AppSettings& s)
         for (const auto& b : p.bands)
             out << "eqpreset.band=" << bandText(b) << '\n';
     }
+    // The tube type by genre (task 9-7). "tubeauto.rules" marks that the table
+    // follows (so an emptied table stays empty); each line is type TAB text.
+    out << "tubeauto.enabled=" << (s.tubeAuto.enabled ? 1 : 0) << '\n';
+    out << "tubeauto.rules=1\n";
+    for (const auto& r : s.tubeAuto.rules)
+        out << "tubeauto.genre=" << tubeTypeKey(r.type) << '\t' << oneLine(tabless(r.genre)) << '\n';
+    for (const auto& a : s.tubeAuto.albums)
+        out << "tubeauto.album=" << tubeTypeKey(a.type) << '\t' << oneLine(tabless(a.albumKey)) << '\t'
+            << oneLine(tabless(a.album)) << '\n';
     return out.str();
 }
 
@@ -207,6 +224,7 @@ AppSettings settingsFromText(std::string_view text)
     AppSettings s;
     auto& l = s.listening;
     NamedEqPreset* preset = nullptr; // the preset the eqpreset.* lines belong to
+    bool tubeRulesRead = false;
     while (!text.empty())
     {
         const auto end = text.find('\n');
@@ -272,6 +290,30 @@ AppSettings settingsFromText(std::string_view text)
             l.crossfeedEnabled = value == "1";
         else if (key == "crossfeed.level")
             l.crossfeedLevel = crossfeedLevelFrom(value).value_or(CrossfeedLevel::Default);
+        else if (key == "tubeauto.enabled")
+            s.tubeAuto.enabled = value == "1";
+        else if (key == "tubeauto.rules")
+        {
+            if (!tubeRulesRead)
+                s.tubeAuto.rules.clear();
+            tubeRulesRead = true;
+        }
+        else if (key == "tubeauto.genre" && tubeRulesRead && s.tubeAuto.rules.size() < kMaxTubeGenreRules)
+        {
+            const auto tab = value.find('\t');
+            const auto type = tubeTypeFrom(value.substr(0, tab));
+            if (type && tab != std::string_view::npos && !normalizedGenre(value.substr(tab + 1)).empty())
+                s.tubeAuto.rules.push_back({std::string(value.substr(tab + 1, kMaxTubeGenreLength)), *type});
+        }
+        else if (key == "tubeauto.album" && s.tubeAuto.albums.size() < kMaxTubeAlbumChoices)
+        {
+            const auto tab = value.find('\t');
+            const auto tab2 = tab == std::string_view::npos ? tab : value.find('\t', tab + 1);
+            const auto type = tubeTypeFrom(value.substr(0, tab));
+            if (type && tab2 != std::string_view::npos && tab2 > tab + 1)
+                s.tubeAuto.albums.push_back({std::string(value.substr(tab + 1, tab2 - tab - 1)),
+                                             std::string(value.substr(tab2 + 1)), *type});
+        }
         else if (key == "eqpreset.name")
         {
             preset = nullptr;

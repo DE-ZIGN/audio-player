@@ -30,6 +30,7 @@ struct QueueItem
     std::string name; // display name (UTF-8)
     std::function<std::unique_ptr<PcmSource>()> open;
     std::optional<ReplayGainInfo> replayGain; // measured values (from the library); none: no gain
+    std::optional<TubeType> tubeType;         // chosen by genre or album (task 9-7); none: the manual type
 };
 
 enum class TransitionKind
@@ -171,6 +172,9 @@ public:
     // track follows it gaplessly when the formats allow. Safe while playing:
     // a next track that was being opened for the old list is dropped.
     void replaceUpcoming(std::vector<QueueItem> items);
+    // The tube type chosen for each queue entry, again (task 9-7: the table or
+    // an album's choice changed). Takes effect from the next track start.
+    void setTubeTypes(const std::vector<std::optional<TubeType>>& types);
 
     // Whether DSD may be sent as DoP (PlaybackOptions::allowDop), changed when
     // another output is chosen (task 6-3). Takes effect from the next output

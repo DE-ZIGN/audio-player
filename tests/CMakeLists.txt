@@ -106,6 +106,7 @@ add_executable(ap_engine_unit_tests
     unit/listening_settings_test.cpp
     unit/looping_source_test.cpp
     unit/tube_test.cpp
+    unit/tube_auto_test.cpp
     unit/tone_test.cpp
     unit/crossfeed_test.cpp)
 

@@ -37,6 +37,7 @@ add_library(ap_engine STATIC
     src/dsp/eq.cpp
     src/dsp/comparison.cpp
     src/dsp/tube.cpp
+    src/dsp/tube_auto.cpp
     src/dsp/tone.cpp
     src/dsp/crossfeed.cpp
     src/listening_settings.cpp

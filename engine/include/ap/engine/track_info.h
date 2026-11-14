@@ -1,7 +1,7 @@
 #pragma once
 
 // Facts about a track that processing stages may need when it starts playing
-// (task 3-4: its ReplayGain values). Separate from the samples: a source that
+// (task 3-4: its ReplayGain values; task 9-7: the tube type chosen for it). Separate from the samples: a source that
 // joins tracks (the player's queue) reports where each one starts.
 
 #include <cstddef>
@@ -9,6 +9,8 @@
 #include <optional>
 
 namespace ap::engine {
+
+enum class TubeType; // dsp/tube.h
 
 // ReplayGain 2.0 values (reference -18 LUFS). Peaks are true peaks (linear),
 // measured by the engine; tag peak values are not trusted.
@@ -24,6 +26,7 @@ struct TrackInfo
 {
     std::size_t queueIndex = 0;
     std::optional<ReplayGainInfo> replayGain; // not analysed: no gain is applied
+    std::optional<TubeType> tubeType;         // chosen by genre or album (task 9-7); none: the manual type
 };
 
 // A track that starts `frameOffset` frames into the data of the last read.

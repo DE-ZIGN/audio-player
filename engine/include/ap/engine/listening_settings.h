@@ -18,6 +18,7 @@
 
 #include <ap/engine/dsp/crossfeed.h>
 #include <ap/engine/dsp/eq.h>
+#include <ap/engine/dsp/tube_auto.h>
 #include <ap/engine/dsp/isp_safe.h>
 #include <ap/engine/dsp/limiter.h>
 #include <ap/engine/dsp/processing.h>
@@ -110,6 +111,7 @@ struct AppSettings
     OutputChoice output;
     ListeningSettings listening;
     std::vector<NamedEqPreset> eqPresets; // at most kMaxEqPresets, in the user's order
+    TubeAutoSettings tubeAuto;            // the tube type by genre (task 9-7)
 
     bool operator==(const AppSettings&) const = default;
 };

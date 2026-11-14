@@ -268,8 +268,18 @@ TrackInfo Player::trackInfoLocked(std::size_t index) const
     TrackInfo t;
     t.queueIndex = index;
     if (index < queue_.size())
+    {
         t.replayGain = queue_[index].replayGain;
+        t.tubeType = queue_[index].tubeType;
+    }
     return t;
+}
+
+void Player::setTubeTypes(const std::vector<std::optional<TubeType>>& types)
+{
+    std::lock_guard lock(mutex_);
+    for (std::size_t i = 0; i < queue_.size() && i < types.size(); ++i)
+        queue_[i].tubeType = types[i];
 }
 
 void Player::startLoadingNextLocked()
