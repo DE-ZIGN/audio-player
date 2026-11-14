@@ -94,8 +94,10 @@ ROUND = {'shuffle': (600.5, 576.5, 28.5), 'prev': (710.5, 576.5, 28.5), 'play': 
          'next': (963.5, 576.5, 28.5), 'repeat': (1075.5, 576.5, 28.5)}
 ROUND_GLOW = {'play': 52, 'other': 38}
 
-XFEED = (1519, 393, 1583, 479)  # the CROSSFEED toggle; the nut's centre is at y 436
-XFEED_NUT_Y = 436
+# The CROSSFEED toggle: a box centred on the nut (y 416..470: centre 443), tall
+# enough for the lever up (tip at y 398) and turned over (tip at y 488).
+XFEED = (1519, 393, 1583, 493)
+XFEED_NUT_Y = 443
 
 VENTS = [(150, 562, 462, 602), (1220, 562, 1522, 602)]  # the slots in the wood (kept)
 DIVIDERS = [(245, 345, 256, 505), (479, 345, 490, 505), (1178, 345, 1189, 505), (1477, 345, 1488, 505)]

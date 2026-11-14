@@ -255,7 +255,7 @@ export const PP_LAYOUT: AmpLayout = {
     arena: box(1401, 370, 1461, 402),
   },
   modeToggle: null,
-  crossfeedToggle: box(1519, 393, 1583, 479),
+  crossfeedToggle: box(1519, 393, 1583, 493), // centred on the nut (y 443): the lever turns over about it
   words: [
     { text: ["MODE"], x: 158, y: 361, size: 19 },
     { text: ["TUBE TYPE"], x: 371, y: 356, size: 19 },
