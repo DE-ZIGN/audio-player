@@ -3076,6 +3076,8 @@ html[data-look="real"] {
   margin: 0 -16px;
   padding: 4px 16px 6px;
   border-top: 1px solid rgba(150, 112, 74, 0.35);
+  box-sizing: border-box;
+  height: var(--amp-now-line); /* an open album's list leaves this much room under it */
 }
 [data-ui-view="amp"]:not([data-content-view="now"]) .amp-now .now-cover {
   width: 26px;
@@ -3396,4 +3398,26 @@ html[data-look="real"] {
 /* 見た目: room between the two boxes. */
 #settings .themes + .themes {
   margin-top: 20px;
+}
+
+/* An album in the amp view (2026-11-15): the panel under the amp is shorter
+   than the album's head (cover and title), so the list had no room and the
+   cover ran out of the panel. While an album is open the whole panel
+   scrolls; the head keeps its size, and the track list is as tall as the
+   panel (it scrolls inside as before once the head has gone by). */
+[data-ui-view="amp"] {
+  --amp-now-line: 38px; /* the 再生中 line under the list */
+}
+[data-ui-view="amp"] .content {
+  container-type: size;
+}
+[data-ui-view="amp"] .content:has(> #album-head:not([hidden])) {
+  overflow-y: auto;
+}
+[data-ui-view="amp"] .content:has(> #album-head:not([hidden])) > #album-head {
+  flex-shrink: 0;
+}
+[data-ui-view="amp"] .content:has(> #album-head:not([hidden])) > #table {
+  flex: 0 0 auto;
+  height: calc(100cqh - var(--amp-now-line)); /* with the 再生中 line, the panel's height */
 }

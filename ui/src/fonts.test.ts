@@ -104,3 +104,19 @@ describe("見た目's two boxes (task 6-10, 2026-11-15)", () => {
     expect(all.find((r) => r.selector === "#settings .themes + .themes")?.body).toMatch(/margin-top:\s*\d+px/);
   });
 });
+
+describe("an album in the amp view (2026-11-15, the user)", () => {
+  // The panel under the amp is shorter than the album's head: the whole panel
+  // scrolls, the head keeps its size, and the track list fills the panel
+  // once the head has scrolled away.
+  const body = (sel: string) => all.find((r) => r.selector === sel)?.body ?? "";
+  const open = '[data-ui-view="amp"] .content:has(> #album-head:not([hidden]))';
+  it("scrolls as a whole", () => {
+    expect(body('[data-ui-view="amp"] .content')).toMatch(/container-type:\s*size/);
+    expect(body(open)).toMatch(/overflow-y:\s*auto/);
+  });
+  it("keeps the head (and its cover) whole, and gives the list the panel's height", () => {
+    expect(body(`${open} > #album-head`)).toMatch(/flex-shrink:\s*0/);
+    expect(body(`${open} > #table`)).toMatch(/height:\s*calc\(100cqh - var\(--amp-now-line\)\)/);
+  });
+});
