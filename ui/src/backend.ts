@@ -18,12 +18,13 @@ import type {
   TrackRow,
 } from "./library";
 import { MockLibrary } from "./mockLibrary";
-import { MockSettings } from "./mockSettings";
+import { mockIrReadable, MockSettings } from "./mockSettings";
 import { upperTailP, type AbxChoice, type AbxRequest, type AbxStatus } from "./abx";
 import type {
   EqBand,
   EqCurve,
   EqImport,
+  IrChoice,
   ListeningSettings,
   OutputChoice,
   OutputsInfo,
@@ -73,6 +74,7 @@ export interface SettingsApi {
   outputs(): Promise<OutputsInfo>;
   setOutput(o: OutputChoice): Promise<SetResult>; // an ASIO driver is checked first (seconds)
   importEq(): Promise<EqImport>; // shows a file dialog
+  chooseIr(): Promise<IrChoice>; // a file dialog for a space IR (task 9-6)
   eqCurve(bands: EqBand[]): Promise<EqCurve>; // the engine's (the page draws with eqResponse.ts)
   eqSolo(band: number | null): Promise<void>; // play one band alone; not saved
   setEqPresets(list: EqPreset[]): Promise<PresetsResult>; // the whole list (task 6-9); saved
@@ -179,6 +181,9 @@ class AppSettings implements SettingsApi {
   }
   async importEq() {
     return ((await this.fn("settingsImportEq")()) as EqImport | null) ?? { ok: false };
+  }
+  async chooseIr() {
+    return ((await this.fn("settingsChooseIr")()) as IrChoice | null) ?? { ok: false };
   }
   async eqCurve(bands: EqBand[]) {
     return (await this.fn("settingsEqCurve")(bands)) as EqCurve;
@@ -581,6 +586,10 @@ export class MockBackend implements Backend {
       stages.push({ name: "tone", gainDb: -Math.max(0, l.toneBassDb, l.toneTrebleDb) });
     if (processed && l.tubeEnabled)
       stages.push({ name: "tube", gainDb: l.tubeDriveDb, detail: this.mockTubeAuto()?.choice?.type ?? l.tubeType });
+    if (processed && l.spaceRoom && l.spaceRoom !== "off" && l.spaceMixPercent > 0) {
+      const user = mockIrReadable(l.spaceIr[["club", "hall", "arena"].indexOf(l.spaceRoom)]);
+      stages.push({ name: "space", gainDb: null, detail: `${l.spaceRoom};${Math.round(l.spaceMixPercent)}${user ? ";user" : ""}` });
+    }
     if (processed && l.crossfeedEnabled) stages.push({ name: "crossfeed", gainDb: null, detail: l.crossfeedLevel });
     if (this.volumeDb !== 0) stages.push({ name: "volume", gainDb: this.volumeDb });
     const isp = l ? (processed ? l.ispSafeProcessed : l.ispSafeOriginal) : "off";

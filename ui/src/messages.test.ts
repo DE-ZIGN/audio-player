@@ -708,3 +708,11 @@ describe("the crossfeed in the texts (task 9-5)", () => {
     expect(stageText({ name: "crossfeed", gainDb: null, detail: "jmeier" })).toBe("クロスフィード（650 Hz・9.5 dB）");
   });
 });
+
+describe("the space in the texts (task 9-6)", () => {
+  it("names the room and MIX, and says when the IR is the user's", () => {
+    expect(stageText({ name: "space", gainDb: null, detail: "club;20" })).toBe("空間（CLUB・MIX 20%）");
+    expect(stageText({ name: "space", gainDb: null, detail: "arena;35;user" })).toBe("空間（ARENA（自分の IR）・MIX 35%）");
+    expect(stageText({ name: "space", gainDb: null, detail: "" })).toBe("空間");
+  });
+});

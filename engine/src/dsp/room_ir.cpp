@@ -297,6 +297,9 @@ std::vector<double> resampleIr(const std::vector<double>& x, double fromRate, do
 LoadedIr loadImpulseResponse(const std::filesystem::path& path)
 {
     std::unique_ptr<PcmSource> source;
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path, ec))
+        throw std::runtime_error("ファイルが見つかりません（移動したか、消したのかもしれません）");
     try
     {
         source = openAudioFile(path);

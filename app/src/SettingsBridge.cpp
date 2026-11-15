@@ -64,7 +64,37 @@ juce::var listeningVar(const ListeningSettings& l)
     o->setProperty("tubeDriveDb", l.tubeDriveDb);
     o->setProperty("crossfeedEnabled", l.crossfeedEnabled);
     o->setProperty("crossfeedLevel", crossfeedLevelKey(l.crossfeedLevel));
+    o->setProperty("spaceRoom", spaceRoomKey(l.spaceRoom));
+    o->setProperty("spaceMixPercent", l.spaceMixPercent);
+    o->setProperty("spacePreDelayMs", l.spacePreDelayMs);
+    o->setProperty("spaceLowCutHz", l.spaceLowCutHz);
+    juce::Array<juce::var> irs;
+    for (const auto& p : l.spaceIr)
+        irs.add(juce::String::fromUTF8(p.c_str()));
+    o->setProperty("spaceIr", irs);
     return juce::var(o);
+}
+
+// What became of the user IR files (task 9-6): [{ path, loaded, error?, seconds,
+// sampleRate, channels, fileChannels, truncated }] for CLUB, HALL, ARENA.
+juce::var spaceIrsVar(const std::array<SpaceIrStatus, 3>& st)
+{
+    juce::Array<juce::var> list;
+    for (const auto& s : st)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty("path", juce::String::fromUTF8(s.path.c_str()));
+        o->setProperty("loaded", s.loaded);
+        if (!s.error.empty())
+            o->setProperty("error", juce::String::fromUTF8(s.error.c_str()));
+        o->setProperty("seconds", s.seconds);
+        o->setProperty("sampleRate", s.sampleRate);
+        o->setProperty("channels", static_cast<int>(s.channels));
+        o->setProperty("fileChannels", static_cast<int>(s.fileChannels));
+        o->setProperty("truncated", s.truncated);
+        list.add(juce::var(o));
+    }
+    return list;
 }
 
 ListeningSettings listeningFrom(const juce::var& v)
@@ -91,6 +121,14 @@ ListeningSettings listeningFrom(const juce::var& v)
     l.crossfeedEnabled = static_cast<bool>(v.getProperty("crossfeedEnabled", false));
     l.crossfeedLevel =
         crossfeedLevelFrom(v.getProperty("crossfeedLevel", "").toString().toStdString()).value_or(CrossfeedLevel::Default);
+    l.spaceRoom = spaceRoomFrom(v.getProperty("spaceRoom", "").toString().toStdString()).value_or(SpaceRoom::Off);
+    l.spaceMixPercent = number("spaceMixPercent", SpaceStage::kDefaultMixPercent, 0.0, 100.0);
+    l.spacePreDelayMs = number("spacePreDelayMs", SpaceStage::kDefaultPreDelayMs, 0.0, SpaceStage::kMaxPreDelayMs);
+    const double cut = number("spaceLowCutHz", SpaceStage::kDefaultLowCutHz, 0.0, SpaceStage::kMaxLowCutHz);
+    l.spaceLowCutHz = cut <= 0.0 ? 0.0 : std::max(cut, SpaceStage::kMinLowCutHz);
+    if (const auto* irs = v.getProperty("spaceIr", {}).getArray())
+        for (int i = 0; i < std::min(irs->size(), 3); ++i)
+            l.spaceIr[static_cast<std::size_t>(i)] = (*irs)[i].toString().toStdString();
     return l;
 }
 
@@ -254,6 +292,7 @@ juce::var SettingsBridge::settingsVar() const
     o->setProperty("eqPresets", presetsVar(settings_.eqPresets));
     o->setProperty("tubeAuto", tubeAutoVar(settings_.tubeAuto));
     o->setProperty("tubeAutoDefaultRules", tubeAutoVar(TubeAutoSettings{}).getProperty("rules", juce::var()));
+    o->setProperty("spaceIrs", spaceIrsVar(player_.spaceIrStatus()));
     return juce::var(o);
 }
 
@@ -278,6 +317,7 @@ juce::WebBrowserComponent::Options SettingsBridge::registerFunctions(juce::WebBr
                                 const auto rate = player_.currentSampleRate();
                                 r.getDynamicObject()->setProperty(
                                     "eq", eqInfo(settings_.listening.eqBands, rate > 0 ? rate : 48000.0));
+                                r.getDynamicObject()->setProperty("spaceIrs", spaceIrsVar(player_.spaceIrStatus()));
                                 done(r);
                             })
         .withNativeFunction("settingsSetEqPresets",
@@ -348,6 +388,7 @@ juce::WebBrowserComponent::Options SettingsBridge::registerFunctions(juce::WebBr
                                     setOutputAsync(args[0], std::move(done));
                             })
         .withNativeFunction("settingsImportEq", [this](Args, Completion done) { importEqAsync(std::move(done)); })
+        .withNativeFunction("settingsChooseIr", [this](Args, Completion done) { chooseIrAsync(std::move(done)); })
         .withNativeFunction("settingsEqSolo",
                             [this](Args args, Completion done) {
                                 const int i = args.isEmpty() ? -1 : static_cast<int>(args[0]);
@@ -416,6 +457,23 @@ void SettingsBridge::setOutputAsync(const juce::var& v, juce::WebBrowserComponen
             done(result(true));
         });
     });
+}
+
+void SettingsBridge::chooseIrAsync(juce::WebBrowserComponent::NativeFunctionCompletion done)
+{
+    chooser_ = std::make_unique<juce::FileChooser>(
+        juce::String::fromUTF8("空間の IR のファイルを選ぶ（WAV・FLAC・AIFF、モノラルかステレオ）"), juce::File{},
+        "*.wav;*.flac;*.aif;*.aiff;*.aifc");
+    chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                          [done = std::move(done)](const juce::FileChooser& fc) {
+                              const auto file = fc.getResult();
+                              auto r = result(file != juce::File{});
+                              if (file == juce::File{})
+                                  r.getDynamicObject()->setProperty("cancelled", true);
+                              else
+                                  r.getDynamicObject()->setProperty("path", file.getFullPathName());
+                              done(r);
+                          });
 }
 
 void SettingsBridge::importEqAsync(juce::WebBrowserComponent::NativeFunctionCompletion done)

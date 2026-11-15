@@ -3,7 +3,7 @@
 // warning and the meters show, worked out from the playback status. The
 // texts say what is done and what was measured; never that it sounds better.
 
-import { CROSSFEED_LEVELS, TUBE_LABELS, type CrossfeedLevel, type TubeType } from "./settings";
+import { CROSSFEED_LEVELS, TUBE_LABELS, parseSpaceDetail, spaceText, type CrossfeedLevel, type TubeType } from "./settings";
 import { dsdRateName, meterNote } from "./messages";
 import { dbText } from "./settings";
 import type { FormatInfo, Level, PlaybackStatus, StageState } from "./status";
@@ -131,6 +131,10 @@ export function pathModel(s: PlaybackStatus): PathModel {
       const type = (TUBE_LABELS[st.detail as TubeType] ?? "ON") + why;
       return g === null ? type : `${type}・DRIVE ${gainText(g)}`;
     }),
+    row("空間", "space", (_g, st) => {
+      const sp = parseSpaceDetail(st.detail);
+      return sp ? spaceText(sp.room, sp.mix, sp.user) : "ON";
+    }),
     row("クロスフィード", "crossfeed", (_g, st) => CROSSFEED_LEVELS[st.detail as CrossfeedLevel]?.numbers ?? "ON"),
     row("デジタル音量", "volume", gainText),
     row("ISP セーフ", "isp-safe", gainText),
@@ -185,6 +189,7 @@ const STAGE_NAMES: Record<string, string> = {
   eq: "パラメトリック EQ",
   tone: "トーン",
   tube: "真空管",
+  space: "空間",
   crossfeed: "クロスフィード",
   volume: "デジタル音量",
   "isp-safe": "ISP セーフ",

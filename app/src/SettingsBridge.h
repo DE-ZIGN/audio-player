@@ -21,7 +21,11 @@ namespace ap::app {
 // Native functions (JavaScript -> C++), see ui/src/backend.ts:
 //   settingsGet()              { output, listening } (see ui/src/settings.ts; the
 //                              listening settings include the tone and the tube, task 9-3)
-//   settingsSetListening(l)    applies and saves; { ok, eq: { preampDb, skipped } }
+//   settingsSetListening(l)    applies and saves; { ok, eq: { preampDb, skipped }, spaceIrs }
+//                              (the space, task 9-6: spaceRoom, spaceMixPercent,
+//                              spacePreDelayMs, spaceLowCutHz, spaceIr: [club, hall, arena paths];
+//                              spaceIrs: what became of each file, also in settingsGet())
+//   settingsChooseIr()         a file dialog for a space IR; { ok, cancelled?, path }
 //   settingsOutputs()          { wasapi: [{ id, name, isDefault }], asio: [{ id, name }], message? }
 //   settingsSetOutput(o)       an ASIO driver is checked in a child process first;
 //                              { ok, message? }
@@ -54,6 +58,7 @@ private:
     juce::var settingsVar() const;
     void setOutputAsync(const juce::var& choice, juce::WebBrowserComponent::NativeFunctionCompletion done);
     void importEqAsync(juce::WebBrowserComponent::NativeFunctionCompletion done);
+    void chooseIrAsync(juce::WebBrowserComponent::NativeFunctionCompletion done);
 
     juce::File file_;
     ap::engine::AppSettings settings_;

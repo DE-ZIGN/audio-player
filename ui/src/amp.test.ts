@@ -158,7 +158,7 @@ describe("the amp view's layout (task 9-9)", () => {
     for (const b of BUTTONS) expect(inside(b.x, b.y)).toBe(true);
     expect(inside(TOGGLE.x + TOGGLE.width, TOGGLE.y + TOGGLE.height)).toBe(true);
   });
-  it("every knob stands for a setting, or for the space stage still to come (9-6)", () => {
+  it("every knob stands for a setting (MIX: the space's, task 9-6)", () => {
     expect(Object.keys(KNOBS).sort()).toEqual(["bass", "drive", "mix", "treble", "volume"]);
   });
   it("the lamps, knobs and buttons are where tools/ui_amp_parts.py found them on the picture", () => {
@@ -261,5 +261,16 @@ describe("the two amps (task 9-9: SE 300B, and push-pull for PP EL34 / PP CLASS 
     const x = ppPy.match(/^XFEED = \((\d+), (\d+), (\d+), (\d+)\)/m)!;
     const c = l.crossfeedToggle!;
     expect([n(x[1]), n(x[2]), n(x[3]), n(x[4])]).toEqual([c.x0, c.y0, c.x1, c.y1]);
+  });
+});
+
+describe("SPACE and MIX (task 9-6)", () => {
+  it("the SPACE lamp is the room chosen; MIX shows its percent", async () => {
+    const { ampState, knobText, KNOB_SPECS } = await import("./amp");
+    const { defaultListening } = await import("./settings");
+    expect(ampState({ ...defaultListening, mode: "processed", spaceRoom: "hall" }, null, false).space).toBe("hall");
+    expect(ampState({ ...defaultListening }, null, false).space).toBe("off");
+    expect(knobText("mix", 35)).toBe("35%");
+    expect(KNOB_SPECS.mix.defaultValue).toBe(defaultListening.spaceMixPercent);
   });
 });

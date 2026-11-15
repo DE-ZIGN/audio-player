@@ -92,6 +92,7 @@ describe("signal path diagram", () => {
       "EQ",
       "トーン",
       "真空管",
+      "空間",
       "クロスフィード",
       "デジタル音量",
       "ISP セーフ",
@@ -133,6 +134,25 @@ describe("signal path diagram", () => {
     const names = m.processing.rows.map((r) => r.name);
     expect(names.indexOf("トーン")).toBe(names.indexOf("EQ") + 1);
     expect(names.indexOf("真空管")).toBe(names.indexOf("トーン") + 1);
+  });
+  it("the space (task 9-6): its room and MIX, between the tube and the crossfeed; a reason it is not bit-perfect", () => {
+    const s: PlaybackStatus = {
+      ...processed,
+      stages: [
+        { name: "tube", gainDb: -12, detail: "se300b" },
+        { name: "space", gainDb: null, detail: "hall;25;user" },
+        { name: "crossfeed", gainDb: null, detail: "default" },
+        ...processed.stages,
+      ],
+    };
+    const m = pathModel(s);
+    const row = (name: string) => m.processing.rows.find((r) => r.name === name)!;
+    expect(row("空間")).toMatchObject({ on: true, value: "HALL（自分の IR）・MIX 25%" });
+    const names = m.processing.rows.map((r) => r.name);
+    expect(names.indexOf("空間")).toBe(names.indexOf("真空管") + 1);
+    expect(names.indexOf("クロスフィード")).toBe(names.indexOf("空間") + 1);
+    const v = verdictModel(s)!;
+    expect(v.checks.find((c) => c.label === "処理なし")?.detail).toContain("空間");
   });
   it("the tube type by genre (task 9-7): says what chose the type", () => {
     const s: PlaybackStatus = {

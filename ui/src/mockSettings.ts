@@ -11,14 +11,21 @@ import {
   type EqBand,
   type EqCurve,
   type EqImport,
+  type IrChoice,
   type ListeningSettings,
   type OutputChoice,
   type OutputsInfo,
   type PresetsResult,
   type SetResult,
   type SettingsInfo,
+  type SpaceIrStatus,
   type TubeAutoResult,
 } from "./settings";
+
+// Whether the mock "reads" a user IR file (task 9-6): not when the path says "bad" or "no such".
+export function mockIrReadable(path: string): boolean {
+  return path !== "" && !path.includes("bad") && !path.includes("no such");
+}
 
 // A part of the engine's default table (engine/src/dsp/tube_auto.cpp), for the mock.
 const MOCK_TUBE_RULES: TubeGenreRule[] = [
@@ -84,7 +91,24 @@ export class MockSettings {
       eqPresets: this.eqPresets,
       tubeAuto: this.tubeAuto,
       tubeAutoDefaultRules: MOCK_TUBE_RULES,
+      spaceIrs: this.spaceIrs(),
     });
+  }
+  // The user IR files (task 9-6), as the app would report them: a path with
+  // "bad" in it cannot be read.
+  private spaceIrs(): SpaceIrStatus[] {
+    return (this.listening.spaceIr ?? ["", "", ""]).map((path) =>
+      path === ""
+        ? { path, loaded: false, seconds: 0, sampleRate: 0, channels: 0, fileChannels: 0, truncated: false }
+        : !mockIrReadable(path)
+          ? { path, loaded: false, error: "このファイルは IR として読めません（模擬）", seconds: 0, sampleRate: 0, channels: 0, fileChannels: 0, truncated: false }
+          : { path, loaded: true, seconds: 2.84, sampleRate: 44100, channels: 2, fileChannels: 2, truncated: false },
+    );
+  }
+  private irCount = 0;
+  async chooseIr(): Promise<IrChoice> {
+    this.irCount += 1;
+    return { ok: true, path: `C:\\Users\\me\\IR\\hall-${this.irCount}.wav` };
   }
   async setTubeAuto(t: TubeAutoSettings): Promise<TubeAutoResult> {
     this.tubeAuto = structuredClone(t);
@@ -95,7 +119,7 @@ export class MockSettings {
     this.listening = structuredClone(l);
     this.onListening(this.listening);
     const c = mockEqCurve(l.eqBands);
-    return { ok: true, eq: { sampleRate: c.sampleRate, preampDb: c.preampDb, skipped: c.skipped } };
+    return { ok: true, eq: { sampleRate: c.sampleRate, preampDb: c.preampDb, skipped: c.skipped }, spaceIrs: this.spaceIrs() };
   }
   async outputs(): Promise<OutputsInfo> {
     return structuredClone(MOCK_OUTPUTS);

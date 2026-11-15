@@ -38,7 +38,7 @@ import {
   type VuPlace,
 } from "./amp";
 import { sliderToDb, volumeLabel } from "./queueOps";
-import { TUBE_LABELS, type ListeningSettings, type TubeType } from "./settings";
+import { SPACE_ROOMS, TUBE_LABELS, type ListeningSettings, type SpaceRoom, type TubeType } from "./settings";
 import type { Level, PlaybackStatus } from "./status";
 import { currentUiView, onUiViewChange } from "./uiView";
 import { needleAngle, VU_MARKS, vuOf } from "./vuMeter";
@@ -296,10 +296,10 @@ class AmpVu {
 const LAMP_TITLES: Record<LampName, string> = {
   pure: "PURE：原音モード（処理をかけません。音量 100% で BIT-PERFECT になりえます）",
   tube: "TUBE：音作りモードで真空管をかけます",
-  off: "SPACE OFF：空間（IR の畳み込み）は 9-6 で作ります。今はいつもオフです",
-  club: "SPACE CLUB：空間（IR の畳み込み）は 9-6 で作ります。今は選べません",
-  hall: "SPACE HALL：空間（IR の畳み込み）は 9-6 で作ります。今は選べません",
-  arena: "SPACE ARENA：空間（IR の畳み込み）は 9-6 で作ります。今は選べません",
+  off: "SPACE OFF：空間（部屋の響きの畳み込み）をかけません",
+  club: `SPACE CLUB：部屋の響きを畳み込んで混ぜます（${SPACE_ROOMS.club.numbers}。MIX・プリディレイ・自分の IR は設定画面で）`,
+  hall: `SPACE HALL：部屋の響きを畳み込んで混ぜます（${SPACE_ROOMS.hall.numbers}。MIX・プリディレイ・自分の IR は設定画面で）`,
+  arena: `SPACE ARENA：部屋の響きを畳み込んで混ぜます（${SPACE_ROOMS.arena.numbers}。MIX・プリディレイ・自分の IR は設定画面で）`,
   se300b: `TUBE TYPE：${TUBE_LABELS.se300b}`,
   ppel34: `TUBE TYPE：${TUBE_LABELS.ppel34}`,
   ppclassa: `TUBE TYPE：${TUBE_LABELS.ppclassa}`,
@@ -405,10 +405,9 @@ class AmpPanel {
     control("tube")?.addEventListener("click", () => this.setMode("tube"));
     for (const t of TUBE_TYPES) control(t)?.addEventListener("click", () => this.host.change({ tubeType: t }));
     this.lamps.get("crossfeed")?.addEventListener("click", () => this.flipCrossfeed());
-    for (const n of [...SPACES, "auto"] as const) {
-      const c = control(n);
-      if (c) c.disabled = true;
-    }
+    for (const n of SPACES) control(n)?.addEventListener("click", () => this.host.change({ spaceRoom: n }));
+    const auto = control("auto");
+    if (auto) auto.disabled = true;
 
     // The knobs.
     const send = (part: Partial<ListeningSettings>) => this.host.change(part, 150);
@@ -419,9 +418,8 @@ class AmpPanel {
       volume: new AmpKnob(layout, "volume", "VOLUME（デジタル音量。100% なら処理をしません）", (v) =>
         this.setVolume(v, this.knobs.volume.turning),
       ),
-      mix: new AmpKnob(layout, "mix", "MIX", () => undefined),
+      mix: new AmpKnob(layout, "mix", "MIX（空間の響きの割合。0% で元の音だけ）", (v) => send({ spaceMixPercent: v })),
     };
-    this.knobs.mix.setDisabled(true, "空間（IR の畳み込み）は 9-6 で作ります。今は動きません");
     for (const k of Object.values(this.knobs)) this.stage.append(k.el);
 
     this.vus = [new AmpVu("L", layout.vu.L), new AmpVu("R", layout.vu.R)];
@@ -481,6 +479,7 @@ class AmpPanel {
       this.knobs.drive.set(l.tubeDriveDb);
       this.knobs.bass.set(l.toneBassDb);
       this.knobs.treble.set(l.toneTrebleDb);
+      this.knobs.mix.set(l.spaceMixPercent);
     }
     this.knobs.volume.set(volume);
     const st = this.stage;
@@ -503,25 +502,24 @@ class AmpPanel {
     const on = new Map<LampName | KeyName, boolean>([
       ["pure", a.mode === "pure"],
       ["tube", a.mode === "tube"],
-      ["off", true], // there is no space stage yet: it is off
-      ["club", false],
-      ["hall", false],
-      ["arena", false],
+      ...SPACES.map((n) => [n, a.space === n] as [SpaceRoom, boolean]),
       ...TUBE_TYPES.map((t) => [t, a.type === t] as [TubeType, boolean]),
       ["crossfeed", a.crossfeed],
       ["auto", a.auto],
     ]);
-    const onlyProcessing = new Set<LampName | KeyName>([...TUBE_TYPES, "crossfeed", "off", "auto"]);
+    const onlyProcessing = new Set<LampName | KeyName>([...TUBE_TYPES, "crossfeed", ...SPACES, "auto"]);
     for (const [name, c] of [...this.lamps, ...this.keys] as [LampName | KeyName, HTMLButtonElement][]) {
       c.classList.toggle("on", on.get(name) ?? false);
       c.classList.toggle("dim", onlyProcessing.has(name) && !a.processingControls);
-      if (TUBE_TYPES.includes(name as TubeType) || name === "crossfeed") c.disabled = !a.processingControls;
+      if (TUBE_TYPES.includes(name as TubeType) || name === "crossfeed" || (SPACES as readonly string[]).includes(name))
+        c.disabled = !a.processingControls;
       if (this.keys.has(name as KeyName)) c.setAttribute("aria-pressed", String(on.get(name) ?? false));
     }
     const why = "音作りモード（TUBE）でかかります";
     this.knobs.drive.setDisabled(!a.processingControls, why);
     this.knobs.bass.setDisabled(!a.processingControls, why);
     this.knobs.treble.setDisabled(!a.processingControls, why);
+    this.knobs.mix.setDisabled(!a.processingControls, why);
     this.badge.textContent = a.badge.text;
     this.badge.dataset.kind = a.badge.kind;
     this.badge.disabled = a.badge.kind === "none";

@@ -1,7 +1,7 @@
 // User-facing text (Japanese first). Describes what the player does; never
 // claims that something sounds better.
 
-import { CROSSFEED_LEVELS, TUBE_LABELS, type CrossfeedLevel, type TubeType } from "./settings";
+import { CROSSFEED_LEVELS, TUBE_LABELS, parseSpaceDetail, spaceText, type CrossfeedLevel, type TubeType } from "./settings";
 import type {
   DropoutCounts,
   FormatInfo,
@@ -88,6 +88,7 @@ const stageNames: Record<string, string> = {
   eq: "パラメトリック EQ",
   tone: "トーン",
   tube: "真空管",
+  space: "空間",
   crossfeed: "クロスフィード",
   "isp-safe": "ISP セーフ",
   limiter: "保険のリミッター",
@@ -130,6 +131,10 @@ function dbText(db: number | "-inf"): string {
 // One stage with its current value, e.g. "デジタル音量 -6.0 dB".
 export function stageText(st: StageState): string {
   const name = stageNames[st.name] ?? st.name;
+  if (st.name === "space") {
+    const sp = parseSpaceDetail(st.detail);
+    return sp ? `${name}（${spaceText(sp.room, sp.mix, sp.user)}）` : name;
+  }
   if (st.name === "crossfeed") {
     const level = CROSSFEED_LEVELS[st.detail as CrossfeedLevel];
     return level ? `${name}（${level.numbers}）` : name;

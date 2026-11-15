@@ -16,6 +16,10 @@ import {
   defaultListening,
   defaultOutput,
   CROSSFEED_LEVELS,
+  lowCutText,
+  SPACE_LIMITS,
+  SPACE_ROOMS,
+  spaceIrText,
   DRIVE_DEFAULT_DB,
   ISP_LABELS,
   MAX_BANDS,
@@ -32,6 +36,8 @@ import {
   type OutputsInfo,
   type ReplayGainMode,
   type CrossfeedLevel,
+  type SpaceIrStatus,
+  type SpaceRoom,
   type TubeType,
 } from "./settings";
 import type { PlaybackStatus } from "./status";
@@ -85,7 +91,18 @@ export class SettingsView {
     tubeDriveReset: $<HTMLButtonElement>("tube-drive-reset"),
     crossfeedEnabled: $<HTMLInputElement>("crossfeed-enabled"),
     crossfeedLevel: $("crossfeed-level"),
+    spaceRoom: $("space-room"),
+    spaceRoomNote: $("space-room-note"),
+    spaceMix: $<HTMLInputElement>("space-mix"),
+    spaceMixValue: $("space-mix-value"),
+    spacePreDelay: $<HTMLInputElement>("space-predelay"),
+    spacePreDelayValue: $("space-predelay-value"),
+    spaceLowCut: $<HTMLInputElement>("space-lowcut"),
+    spaceLowCutValue: $("space-lowcut-value"),
+    spaceReset: $<HTMLButtonElement>("space-reset"),
+    spaceIrs: $("space-irs"),
   };
+  private spaceIrs: SpaceIrStatus[] = []; // task 9-6: what became of the user IR files
 
   constructor(private readonly api: SettingsApi) {
     for (const sel of [this.els.ispOriginal, this.els.ispProcessed])
@@ -187,6 +204,37 @@ export class SettingsView {
       }),
     );
 
+    // The space (task 9-6).
+    const rooms: [SpaceRoom, string][] = [["off", "OFF"], ...Object.entries(SPACE_ROOMS).map(([k, v]) => [k as SpaceRoom, v.label] as [SpaceRoom, string])];
+    this.els.spaceRoom.replaceChildren(
+      ...rooms.map(([value, label]) => {
+        const l = document.createElement("label");
+        const r = document.createElement("input");
+        r.type = "radio";
+        r.name = "space-room";
+        r.value = value;
+        r.addEventListener("change", () => r.checked && this.change({ spaceRoom: value }));
+        l.append(r, ` ${label}`);
+        return l;
+      }),
+    );
+    this.els.spaceMix.addEventListener("input", () => this.change({ spaceMixPercent: Number(this.els.spaceMix.value) }, SLIDER_SEND_MS));
+    this.els.spacePreDelay.addEventListener("input", () =>
+      this.change({ spacePreDelayMs: Number(this.els.spacePreDelay.value) }, SLIDER_SEND_MS),
+    );
+    // The low cut's slider: its left end (10) is "none".
+    this.els.spaceLowCut.addEventListener("input", () => {
+      const v = Number(this.els.spaceLowCut.value);
+      this.change({ spaceLowCutHz: v < SPACE_LIMITS.lowCut.min ? 0 : v }, SLIDER_SEND_MS);
+    });
+    this.els.spaceReset.addEventListener("click", () =>
+      this.change({
+        spaceMixPercent: SPACE_LIMITS.mix.defaultValue,
+        spacePreDelayMs: SPACE_LIMITS.preDelay.defaultValue,
+        spaceLowCutHz: SPACE_LIMITS.lowCut.defaultValue,
+      }),
+    );
+
     this.tubeAuto = new TubeAutoView(
       {
         ...this.api,
@@ -240,6 +288,7 @@ export class SettingsView {
       this.listening = s.listening;
       this.output = s.output;
       this.presets = s.eqPresets ?? [];
+      this.spaceIrs = s.spaceIrs ?? [];
       if (s.tubeAuto) {
         this.tubeAutoOn = s.tubeAuto.enabled;
         this.tubeAuto.load(s.tubeAuto, s.tubeAutoDefaultRules ?? []);
@@ -336,6 +385,10 @@ export class SettingsView {
     this.sendTimer = setTimeout(async () => {
       const r = await this.api.setListening(this.listening);
       if (!r.ok) this.showError(r.message ?? "設定を反映できませんでした");
+      if (r.spaceIrs) {
+        this.spaceIrs = r.spaceIrs;
+        this.renderSpace();
+      }
     }, delayMs);
   }
 
@@ -374,6 +427,58 @@ export class SettingsView {
     e.crossfeedEnabled.checked = l.crossfeedEnabled;
     for (const r of e.crossfeedLevel.querySelectorAll<HTMLInputElement>('input[name="crossfeed-level"]'))
       r.checked = r.value === l.crossfeedLevel;
+    this.renderSpace();
+  }
+
+  // The space (task 9-6): the room, the sliders and each room's IR file.
+  private renderSpace() {
+    const l = this.listening;
+    const e = this.els;
+    for (const r of e.spaceRoom.querySelectorAll<HTMLInputElement>('input[name="space-room"]')) r.checked = r.value === l.spaceRoom;
+    if (document.activeElement !== e.spaceMix) e.spaceMix.value = String(l.spaceMixPercent);
+    if (document.activeElement !== e.spacePreDelay) e.spacePreDelay.value = String(l.spacePreDelayMs);
+    if (document.activeElement !== e.spaceLowCut) e.spaceLowCut.value = String(l.spaceLowCutHz <= 0 ? 10 : l.spaceLowCutHz);
+    e.spaceMixValue.textContent = `${Math.round(l.spaceMixPercent)}%`;
+    e.spacePreDelayValue.textContent = `${Math.round(l.spacePreDelayMs)} ms${l.spacePreDelayMs < 3 ? "（最小 約 3 ms）" : ""}`;
+    e.spaceLowCutValue.textContent = lowCutText(l.spaceLowCutHz);
+    e.spaceRoomNote.textContent =
+      l.spaceRoom === "off"
+        ? "OFF：空間をかけません。"
+        : `${SPACE_ROOMS[l.spaceRoom].label}：${spaceIrText(l.spaceRoom, this.spaceIrs[SPACE_ROOMS[l.spaceRoom].index])}`;
+    e.spaceIrs.replaceChildren(
+      ...(Object.entries(SPACE_ROOMS) as [Exclude<SpaceRoom, "off">, (typeof SPACE_ROOMS)["club"]][]).map(([room, info]) => {
+        const li = document.createElement("li");
+        const st = this.spaceIrs[info.index];
+        const text = document.createElement("span");
+        text.textContent = `${info.label}：${spaceIrText(room, st)}`;
+        if (st && st.path !== "" && !st.loaded) text.className = "notice";
+        const choose = document.createElement("button");
+        choose.type = "button";
+        choose.textContent = "ファイルを選ぶ…";
+        choose.addEventListener("click", () => void this.chooseIr(info.index));
+        li.append(text, " ", choose);
+        if (l.spaceIr[info.index] !== "") {
+          const builtIn = document.createElement("button");
+          builtIn.type = "button";
+          builtIn.className = "link";
+          builtIn.textContent = "内蔵に戻す";
+          builtIn.addEventListener("click", () => this.setIr(info.index, ""));
+          li.append(" ", builtIn);
+        }
+        return li;
+      }),
+    );
+  }
+
+  private async chooseIr(index: number) {
+    const r = await this.api.chooseIr();
+    if (r.ok && r.path) this.setIr(index, r.path);
+  }
+
+  private setIr(index: number, path: string) {
+    const ir = [...this.listening.spaceIr] as [string, string, string];
+    ir[index] = path;
+    this.change({ spaceIr: ir });
   }
 
   private renderPresets() {

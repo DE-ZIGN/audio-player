@@ -219,6 +219,8 @@ export async function runSelfTest(
       tubeDriveDb: -6,
       crossfeedEnabled: true, // task 9-5
       crossfeedLevel: "cmoy",
+      spaceRoom: "club", // task 9-6
+      spaceMixPercent: 15,
     });
     if ((await backend.settings.get()).listening.tubeType !== "ppel34") throw new Error("settings: the tube type was not kept");
     await backend.seek(0);
@@ -229,22 +231,42 @@ export async function runSelfTest(
         s.state === "playing" &&
         s.stages.some((st) => st.name === "tube") &&
         s.stages.some((st) => st.name === "tone") &&
+        s.stages.some((st) => st.name === "space") &&
         s.stages.some((st) => st.name === "crossfeed"),
       5000,
     );
     const names = tubed.stages.map((st) => st.name);
     const tubeStage = tubed.stages.find((st) => st.name === "tube")!;
     const tubeRow = pathModel(tubed).processing.rows.find((r) => r.name === "真空管");
+    const spaceRow = pathModel(tubed).processing.rows.find((r) => r.name === "空間");
     if (
       !(names.indexOf("eq") < names.indexOf("tone") && names.indexOf("tone") < names.indexOf("tube")) ||
-      names.indexOf("crossfeed") !== names.indexOf("tube") + 1 ||
+      names.indexOf("space") !== names.indexOf("tube") + 1 ||
+      names.indexOf("crossfeed") !== names.indexOf("space") + 1 ||
+      spaceRow?.value !== "CLUB・MIX 15%" ||
       tubed.stages.find((st) => st.name === "crossfeed")?.detail !== "cmoy" ||
       tubeStage.detail !== "ppel34" ||
       tubeStage.gainDb !== -6 ||
       tubeRow?.value !== "PP EL34・DRIVE −6.0 dB"
     )
-      throw new Error(`tube: ${JSON.stringify(tubed.stages)} ${JSON.stringify(tubeRow)}`);
-    log.push(`tone and tube: ${names.join(", ")}; output check: 真空管 ${tubeRow.value}`);
+      throw new Error(`tube: ${JSON.stringify(tubed.stages)} ${JSON.stringify(tubeRow)} ${JSON.stringify(spaceRow)}`);
+    log.push(`tone and tube: ${names.join(", ")}; output check: 真空管 ${tubeRow.value}, 空間 ${spaceRow.value}`);
+
+    // The space's user IR (task 9-6): a file that cannot be read is reported,
+    // and the room keeps playing on its built-in IR.
+    const irSet = await backend.settings.setListening({
+      ...(await backend.settings.get()).listening,
+      spaceIr: ["Z:\\no such folder\\selftest-ir.wav", "", ""],
+    });
+    const irState = irSet.spaceIrs?.[0];
+    if (!irSet.ok || !irState || irState.loaded || !irState.error)
+      throw new Error(`space IR: an unreadable file was not reported ${JSON.stringify(irSet)}`);
+    const builtIn = await waitFor(
+      "the space on its built-in IR",
+      (s) => s.stages.find((st) => st.name === "space")?.detail === "club;15",
+      3000,
+    );
+    log.push(`space IR: unreadable file reported (${irState.error}); ${builtIn.stages.find((st) => st.name === "space")?.detail}`);
 
     // The tube type by genre (task 9-7) through the real bridge: saved and read
     // back; a file opened by itself has no genre or album, so the manual type plays.

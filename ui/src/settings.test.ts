@@ -6,7 +6,10 @@ import {
   dbText,
   defaultListening,
   frequencyText,
+  lowCutText,
   modeSummary,
+  parseSpaceDetail,
+  spaceIrText,
   newBand,
   outputLabel,
   outputOptions,
@@ -31,7 +34,7 @@ describe("mode summary", () => {
     const t = modeSummary({ ...defaultListening, replayGain: "track" });
     expect(t).toContain("原音モード");
     expect(t).toContain("何も処理しません");
-    expect(t).toContain("ReplayGain・EQ・トーン・真空管・クロスフィードはかけません");
+    expect(t).toContain("ReplayGain・EQ・トーン・真空管・空間・クロスフィードはかけません");
     expect(t).not.toContain("ISP");
   });
   it("原音モード with the ISP-safe gain on says so", () => {
@@ -149,5 +152,42 @@ describe("curve", () => {
     expect(curveRange([[20, 3]])).toBe(6);
     expect(curveRange([[20, 3]], -9)).toBe(12);
     expect(curveRange([[20, -18]])).toBe(24);
+  });
+});
+
+describe("the space (task 9-6)", () => {
+  it("is in the mode summary with its room and MIX, between the tube and the crossfeed; not at MIX 0", () => {
+    const l: ListeningSettings = {
+      ...defaultListening,
+      mode: "processed",
+      ispSafeProcessed: "off",
+      tubeEnabled: true,
+      crossfeedEnabled: true,
+      spaceRoom: "hall",
+      spaceMixPercent: 30,
+    };
+    expect(modeSummary(l)).toContain("真空管（SE 300B、DRIVE -12.0 dB）、空間（HALL・MIX 30%）、クロスフィード");
+    expect(modeSummary({ ...l, spaceIr: ["", "C:\\ir.wav", ""] })).toContain("空間（HALL（自分の IR）・MIX 30%）");
+    expect(modeSummary({ ...l, spaceMixPercent: 0 })).not.toContain("空間");
+    expect(modeSummary({ ...l, spaceRoom: "off" })).not.toContain("空間");
+  });
+  it("reads the stage's detail", () => {
+    expect(parseSpaceDetail("club;20")).toEqual({ room: "club", mix: 20, user: false });
+    expect(parseSpaceDetail("arena;5;user")).toEqual({ room: "arena", mix: 5, user: true });
+    expect(parseSpaceDetail("off;0")).toBeNull();
+    expect(parseSpaceDetail(undefined)).toBeNull();
+  });
+  it("says what each room's IR is: built in with its numbers, the user's file, or why it could not be read", () => {
+    expect(spaceIrText("hall", undefined)).toBe("内蔵（合成：25 × 40 × 16 m・残響 2.0 秒）");
+    const base = { loaded: true, seconds: 2.5, sampleRate: 48000, channels: 2, fileChannels: 2, truncated: false };
+    expect(spaceIrText("club", { ...base, path: "C:\\IR\\room.wav" })).toBe("room.wav（2.50 秒・ステレオ・48.0 kHz）");
+    expect(spaceIrText("club", { ...base, path: "D:/ir/long.flac", channels: 2, fileChannels: 4, truncated: true })).toBe(
+      "long.flac（2.50 秒・ステレオ・48.0 kHz・4ch のうち最初の 2ch・5 秒で切りました）",
+    );
+    expect(spaceIrText("arena", { ...base, path: "x.wav", loaded: false, error: "音が入っていません" })).toBe(
+      "⚠ x.wav を読めませんでした（音が入っていません）。内蔵の IR を使っています",
+    );
+    expect(lowCutText(0)).toBe("なし");
+    expect(lowCutText(120)).toBe("120 Hz");
   });
 });

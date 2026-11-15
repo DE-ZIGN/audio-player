@@ -9,6 +9,7 @@ export type ReplayGainMode = "off" | "track" | "album";
 export type IspSafeMode = "off" | "measured" | "fixed";
 export type TubeType = "se300b" | "ppel34" | "ppclassa";
 export type CrossfeedLevel = "default" | "cmoy" | "jmeier";
+export type SpaceRoom = "off" | "club" | "hall" | "arena";
 export type EqFilterType = "peak" | "lowShelf" | "highShelf" | "lowPass" | "highPass" | "bandPass" | "notch";
 
 export interface EqBand {
@@ -37,6 +38,24 @@ export interface ListeningSettings {
   // Crossfeed for headphones (task 9-5), in 音作りモード only.
   crossfeedEnabled: boolean;
   crossfeedLevel: CrossfeedLevel;
+  // The space (task 9-6), in 音作りモード only.
+  spaceRoom: SpaceRoom;
+  spaceMixPercent: number; // 0 .. 100
+  spacePreDelayMs: number; // 0 .. 100 (at least the convolution's block is used)
+  spaceLowCutHz: number; // 0 (none) or 20 .. 500
+  spaceIr: [string, string, string]; // the user's IR file for CLUB, HALL, ARENA ("" = built-in)
+}
+
+// What became of a user IR file (task 9-6), as the app reports it.
+export interface SpaceIrStatus {
+  path: string;
+  loaded: boolean;
+  error?: string;
+  seconds: number;
+  sampleRate: number;
+  channels: number; // used: 1 or 2
+  fileChannels: number;
+  truncated: boolean; // longer than 5 s: cut
 }
 
 export interface OutputChoice {
@@ -52,6 +71,7 @@ export interface SettingsInfo {
   eqPresets?: EqPreset[]; // task 6-9
   tubeAuto?: TubeAutoSettings; // task 9-7
   tubeAutoDefaultRules?: TubeGenreRule[];
+  spaceIrs?: SpaceIrStatus[]; // task 9-6
 }
 
 export interface OutputDevice {
@@ -99,6 +119,12 @@ export interface SetResult {
   ok: boolean;
   message?: string;
   eq?: EqInfo;
+  spaceIrs?: SpaceIrStatus[]; // task 9-6
+}
+export interface IrChoice {
+  ok: boolean;
+  cancelled?: boolean;
+  path?: string;
 }
 
 export const MAX_BANDS = 32;
@@ -119,7 +145,62 @@ export const defaultListening: ListeningSettings = {
   tubeDriveDb: -12,
   crossfeedEnabled: false,
   crossfeedLevel: "default",
+  spaceRoom: "off",
+  spaceMixPercent: 20,
+  spacePreDelayMs: 10,
+  spaceLowCutHz: 120,
+  spaceIr: ["", "", ""],
 };
+
+// The space's rooms (engine: SpaceStage, room_ir.cpp): the built-in IRs are
+// synthesized (image-source early reflections, decaying noise in 4 bands).
+// The numbers are the design's: the room's size and the RT60 at mid
+// frequencies (250 Hz - 2 kHz; measured in the tests: CLUB 0.72 s, HALL 1.93 s, ARENA 2.99 s).
+export const SPACE_ROOMS: Record<Exclude<SpaceRoom, "off">, { label: string; numbers: string; index: number }> = {
+  club: { label: "CLUB", numbers: "9 × 14 × 3.5 m・残響 0.75 秒", index: 0 },
+  hall: { label: "HALL", numbers: "25 × 40 × 16 m・残響 2.0 秒", index: 1 },
+  arena: { label: "ARENA", numbers: "80 × 110 × 30 m・残響 3.0 秒", index: 2 },
+};
+export const SPACE_LIMITS = {
+  mix: { min: 0, max: 100, step: 1, defaultValue: 20 },
+  preDelay: { min: 0, max: 100, step: 1, defaultValue: 10 },
+  lowCut: { min: 20, max: 500, defaultValue: 120 }, // 0: none
+};
+// The convolution's block (128 frames at 44.1/48 kHz, scaled with the rate):
+// the shortest pre-delay, about 2.7-2.9 ms.
+export const SPACE_MIN_PRE_DELAY_MS = 2.9;
+
+// "HALL・MIX 20%" ("（自分の IR）" after the room when its IR is the user's).
+export function spaceText(room: SpaceRoom, mixPercent: number, user = false): string {
+  if (room === "off") return "OFF";
+  return `${SPACE_ROOMS[room].label}${user ? "（自分の IR）" : ""}・MIX ${Math.round(mixPercent)}%`;
+}
+
+// The stage's detail from the app: "hall;20" or "hall;20;user".
+export function parseSpaceDetail(detail: string | undefined): { room: SpaceRoom; mix: number; user: boolean } | null {
+  if (!detail) return null;
+  const [room, mix, user] = detail.split(";");
+  if (!(room in SPACE_ROOMS)) return null;
+  return { room: room as SpaceRoom, mix: Number(mix) || 0, user: user === "user" };
+}
+
+// The low cut's text: "120 Hz" or "なし".
+export function lowCutText(hz: number): string {
+  return hz <= 0 ? "なし" : `${Math.round(hz)} Hz`;
+}
+
+// What the settings screen says about a room's IR.
+export function spaceIrText(room: Exclude<SpaceRoom, "off">, st: SpaceIrStatus | undefined): string {
+  if (!st || st.path === "") return `内蔵（合成：${SPACE_ROOMS[room].numbers}）`;
+  const name = st.path.split(/[\\/]/).pop() ?? st.path;
+  if (!st.loaded) return `⚠ ${name} を読めませんでした（${st.error ?? "理由不明"}）。内蔵の IR を使っています`;
+  const ch = st.channels === 1 ? "モノラル" : "ステレオ";
+  const extra = [
+    st.fileChannels > 2 ? `${st.fileChannels}ch のうち最初の 2ch` : "",
+    st.truncated ? "5 秒で切りました" : "",
+  ].filter((t) => t !== "");
+  return `${name}（${st.seconds.toFixed(2)} 秒・${ch}・${(st.sampleRate / 1000).toFixed(1)} kHz${extra.length ? "・" + extra.join("・") : ""}）`;
+}
 
 // The crossfeed's levels (engine: CrossfeedStage, the bs2b method): the
 // low-pass's cutoff, and how much lower the other side's low frequencies come.
@@ -197,7 +278,7 @@ export function frequencyText(hz: number): string {
 export function modeSummary(l: ListeningSettings, tubeAuto = false): string {
   if (l.mode === "original") {
     const isp = l.ispSafeOriginal === "off" ? "" : `、ISP セーフ（${ISP_LABELS[l.ispSafeOriginal]}）`;
-    return `原音モード：音量 100% なら何も処理しません${isp}。ReplayGain・EQ・トーン・真空管・クロスフィードはかけません（設定は残ります）。`;
+    return `原音モード：音量 100% なら何も処理しません${isp}。ReplayGain・EQ・トーン・真空管・空間・クロスフィードはかけません（設定は残ります）。`;
   }
   const parts: string[] = [];
   if (l.replayGain !== "off") parts.push(`ReplayGain（${l.replayGain === "track" ? "トラック" : "アルバム"}）`);
@@ -214,6 +295,8 @@ export function modeSummary(l: ListeningSettings, tubeAuto = false): string {
         ? `真空管（ジャンルで自動・対応表にないときは ${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}）`
         : `真空管（${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}）`,
     );
+  if (l.spaceRoom !== "off" && l.spaceMixPercent > 0)
+    parts.push(`空間（${spaceText(l.spaceRoom, l.spaceMixPercent, l.spaceIr[SPACE_ROOMS[l.spaceRoom].index] !== "")}）`);
   if (l.crossfeedEnabled) parts.push(`クロスフィード（${CROSSFEED_LEVELS[l.crossfeedLevel].numbers}）`);
   if (l.ispSafeProcessed !== "off") parts.push(`ISP セーフ（${ISP_LABELS[l.ispSafeProcessed]}）`);
   return parts.length === 0

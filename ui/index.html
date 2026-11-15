@@ -245,6 +245,38 @@
             </div>
           </div>
 
+          <h2>空間 <small class="for-mode">音作りモードでかけます</small></h2>
+          <div class="setting space-controls">
+            <div class="radios" id="space-room" role="radiogroup" aria-label="空間（部屋）"></div>
+            <p class="note" id="space-room-note"></p>
+            <label class="slider-row" for="space-mix">MIX
+              <input type="range" id="space-mix" min="0" max="100" step="1" />
+              <output id="space-mix-value" for="space-mix">20%</output>
+            </label>
+            <label class="slider-row" for="space-predelay">プリディレイ
+              <input type="range" id="space-predelay" min="0" max="100" step="1" />
+              <output id="space-predelay-value" for="space-predelay">10 ms</output>
+            </label>
+            <label class="slider-row" for="space-lowcut">響きの低域カット
+              <input type="range" id="space-lowcut" min="10" max="500" step="10" />
+              <output id="space-lowcut-value" for="space-lowcut">120 Hz</output>
+            </label>
+            <button type="button" id="space-reset" class="link">既定に戻す（MIX 20%・10 ms・120 Hz）</button>
+            <details class="space-irs">
+              <summary>IR のファイル（ボタンごとに自分の IR を使う）</summary>
+              <ul id="space-irs"></ul>
+              <p class="note">
+                WAV・FLAC・AIFF の、モノラルかステレオの IR を読めます。最初の音より前の無音は除き、5 秒より長い分は切ります。出力のレートと違えば、変換して使います。読めないファイルのときは、内蔵の IR を使います。
+              </p>
+            </details>
+            <p class="note">
+              部屋の響き（インパルス応答、IR）を、曲に畳み込んで混ぜます（区切った FFT による畳み込み、64bit 浮動小数点）。MIX は響きの割合で、0% は元の音だけ、100% は響きだけです。IR はエネルギーを 1 にそろえてあり、広い帯域の音では、響きが元の音とほぼ同じ大きさになります。
+              プリディレイは、元の音から響きが始まるまでの時間です（計算の区切りのため、最小 約 3 ms）。元の音は遅らせません。低域カットは響きの側だけにかける 2 次のハイパスで、元の音の低域は変えません。
+              内蔵の 3 つは、鏡像法の初期反射と、帯域ごとに減衰する雑音から合成した IR で、実在のホールを測ったものではありません（数字は部屋の大きさと、中域の残響時間）。
+              部屋の切り替えは約 40 ms のクロスフェードで、再生は途切れません。OFF か MIX 0% なら処理を外し、ほかに処理がなければ原音経路と同じ出力です。真空管の後、クロスフィードの前にかかります。
+            </p>
+          </div>
+
           <h2>クロスフィード <small class="for-mode">音作りモードでかけます</small></h2>
           <div class="setting crossfeed-controls">
             <label class="check"><input type="checkbox" id="crossfeed-enabled" /> クロスフィードを使う（ヘッドホン向け）</label>

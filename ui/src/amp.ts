@@ -2,16 +2,24 @@
 // switch, lamps and badge show, from the settings and the playback status.
 // Every control stands for a real processing parameter: MODE is 原音モード /
 // 音作りモード, DRIVE / BASS / TREBLE / TUBE TYPE / CROSSFEED are the
-// settings of the same names, VOLUME is the digital volume. SPACE and MIX
-// stand for the space (IR) stage of task 9-6, which is not made yet: they are
-// drawn, and do nothing until it is (the user, 2026-11-14).
+// settings of the same names, VOLUME is the digital volume, SPACE and MIX are
+// the space stage's room and MIX (task 9-6).
 //
 // Positions are the concept image's pixels (UI-AMP-SE-v1, 1672 x 941, read
 // as drawn for a 150% screen like the standard view's), the same numbers as
 // tools/ui_amp_parts.py. The amp's picture starts under the drawn title bar.
 
 import { outputTags } from "./messages";
-import { DRIVE_DEFAULT_DB, DRIVE_MAX_DB, DRIVE_MIN_DB, TONE_MAX_DB, type ListeningSettings, type TubeType } from "./settings";
+import {
+  DRIVE_DEFAULT_DB,
+  DRIVE_MAX_DB,
+  DRIVE_MIN_DB,
+  SPACE_LIMITS,
+  TONE_MAX_DB,
+  type ListeningSettings,
+  type SpaceRoom,
+  type TubeType,
+} from "./settings";
 import type { PlaybackStatus } from "./status";
 
 export const AMP_TOP = 42; // the drawn title bar above it
@@ -35,7 +43,7 @@ export const KNOB_SPECS = {
   treble: { min: -TONE_MAX_DB, max: TONE_MAX_DB, step: 0.5, defaultValue: 0 },
   // The volume slider's own scale (0..1, top = 100% = no processing).
   volume: { min: 0, max: 1, step: 0.001, defaultValue: 1 },
-  mix: { min: 0, max: 100, step: 1, defaultValue: 0 }, // task 9-6
+  mix: { min: SPACE_LIMITS.mix.min, max: SPACE_LIMITS.mix.max, step: 1, defaultValue: SPACE_LIMITS.mix.defaultValue }, // task 9-6
 } satisfies Record<string, KnobSpec>;
 
 export type KnobName = keyof typeof KNOB_SPECS;
@@ -66,7 +74,7 @@ export function stepValue(spec: KnobSpec, v: number, direction: number, fine: bo
 }
 
 export function knobText(name: KnobName, v: number): string {
-  if (name === "mix") return "空間（9-6）はまだありません";
+  if (name === "mix") return `${Math.round(v)}%`;
   const db = `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(1)} dB`;
   return db;
 }
@@ -317,6 +325,7 @@ export interface AmpState {
   type: TubeType; // the TUBE TYPE lamp: the type playing (chosen by genre, task 9-7), else the manual one
   auto: boolean; // the type is chosen by genre
   crossfeed: boolean;
+  space: SpaceRoom; // the SPACE lamp: the room chosen (task 9-6)
   badge: Badge;
   // Knobs that do nothing in 原音モード are shown disabled there (the layout stays).
   processingControls: boolean;
@@ -355,6 +364,7 @@ export function ampState(l: ListeningSettings | null, s: PlaybackStatus | null, 
     type,
     auto: tubeAuto,
     crossfeed: l?.crossfeedEnabled ?? false,
+    space: l?.spaceRoom ?? "off",
     badge: badgeOf(s),
     processingControls: mode === "tube",
   };

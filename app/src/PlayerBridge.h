@@ -99,6 +99,8 @@ public:
     // goes on at the same position on the new output.
     void setOutput(const ap::engine::OutputChoice& output);
     void setListening(const ap::engine::ListeningSettings& settings);
+    // What became of the space's user IR files (task 9-6), as last applied.
+    std::array<ap::engine::SpaceIrStatus, 3> spaceIrStatus() const { return chain_.spaceIrStatus(); }
     // The tube type by genre (task 9-7): applied to the queue at once (the
     // current track switches with the usual crossfade).
     void setTubeAuto(const ap::engine::TubeAutoSettings& settings);
