@@ -528,3 +528,138 @@ TEST_CASE("Crossfeed settings are saved and read back; unknown levels keep the d
     CHECK(s.listening.crossfeedEnabled);
     CHECK(s.listening.crossfeedLevel == CrossfeedLevel::Default);
 }
+
+// Task 9-6: the space in the settings.
+
+namespace {
+
+// A minimal 16-bit mono WAV file image.
+std::vector<std::uint8_t> wav16Mono(std::uint32_t rate, const std::vector<std::int16_t>& samples)
+{
+    std::vector<std::uint8_t> b;
+    auto u32 = [&](std::uint32_t v) {
+        for (int i = 0; i < 4; ++i)
+            b.push_back(static_cast<std::uint8_t>(v >> (8 * i)));
+    };
+    auto u16 = [&](std::uint16_t v) {
+        b.push_back(static_cast<std::uint8_t>(v));
+        b.push_back(static_cast<std::uint8_t>(v >> 8));
+    };
+    const auto data = static_cast<std::uint32_t>(samples.size() * 2);
+    b.insert(b.end(), {'R', 'I', 'F', 'F'});
+    u32(36 + data);
+    b.insert(b.end(), {'W', 'A', 'V', 'E', 'f', 'm', 't', ' '});
+    u32(16);
+    u16(1);
+    u16(1);
+    u32(rate);
+    u32(rate * 2);
+    u16(2);
+    u16(16);
+    b.insert(b.end(), {'d', 'a', 't', 'a'});
+    u32(data);
+    for (const auto s : samples)
+        u16(static_cast<std::uint16_t>(s));
+    return b;
+}
+
+} // namespace
+
+TEST_CASE("Space: off by default, applied only in 音作りモード, between the tube and the crossfeed", "[settings][space]")
+{
+    const ListeningSettings d;
+    CHECK(d.spaceRoom == SpaceRoom::Off);
+    CHECK(d.spaceMixPercent == SpaceStage::kDefaultMixPercent);
+    CHECK(d.spacePreDelayMs == SpaceStage::kDefaultPreDelayMs);
+    CHECK(d.spaceLowCutHz == SpaceStage::kDefaultLowCutHz);
+
+    ListeningSettings s;
+    s.spaceRoom = SpaceRoom::Hall;
+    s.spaceMixPercent = 30.0;
+    ListeningChain c;
+    c.chain()->prepare(48000, 2);
+    c.apply(s); // 原音モード: kept, not applied
+    CHECK(c.space->room() == SpaceRoom::Off);
+    CHECK(c.chain()->bypassed());
+
+    s.mode = ListeningMode::Processed;
+    s.ispSafeProcessed = IspSafeMode::Off;
+    s.tubeEnabled = true;
+    s.crossfeedEnabled = true;
+    c.apply(s);
+    CHECK(c.space->room() == SpaceRoom::Hall);
+    CHECK(c.space->mixPercent() == 30.0);
+    CHECK(c.chain()->activeStageNames() == std::vector<std::string>{"tube", "space", "crossfeed", "limiter"});
+    // No latency: switching the space on or off never makes the player reopen.
+    c.chain()->prepare(48000, 2);
+    s.spaceRoom = SpaceRoom::Off;
+    c.apply(s);
+    CHECK_FALSE(c.chain()->needsReprepare());
+    s.spaceRoom = SpaceRoom::Arena;
+    c.apply(s);
+    CHECK_FALSE(c.chain()->needsReprepare());
+}
+
+TEST_CASE("Space at MIX 0, or OFF, in 音作りモード with nothing else is bypassed", "[settings][space]")
+{
+    ListeningSettings s;
+    s.mode = ListeningMode::Processed;
+    s.ispSafeProcessed = IspSafeMode::Off;
+    s.spaceRoom = SpaceRoom::Arena;
+    s.spaceMixPercent = 0.0;
+    ListeningChain c;
+    c.apply(s);
+    CHECK(c.chain()->bypassed());
+    s.spaceMixPercent = 10.0;
+    c.apply(s);
+    CHECK_FALSE(c.chain()->bypassed());
+}
+
+TEST_CASE("Space settings are saved and read back, within limits", "[settings][space][text]")
+{
+    AppSettings a;
+    a.listening.spaceRoom = SpaceRoom::Club;
+    a.listening.spaceMixPercent = 35.5;
+    a.listening.spacePreDelayMs = 22.0;
+    a.listening.spaceLowCutHz = 0.0;
+    a.listening.spaceIr = {"C:\\IR\\クラブ.wav", "", "D:\\arena.flac"};
+    CHECK(settingsFromText(settingsToText(a)) == a);
+
+    const auto s = settingsFromText("space.room=stadium\nspace.mix=250\nspace.predelay=-5\nspace.lowcut=5000\n");
+    CHECK(s.listening.spaceRoom == SpaceRoom::Off);
+    CHECK(s.listening.spaceMixPercent == 100.0);
+    CHECK(s.listening.spacePreDelayMs == 0.0);
+    CHECK(s.listening.spaceLowCutHz == SpaceStage::kMaxLowCutHz);
+    CHECK(settingsFromText("space.lowcut=5\n").listening.spaceLowCutHz == SpaceStage::kMinLowCutHz);
+    CHECK(settingsFromText("space.lowcut=0\n").listening.spaceLowCutHz == 0.0);
+}
+
+TEST_CASE("A user IR for a room: loaded when set, reported when it cannot be read", "[settings][space]")
+{
+    ap::test::TempDir dir;
+    std::vector<std::int16_t> pcm(4410, 0);
+    pcm[0] = 16000;
+    pcm[100] = -8000;
+    const auto good = dir.write("room.wav", wav16Mono(44100, pcm));
+
+    ListeningSettings s;
+    s.mode = ListeningMode::Processed;
+    s.spaceRoom = SpaceRoom::Hall;
+    const auto u = good.u8string();
+    s.spaceIr[1] = std::string(u.begin(), u.end());
+    s.spaceIr[2] = (dir.path() / "missing.wav").string();
+    ListeningChain c;
+    c.apply(s);
+    const auto st = c.spaceIrStatus();
+    CHECK(st[0].path.empty());
+    CHECK(st[1].loaded);
+    CHECK(st[1].error.empty());
+    CHECK(st[1].sampleRate == 44100);
+    CHECK(st[1].channels == 1);
+    CHECK(std::abs(st[1].seconds - 0.1) < 1e-9);
+    CHECK_FALSE(st[2].loaded);
+    CHECK_FALSE(st[2].error.empty());
+    CHECK(c.space->params().user[1] != nullptr);
+    CHECK(c.space->params().user[2] == nullptr); // falls back to the built-in room
+    CHECK(c.space->displayDetail() == "hall;20;user");
+}

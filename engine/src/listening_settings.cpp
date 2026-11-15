@@ -198,6 +198,13 @@ std::string settingsToText(const AppSettings& s)
     out << "tube.drive=" << number(l.tubeDriveDb) << '\n';
     out << "crossfeed.enabled=" << (l.crossfeedEnabled ? 1 : 0) << '\n';
     out << "crossfeed.level=" << crossfeedLevelKey(l.crossfeedLevel) << '\n';
+    out << "space.room=" << spaceRoomKey(l.spaceRoom) << '\n';
+    out << "space.mix=" << number(l.spaceMixPercent) << '\n';
+    out << "space.predelay=" << number(l.spacePreDelayMs) << '\n';
+    out << "space.lowcut=" << number(l.spaceLowCutHz) << '\n';
+    out << "space.ir.club=" << oneLine(l.spaceIr[0]) << '\n';
+    out << "space.ir.hall=" << oneLine(l.spaceIr[1]) << '\n';
+    out << "space.ir.arena=" << oneLine(l.spaceIr[2]) << '\n';
     // EQ presets (task 6-9): each starts with its name.
     for (const auto& p : s.eqPresets)
     {
@@ -290,6 +297,24 @@ AppSettings settingsFromText(std::string_view text)
             l.crossfeedEnabled = value == "1";
         else if (key == "crossfeed.level")
             l.crossfeedLevel = crossfeedLevelFrom(value).value_or(CrossfeedLevel::Default);
+        else if (key == "space.room")
+            l.spaceRoom = spaceRoomFrom(value).value_or(SpaceRoom::Off);
+        else if (key == "space.mix")
+            l.spaceMixPercent = std::clamp(parseNumber(value).value_or(SpaceStage::kDefaultMixPercent), 0.0, 100.0);
+        else if (key == "space.predelay")
+            l.spacePreDelayMs =
+                std::clamp(parseNumber(value).value_or(SpaceStage::kDefaultPreDelayMs), 0.0, SpaceStage::kMaxPreDelayMs);
+        else if (key == "space.lowcut")
+        {
+            const double cut = parseNumber(value).value_or(SpaceStage::kDefaultLowCutHz);
+            l.spaceLowCutHz = cut <= 0.0 ? 0.0 : std::clamp(cut, SpaceStage::kMinLowCutHz, SpaceStage::kMaxLowCutHz);
+        }
+        else if (key == "space.ir.club")
+            l.spaceIr[0] = std::string(value);
+        else if (key == "space.ir.hall")
+            l.spaceIr[1] = std::string(value);
+        else if (key == "space.ir.arena")
+            l.spaceIr[2] = std::string(value);
         else if (key == "tubeauto.enabled")
             s.tubeAuto.enabled = value == "1";
         else if (key == "tubeauto.rules")
@@ -335,7 +360,8 @@ AppSettings settingsFromText(std::string_view text)
 
 ListeningChain::ListeningChain()
     : chain_(std::make_shared<ProcessingChain>(
-          std::vector<std::shared_ptr<ProcessingStage>>{replayGain, eq, tone, tube, crossfeed, volume, ispSafe, requantize, limiter}))
+          std::vector<std::shared_ptr<ProcessingStage>>{replayGain, eq, tone, tube, space, crossfeed, volume, ispSafe,
+                                                        requantize, limiter}))
 {
 }
 
@@ -355,6 +381,45 @@ void ListeningChain::apply(const ListeningSettings& s)
     tube->setEnabled(processed && s.tubeEnabled);
     crossfeed->setLevel(s.crossfeedLevel);
     crossfeed->setEnabled(processed && s.crossfeedEnabled);
+    loadSpaceIrs(s.spaceIr);
+    SpaceStage::Params sp;
+    sp.room = processed ? s.spaceRoom : SpaceRoom::Off;
+    sp.mixPercent = s.spaceMixPercent;
+    sp.preDelayMs = s.spacePreDelayMs;
+    sp.lowCutHz = s.spaceLowCutHz;
+    sp.user = irs_;
+    space->set(sp);
+}
+
+void ListeningChain::loadSpaceIrs(const std::array<std::string, 3>& paths)
+{
+    for (std::size_t i = 0; i < paths.size(); ++i)
+    {
+        if (paths[i] == irStatus_[i].path)
+            continue; // loaded (or tried) already
+        SpaceIrStatus st;
+        st.path = paths[i];
+        irs_[i].reset();
+        if (!paths[i].empty())
+        {
+            try
+            {
+                auto loaded = loadImpulseResponse(std::filesystem::path(std::u8string(paths[i].begin(), paths[i].end())));
+                st.loaded = true;
+                st.seconds = loaded.ir.seconds();
+                st.sampleRate = loaded.ir.sampleRate;
+                st.channels = static_cast<std::uint16_t>(loaded.ir.channels.size());
+                st.fileChannels = loaded.fileChannels;
+                st.truncated = loaded.truncated;
+                irs_[i] = std::make_shared<const ImpulseResponse>(std::move(loaded.ir));
+            }
+            catch (const std::exception& e)
+            {
+                st.error = e.what();
+            }
+        }
+        irStatus_[i] = std::move(st);
+    }
 }
 
 void ListeningChain::setEqSolo(std::optional<std::size_t> band)

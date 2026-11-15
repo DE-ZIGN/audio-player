@@ -24,10 +24,12 @@
 #include <ap/engine/dsp/processing.h>
 #include <ap/engine/dsp/replay_gain.h>
 #include <ap/engine/dsp/requantize.h>
+#include <ap/engine/dsp/space.h>
 #include <ap/engine/dsp/tone.h>
 #include <ap/engine/dsp/tube.h>
 #include <ap/engine/dsp/volume.h>
 
+#include <array>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -62,6 +64,13 @@ struct ListeningSettings
     // Crossfeed for headphones (task 9-5), in 音作りモード only.
     bool crossfeedEnabled = false;
     CrossfeedLevel crossfeedLevel = CrossfeedLevel::Default;
+    // The space (task 9-6), in 音作りモード only.
+    SpaceRoom spaceRoom = SpaceRoom::Off;
+    double spaceMixPercent = SpaceStage::kDefaultMixPercent; // 0 .. 100
+    double spacePreDelayMs = SpaceStage::kDefaultPreDelayMs; // 0 .. 100
+    double spaceLowCutHz = SpaceStage::kDefaultLowCutHz;     // 0 (none) or 20 .. 500
+    // The user's IR file for CLUB, HALL and ARENA (UTF-8 paths); empty: the built-in room.
+    std::array<std::string, 3> spaceIr;
 
     bool operator==(const ListeningSettings&) const = default;
 };
@@ -119,11 +128,28 @@ struct AppSettings
 std::string settingsToText(const AppSettings& settings);
 AppSettings settingsFromText(std::string_view text);
 
+// What became of a user IR file (task 9-6), for the settings screen.
+struct SpaceIrStatus
+{
+    std::string path;   // as set (empty: the built-in room)
+    bool loaded = false;
+    std::string error;  // why it could not be read (Japanese), when not loaded
+    double seconds = 0.0;
+    double sampleRate = 0.0;
+    std::uint16_t channels = 0;     // used (1 or 2)
+    std::uint16_t fileChannels = 0; // in the file
+    bool truncated = false;         // longer than kMaxIrSeconds
+
+    bool operator==(const SpaceIrStatus&) const = default;
+};
+
 // The stages in their fixed order (CLAUDE.md chapter 4): ReplayGain, EQ,
-// tone, tube, crossfeed, volume, ISP-safe gain, (the ABX's requantization, task 6-6),
-// safety limiter (then dither, in play()). The tube comes before the volume,
-// so how much it bends does not change with the listening level (DRIVE
-// decides it).
+// tone, tube, space, crossfeed, volume, ISP-safe gain, (the ABX's
+// requantization, task 6-6), safety limiter (then dither, in play()). The
+// tube comes before the volume, so how much it bends does not change with the
+// listening level (DRIVE decides it). The space comes after the tube (the
+// room the amplifier plays in) and before the crossfeed (how that is heard
+// on headphones).
 class ListeningChain
 {
 public:
@@ -147,18 +173,25 @@ public:
     const std::shared_ptr<EqStage> eq = std::make_shared<EqStage>();
     const std::shared_ptr<ToneStage> tone = std::make_shared<ToneStage>();
     const std::shared_ptr<TubeStage> tube = std::make_shared<TubeStage>();
+    const std::shared_ptr<SpaceStage> space = std::make_shared<SpaceStage>();
     const std::shared_ptr<CrossfeedStage> crossfeed = std::make_shared<CrossfeedStage>();
     const std::shared_ptr<VolumeStage> volume = std::make_shared<VolumeStage>();
     const std::shared_ptr<IspSafeStage> ispSafe = std::make_shared<IspSafeStage>();
     const std::shared_ptr<RequantizeStage> requantize = std::make_shared<RequantizeStage>(); // ABX only, off otherwise
     const std::shared_ptr<SafetyLimiter> limiter = std::make_shared<SafetyLimiter>();
 
+    // The user IR files as last applied (loaded once per path).
+    std::array<SpaceIrStatus, 3> spaceIrStatus() const { return irStatus_; }
+
 private:
     void applyEq();
+    void loadSpaceIrs(const std::array<std::string, 3>& paths);
 
     std::shared_ptr<ProcessingChain> chain_;
     ListeningSettings settings_;
     std::optional<std::size_t> solo_;
+    std::array<SpaceIrStatus, 3> irStatus_;
+    std::array<std::shared_ptr<const ImpulseResponse>, 3> irs_;
 };
 
 } // namespace ap::engine
