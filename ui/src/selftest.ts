@@ -254,8 +254,10 @@ export async function runSelfTest(
 
     // The space's user IR (task 9-6): a file that cannot be read is reported,
     // and the room keeps playing on its built-in IR.
+    const spaceListening = (await backend.settings.get()).listening;
     const irSet = await backend.settings.setListening({
-      ...(await backend.settings.get()).listening,
+      ...spaceListening,
+      spaceSource: ["file", spaceListening.spaceSource[1], spaceListening.spaceSource[2]],
       spaceIr: ["Z:\\no such folder\\selftest-ir.wav", "", ""],
     });
     const irState = irSet.spaceIrs?.[0];
@@ -267,6 +269,16 @@ export async function runSelfTest(
       3000,
     );
     log.push(`space IR: unreadable file reported (${irState.error}); ${builtIn.stages.find((st) => st.name === "space")?.detail}`);
+    // HALL plays the bundled measured IR (St Paul's Hall) by default.
+    await backend.settings.setListening({ ...(await backend.settings.get()).listening, spaceRoom: "hall" });
+    const measured = await waitFor(
+      "HALL on its measured IR",
+      (s) => s.stages.find((st) => st.name === "space")?.detail === "hall;15;measured",
+      3000,
+    );
+    const hallRow = pathModel(measured).processing.rows.find((r) => r.name === "空間");
+    if (hallRow?.value !== "HALL（実測）・MIX 15%") throw new Error(`space: HALL ${JSON.stringify(hallRow)}`);
+    log.push(`space: HALL plays the measured IR (${hallRow.value})`);
 
     // The tube type by genre (task 9-7) through the real bridge: saved and read
     // back; a file opened by itself has no genre or album, so the manual type plays.

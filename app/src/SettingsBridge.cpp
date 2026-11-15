@@ -68,10 +68,13 @@ juce::var listeningVar(const ListeningSettings& l)
     o->setProperty("spaceMixPercent", l.spaceMixPercent);
     o->setProperty("spacePreDelayMs", l.spacePreDelayMs);
     o->setProperty("spaceLowCutHz", l.spaceLowCutHz);
-    juce::Array<juce::var> irs;
+    juce::Array<juce::var> irs, sources;
     for (const auto& p : l.spaceIr)
         irs.add(juce::String::fromUTF8(p.c_str()));
+    for (const auto s : l.spaceSource)
+        sources.add(spaceIrSourceKey(s));
     o->setProperty("spaceIr", irs);
+    o->setProperty("spaceSource", sources);
     return juce::var(o);
 }
 
@@ -129,6 +132,14 @@ ListeningSettings listeningFrom(const juce::var& v)
     if (const auto* irs = v.getProperty("spaceIr", {}).getArray())
         for (int i = 0; i < std::min(irs->size(), 3); ++i)
             l.spaceIr[static_cast<std::size_t>(i)] = (*irs)[i].toString().toStdString();
+    if (const auto* sources = v.getProperty("spaceSource", {}).getArray())
+        for (int i = 0; i < std::min(sources->size(), 3); ++i)
+        {
+            const auto room = static_cast<SpaceRoom>(i + 1);
+            const auto s = spaceIrSourceFrom((*sources)[i].toString().toStdString()).value_or(defaultSpaceIrSource(room));
+            l.spaceSource[static_cast<std::size_t>(i)] =
+                s == SpaceIrSource::Measured && !hasMeasuredIr(room) ? SpaceIrSource::Synthesized : s;
+        }
     return l;
 }
 

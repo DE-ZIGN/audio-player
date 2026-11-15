@@ -22,6 +22,8 @@ import {
   type TubeAutoResult,
 } from "./settings";
 
+export const MOCK_IR_STATUS: SpaceIrStatus = { path: "", loaded: false, seconds: 0, sampleRate: 0, channels: 0, fileChannels: 0, truncated: false };
+
 // Whether the mock "reads" a user IR file (task 9-6): not when the path says "bad" or "no such".
 export function mockIrReadable(path: string): boolean {
   return path !== "" && !path.includes("bad") && !path.includes("no such");

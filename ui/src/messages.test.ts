@@ -713,6 +713,7 @@ describe("the space in the texts (task 9-6)", () => {
   it("names the room and MIX, and says when the IR is the user's", () => {
     expect(stageText({ name: "space", gainDb: null, detail: "club;20" })).toBe("空間（CLUB・MIX 20%）");
     expect(stageText({ name: "space", gainDb: null, detail: "arena;35;user" })).toBe("空間（ARENA（自分の IR）・MIX 35%）");
+    expect(stageText({ name: "space", gainDb: null, detail: "hall;20;measured" })).toBe("空間（HALL（実測）・MIX 20%）");
     expect(stageText({ name: "space", gainDb: null, detail: "" })).toBe("空間");
   });
 });

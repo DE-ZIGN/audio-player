@@ -3239,3 +3239,24 @@ html[data-look="real"] {
   font-size: 15px;
   min-width: 3.7em;
 }
+
+/* The space's IR per room (task 9-6). */
+#space-irs {
+  list-style: none;
+  padding-left: 0;
+}
+#space-irs .space-ir {
+  margin: 6px 0;
+}
+#space-irs .space-ir strong {
+  display: inline-block;
+  min-width: 4.5em;
+}
+#space-irs .space-ir .radios {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+#space-irs .space-ir p {
+  margin: 2px 0 0 4.5em;
+}

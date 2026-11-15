@@ -18,7 +18,8 @@ import type {
   TrackRow,
 } from "./library";
 import { MockLibrary } from "./mockLibrary";
-import { mockIrReadable, MockSettings } from "./mockSettings";
+import { MOCK_IR_STATUS, mockIrReadable, MockSettings } from "./mockSettings";
+import { playingSpaceSource } from "./settings";
 import { upperTailP, type AbxChoice, type AbxRequest, type AbxStatus } from "./abx";
 import type {
   EqBand,
@@ -587,8 +588,11 @@ export class MockBackend implements Backend {
     if (processed && l.tubeEnabled)
       stages.push({ name: "tube", gainDb: l.tubeDriveDb, detail: this.mockTubeAuto()?.choice?.type ?? l.tubeType });
     if (processed && l.spaceRoom && l.spaceRoom !== "off" && l.spaceMixPercent > 0) {
-      const user = mockIrReadable(l.spaceIr[["club", "hall", "arena"].indexOf(l.spaceRoom)]);
-      stages.push({ name: "space", gainDb: null, detail: `${l.spaceRoom};${Math.round(l.spaceMixPercent)}${user ? ";user" : ""}` });
+      const i = ["club", "hall", "arena"].indexOf(l.spaceRoom);
+      const readable = mockIrReadable(l.spaceIr[i]);
+      const source = playingSpaceSource(l, l.spaceRoom, { ...MOCK_IR_STATUS, path: l.spaceIr[i], loaded: readable });
+      const tag = source === "synth" ? "" : `;${source}`;
+      stages.push({ name: "space", gainDb: null, detail: `${l.spaceRoom};${Math.round(l.spaceMixPercent)}${tag}` });
     }
     if (processed && l.crossfeedEnabled) stages.push({ name: "crossfeed", gainDb: null, detail: l.crossfeedLevel });
     if (this.volumeDb !== 0) stages.push({ name: "volume", gainDb: this.volumeDb });

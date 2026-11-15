@@ -9,6 +9,7 @@ import {
   lowCutText,
   modeSummary,
   parseSpaceDetail,
+  playingSpaceSource,
   spaceIrText,
   newBand,
   outputLabel,
@@ -166,27 +167,50 @@ describe("the space (task 9-6)", () => {
       spaceRoom: "hall",
       spaceMixPercent: 30,
     };
-    expect(modeSummary(l)).toContain("真空管（SE 300B、DRIVE -12.0 dB）、空間（HALL・MIX 30%）、クロスフィード");
-    expect(modeSummary({ ...l, spaceIr: ["", "C:\\ir.wav", ""] })).toContain("空間（HALL（自分の IR）・MIX 30%）");
+    // HALL plays its measured IR by default.
+    expect(modeSummary(l)).toContain("真空管（SE 300B、DRIVE -12.0 dB）、空間（HALL（実測）・MIX 30%）、クロスフィード");
+    expect(modeSummary({ ...l, spaceSource: ["synth", "synth", "synth"] })).toContain("空間（HALL・MIX 30%）");
+    expect(modeSummary({ ...l, spaceSource: ["synth", "file", "synth"], spaceIr: ["", "C:\\ir.wav", ""] })).toContain(
+      "空間（HALL（自分の IR）・MIX 30%）",
+    );
+    // A file chosen as the source but none given: the room's default.
+    expect(modeSummary({ ...l, spaceSource: ["synth", "file", "synth"] })).toContain("空間（HALL（実測）・MIX 30%）");
+    expect(modeSummary({ ...l, spaceRoom: "club" })).toContain("空間（CLUB・MIX 30%）");
     expect(modeSummary({ ...l, spaceMixPercent: 0 })).not.toContain("空間");
     expect(modeSummary({ ...l, spaceRoom: "off" })).not.toContain("空間");
   });
   it("reads the stage's detail", () => {
-    expect(parseSpaceDetail("club;20")).toEqual({ room: "club", mix: 20, user: false });
-    expect(parseSpaceDetail("arena;5;user")).toEqual({ room: "arena", mix: 5, user: true });
+    expect(parseSpaceDetail("club;20")).toEqual({ room: "club", mix: 20, source: "synth" });
+    expect(parseSpaceDetail("hall;30;measured")).toEqual({ room: "hall", mix: 30, source: "measured" });
+    expect(parseSpaceDetail("arena;5;user")).toEqual({ room: "arena", mix: 5, source: "user" });
     expect(parseSpaceDetail("off;0")).toBeNull();
     expect(parseSpaceDetail(undefined)).toBeNull();
   });
-  it("says what each room's IR is: built in with its numbers, the user's file, or why it could not be read", () => {
-    expect(spaceIrText("hall", undefined)).toBe("内蔵（合成：25 × 40 × 16 m・残響 2.0 秒）");
+  it("says what each room's IR is: measured or synthesized with its numbers, the user's file, or why not", () => {
+    const d = defaultListening;
+    expect(spaceIrText(d, "hall", undefined)).toBe("実測：St Paul's Hall（英国、ハダースフィールド大学のコンサートホール）・残響 2.1 秒");
+    expect(spaceIrText(d, "club", undefined)).toBe("合成：9 × 14 × 3.5 m・残響 0.75 秒");
+    expect(spaceIrText({ ...d, spaceSource: ["synth", "synth", "synth"] }, "hall", undefined)).toBe("合成：25 × 40 × 16 m・残響 2.0 秒");
     const base = { loaded: true, seconds: 2.5, sampleRate: 48000, channels: 2, fileChannels: 2, truncated: false };
-    expect(spaceIrText("club", { ...base, path: "C:\\IR\\room.wav" })).toBe("room.wav（2.50 秒・ステレオ・48.0 kHz）");
-    expect(spaceIrText("club", { ...base, path: "D:/ir/long.flac", channels: 2, fileChannels: 4, truncated: true })).toBe(
-      "long.flac（2.50 秒・ステレオ・48.0 kHz・4ch のうち最初の 2ch・5 秒で切りました）",
+    const club = (path: string) => ({ ...d, spaceSource: ["file", "measured", "synth"], spaceIr: [path, "", ""] }) as ListeningSettings;
+    expect(spaceIrText(club("C:\\IR\\room.wav"), "club", { ...base, path: "C:\\IR\\room.wav" })).toBe("room.wav（2.50 秒・ステレオ・48.0 kHz）");
+    expect(
+      spaceIrText(club("D:/ir/long.flac"), "club", { ...base, path: "D:/ir/long.flac", fileChannels: 4, truncated: true }),
+    ).toBe("long.flac（2.50 秒・ステレオ・48.0 kHz・4ch のうち最初の 2ch・5 秒で切りました）");
+    expect(spaceIrText(club("x.wav"), "club", { ...base, path: "x.wav", loaded: false, error: "音が入っていません" })).toBe(
+      "⚠ x.wav を読めませんでした（音が入っていません）。内蔵（合成）を使っています",
     );
-    expect(spaceIrText("arena", { ...base, path: "x.wav", loaded: false, error: "音が入っていません" })).toBe(
-      "⚠ x.wav を読めませんでした（音が入っていません）。内蔵の IR を使っています",
+    const hallFile = { ...d, spaceSource: ["synth", "file", "synth"], spaceIr: ["", "y.wav", ""] } as ListeningSettings;
+    expect(spaceIrText(hallFile, "hall", { ...base, path: "y.wav", loaded: false, error: "見つかりません" })).toBe(
+      "⚠ y.wav を読めませんでした（見つかりません）。内蔵（実測）を使っています",
     );
+    expect(spaceIrText({ ...hallFile, spaceIr: ["", "", ""] }, "hall", undefined)).toBe(
+      "自分のファイルはまだ選んでいません。内蔵（実測）を使っています",
+    );
+    // A file kept while another source is chosen is not what plays.
+    expect(spaceIrText({ ...hallFile, spaceSource: ["synth", "measured", "synth"] }, "hall", { ...base, path: "y.wav" })).toContain("実測");
+    expect(playingSpaceSource(hallFile, "hall", { ...base, path: "y.wav" })).toBe("user");
+    expect(playingSpaceSource({ ...d, spaceSource: ["measured", "measured", "measured"] }, "club")).toBe("synth");
     expect(lowCutText(0)).toBe("なし");
     expect(lowCutText(120)).toBe("120 Hz");
   });

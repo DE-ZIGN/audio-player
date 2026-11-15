@@ -18,6 +18,7 @@ import {
   CROSSFEED_LEVELS,
   lowCutText,
   SPACE_LIMITS,
+  SPACE_MEASURED,
   SPACE_ROOMS,
   spaceIrText,
   DRIVE_DEFAULT_DB,
@@ -36,6 +37,7 @@ import {
   type OutputsInfo,
   type ReplayGainMode,
   type CrossfeedLevel,
+  type SpaceIrSource,
   type SpaceIrStatus,
   type SpaceRoom,
   type TubeType,
@@ -101,6 +103,7 @@ export class SettingsView {
     spaceLowCutValue: $("space-lowcut-value"),
     spaceReset: $<HTMLButtonElement>("space-reset"),
     spaceIrs: $("space-irs"),
+    spaceCredit: $("space-credit"),
   };
   private spaceIrs: SpaceIrStatus[] = []; // task 9-6: what became of the user IR files
 
@@ -204,7 +207,10 @@ export class SettingsView {
       }),
     );
 
-    // The space (task 9-6).
+    // The space (task 9-6). The bundled measured IR's credit (CC BY 4.0).
+    this.els.spaceCredit.textContent = Object.values(SPACE_MEASURED)
+      .map((m) => m.credit)
+      .join(" ");
     const rooms: [SpaceRoom, string][] = [["off", "OFF"], ...Object.entries(SPACE_ROOMS).map(([k, v]) => [k as SpaceRoom, v.label] as [SpaceRoom, string])];
     this.els.spaceRoom.replaceChildren(
       ...rooms.map(([value, label]) => {
@@ -444,27 +450,49 @@ export class SettingsView {
     e.spaceRoomNote.textContent =
       l.spaceRoom === "off"
         ? "OFF：空間をかけません。"
-        : `${SPACE_ROOMS[l.spaceRoom].label}：${spaceIrText(l.spaceRoom, this.spaceIrs[SPACE_ROOMS[l.spaceRoom].index])}`;
+        : `${SPACE_ROOMS[l.spaceRoom].label}：${spaceIrText(l, l.spaceRoom, this.spaceIrs[SPACE_ROOMS[l.spaceRoom].index])}`;
+    // Each room: which IR it plays (measured where there is one, synthesized, the user's file).
     e.spaceIrs.replaceChildren(
       ...(Object.entries(SPACE_ROOMS) as [Exclude<SpaceRoom, "off">, (typeof SPACE_ROOMS)["club"]][]).map(([room, info]) => {
+        const i = info.index;
         const li = document.createElement("li");
-        const st = this.spaceIrs[info.index];
-        const text = document.createElement("span");
-        text.textContent = `${info.label}：${spaceIrText(room, st)}`;
-        if (st && st.path !== "" && !st.loaded) text.className = "notice";
+        li.className = "space-ir";
+        const head = document.createElement("strong");
+        head.textContent = info.label;
+        const radios = document.createElement("span");
+        radios.className = "radios";
+        radios.setAttribute("role", "radiogroup");
+        radios.setAttribute("aria-label", `${info.label} の IR`);
+        const path = l.spaceIr[i];
+        const fileName = path.split(/[\\/]/).pop() ?? path;
+        const options: [SpaceIrSource, string][] = [
+          ...(SPACE_MEASURED[room] ? ([["measured", "実測（St Paul's Hall）"]] as [SpaceIrSource, string][]) : []),
+          ["synth", "合成"],
+          ["file", path === "" ? "自分のファイル" : `自分のファイル（${fileName}）`],
+        ];
+        const chosen = l.spaceSource[i];
+        for (const [value, label] of options) {
+          const lab = document.createElement("label");
+          const r = document.createElement("input");
+          r.type = "radio";
+          r.name = `space-source-${room}`;
+          r.value = value;
+          r.checked = value === chosen;
+          r.disabled = value === "file" && path === ""; // choose a file first
+          r.addEventListener("change", () => r.checked && this.setSource(i, value));
+          lab.append(r, ` ${label}`);
+          radios.append(lab);
+        }
         const choose = document.createElement("button");
         choose.type = "button";
         choose.textContent = "ファイルを選ぶ…";
-        choose.addEventListener("click", () => void this.chooseIr(info.index));
-        li.append(text, " ", choose);
-        if (l.spaceIr[info.index] !== "") {
-          const builtIn = document.createElement("button");
-          builtIn.type = "button";
-          builtIn.className = "link";
-          builtIn.textContent = "内蔵に戻す";
-          builtIn.addEventListener("click", () => this.setIr(info.index, ""));
-          li.append(" ", builtIn);
-        }
+        choose.addEventListener("click", () => void this.chooseIr(i));
+        const st = this.spaceIrs[i];
+        const note = document.createElement("p");
+        const text = spaceIrText(l, room, st);
+        note.className = text.startsWith("⚠") ? "notice" : "note";
+        note.textContent = text;
+        li.append(head, " ", radios, " ", choose, note);
         return li;
       }),
     );
@@ -472,13 +500,18 @@ export class SettingsView {
 
   private async chooseIr(index: number) {
     const r = await this.api.chooseIr();
-    if (r.ok && r.path) this.setIr(index, r.path);
+    if (!r.ok || !r.path) return;
+    const ir = [...this.listening.spaceIr] as [string, string, string];
+    ir[index] = r.path;
+    const source = [...this.listening.spaceSource] as [SpaceIrSource, SpaceIrSource, SpaceIrSource];
+    source[index] = "file"; // a chosen file is used at once
+    this.change({ spaceIr: ir, spaceSource: source });
   }
 
-  private setIr(index: number, path: string) {
-    const ir = [...this.listening.spaceIr] as [string, string, string];
-    ir[index] = path;
-    this.change({ spaceIr: ir });
+  private setSource(index: number, value: SpaceIrSource) {
+    const source = [...this.listening.spaceSource] as [SpaceIrSource, SpaceIrSource, SpaceIrSource];
+    source[index] = value;
+    this.change({ spaceSource: source });
   }
 
   private renderPresets() {

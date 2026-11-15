@@ -38,7 +38,7 @@ import {
   type VuPlace,
 } from "./amp";
 import { sliderToDb, volumeLabel } from "./queueOps";
-import { SPACE_ROOMS, TUBE_LABELS, type ListeningSettings, type SpaceRoom, type TubeType } from "./settings";
+import { TUBE_LABELS, type ListeningSettings, type SpaceRoom, type TubeType } from "./settings";
 import type { Level, PlaybackStatus } from "./status";
 import { currentUiView, onUiViewChange } from "./uiView";
 import { needleAngle, VU_MARKS, vuOf } from "./vuMeter";
@@ -297,9 +297,9 @@ const LAMP_TITLES: Record<LampName, string> = {
   pure: "PURE：原音モード（処理をかけません。音量 100% で BIT-PERFECT になりえます）",
   tube: "TUBE：音作りモードで真空管をかけます",
   off: "SPACE OFF：空間（部屋の響きの畳み込み）をかけません",
-  club: `SPACE CLUB：部屋の響きを畳み込んで混ぜます（${SPACE_ROOMS.club.numbers}。MIX・プリディレイ・自分の IR は設定画面で）`,
-  hall: `SPACE HALL：部屋の響きを畳み込んで混ぜます（${SPACE_ROOMS.hall.numbers}。MIX・プリディレイ・自分の IR は設定画面で）`,
-  arena: `SPACE ARENA：部屋の響きを畳み込んで混ぜます（${SPACE_ROOMS.arena.numbers}。MIX・プリディレイ・自分の IR は設定画面で）`,
+  club: "SPACE CLUB：小さな部屋の響きを畳み込んで混ぜます（IR は合成か自分のファイル。MIX・プリディレイとあわせて設定画面で）",
+  hall: "SPACE HALL：ホールの響きを畳み込んで混ぜます（IR は実測の St Paul's Hall・合成・自分のファイル。MIX・プリディレイとあわせて設定画面で）",
+  arena: "SPACE ARENA：大きな屋内空間の響きを畳み込んで混ぜます（IR は合成か自分のファイル。MIX・プリディレイとあわせて設定画面で）",
   se300b: `TUBE TYPE：${TUBE_LABELS.se300b}`,
   ppel34: `TUBE TYPE：${TUBE_LABELS.ppel34}`,
   ppclassa: `TUBE TYPE：${TUBE_LABELS.ppclassa}`,

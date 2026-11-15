@@ -23,7 +23,8 @@ namespace ap::app {
 //                              listening settings include the tone and the tube, task 9-3)
 //   settingsSetListening(l)    applies and saves; { ok, eq: { preampDb, skipped }, spaceIrs }
 //                              (the space, task 9-6: spaceRoom, spaceMixPercent,
-//                              spacePreDelayMs, spaceLowCutHz, spaceIr: [club, hall, arena paths];
+//                              spacePreDelayMs, spaceLowCutHz, spaceSource: ["measured" | "synth" |
+//                              "file" for club, hall, arena], spaceIr: [club, hall, arena paths];
 //                              spaceIrs: what became of each file, also in settingsGet())
 //   settingsChooseIr()         a file dialog for a space IR; { ok, cancelled?, path }
 //   settingsOutputs()          { wasapi: [{ id, name, isDefault }], asio: [{ id, name }], message? }

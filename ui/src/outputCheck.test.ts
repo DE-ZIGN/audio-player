@@ -140,14 +140,14 @@ describe("signal path diagram", () => {
       ...processed,
       stages: [
         { name: "tube", gainDb: -12, detail: "se300b" },
-        { name: "space", gainDb: null, detail: "hall;25;user" },
+        { name: "space", gainDb: null, detail: "hall;25;measured" },
         { name: "crossfeed", gainDb: null, detail: "default" },
         ...processed.stages,
       ],
     };
     const m = pathModel(s);
     const row = (name: string) => m.processing.rows.find((r) => r.name === name)!;
-    expect(row("空間")).toMatchObject({ on: true, value: "HALL（自分の IR）・MIX 25%" });
+    expect(row("空間")).toMatchObject({ on: true, value: "HALL（実測）・MIX 25%" });
     const names = m.processing.rows.map((r) => r.name);
     expect(names.indexOf("空間")).toBe(names.indexOf("真空管") + 1);
     expect(names.indexOf("クロスフィード")).toBe(names.indexOf("空間") + 1);

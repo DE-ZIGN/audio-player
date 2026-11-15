@@ -133,7 +133,7 @@ export function stageText(st: StageState): string {
   const name = stageNames[st.name] ?? st.name;
   if (st.name === "space") {
     const sp = parseSpaceDetail(st.detail);
-    return sp ? `${name}（${spaceText(sp.room, sp.mix, sp.user)}）` : name;
+    return sp ? `${name}（${spaceText(sp.room, sp.mix, sp.source)}）` : name;
   }
   if (st.name === "crossfeed") {
     const level = CROSSFEED_LEVELS[st.detail as CrossfeedLevel];

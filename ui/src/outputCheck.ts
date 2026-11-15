@@ -133,7 +133,7 @@ export function pathModel(s: PlaybackStatus): PathModel {
     }),
     row("空間", "space", (_g, st) => {
       const sp = parseSpaceDetail(st.detail);
-      return sp ? spaceText(sp.room, sp.mix, sp.user) : "ON";
+      return sp ? spaceText(sp.room, sp.mix, sp.source) : "ON";
     }),
     row("クロスフィード", "crossfeed", (_g, st) => CROSSFEED_LEVELS[st.detail as CrossfeedLevel]?.numbers ?? "ON"),
     row("デジタル音量", "volume", gainText),

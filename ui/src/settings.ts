@@ -10,6 +10,7 @@ export type IspSafeMode = "off" | "measured" | "fixed";
 export type TubeType = "se300b" | "ppel34" | "ppclassa";
 export type CrossfeedLevel = "default" | "cmoy" | "jmeier";
 export type SpaceRoom = "off" | "club" | "hall" | "arena";
+export type SpaceIrSource = "measured" | "synth" | "file";
 export type EqFilterType = "peak" | "lowShelf" | "highShelf" | "lowPass" | "highPass" | "bandPass" | "notch";
 
 export interface EqBand {
@@ -43,7 +44,10 @@ export interface ListeningSettings {
   spaceMixPercent: number; // 0 .. 100
   spacePreDelayMs: number; // 0 .. 100 (at least the convolution's block is used)
   spaceLowCutHz: number; // 0 (none) or 20 .. 500
-  spaceIr: [string, string, string]; // the user's IR file for CLUB, HALL, ARENA ("" = built-in)
+  // Which IR CLUB, HALL, ARENA play (HALL measured, the others synthesized by
+  // default), and the user's file for each (used when its source is "file").
+  spaceSource: [SpaceIrSource, SpaceIrSource, SpaceIrSource];
+  spaceIr: [string, string, string];
 }
 
 // What became of a user IR file (task 9-6), as the app reports it.
@@ -149,18 +153,49 @@ export const defaultListening: ListeningSettings = {
   spaceMixPercent: 20,
   spacePreDelayMs: 10,
   spaceLowCutHz: 120,
+  spaceSource: ["synth", "measured", "synth"],
   spaceIr: ["", "", ""],
 };
 
-// The space's rooms (engine: SpaceStage, room_ir.cpp): the built-in IRs are
-// synthesized (image-source early reflections, decaying noise in 4 bands).
-// The numbers are the design's: the room's size and the RT60 at mid
-// frequencies (250 Hz - 2 kHz; measured in the tests: CLUB 0.72 s, HALL 1.93 s, ARENA 2.99 s).
+// The space's rooms (engine: SpaceStage, room_ir.cpp). The synthesized IRs:
+// image-source early reflections, decaying noise in 4 bands; their numbers
+// are the design's (the room's size and the RT60 at mid frequencies, 250 Hz -
+// 2 kHz; measured in the tests: CLUB 0.72 s, HALL 1.93 s, ARENA 2.99 s).
 export const SPACE_ROOMS: Record<Exclude<SpaceRoom, "off">, { label: string; numbers: string; index: number }> = {
   club: { label: "CLUB", numbers: "9 × 14 × 3.5 m・残響 0.75 秒", index: 0 },
   hall: { label: "HALL", numbers: "25 × 40 × 16 m・残響 2.0 秒", index: 1 },
   arena: { label: "ARENA", numbers: "80 × 110 × 30 m・残響 3.0 秒", index: 2 },
 };
+// The bundled measured IRs (task 9-6, chosen by listening): HALL only.
+// St Paul's Hall: published RT60 2.1 s; its 250 Hz - 2 kHz T20 measured 2.13 s.
+export const SPACE_MEASURED: Partial<Record<Exclude<SpaceRoom, "off">, { place: string; numbers: string; credit: string }>> = {
+  hall: {
+    place: "St Paul's Hall（英国、ハダースフィールド大学のコンサートホール）",
+    numbers: "残響 2.1 秒",
+    credit:
+      "St Paul's Hall の IR：MAIR（Microphone Array Impulse Response Library。Hyunkook Lee、Connor Millns、University of Huddersfield Applied Psychoacoustics Lab）、CC BY 4.0（https://creativecommons.org/licenses/by/4.0/）。ステージ正面中央の音源を AB（無指向性マイク 2 本）で録った 2 本を 1 本のステレオにまとめ、直接音の 1 ms 前から使っています。",
+  },
+};
+
+export function defaultSpaceSource(room: Exclude<SpaceRoom, "off">): SpaceIrSource {
+  return SPACE_MEASURED[room] ? "measured" : "synth";
+}
+
+// What a room plays (as the engine decides): the user's file when chosen and
+// readable (st: what became of it; without it, a path counts as readable),
+// else the room's default; measured only where there is one.
+export function playingSpaceSource(
+  l: ListeningSettings,
+  room: Exclude<SpaceRoom, "off">,
+  st?: SpaceIrStatus,
+): "measured" | "synth" | "user" {
+  const i = SPACE_ROOMS[room].index;
+  const chosen = l.spaceSource?.[i] ?? defaultSpaceSource(room);
+  if (chosen === "file" && l.spaceIr[i] !== "" && (st ? st.loaded : true)) return "user";
+  const s = chosen === "file" ? defaultSpaceSource(room) : chosen;
+  return s === "measured" && SPACE_MEASURED[room] ? "measured" : "synth";
+}
+
 export const SPACE_LIMITS = {
   mix: { min: 0, max: 100, step: 1, defaultValue: 20 },
   preDelay: { min: 0, max: 100, step: 1, defaultValue: 10 },
@@ -170,18 +205,26 @@ export const SPACE_LIMITS = {
 // the shortest pre-delay, about 2.7-2.9 ms.
 export const SPACE_MIN_PRE_DELAY_MS = 2.9;
 
-// "HALL・MIX 20%" ("（自分の IR）" after the room when its IR is the user's).
-export function spaceText(room: SpaceRoom, mixPercent: number, user = false): string {
+const SOURCE_TAGS = { synth: "", measured: "（実測）", user: "（自分の IR）" } as const;
+
+// "HALL（実測）・MIX 20%", "CLUB・MIX 20%" (synthesized), "ARENA（自分の IR）・MIX 20%".
+export function spaceText(room: SpaceRoom, mixPercent: number, source: "measured" | "synth" | "user" = "synth"): string {
   if (room === "off") return "OFF";
-  return `${SPACE_ROOMS[room].label}${user ? "（自分の IR）" : ""}・MIX ${Math.round(mixPercent)}%`;
+  return `${SPACE_ROOMS[room].label}${SOURCE_TAGS[source]}・MIX ${Math.round(mixPercent)}%`;
 }
 
-// The stage's detail from the app: "hall;20" or "hall;20;user".
-export function parseSpaceDetail(detail: string | undefined): { room: SpaceRoom; mix: number; user: boolean } | null {
+// The stage's detail from the app: "hall;20" (synthesized), "hall;20;measured" or "hall;20;user".
+export function parseSpaceDetail(
+  detail: string | undefined,
+): { room: SpaceRoom; mix: number; source: "measured" | "synth" | "user" } | null {
   if (!detail) return null;
-  const [room, mix, user] = detail.split(";");
+  const [room, mix, source] = detail.split(";");
   if (!(room in SPACE_ROOMS)) return null;
-  return { room: room as SpaceRoom, mix: Number(mix) || 0, user: user === "user" };
+  return {
+    room: room as SpaceRoom,
+    mix: Number(mix) || 0,
+    source: source === "user" ? "user" : source === "measured" ? "measured" : "synth",
+  };
 }
 
 // The low cut's text: "120 Hz" or "なし".
@@ -189,11 +232,28 @@ export function lowCutText(hz: number): string {
   return hz <= 0 ? "なし" : `${Math.round(hz)} Hz`;
 }
 
-// What the settings screen says about a room's IR.
-export function spaceIrText(room: Exclude<SpaceRoom, "off">, st: SpaceIrStatus | undefined): string {
-  if (!st || st.path === "") return `内蔵（合成：${SPACE_ROOMS[room].numbers}）`;
+// What a built-in IR is: "実測：St Paul's Hall（…）・残響 2.1 秒" or "合成：25 × 40 × 16 m・残響 2.0 秒".
+export function builtInIrText(room: Exclude<SpaceRoom, "off">, source: "measured" | "synth"): string {
+  const m = SPACE_MEASURED[room];
+  return source === "measured" && m ? `実測：${m.place}・${m.numbers}` : `合成：${SPACE_ROOMS[room].numbers}`;
+}
+
+// What the settings screen says about the IR a room plays.
+export function spaceIrText(l: ListeningSettings, room: Exclude<SpaceRoom, "off">, st: SpaceIrStatus | undefined): string {
+  const i = SPACE_ROOMS[room].index;
+  const playing = playingSpaceSource(l, room, st);
+  if (playing !== "user") {
+    const fallback = defaultSpaceSource(room) === "measured" ? "内蔵（実測）" : "内蔵（合成）";
+    if (l.spaceSource?.[i] === "file" && l.spaceIr[i] === "")
+      return `自分のファイルはまだ選んでいません。${fallback}を使っています`;
+    if (l.spaceSource?.[i] === "file" && st && !st.loaded) {
+      const name = st.path.split(/[\\/]/).pop() ?? st.path;
+      return `⚠ ${name} を読めませんでした（${st.error ?? "理由不明"}）。${fallback}を使っています`;
+    }
+    return builtInIrText(room, playing);
+  }
+  if (!st) return l.spaceIr[i].split(/[\\/]/).pop() ?? l.spaceIr[i];
   const name = st.path.split(/[\\/]/).pop() ?? st.path;
-  if (!st.loaded) return `⚠ ${name} を読めませんでした（${st.error ?? "理由不明"}）。内蔵の IR を使っています`;
   const ch = st.channels === 1 ? "モノラル" : "ステレオ";
   const extra = [
     st.fileChannels > 2 ? `${st.fileChannels}ch のうち最初の 2ch` : "",
@@ -296,7 +356,7 @@ export function modeSummary(l: ListeningSettings, tubeAuto = false): string {
         : `真空管（${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}）`,
     );
   if (l.spaceRoom !== "off" && l.spaceMixPercent > 0)
-    parts.push(`空間（${spaceText(l.spaceRoom, l.spaceMixPercent, l.spaceIr[SPACE_ROOMS[l.spaceRoom].index] !== "")}）`);
+    parts.push(`空間（${spaceText(l.spaceRoom, l.spaceMixPercent, playingSpaceSource(l, l.spaceRoom))}）`);
   if (l.crossfeedEnabled) parts.push(`クロスフィード（${CROSSFEED_LEVELS[l.crossfeedLevel].numbers}）`);
   if (l.ispSafeProcessed !== "off") parts.push(`ISP セーフ（${ISP_LABELS[l.ispSafeProcessed]}）`);
   return parts.length === 0
