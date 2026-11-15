@@ -107,6 +107,7 @@ add_executable(ap_engine_unit_tests
     unit/looping_source_test.cpp
     unit/tube_test.cpp
     unit/tube_auto_test.cpp
+    unit/tube_character_test.cpp
     unit/tone_test.cpp
     unit/crossfeed_test.cpp
     unit/convolver_test.cpp

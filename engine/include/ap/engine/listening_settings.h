@@ -61,6 +61,11 @@ struct ListeningSettings
     bool tubeEnabled = false;
     TubeType tubeType = TubeType::Se300B;
     double tubeDriveDb = TubeStage::kDefaultDriveDb;
+    // The tube's warm-up and the tubes' differences (task 9-8, a show; off by
+    // default), with the tube.
+    bool tubeWarmUp = false;
+    bool tubeUnits = false;
+    int tubeUnit = kMinTubeUnit; // kMinTubeUnit .. kMaxTubeUnit, kept while tubeUnits is off
     // Crossfeed for headphones (task 9-5), in 音作りモード only.
     bool crossfeedEnabled = false;
     CrossfeedLevel crossfeedLevel = CrossfeedLevel::Default;

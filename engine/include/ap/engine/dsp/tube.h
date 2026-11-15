@@ -43,10 +43,32 @@
 // The type that plays (task 9-7): the track's, when the genre table or an
 // album's choice gave it one (TrackInfo::tubeType, at the track's first
 // sample), else the manual type (setType).
+//
+// The warm-up and the tubes' differences (task 9-8, quality-measures 34) are a
+// show (ロマン枠): what they do is said, never that they sound better, and
+// both are off by default.
+//   - Warm-up: from the amp's switch-on (the app's start, given by
+//     setWarmUpSeconds) the curve moves from a cold tube's to the warm one's.
+//     The cold curve is the same circuit worked out with the cathode's
+//     emission at kColdEmission (less current at the same grid; the SE
+//     300B's cathode bias settles where it would). The two curves are mixed,
+//     the cold one's share falling with a time constant of
+//     kWarmUpTauSeconds, to none at kWarmUpSeconds.
+//   - Units: each tube's emission and mu off the type's figures by up to
+//     kTubeEmissionTolerance and kTubeMuTolerance, decided by a number (the
+//     same number, the same tubes). Left and right are separate tubes, and in
+//     push-pull the two halves are too (so the even harmonics no longer cancel
+//     exactly). The curves are worked out again from the model with those
+//     tubes, in the same circuit (same bias for the fixed-bias types; the SE
+//     300B's cathode bias settles where it would).
+// Every curve is normalised to unity small-signal gain, so neither changes the
+// level of small signals; they change how the curve bends.
 
 #include <ap/engine/dsp/processing.h>
 
+#include <array>
 #include <atomic>
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -66,11 +88,37 @@ enum class TubeType
 const char* tubeTypeKey(TubeType type) noexcept;
 std::optional<TubeType> tubeTypeFrom(std::string_view key) noexcept;
 
+// One tube's departure from its type's figures (task 9-8): the emission
+// (scales the plate current at a given grid and plate) and the amplification
+// factor mu.
+struct TubeUnit
+{
+    double emission = 1.0;
+    double mu = 1.0;
+
+    bool operator==(const TubeUnit&) const = default;
+};
+
+inline constexpr double kTubeEmissionTolerance = 0.10; // +-10%
+inline constexpr double kTubeMuTolerance = 0.05;       // +-5%
+inline constexpr int kMinTubeUnit = 1;
+inline constexpr int kMaxTubeUnit = 99;
+
+// The tube for unit `number` (kMinTubeUnit..kMaxTubeUnit) of `type`, in
+// channel 0 (left) or 1 (right); push-pull's second tube is `tube` 1. Fixed
+// numbers, spread evenly over the tolerances.
+TubeUnit tubeUnitFor(int number, TubeType type, int channel, int tube) noexcept;
+
 // The transfer curve of one type, worked out once from the tube model.
 class TubeCurve
 {
 public:
     static const TubeCurve& forType(TubeType type);
+    // The type's circuit with other tubes (task 9-8): `a` (push-pull: and `b`
+    // for the other half) and every tube's emission scaled by `emission`
+    // (the warm-up). Over the same range as the type's own curve. Worked out
+    // from the model (tens of milliseconds): not on the playback thread.
+    static std::shared_ptr<const TubeCurve> variant(TubeType type, TubeUnit a, TubeUnit b, double emission);
 
     struct Point
     {
@@ -90,6 +138,7 @@ public:
     double gridToZero() const noexcept { return gridToZero_; } // |bias|: the swing to 0 V grid
     double smallSignalGain() const noexcept { return gain_; }  // d vout / d vin at idle
     double range() const noexcept { return range_; }           // the table covers +-range volts
+    double idleCurrent() const noexcept { return idleCurrent_; } // all the tubes' plate current at idle (A)
 
     // The time element's constants.
     double cathodeOhms = 0.0;    // 0: fixed bias (no bias shift)
@@ -108,6 +157,28 @@ private:
     std::shared_ptr<const Circuit> circuit_;
 };
 
+// The curves the stage plays with the warm-up or units on (task 9-8): for
+// each type and channel, the warm curve and the cold one. Shared and kept
+// (a few) once worked out, so the ABX's chains and the loudness match get the
+// same curves without working them out again.
+struct TubeCurveSet
+{
+    std::optional<int> unit; // none: the types' own tubes
+    std::array<std::shared_ptr<const TubeCurve>, 6> warm, cold; // [type * 2 + channel]
+
+    const TubeCurve& warmCurve(TubeType t, std::size_t channel) const noexcept
+    {
+        return *warm[static_cast<std::size_t>(t) * 2 + channel % 2];
+    }
+    const TubeCurve& coldCurve(TubeType t, std::size_t channel) const noexcept
+    {
+        return *cold[static_cast<std::size_t>(t) * 2 + channel % 2];
+    }
+
+    // Works the curves out (in parallel) or takes them from those kept.
+    static std::shared_ptr<const TubeCurveSet> get(std::optional<int> unit);
+};
+
 class TubeStage final : public ProcessingStage
 {
 public:
@@ -115,6 +186,13 @@ public:
     static constexpr double kMaxDriveDb = 6.0;
     static constexpr double kDefaultDriveDb = -12.0;
     static constexpr double kSmoothingSeconds = 0.020;
+    // The warm-up (task 9-8).
+    static constexpr double kColdEmission = 0.5;
+    static constexpr double kWarmUpTauSeconds = 240.0;
+    static constexpr double kWarmUpSeconds = 1200.0; // settled: the warm curve alone
+    // The cold curve's share `seconds` after switch-on: 1 at 0, falling with
+    // kWarmUpTauSeconds, 0 from kWarmUpSeconds.
+    static double coldShare(double seconds) noexcept;
 
     TubeStage();
     ~TubeStage() override;
@@ -135,6 +213,22 @@ public:
     void setDriveDb(double db) noexcept;
     double driveDb() const noexcept { return driveDb_; }
 
+    // The warm-up and the units (task 9-8). Works out the curves when needed
+    // (on the setting thread; tens of milliseconds the first time for a unit)
+    // and hands them to the playback thread, which crossfades to them.
+    // Not thread-safe against itself: call from one thread.
+    void setCharacter(bool warmUp, std::optional<int> unit);
+    bool warmUp() const noexcept { return warmUp_; }
+    std::optional<int> unit() const noexcept
+    {
+        const int u = unit_;
+        return u > 0 ? std::optional<int>(u) : std::nullopt;
+    }
+    // Seconds since the amp was switched on (the app sets it as time passes;
+    // the ABX holds it for a side compared cold). Thread-safe.
+    void setWarmUpSeconds(double seconds) noexcept { warmUpSeconds_ = std::isfinite(seconds) ? seconds : 0.0; }
+    double warmUpSeconds() const noexcept { return warmUpSeconds_; }
+
     // 4, 2 or 1 at the rate it was prepared for.
     unsigned oversampling() const noexcept { return factor_; }
 
@@ -144,7 +238,8 @@ public:
     std::size_t latencyFrames() const noexcept override { return enabled_ ? latency_ : 0; }
     // For the path display: DRIVE, and the type.
     std::optional<double> displayGainDb() const noexcept override { return driveDb_.load(); }
-    std::string displayDetail() const override { return tubeTypeKey(playingType()); }
+    // The type, then ";warmup=<seconds since switch-on>" and ";unit=<number>" when on.
+    std::string displayDetail() const override;
     void trackStarted(const TrackInfo& track) noexcept override { setTrackType(track.tubeType); }
     void process(std::span<double> samples, std::uint16_t channels) noexcept override;
 
@@ -155,6 +250,10 @@ private:
     std::atomic<TubeType> type_{TubeType::Se300B};
     std::atomic<int> trackType_{-1};
     std::atomic<double> driveDb_{kDefaultDriveDb};
+    std::atomic<bool> warmUp_{false};
+    std::atomic<int> unit_{0}; // 0: none
+    std::atomic<double> warmUpSeconds_{0.0};
+    bool characterSet_ = false; // setCharacter has been called (the setting thread's own)
     unsigned factor_ = 1;
     std::size_t latency_ = 0;
 };

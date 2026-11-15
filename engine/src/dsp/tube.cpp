@@ -3,7 +3,11 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <future>
+#include <mutex>
 #include <numbers>
+#include <string>
+#include <vector>
 
 namespace ap::engine {
 
@@ -96,6 +100,7 @@ struct TubeCurve::Circuit
     double idleCurrent; // per tube (A)
     double load;        // SE: the plate load; PP: a quarter of the plate-to-plate load (each tube's share)
     double bias = 0.0;  // grid bias (negative volts), worked out from the idle point
+    Koren tube2{};      // push-pull's other half (the same tube unless the units differ, task 9-8)
 
     void findBias()
     {
@@ -119,10 +124,10 @@ struct TubeCurve::Circuit
         const double span = 0.98 * plateVolts;
         const double v = bisect(
             [&](double vo) {
-                return vo - (tube.current(g1, plateVolts - vo) - tube.current(g2, plateVolts + vo)) * load;
+                return vo - (tube.current(g1, plateVolts - vo) - tube2.current(g2, plateVolts + vo)) * load;
             },
             -span, span);
-        return {v, tube.current(g1, plateVolts - v) + tube.current(g2, plateVolts + v)};
+        return {v, tube.current(g1, plateVolts - v) + tube2.current(g2, plateVolts + v)};
     }
 };
 
@@ -130,10 +135,9 @@ struct TubeCurveBuilder
 {
     static constexpr std::size_t kPoints = 8193; // odd: 0 V is a point
 
-    static TubeCurve build(TubeType type)
+    // The type's circuit with its own tubes, the bias worked out from the idle point.
+    static TubeCurve::Circuit nominal(TubeType type)
     {
-        TubeCurve c;
-        c.type_ = type;
         TubeCurve::Circuit k{};
         switch (type)
         {
@@ -151,8 +155,14 @@ struct TubeCurveBuilder
                 break;
         }
         k.findBias();
-        c.gridToZero_ = -k.bias;
-        c.range_ = 4.0 * c.gridToZero_;
+        k.tube2 = k.tube;
+        return k;
+    }
+
+    // The tables over +-range, from the circuit.
+    static void tables(TubeCurve& c, const TubeCurve::Circuit& k, double range)
+    {
+        c.range_ = range;
         c.step_ = 2.0 * c.range_ / static_cast<double>(kPoints - 1);
 
         const double d = 1e-3 * c.gridToZero_;
@@ -176,6 +186,15 @@ struct TubeCurveBuilder
         c.integral_[0] = 0.0;
         for (std::size_t i = 1; i < kPoints; ++i)
             c.integral_[i] = c.integral_[i - 1] + 0.5 * c.step_ * (c.out_[i - 1] + c.out_[i]);
+    }
+
+    static TubeCurve build(TubeType type)
+    {
+        TubeCurve c;
+        c.type_ = type;
+        const auto k = nominal(type);
+        c.gridToZero_ = -k.bias;
+        tables(c, k, 4.0 * c.gridToZero_);
 
         switch (type)
         {
@@ -205,6 +224,39 @@ struct TubeCurveBuilder
         c.circuit_ = std::make_shared<const TubeCurve::Circuit>(k);
         return c;
     }
+
+    // Task 9-8: the same circuit with other tubes, over the type's own range.
+    static TubeCurve variant(TubeType type, TubeUnit a, TubeUnit b, double emission)
+    {
+        const auto& n = TubeCurve::forType(type);
+        auto k = nominal(type);
+        const auto apply = [emission](Koren& t, TubeUnit u) {
+            t.mu *= u.mu;
+            t.kg1 /= u.emission * emission; // the current goes as 1 / kg1
+        };
+        apply(k.tube, a);
+        apply(k.tube2, k.pushPull ? b : a);
+        if (!k.pushPull)
+        {
+            // Cathode bias: the grid settles where Vk = Ik Rk with this tube.
+            const double rk = n.cathodeOhms;
+            k.bias = bisect([&](double vg) { return vg + rk * k.tube.current(vg, k.plateVolts); }, -400.0, 0.0);
+            k.idleCurrent = -k.bias / rk;
+        }
+        // Fixed bias (and the class A pair, see build): the grids stay where the type has them.
+
+        TubeCurve c;
+        c.type_ = type;
+        c.gridToZero_ = -k.bias;
+        tables(c, k, n.range());
+        c.cathodeOhms = n.cathodeOhms;
+        c.biasSeconds = n.biasSeconds;
+        c.supplyOhms = n.supplyOhms;
+        c.supplyVolts = n.supplyVolts;
+        c.sagSeconds = n.sagSeconds;
+        c.circuit_ = std::make_shared<const TubeCurve::Circuit>(k);
+        return c;
+    }
 };
 
 const TubeCurve& TubeCurve::forType(TubeType type)
@@ -213,6 +265,94 @@ const TubeCurve& TubeCurve::forType(TubeType type)
                                                  TubeCurveBuilder::build(TubeType::PpEl34),
                                                  TubeCurveBuilder::build(TubeType::PpClassA)};
     return curves[static_cast<std::size_t>(type)];
+}
+
+std::shared_ptr<const TubeCurve> TubeCurve::variant(TubeType type, TubeUnit a, TubeUnit b, double emission)
+{
+    return std::make_shared<const TubeCurve>(TubeCurveBuilder::variant(type, a, b, emission));
+}
+
+// --- the units and the curve sets (task 9-8) --------------------------------------------
+
+namespace {
+
+std::uint64_t splitMix(std::uint64_t x) noexcept
+{
+    x += 0x9E3779B97F4A7C15ull;
+    x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ull;
+    x = (x ^ (x >> 27)) * 0x94D049BB133111EBull;
+    return x ^ (x >> 31);
+}
+
+// -1 .. 1, fixed for the key.
+double spread(std::uint64_t key) noexcept
+{
+    return static_cast<double>(splitMix(key) >> 11) * 0x1.0p-53 * 2.0 - 1.0;
+}
+
+} // namespace
+
+TubeUnit tubeUnitFor(int number, TubeType type, int channel, int tube) noexcept
+{
+    const auto n = static_cast<std::uint64_t>(std::clamp(number, kMinTubeUnit, kMaxTubeUnit));
+    const std::uint64_t key =
+        ((n * 4 + static_cast<std::uint64_t>(type)) * 2 + static_cast<std::uint64_t>(channel & 1)) * 2
+        + static_cast<std::uint64_t>(tube & 1);
+    return {1.0 + kTubeEmissionTolerance * spread(key * 2), 1.0 + kTubeMuTolerance * spread(key * 2 + 1)};
+}
+
+std::shared_ptr<const TubeCurveSet> TubeCurveSet::get(std::optional<int> unit)
+{
+    if (unit)
+        unit = std::clamp(*unit, kMinTubeUnit, kMaxTubeUnit);
+    static std::mutex mutex;
+    static std::vector<std::shared_ptr<const TubeCurveSet>> kept; // the most recent last
+    constexpr std::size_t kKeep = 4;
+    std::lock_guard lock(mutex);
+    for (auto it = kept.begin(); it != kept.end(); ++it)
+        if ((*it)->unit == unit)
+        {
+            auto found = *it;
+            kept.erase(it);
+            kept.push_back(found);
+            return found;
+        }
+
+    auto set = std::make_shared<TubeCurveSet>();
+    set->unit = unit;
+    std::vector<std::pair<std::shared_ptr<const TubeCurve>*, std::future<std::shared_ptr<const TubeCurve>>>> jobs;
+    for (const auto type : {TubeType::Se300B, TubeType::PpEl34, TubeType::PpClassA})
+    {
+        const auto t = static_cast<std::size_t>(type);
+        for (int ch = 0; ch < (unit ? 2 : 1); ++ch)
+        {
+            const TubeUnit a = unit ? tubeUnitFor(*unit, type, ch, 0) : TubeUnit{};
+            const TubeUnit b = unit ? tubeUnitFor(*unit, type, ch, 1) : TubeUnit{};
+            for (const bool cold : {false, true})
+            {
+                auto& slot = (cold ? set->cold : set->warm)[t * 2 + static_cast<std::size_t>(ch)];
+                if (!unit && !cold)
+                    // The type's own curve (kept for the life of the program).
+                    slot = std::shared_ptr<const TubeCurve>(std::shared_ptr<const TubeCurve>{}, &TubeCurve::forType(type));
+                else
+                    jobs.emplace_back(&slot, std::async(std::launch::async, [type, a, b, cold] {
+                                          return TubeCurve::variant(type, a, b, cold ? TubeStage::kColdEmission : 1.0);
+                                      }));
+            }
+        }
+    }
+    for (auto& [slot, job] : jobs)
+        *slot = job.get();
+    if (!unit)
+        for (std::size_t t = 0; t < 3; ++t)
+        {
+            set->warm[t * 2 + 1] = set->warm[t * 2];
+            set->cold[t * 2 + 1] = set->cold[t * 2];
+        }
+    kept.push_back(set);
+    if (kept.size() > kKeep)
+        kept.erase(kept.begin());
+    return set;
 }
 
 TubeCurve::Point TubeCurve::solve(double vin) const
@@ -305,7 +445,14 @@ struct TubeStage::Impl
         std::vector<double> downHistory; // the last oversampled outputs
         std::size_t downPos = 0;
         std::array<TypeState, 3> types{};
+        TypeState fading{}; // what is faded from (a copy of its state when the fade began)
         double dcIn = 0.0, dcOut = 0.0;
+    };
+    // The curves for one type and channel: warm, and cold for the warm-up (task 9-8).
+    struct Curves
+    {
+        const TubeCurve* warm;
+        const TubeCurve* cold; // none: no warm-up
     };
 
     unsigned factor = 1;
@@ -325,30 +472,118 @@ struct TubeStage::Impl
     bool fresh = true; // nothing processed since prepare()
     std::vector<double> scratch; // the oversampled frame
 
-    double shape(TubeType type, TypeState& s, double u, double drv) const noexcept
+    // Task 9-8: the curve set playing (none: the types' own curves) and the one
+    // faded from; the cold curve's share, smoothed.
+    std::shared_ptr<const TubeCurveSet> set, fromSet;
+    double cold = 0.0;
+    // Handed over from the setting thread (try_lock on the playback thread).
+    std::mutex handover;
+    std::shared_ptr<const TubeCurveSet> pending;
+    bool hasPending = false;
+    std::array<std::shared_ptr<const TubeCurveSet>, 4> retired; // freed on the setting thread
+
+    static Curves curves(const TubeCurveSet* s, TubeType type, std::size_t ch) noexcept
     {
-        const auto& c = TubeCurve::forType(type);
-        const double swing = c.gridToZero() * drv;
-        const double limit = 0.999 * c.range();
-        const double v = std::clamp(u * swing - s.bias, -limit, limit);
-        double y;
+        if (!s)
+            return {&TubeCurve::forType(type), nullptr};
+        return {&s->warmCurve(type, ch), &s->coldCurve(type, ch)};
+    }
+
+    double eval(const TubeCurve& c, double v, double prev) const noexcept
+    {
         if (adaa)
         {
-            const double d = v - s.prev;
-            y = std::abs(d) > 1e-9 * c.range() ? (c.antiderivative(v) - c.antiderivative(s.prev)) / d
-                                                : c.out(0.5 * (v + s.prev));
+            const double d = v - prev;
+            return std::abs(d) > 1e-9 * c.range() ? (c.antiderivative(v) - c.antiderivative(prev)) / d
+                                                   : c.out(0.5 * (v + prev));
         }
-        else
-            y = c.out(v);
+        return c.out(v);
+    }
+
+    double shape(TubeType type, Curves k, TypeState& s, double u, double drv, double coldShare) const noexcept
+    {
+        // The drive and the time element follow the type's own figures; the
+        // curves may be other tubes' (task 9-8), each normalised to its own
+        // small-signal gain.
+        const auto& n = TubeCurve::forType(type);
+        const auto& c = *k.warm;
+        const double swing = n.gridToZero() * drv;
+        const double limit = 0.999 * n.range();
+        const double v = std::clamp(u * swing - s.bias, -limit, limit);
+        const double y = eval(c, v, s.prev);
+        double nl = c.nonlinearCurrent(v);
+        const bool blend = k.cold && coldShare > 0.0;
+        double yc = 0.0;
+        if (blend)
+        {
+            yc = eval(*k.cold, v, s.prev);
+            nl = (1.0 - coldShare) * nl + coldShare * k.cold->nonlinearCurrent(v);
+        }
         s.prev = v;
-        const auto k = static_cast<std::size_t>(type);
-        const double nl = c.nonlinearCurrent(v);
-        s.bias += (c.cathodeOhms * nl - s.bias) * biasCoef[k];
-        s.sag += (nl - s.sag) * sagCoef[k];
-        const double sagGain = 1.0 - c.supplyOhms * s.sag / c.supplyVolts;
-        return y / (c.smallSignalGain() * swing) * sagGain;
+        const auto t = static_cast<std::size_t>(type);
+        s.bias += (n.cathodeOhms * nl - s.bias) * biasCoef[t];
+        s.sag += (nl - s.sag) * sagCoef[t];
+        const double sagGain = 1.0 - n.supplyOhms * s.sag / n.supplyVolts;
+        if (!blend)
+            return y / (c.smallSignalGain() * swing) * sagGain;
+        return ((1.0 - coldShare) * y / c.smallSignalGain() + coldShare * yc / k.cold->smallSignalGain()) / swing
+               * sagGain;
+    }
+
+    // Lets go of the set faded from, on the setting thread's next call.
+    void retireFromSet() noexcept
+    {
+        if (!fromSet || !handover.try_lock())
+            return;
+        for (auto& r : retired)
+            if (!r)
+            {
+                r = std::move(fromSet);
+                break;
+            }
+        handover.unlock();
     }
 };
+
+double TubeStage::coldShare(double seconds) noexcept
+{
+    if (!(seconds > 0.0))
+        return 1.0;
+    if (seconds >= kWarmUpSeconds)
+        return 0.0;
+    const double end = std::exp(-kWarmUpSeconds / kWarmUpTauSeconds);
+    return std::clamp((std::exp(-seconds / kWarmUpTauSeconds) - end) / (1.0 - end), 0.0, 1.0);
+}
+
+void TubeStage::setCharacter(bool warmUp, std::optional<int> unit)
+{
+    if (unit)
+        unit = std::clamp(*unit, kMinTubeUnit, kMaxTubeUnit);
+    if (characterSet_ && warmUp == warmUp_ && unit.value_or(0) == unit_)
+        return; // as it is
+    characterSet_ = true;
+    warmUp_ = warmUp;
+    unit_ = unit.value_or(0);
+    auto next = (warmUp || unit) ? TubeCurveSet::get(unit) : nullptr;
+    std::array<std::shared_ptr<const TubeCurveSet>, 4> old;
+    {
+        std::lock_guard lock(impl_->handover);
+        impl_->pending = std::move(next);
+        impl_->hasPending = true;
+        old.swap(impl_->retired);
+    }
+    // `old` goes here, off the playback thread.
+}
+
+std::string TubeStage::displayDetail() const
+{
+    std::string s = tubeTypeKey(playingType());
+    if (warmUp_)
+        s += ";warmup=" + std::to_string(static_cast<long long>(std::floor(std::max(0.0, warmUpSeconds_.load()))));
+    if (const auto u = unit())
+        s += ";unit=" + std::to_string(*u);
+    return s;
+}
 
 TubeStage::TubeStage() : impl_(std::make_unique<Impl>()) {}
 
@@ -399,6 +634,16 @@ void TubeStage::prepare(std::uint32_t sampleRate, std::uint16_t channels)
     m.dcCoef = std::exp(-2.0 * std::numbers::pi * kDcBlockHz / sampleRate);
     m.drive = std::pow(10.0, driveDb_ / 20.0);
     m.current = m.from = playingType();
+    {
+        std::lock_guard lock(m.handover);
+        if (m.hasPending)
+        {
+            m.set = std::move(m.pending);
+            m.hasPending = false;
+        }
+        m.fromSet.reset();
+    }
+    m.cold = warmUp_ && m.set ? coldShare(warmUpSeconds_) : 0.0;
     m.fresh = true;
     m.fadeLeft = 0;
     m.fadeLength = std::max<std::size_t>(1, static_cast<std::size_t>(kSmoothingSeconds * osRate));
@@ -413,12 +658,39 @@ void TubeStage::process(std::span<double> samples, std::uint16_t channels) noexc
     const unsigned L = m.factor;
     const double target = std::pow(10.0, driveDb_ / 20.0);
     const TubeType wanted = playingType();
+    if (m.fadeLeft == 0)
+        m.retireFromSet();
+    // New curves from the setting thread (task 9-8), once no fade is running.
+    std::shared_ptr<const TubeCurveSet> arrived;
+    bool arrivedAny = false;
+    if (m.fadeLeft == 0 && !m.fromSet && m.handover.try_lock())
+    {
+        if (m.hasPending)
+        {
+            arrived = std::move(m.pending);
+            m.hasPending = false;
+            arrivedAny = true;
+        }
+        m.handover.unlock();
+    }
     if (m.fresh)
     {
         // Nothing played since prepare(): start in the type that plays (the
         // session's first track may have its own), without a fade.
         m.fresh = false;
         m.current = m.from = wanted;
+        if (arrivedAny)
+            m.set = std::move(arrived);
+    }
+    else if (arrivedAny && arrived != m.set)
+    {
+        // Crossfade from the old curves to the new ones, in the same type.
+        m.fromSet = std::move(m.set);
+        m.set = std::move(arrived);
+        m.from = m.current;
+        m.fadeLeft = m.fadeLength;
+        for (auto& c : m.channels)
+            c.fading = c.types[static_cast<std::size_t>(m.current)];
     }
     if (wanted != m.current && m.fadeLeft == 0)
     {
@@ -428,23 +700,29 @@ void TubeStage::process(std::span<double> samples, std::uint16_t channels) noexc
         m.fadeLeft = m.fadeLength;
         for (auto& c : m.channels)
         {
+            c.fading = c.types[static_cast<std::size_t>(m.from)];
             auto& n = c.types[static_cast<std::size_t>(wanted)];
             n = Impl::TypeState{};
-            n.prev = c.types[static_cast<std::size_t>(m.from)].prev;
+            n.prev = c.fading.prev;
         }
     }
+    const double coldTarget = warmUp_ && m.set ? coldShare(warmUpSeconds_) : 0.0;
 
     for (std::size_t f = 0; f < frames; ++f)
     {
-        // Shared by the channels: the drive and the fade, one value per oversampled sample.
+        // Shared by the channels: the drive, the cold share and the fade, one value per oversampled sample.
         const double driveStart = m.drive;
+        const double coldStart = m.cold;
         const std::size_t fadeStart = m.fadeLeft;
         for (std::uint16_t ch = 0; ch < channels; ++ch)
         {
             auto& c = m.channels[ch];
             double& x = samples[f * channels + ch];
             double drv = driveStart;
+            double cold = coldStart;
             std::size_t fade = fadeStart;
+            const auto now = Impl::curves(m.set.get(), m.current, ch);
+            const auto before = Impl::curves(m.fadeLeft > 0 && m.fromSet ? m.fromSet.get() : m.set.get(), m.from, ch);
 
             // Up: polyphase, the newest input at the end of the window.
             if (L > 1)
@@ -472,12 +750,18 @@ void TubeStage::process(std::span<double> samples, std::uint16_t channels) noexc
             for (unsigned p = 0; p < L; ++p)
             {
                 drv += (target - drv) * m.smoothing;
-                double y = m.shape(m.current, c.types[static_cast<std::size_t>(m.current)], m.scratch[p], drv);
+                if (cold != coldTarget)
+                {
+                    cold += (coldTarget - cold) * m.smoothing;
+                    if (std::abs(coldTarget - cold) < 1e-9)
+                        cold = coldTarget;
+                }
+                double y = m.shape(m.current, now, c.types[static_cast<std::size_t>(m.current)], m.scratch[p], drv, cold);
                 if (fade > 0)
                 {
                     const double w = static_cast<double>(fade) / static_cast<double>(m.fadeLength); // 1 -> 0
                     const double g = 0.5 - 0.5 * std::cos(std::numbers::pi * w);
-                    const double old = m.shape(m.from, c.types[static_cast<std::size_t>(m.from)], m.scratch[p], drv);
+                    const double old = m.shape(m.from, before, c.fading, m.scratch[p], drv, cold);
                     y = g * old + (1.0 - g) * y;
                     --fade;
                 }
@@ -517,6 +801,7 @@ void TubeStage::process(std::span<double> samples, std::uint16_t channels) noexc
             if (ch + 1 == channels)
             {
                 m.drive = drv;
+                m.cold = cold;
                 m.fadeLeft = fade;
             }
         }

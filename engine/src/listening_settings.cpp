@@ -196,6 +196,9 @@ std::string settingsToText(const AppSettings& s)
     out << "tube.enabled=" << (l.tubeEnabled ? 1 : 0) << '\n';
     out << "tube.type=" << tubeTypeKey(l.tubeType) << '\n';
     out << "tube.drive=" << number(l.tubeDriveDb) << '\n';
+    out << "tube.warmup=" << (l.tubeWarmUp ? 1 : 0) << '\n';
+    out << "tube.units=" << (l.tubeUnits ? 1 : 0) << '\n';
+    out << "tube.unit=" << l.tubeUnit << '\n';
     out << "crossfeed.enabled=" << (l.crossfeedEnabled ? 1 : 0) << '\n';
     out << "crossfeed.level=" << crossfeedLevelKey(l.crossfeedLevel) << '\n';
     out << "space.room=" << spaceRoomKey(l.spaceRoom) << '\n';
@@ -294,6 +297,13 @@ AppSettings settingsFromText(std::string_view text)
             l.tubeEnabled = value == "1";
         else if (key == "tube.type")
             l.tubeType = tubeTypeFrom(value).value_or(TubeType::Se300B);
+        else if (key == "tube.warmup")
+            l.tubeWarmUp = value == "1";
+        else if (key == "tube.units")
+            l.tubeUnits = value == "1";
+        else if (key == "tube.unit")
+            l.tubeUnit = static_cast<int>(std::clamp(parseNumber(value).value_or(kMinTubeUnit),
+                                                     static_cast<double>(kMinTubeUnit), static_cast<double>(kMaxTubeUnit)));
         else if (key == "tube.drive")
             l.tubeDriveDb = std::clamp(parseNumber(value).value_or(TubeStage::kDefaultDriveDb), TubeStage::kMinDriveDb,
                                        TubeStage::kMaxDriveDb);
@@ -399,6 +409,11 @@ void ListeningChain::apply(const ListeningSettings& s)
     tube->setType(s.tubeType);
     tube->setDriveDb(s.tubeDriveDb);
     tube->setEnabled(processed && s.tubeEnabled);
+    // The warm-up and the units (task 9-8): their curves are worked out only
+    // when the tube plays with them.
+    const bool tubePlays = processed && s.tubeEnabled;
+    tube->setCharacter(tubePlays && s.tubeWarmUp,
+                       tubePlays && s.tubeUnits ? std::optional<int>(s.tubeUnit) : std::nullopt);
     crossfeed->setLevel(s.crossfeedLevel);
     crossfeed->setEnabled(processed && s.crossfeedEnabled);
     loadSpaceIrs(s.spaceIr);

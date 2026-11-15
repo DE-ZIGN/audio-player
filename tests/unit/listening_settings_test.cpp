@@ -476,6 +476,45 @@ TEST_CASE("Tube and tone are saved with the settings and read back", "[settings]
     }
 }
 
+TEST_CASE("Tube warm-up and units: off by default, saved and read back, kept within the numbers", "[settings][tube][text][tube-character]")
+{
+    const AppSettings d;
+    CHECK_FALSE(d.listening.tubeWarmUp);
+    CHECK_FALSE(d.listening.tubeUnits);
+    CHECK(d.listening.tubeUnit == kMinTubeUnit);
+    AppSettings a;
+    a.listening.tubeWarmUp = true;
+    a.listening.tubeUnits = true;
+    a.listening.tubeUnit = 42;
+    CHECK(settingsFromText(settingsToText(a)) == a);
+    CHECK(settingsFromText("tube.unit=500\n").listening.tubeUnit == kMaxTubeUnit);
+    CHECK(settingsFromText("tube.unit=-3\n").listening.tubeUnit == kMinTubeUnit);
+    CHECK(settingsFromText("tube.unit=x\n").listening.tubeUnit == kMinTubeUnit);
+}
+
+TEST_CASE("Tube warm-up and units reach the stage only with the tube in 音作りモード", "[settings][tube][tube-character]")
+{
+    ListeningChain chain;
+    ListeningSettings s;
+    s.tubeEnabled = true;
+    s.tubeWarmUp = true;
+    s.tubeUnits = true;
+    s.tubeUnit = 5;
+    chain.apply(s); // 原音モード
+    CHECK_FALSE(chain.tube->warmUp());
+    CHECK_FALSE(chain.tube->unit());
+    s.mode = ListeningMode::Processed;
+    chain.apply(s);
+    CHECK(chain.tube->warmUp());
+    CHECK(chain.tube->unit() == 5);
+    s.tubeUnits = false;
+    chain.apply(s);
+    CHECK_FALSE(chain.tube->unit());
+    s.tubeEnabled = false;
+    chain.apply(s);
+    CHECK_FALSE(chain.tube->warmUp());
+}
+
 TEST_CASE("Reading tube and tone settings: unknown or out of range keeps them within limits", "[settings][tube][text]")
 {
     const auto s = settingsFromText("tube.enabled=1\n"
