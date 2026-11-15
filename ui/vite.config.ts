@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, type Plugin } from "vite";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -50,5 +51,9 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+  },
+  // Tests read style.css as text (src/fonts.test.ts); vitest leaves CSS out otherwise.
+  test: {
+    css: true,
   },
 });

@@ -5,8 +5,11 @@
 :root {
   --tile-min: 168px;
   --tile-text: 48px;
-  --font-display: inherit; /* headings and titles; the standard view uses a serif */
-  --font-list: inherit; /* track lists and the queue */
+  /* Headings, titles, track lists and the queue: the one typeface in every
+     view (task 6-10, 2026-11-15: no serif, no Mincho; only the amp's
+     engraved panel words keep a serif). */
+  --font-display: inherit;
+  --font-list: inherit;
   --row-h: 30px;
   --radius: 6px;
   --topbar-h: 76px;
@@ -2070,8 +2073,6 @@ dd {
   --tile-text: 40px;
   --tile-gap: 36px;
   --tile-row-gap: 14px;
-  --font-display: Cambria, Georgia, "Yu Mincho", "YuMincho", serif;
-  --font-list: Cambria, "Yu Mincho", "YuMincho", serif;
   --bg: #120d09;
   --surface: #1a130d;
   --surface-2: #241a12;
@@ -2770,7 +2771,7 @@ html[data-look="real"] {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-family: Cambria, Georgia, "Yu Mincho", serif;
+  font-family: Cambria, Georgia, serif;
   font-weight: 700;
   line-height: 1.08;
   letter-spacing: 0.04em;
@@ -3336,4 +3337,32 @@ html[data-look="real"] {
 }
 #space-irs .space-ir p {
   margin: 2px 0 0 4.5em;
+}
+
+/* --- the settings screen's type (task 6-10, 2026-11-15) -------------------------
+   White text, 16 px, the explanations 14 px, in every view. The standard and
+   amp views are zoomed to the window (uiView.ts, --ui-zoom); the settings
+   screen's text keeps its real size there (--spx is one real pixel). The
+   EQ curve (an SVG) keeps its own sizes. Buttons on the accent keep their
+   dark text, and warnings their colour (with the triangle, CLAUDE.md 8). */
+#settings {
+  --spx: 1px;
+  font-size: calc(16 * var(--spx));
+  color: #fff;
+}
+[data-look="real"] #settings {
+  --spx: calc(1px / var(--ui-zoom, 1));
+}
+#settings *:not(svg, svg *) {
+  font-size: inherit;
+  color: inherit;
+}
+#settings :is(.note, small, .notice, .for-mode) {
+  font-size: calc(14 * var(--spx));
+}
+#settings :is(button.primary, button.active) {
+  color: var(--accent-text);
+}
+#settings .notice {
+  color: var(--warn);
 }
