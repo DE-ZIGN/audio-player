@@ -38,7 +38,7 @@
   - 中: MAIR（St. Paul's、RT60 2.1秒、CC BY 4.0表記）やOpenAIRのCC BY作品
   - 大: 自由な実測はほぼなし。アルゴリズムで合成。スタジアムはエコーで濁りやすいので屋内アリーナ寄り＋反射量を調整可能に
 - 同梱はCC BY系のみ（SA・NCは外す）
-- 不可/要交渉: Pori（非商用）、Samplicity Bricasti M7（商用同梱禁止）、EchoThief（同梱は要相談）
+- 不可/要交渉: Pori（非商用）、Samplicity Bricasti M7（商用同梱禁止）、EchoThief（同梱は不可。2026-11-15 に確認、詳細は `ir-candidates.md`）
 - Voxengo IM Reverbs Pack（38種、合成IR、44.1kHz/16bit）: 再配布は無償・無改変・著作権表示付きのみ → 無料配布なので無改変同梱可。ダウンロード先の案内が無難
 - 進め方: CC BY候補を一覧化 → 試聴して選ぶ → 不足は生成 → クレジット画面に帰属表示、ユーザーIR読み込みも可能に（候補は `ir-candidates.md`）
 

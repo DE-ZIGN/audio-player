@@ -17,6 +17,7 @@
 - 大・要確認: Sports Centre（York）、Terry's Factory Warehouse、T2格納庫（Yorkshire Air Museum）
 - 音色づけ・参考のみ: Conner's IR Library（MIT、738個・約1GB、著作権表示と許諾文の同梱が必要。中身はスピーカー・スプリング・テープ機・車内などで会場なし）
 - OpenAIRのライセンスは各作品ページ最下部の Attribution 欄で確認
+- 不可: EchoThief（148 個、2ch・44.1 kHz。会場は Venues の 7 個、ほかは中庭・階段・地下道・洞窟など）。2026-11-15 に、ZIP 同梱の `EchoThief License.pdf` で確認した。許諾は San Diego State University Research Foundation（SDSURF）で、許される使い方は「個人の作曲や創作物を作ること」だけ。ソフトウェアやアプリへの組み込み（配布・販売・その他の商業利用を目的とするもの）は、SDSURF の別の商用ライセンスが要る（窓口 innovation@sdsu.edu）。無料配布でも「配布」に当たるので、同梱できない。試聴の比較にも使わない（許された使い方の外）。利用者が自分で手に入れてアプリに読ませるのは、利用者とライセンスの間のこと。古い版のライセンス（他所に写しがある）は「派生作品（畳み込みでの残響など）は可、それ以外は作者に相談」だったが、今の ZIP に入っているのは上の SDSURF の版
 
 ## 取得済みファイル（作業フォルダーの「資料」、リポジトリ外）
 - Numen Free IR Pack: 20空間×3レート=60WAV、すべてモノラル24bit。ライセンス文書なし
