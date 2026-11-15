@@ -6,15 +6,24 @@ The app's SPACE buttons (CLUB, HALL, ARENA) each take a mono or stereo IR file
   pair     two mono files (MAIR: one file per microphone, FL and FR) -> one stereo file
   bformat  first-order B-format (Central Hall, York: W X Y Z) -> a stereo pair of
            virtual cardioid microphones, +-45 degrees by default (a coincident pair, like XY)
+  trim     a mono or stereo file as it is, only cut at the first arrival (see --trim-db)
   info     prints a file's format, length and peak
+
+--trim-db (pair, bformat, trim): cuts what comes before the first sample
+above this level relative to the peak (e.g. -40), keeping 1 ms before it
+(faded in). Measured IRs often start with the source's travel time and
+noise (Central Hall: about -48 dB), and some synthesized ones with a slow
+rise; the app removes only what is below -80 dB, so without this the wet
+signal would start later for some IRs than for others.
 
 The output is 32-bit float WAV at the input's rate, with the input's level
 (nothing is normalised here: the app normalises each IR to unit energy).
 Only numpy is needed. Reads PCM 16/24/32-bit and float 32/64-bit WAV (also
 WAVE_FORMAT_EXTENSIBLE).
 
-  python tools/ir_prepare.py pair FL.wav FR.wav out.wav
-  python tools/ir_prepare.py bformat in.wav out.wav [--order fuma|ambix] [--angle 90]
+  python tools/ir_prepare.py pair FL.wav FR.wav out.wav [--trim-db -40]
+  python tools/ir_prepare.py bformat in.wav out.wav [--order fuma|ambix] [--angle 90] [--trim-db -40]
+  python tools/ir_prepare.py trim in.wav out.wav [--trim-db -40]
   python tools/ir_prepare.py info in.wav
 """
 
@@ -75,7 +84,32 @@ def write_wav(path, x, rate):
         f.write(b"RIFF" + struct.pack("<I", len(body)) + body)
 
 
-def pair(left, right, out):
+def trim_start(x, rate, trim_db):
+    """Cuts before the first sample above trim_db (relative to the peak), keeping 1 ms, faded in."""
+    if trim_db is None:
+        return x
+    m = np.max(np.abs(x), axis=1)
+    peak = m.max()
+    if peak <= 0:
+        return x
+    first = int(np.argmax(m > peak * 10 ** (trim_db / 20.0)))
+    keep = int(round(0.001 * rate))
+    start = max(0, first - keep)
+    y = x[start:].copy()
+    n = first - start
+    if n > 0:
+        y[:n] *= (0.5 - 0.5 * np.cos(np.pi * np.arange(n) / n))[:, None]
+    return y
+
+
+def trim(src, out, trim_db=-40.0):
+    x, rate = read_wav(src)
+    st = trim_start(x[:, :2], rate, trim_db)
+    write_wav(out, st, rate)
+    return st, rate
+
+
+def pair(left, right, out, trim_db=None):
     l, rl = read_wav(left)
     r, rr = read_wav(right)
     if rl != rr:
@@ -84,11 +118,12 @@ def pair(left, right, out):
     st = np.zeros((n, 2))
     st[: len(l), 0] = l[:, 0]
     st[: len(r), 1] = r[:, 0]
+    st = trim_start(st, rl, trim_db)
     write_wav(out, st, rl)
     return st, rl
 
 
-def bformat(src, out, order="fuma", angle=90.0):
+def bformat(src, out, order="fuma", angle=90.0, trim_db=None):
     x, rate = read_wav(src)
     if x.shape[1] < 4:
         raise ValueError(f"{src}: B-format needs 4 channels, it has {x.shape[1]}")
@@ -100,7 +135,7 @@ def bformat(src, out, order="fuma", angle=90.0):
     # A cardioid pointing at azimuth a (counter-clockwise from the front): 0.5 (W + X cos a + Y sin a).
     left = 0.5 * (w + X * np.cos(half) + Y * np.sin(half))
     right = 0.5 * (w + X * np.cos(-half) + Y * np.sin(-half))
-    st = np.stack([left, right], axis=1)
+    st = trim_start(np.stack([left, right], axis=1), rate, trim_db)
     write_wav(out, st, rate)
     return st, rate
 
@@ -124,14 +159,23 @@ def main(argv):
     b.add_argument("out")
     b.add_argument("--order", choices=["fuma", "ambix"], default="fuma")
     b.add_argument("--angle", type=float, default=90.0, help="degrees between the two cardioids")
+    t = sub.add_parser("trim")
+    t.add_argument("src")
+    t.add_argument("out")
+    for q in (a, b):
+        q.add_argument("--trim-db", type=float, default=None, help="cut before the first arrival (dB from the peak)")
+    t.add_argument("--trim-db", type=float, default=-40.0, help="cut before the first arrival (dB from the peak)")
     i = sub.add_parser("info")
     i.add_argument("path")
     args = p.parse_args(argv)
     if args.cmd == "pair":
-        pair(args.left, args.right, args.out)
+        pair(args.left, args.right, args.out, args.trim_db)
         info(args.out)
     elif args.cmd == "bformat":
-        bformat(args.src, args.out, args.order, args.angle)
+        bformat(args.src, args.out, args.order, args.angle, args.trim_db)
+        info(args.out)
+    elif args.cmd == "trim":
+        trim(args.src, args.out, args.trim_db)
         info(args.out)
     else:
         info(args.path)
