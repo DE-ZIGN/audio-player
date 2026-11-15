@@ -11,8 +11,8 @@
 //    the new ones over 10 ms (no click from a sudden change of coefficients).
 //  - All bands at 0 dB (and no low- or high-pass): identity, so playback takes
 //    the direct path.
-//  - Linear phase is not here: it needs long FIR convolution, which comes with
-//    the IR convolution in phase 2.
+//  - Linear phase is not here yet: it needs long FIR convolution, which is
+//    PartitionedConvolver (convolver.h, made with the space stage, task 9-6).
 
 #include <ap/engine/dsp/processing.h>
 
