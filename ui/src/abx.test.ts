@@ -132,8 +132,8 @@ describe("設定 A と設定 B with the tone and the tube (task 9-4)", () => {
 
   it("by default compares the current settings with another tube type (or the tube on and off)", () => {
     const { a, b } = defaultSides(listening);
-    expect(a).toEqual({ eq: "current", tone: "current", tube: "se300b", drive: -10 });
-    expect(b).toEqual({ eq: "current", tone: "current", tube: "ppel34", drive: -10 });
+    expect(a).toEqual({ eq: "current", tone: "current", tube: "se300b", drive: -10, warmUp: "off", unit: 0 });
+    expect(b).toEqual({ eq: "current", tone: "current", tube: "ppel34", drive: -10, warmUp: "off", unit: 0 });
     const off = defaultSides({ ...listening, tubeEnabled: false });
     expect(off.a.tube).toBe("none");
     expect(off.b.tube).toBe("se300b");
@@ -156,5 +156,44 @@ describe("設定 A と設定 B with the tone and the tube (task 9-4)", () => {
     const preset = sideRequest({ eq: "p:HD 600", tone: "flat", tube: "none", drive: -12 }, listening, presets);
     expect(preset).toMatchObject({ bands: [], autoPreamp: false, manualPreampDb: -2 });
     expect(preset.name).toBe("HD 600・真空管なし");
+  });
+});
+
+describe("設定 A と設定 B with the tube's show (task 9-8)", () => {
+  const listening = {
+    ...defaultListening,
+    mode: "processed" as const,
+    tubeEnabled: true,
+    tubeType: "ppel34" as const,
+    tubeDriveDb: -12,
+    tubeWarmUp: true,
+    tubeUnits: true,
+    tubeUnit: 7,
+  };
+
+  it("starts both sides from the current show", () => {
+    const { a, b } = defaultSides(listening);
+    expect(a).toMatchObject({ warmUp: "now", unit: 7 });
+    expect(b).toMatchObject({ warmUp: "now", unit: 7 });
+  });
+
+  it("asks the app for the warm-up held cold, and the unit, with names", () => {
+    const side = { eq: "current", tone: "current" as const, tube: "ppel34" as const, drive: -12 };
+    const cold = sideRequest({ ...side, warmUp: "cold", unit: 3 }, listening, []);
+    expect(cold).toMatchObject({ tubeWarmUp: true, tubeWarmUpCold: true, tubeUnits: true, tubeUnit: 3 });
+    expect(cold.name).toBe("今の EQ・PP EL34（DRIVE -12.0 dB・ウォームアップ：起動直後・球 No.3）");
+    const now = sideRequest({ ...side, warmUp: "now", unit: 0 }, listening, []);
+    expect(now).toMatchObject({ tubeWarmUp: true, tubeWarmUpCold: false, tubeUnits: false });
+    expect(now.name).toBe("今の EQ・PP EL34（DRIVE -12.0 dB・ウォームアップ：今の状態）");
+    const off = sideRequest({ ...side, warmUp: "off", unit: 0 }, listening, []);
+    expect(off).toMatchObject({ tubeWarmUp: false, tubeWarmUpCold: false, tubeUnits: false });
+    expect(off.name).toBe("今の EQ・PP EL34（DRIVE -12.0 dB）");
+  });
+
+  it("the show alone makes two settings different; without the tube it does not count", () => {
+    const side = { eq: "current", tone: "current" as const, tube: "ppel34" as const, drive: -12, warmUp: "off" as const, unit: 0 };
+    expect(sidePairProblem(side, { ...side, warmUp: "cold" })).toBe("");
+    expect(sidePairProblem(side, { ...side, unit: 4 })).toBe("");
+    expect(sidePairProblem({ ...side, tube: "none" }, { ...side, tube: "none", unit: 4 })).toContain("違う");
   });
 });

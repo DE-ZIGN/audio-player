@@ -657,6 +657,7 @@ juce::var PlayerBridge::statusAsVar() const
     // mode, and the current track's measured true peak (the ISP warning).
     const bool processed = listening_.mode == ListeningMode::Processed;
     o->setProperty("mode", processed ? "processed" : "original");
+    o->setProperty("tubeWarmUpSeconds", warmUpSeconds()); // task 9-8
     const auto isp = processed ? listening_.ispSafeProcessed : listening_.ispSafeOriginal;
     o->setProperty("ispSafe", isp == IspSafeMode::Measured ? "measured" : isp == IspSafeMode::Fixed ? "fixed" : "off");
     o->setProperty("trackTruePeakDb", s.trackTruePeak && *s.trackTruePeak > 0.0
@@ -835,6 +836,7 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
     // settings in 音作りモード (ReplayGain, ISP-safe and the volume as they are).
     ListeningSettings settingsA, settingsB;
     std::string nameA, nameB;
+    bool coldA = false, coldB = false;
     if (kind == "presets")
     {
         const auto a = presetFrom(request.getProperty("a", {}));
@@ -865,7 +867,17 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
                     tubeTypeFrom(side->getProperty("tubeType", "").toString().toStdString()).value_or(settings->tubeType);
             settings->tubeDriveDb =
                 number("tubeDriveDb", settings->tubeDriveDb, TubeStage::kMinDriveDb, TubeStage::kMaxDriveDb);
+            // The warm-up and the units (task 9-8). "tubeWarmUpCold": the warm-up
+            // held at switch-on for this side.
+            if (side->hasProperty("tubeWarmUp"))
+                settings->tubeWarmUp = static_cast<bool>(side->getProperty("tubeWarmUp", false));
+            if (side->hasProperty("tubeUnits"))
+                settings->tubeUnits = static_cast<bool>(side->getProperty("tubeUnits", false));
+            settings->tubeUnit = static_cast<int>(
+                number("tubeUnit", settings->tubeUnit, kMinTubeUnit, kMaxTubeUnit));
         }
+        coldA = settingsA.tubeWarmUp && static_cast<bool>(sideA.getProperty("tubeWarmUpCold", false));
+        coldB = settingsB.tubeWarmUp && static_cast<bool>(sideB.getProperty("tubeWarmUpCold", false));
         nameA = a->name;
         nameB = b->name;
     }
@@ -882,11 +894,12 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
     }
     ListeningSettings listening = listening_;
     const double volumeDb = chain_.volume->gainDb();
+    const double warmUp = warmUpSeconds();
     abxPreparing_ = true;
 
     // The loudness match over the region, with the same settings as will play.
     juce::Thread::launch([this, alive = alive_, file, kind, rate, start, length, trials, listening, volumeDb, saved = s,
-                          settingsA, settingsB, nameA, nameB, done = std::move(done)]() mutable {
+                          settingsA, settingsB, nameA, nameB, coldA, coldB, warmUp, done = std::move(done)]() mutable {
         double match = 0.0;
         std::string error;
         try
@@ -895,12 +908,17 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
             // only the requantization) and the volume.
             ListeningChain offline, reference;
             if (kind == "processed")
+            {
                 offline.apply(listening);
+                offline.tube->setWarmUpSeconds(warmUp);
+            }
             else if (kind == "presets")
             {
                 offline.apply(settingsB);
                 reference.apply(settingsA);
                 reference.volume->setGainDb(volumeDb);
+                offline.tube->setWarmUpSeconds(coldB ? 0.0 : warmUp);
+                reference.tube->setWarmUpSeconds(coldA ? 0.0 : warmUp);
             }
             else
             {
@@ -919,7 +937,8 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
             error = e.what();
         }
         juce::MessageManager::callAsync([this, alive, file, kind, rate, start, length, trials, match, error, saved,
-                                         settingsA, settingsB, nameA, nameB, done = std::move(done)]() mutable {
+                                         settingsA, settingsB, nameA, nameB, coldA, coldB,
+                                         done = std::move(done)]() mutable {
             if (!*alive)
                 return;
             abxPreparing_ = false;
@@ -961,6 +980,8 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
                 abxReference_->volume->setGainDb(chain_.volume->gainDb());
                 chain_.chain()->setReference(abxReference_->chain());
             }
+            abxHold_ = {coldA, coldB};
+            updateWarmUp();
             auto& ab = chain_.chain()->comparison();
             ab.setFixedMatchDb(match);
             ab.select(ComparisonSide::Original); // A first
@@ -993,6 +1014,7 @@ void PlayerBridge::abxFinish()
     if (!abx_ || !abx_->running)
         return;
     abx_->running = false;
+    abxHold_ = {false, false};
     player_.stop();
     auto& ab = chain_.chain()->comparison();
     chain_.chain()->setComparing(false);
@@ -1068,8 +1090,17 @@ void PlayerBridge::pushStatus(bool force)
     browser_->emitEventIfBrowserIsVisible("playbackStatus", status);
 }
 
+void PlayerBridge::updateWarmUp()
+{
+    const double t = warmUpSeconds();
+    chain_.tube->setWarmUpSeconds(abxHold_.second ? 0.0 : t);
+    if (abxReference_)
+        abxReference_->tube->setWarmUpSeconds(abxHold_.first ? 0.0 : t);
+}
+
 void PlayerBridge::timerCallback()
 {
+    updateWarmUp();
     if (abx_ && abx_->running)
     {
         // The loudness difference of what came out, once the comparison has warmed up (task 4-1).

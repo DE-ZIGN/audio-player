@@ -315,3 +315,24 @@ TEST_CASE("Tube character: the path display carries the warm-up time and the uni
     t->setCharacter(false, 1000);
     CHECK(t->unit() == kMaxTubeUnit);
 }
+
+TEST_CASE("Tube units: fixed values the settings screen shows too (ui/src/settings.ts)", "[dsp][tube][tube-character]")
+{
+    struct Case
+    {
+        int n;
+        TubeType type;
+        int ch, tube;
+        double emission, mu;
+    };
+    for (const auto& c : {Case{1, TubeType::Se300B, 0, 0, 1.0835311788929731, 0.9672089572470335},
+                          Case{1, TubeType::Se300B, 1, 0, 1.082577778819385, 1.0279958130206572},
+                          Case{42, TubeType::PpEl34, 0, 1, 1.0412205401450092, 1.0071347847524539},
+                          Case{99, TubeType::PpClassA, 1, 1, 1.0071278280664373, 1.0315478512907519}})
+    {
+        CAPTURE(c.n, c.ch, c.tube);
+        const auto u = tubeUnitFor(c.n, c.type, c.ch, c.tube);
+        CHECK(std::abs(u.emission - c.emission) < 1e-15);
+        CHECK(std::abs(u.mu - c.mu) < 1e-15);
+    }
+}

@@ -43,6 +43,8 @@ import {
   type TubeType,
 } from "./settings";
 import type { PlaybackStatus } from "./status";
+import { playingTubeType } from "./amp";
+import { TUBE_UNIT_MAX, clampUnit, unitChannelsText, unitLabel, warmUpText } from "./tubeCharacter";
 import { TubeAutoView } from "./tubeAutoView";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -91,6 +93,12 @@ export class SettingsView {
     tubeDrive: $<HTMLInputElement>("tube-drive"),
     tubeDriveValue: $("tube-drive-value"),
     tubeDriveReset: $<HTMLButtonElement>("tube-drive-reset"),
+    tubeWarmUp: $<HTMLInputElement>("tube-warmup"),
+    tubeWarmUpNow: $("tube-warmup-now"),
+    tubeUnits: $<HTMLInputElement>("tube-units"),
+    tubeUnit: $<HTMLInputElement>("tube-unit"),
+    tubeUnitNext: $<HTMLButtonElement>("tube-unit-next"),
+    tubeUnitNow: $("tube-unit-now"),
     crossfeedEnabled: $<HTMLInputElement>("crossfeed-enabled"),
     crossfeedLevel: $("crossfeed-level"),
     spaceRoom: $("space-room"),
@@ -106,6 +114,8 @@ export class SettingsView {
     spaceCredit: $("space-credit"),
   };
   private spaceIrs: SpaceIrStatus[] = []; // task 9-6: what became of the user IR files
+  private warmUpSeconds: number | null = null; // task 9-8: since the app started (the amp's switch-on)
+  private playingTube: TubeType | null = null;
 
   constructor(private readonly api: SettingsApi) {
     for (const sel of [this.els.ispOriginal, this.els.ispProcessed])
@@ -192,6 +202,13 @@ export class SettingsView {
     );
     this.els.tubeDrive.addEventListener("input", () => this.change({ tubeDriveDb: Number(this.els.tubeDrive.value) }, SLIDER_SEND_MS));
     this.els.tubeDriveReset.addEventListener("click", () => this.change({ tubeDriveDb: DRIVE_DEFAULT_DB }));
+    // The show (task 9-8).
+    this.els.tubeWarmUp.addEventListener("change", () => this.change({ tubeWarmUp: this.els.tubeWarmUp.checked }));
+    this.els.tubeUnits.addEventListener("change", () => this.change({ tubeUnits: this.els.tubeUnits.checked }));
+    this.els.tubeUnit.addEventListener("change", () => this.change({ tubeUnit: clampUnit(Number(this.els.tubeUnit.value)) }));
+    this.els.tubeUnitNext.addEventListener("click", () =>
+      this.change({ tubeUnit: (this.listening.tubeUnit % TUBE_UNIT_MAX) + 1, tubeUnits: true }),
+    );
     // The crossfeed (task 9-5).
     this.els.crossfeedEnabled.addEventListener("change", () => this.change({ crossfeedEnabled: this.els.crossfeedEnabled.checked }));
     this.els.crossfeedLevel.replaceChildren(
@@ -318,6 +335,12 @@ export class SettingsView {
   // The playback status (for the EQ editor: the limiter's count, the solo).
   onStatus(s: PlaybackStatus) {
     this.editor.showStatus(s.limiter, s.eqSolo);
+    // The warm-up's time (task 9-8): only the minutes are shown.
+    const t = s.tubeWarmUpSeconds ?? null;
+    const minuteChanged = t === null || this.warmUpSeconds === null || Math.floor(t / 60) !== Math.floor(this.warmUpSeconds / 60);
+    this.warmUpSeconds = t;
+    this.playingTube = playingTubeType(s);
+    if (minuteChanged) this.renderTubeShow();
     this.tubeAuto.onStatus(s);
   }
 
@@ -430,10 +453,28 @@ export class SettingsView {
     for (const r of e.tubeType.querySelectorAll<HTMLInputElement>('input[name="tube-type"]')) r.checked = r.value === l.tubeType;
     e.tubeTypeNote.textContent = TUBE_NOTES[l.tubeType];
     this.tubeAuto?.renderNow(); // names the manual type
+    this.renderTubeShow();
     e.crossfeedEnabled.checked = l.crossfeedEnabled;
     for (const r of e.crossfeedLevel.querySelectorAll<HTMLInputElement>('input[name="crossfeed-level"]'))
       r.checked = r.value === l.crossfeedLevel;
     this.renderSpace();
+  }
+
+  // The tube's show (task 9-8): the warm-up's time and the unit's tubes.
+  private renderTubeShow() {
+    const l = this.listening;
+    const e = this.els;
+    e.tubeWarmUp.checked = l.tubeWarmUp;
+    e.tubeUnits.checked = l.tubeUnits;
+    if (document.activeElement !== e.tubeUnit) e.tubeUnit.value = String(l.tubeUnit);
+    e.tubeUnit.disabled = !l.tubeUnits;
+    e.tubeWarmUpNow.textContent = !l.tubeWarmUp
+      ? ""
+      : this.warmUpSeconds === null
+        ? "起動からの時間に合わせて移ります。"
+        : warmUpText(this.warmUpSeconds);
+    const type = this.playingTube ?? l.tubeType;
+    e.tubeUnitNow.textContent = l.tubeUnits ? `${unitLabel(l.tubeUnit)}（${TUBE_LABELS[type]}）：${unitChannelsText(l.tubeUnit, type)}` : "";
   }
 
   // The space (task 9-6): the room, the sliders and each room's IR file.

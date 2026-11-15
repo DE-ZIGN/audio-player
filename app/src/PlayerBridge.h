@@ -6,6 +6,7 @@
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
+#include <chrono>
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -143,6 +144,15 @@ private:
     std::shared_ptr<ap::engine::ListeningChain> abxReference_;
     bool abxPreparing_ = false;
     std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+    // The tube's warm-up (task 9-8) counts from the app's start (the amp's switch-on).
+    const std::chrono::steady_clock::time_point switchedOn_ = std::chrono::steady_clock::now();
+    double warmUpSeconds() const
+    {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - switchedOn_).count();
+    }
+    void updateWarmUp(); // hands the time to the tube stages (not to a side held cold)
+    // During an ABX: side A's and side B's warm-up held at switch-on (0 s).
+    std::pair<bool, bool> abxHold_{false, false};
 
     using QueueMeta = QueueFile; // what each queue entry was made from
     ap::engine::ListeningChain chain_; // ReplayGain, EQ, volume, ISP-safe, limiter

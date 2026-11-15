@@ -1,7 +1,8 @@
 // User-facing text (Japanese first). Describes what the player does; never
 // claims that something sounds better.
 
-import { CROSSFEED_LEVELS, TUBE_LABELS, parseSpaceDetail, spaceText, type CrossfeedLevel, type TubeType } from "./settings";
+import { CROSSFEED_LEVELS, TUBE_LABELS, parseSpaceDetail, spaceText, type CrossfeedLevel } from "./settings";
+import { characterParts, parseTubeDetail } from "./tubeCharacter";
 import type {
   DropoutCounts,
   FormatInfo,
@@ -142,8 +143,10 @@ export function stageText(st: StageState): string {
   if (st.gainDb === null) return name;
   if (st.name === "eq" || st.name === "tone") return `${name}（プリアンプ ${dbText(st.gainDb)}）`;
   if (st.name === "tube") {
-    const type = TUBE_LABELS[st.detail as TubeType] ?? st.detail ?? "";
-    return `${name}（${type ? `${type}、` : ""}DRIVE ${dbText(st.gainDb)}）`;
+    const d = parseTubeDetail(st.detail);
+    const type = d.type ? TUBE_LABELS[d.type] : "";
+    const show = characterParts(d.warmUpSeconds, d.unit).map((p) => `、${p}`).join(""); // task 9-8
+    return `${name}（${type ? `${type}、` : ""}DRIVE ${dbText(st.gainDb)}${show}）`;
   }
   return `${name} ${dbText(st.gainDb)}`;
 }

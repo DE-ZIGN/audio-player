@@ -4,6 +4,7 @@
 
 import { FLAT_PRESET, presetFrom, type EqPreset } from "./eqPresets";
 import { TUBE_LABELS, type ListeningSettings, type TubeType } from "./settings";
+import { unitLabel } from "./tubeCharacter";
 
 export type AbxKind = "processed" | "16bit" | "presets";
 export type AbxChoice = "A" | "B" | "X";
@@ -64,11 +65,15 @@ export function sideLabels(a: { kind: AbxKind; aName?: string; bName?: string })
 
 export type SideTube = "none" | TubeType;
 
+export type SideWarmUp = "off" | "now" | "cold"; // task 9-8: none, as it is now, held at switch-on
+
 export interface SideChoice {
   eq: string; // "current" | "flat" | "p:<preset name>"
   tone: "current" | "flat";
   tube: SideTube;
   drive: number; // dB, with a tube
+  warmUp?: SideWarmUp; // with a tube (none when left out)
+  unit?: number; // with a tube: the unit's number, 0 (or left out) for the type's own tubes
 }
 
 export interface SideRequest extends EqPreset {
@@ -77,6 +82,10 @@ export interface SideRequest extends EqPreset {
   tubeEnabled?: boolean;
   tubeType?: TubeType;
   tubeDriveDb?: number;
+  tubeWarmUp?: boolean;
+  tubeWarmUpCold?: boolean; // the warm-up held at switch-on for this side
+  tubeUnits?: boolean;
+  tubeUnit?: number;
 }
 
 const TUBE_ORDER: TubeType[] = ["se300b", "ppel34", "ppclassa"];
@@ -84,7 +93,14 @@ const TUBE_ORDER: TubeType[] = ["se300b", "ppel34", "ppclassa"];
 // A: as it is now. B: the same with another tube type (or with the tube, if A has none).
 export function defaultSides(l: ListeningSettings): { a: SideChoice; b: SideChoice } {
   const tube: SideTube = l.tubeEnabled ? l.tubeType : "none";
-  const a: SideChoice = { eq: "current", tone: "current", tube, drive: l.tubeDriveDb };
+  const a: SideChoice = {
+    eq: "current",
+    tone: "current",
+    tube,
+    drive: l.tubeDriveDb,
+    warmUp: l.tubeWarmUp ? "now" : "off",
+    unit: l.tubeUnits ? l.tubeUnit : 0,
+  };
   const other: SideTube = tube === "none" ? "se300b" : TUBE_ORDER[(TUBE_ORDER.indexOf(tube) + 1) % TUBE_ORDER.length];
   return { a, b: { ...a, tube: other } };
 }
@@ -101,7 +117,13 @@ export function sideRequest(c: SideChoice, l: ListeningSettings, presets: EqPres
   const parts = [eq.name];
   const tone = [bass !== 0 ? `BASS ${db(bass)}` : "", treble !== 0 ? `TREBLE ${db(treble)}` : ""].filter((t) => t);
   if (tone.length > 0) parts.push(`トーン（${tone.join("、")}）`);
-  parts.push(c.tube === "none" ? "真空管なし" : `${TUBE_LABELS[c.tube]}（DRIVE ${db(c.drive)}）`);
+  const warmUp = c.warmUp ?? "off";
+  const unit = c.unit ?? 0;
+  const show = [
+    warmUp === "now" ? "・ウォームアップ：今の状態" : warmUp === "cold" ? "・ウォームアップ：起動直後" : "",
+    unit > 0 ? `・${unitLabel(unit)}` : "",
+  ].join("");
+  parts.push(c.tube === "none" ? "真空管なし" : `${TUBE_LABELS[c.tube]}（DRIVE ${db(c.drive)}${show}）`);
   return {
     ...structuredClone(eq),
     name: parts.join("・"),
@@ -110,12 +132,19 @@ export function sideRequest(c: SideChoice, l: ListeningSettings, presets: EqPres
     tubeEnabled: c.tube !== "none",
     tubeType: c.tube === "none" ? l.tubeType : c.tube,
     tubeDriveDb: c.drive,
+    tubeWarmUp: warmUp !== "off",
+    tubeWarmUpCold: warmUp === "cold",
+    tubeUnits: unit > 0,
+    tubeUnit: unit > 0 ? unit : l.tubeUnit,
   };
 }
 
 // "" when the two sides can be compared.
 export function sidePairProblem(a: SideChoice, b: SideChoice): string {
-  const same = a.eq === b.eq && a.tone === b.tone && a.tube === b.tube && (a.tube === "none" || a.drive === b.drive);
+  const sameTube =
+    a.tube === "none" ||
+    (a.drive === b.drive && (a.warmUp ?? "off") === (b.warmUp ?? "off") && (a.unit ?? 0) === (b.unit ?? 0));
+  const same = a.eq === b.eq && a.tone === b.tone && a.tube === b.tube && sameTube;
   return same ? "A と B に違う設定を選んでください。" : "";
 }
 

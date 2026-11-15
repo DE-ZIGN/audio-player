@@ -10,6 +10,7 @@
 // tools/ui_amp_parts.py. The amp's picture starts under the drawn title bar.
 
 import { outputTags } from "./messages";
+import { glowOf, parseTubeDetail } from "./tubeCharacter";
 import {
   DRIVE_DEFAULT_DB,
   DRIVE_MAX_DB,
@@ -326,16 +327,21 @@ export interface AmpState {
   auto: boolean; // the type is chosen by genre
   crossfeed: boolean;
   space: SpaceRoom; // the SPACE lamp: the room chosen (task 9-6)
+  glow: number; // the tubes' glow when lit: dimmer while warming up (task 9-8), else 1
   badge: Badge;
   // Knobs that do nothing in 原音モード are shown disabled there (the layout stays).
   processingControls: boolean;
 }
 
-const TUBE_TYPES: TubeType[] = ["se300b", "ppel34", "ppclassa"];
-
 export function playingTubeType(s: PlaybackStatus | null): TubeType | null {
   const st = s?.stages.find((x) => x.name === "tube");
-  return st && TUBE_TYPES.includes(st.detail as TubeType) ? (st.detail as TubeType) : null;
+  return st ? parseTubeDetail(st.detail).type : null;
+}
+
+// The warm-up's seconds since switch-on, while the tube plays with it (task 9-8).
+function tubeWarmUpOf(s: PlaybackStatus): number | null {
+  const st = s.stages.find((x) => x.name === "tube");
+  return st ? parseTubeDetail(st.detail).warmUpSeconds : null;
 }
 
 export function lookOf(type: TubeType): AmpLook {
@@ -365,6 +371,7 @@ export function ampState(l: ListeningSettings | null, s: PlaybackStatus | null, 
     auto: tubeAuto,
     crossfeed: l?.crossfeedEnabled ?? false,
     space: l?.spaceRoom ?? "off",
+    glow: glowOf(s ? tubeWarmUpOf(s) : null),
     badge: badgeOf(s),
     processingControls: mode === "tube",
   };

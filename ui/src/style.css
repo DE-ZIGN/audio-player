@@ -810,6 +810,32 @@ label.check {
   margin: 6px 0 2px;
 }
 /* The tube type by genre (task 9-7). */
+/* The tube's show (task 9-8). */
+.tube-character {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+}
+.tube-character h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.tube-character h3 small {
+  font-weight: 400;
+  opacity: 0.75;
+  margin-left: 6px;
+}
+.tube-unit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 4px 24px;
+}
+.tube-unit-row input {
+  width: 4.5em;
+}
 .tube-auto {
   margin-top: 14px;
   padding-top: 10px;
@@ -2682,7 +2708,8 @@ html[data-look="real"] {
   transition: opacity 1.4s ease-out;
 }
 .amp-stage[data-lit="1"] .amp-scene-lit {
-  opacity: 1;
+  /* Dimmer while the warm-up show runs (task 9-8). */
+  opacity: var(--tube-glow, 1);
   transition: opacity 2.6s ease-in;
 }
 

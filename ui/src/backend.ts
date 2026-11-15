@@ -366,6 +366,11 @@ export class MockBackend implements Backend {
     },
   );
   private tubeAuto: TubeAutoSettings | null = null;
+  // The warm-up (task 9-8) counts from the page's start, ten times as fast, to see it move.
+  private readonly startedAt = Date.now();
+  private mockWarmUpSeconds(): number {
+    return ((Date.now() - this.startedAt) / 1000) * 10;
+  }
   private listening: ListeningSettings | null = null;
   private abxX: boolean[] = []; // per trial: X is B
   private abxCorrect = 0;
@@ -586,7 +591,14 @@ export class MockBackend implements Backend {
     if (processed && (l.toneBassDb !== 0 || l.toneTrebleDb !== 0))
       stages.push({ name: "tone", gainDb: -Math.max(0, l.toneBassDb, l.toneTrebleDb) });
     if (processed && l.tubeEnabled)
-      stages.push({ name: "tube", gainDb: l.tubeDriveDb, detail: this.mockTubeAuto()?.choice?.type ?? l.tubeType });
+      stages.push({
+        name: "tube",
+        gainDb: l.tubeDriveDb,
+        detail:
+          (this.mockTubeAuto()?.choice?.type ?? l.tubeType) +
+          (l.tubeWarmUp ? `;warmup=${Math.floor(this.mockWarmUpSeconds())}` : "") + // task 9-8
+          (l.tubeUnits ? `;unit=${l.tubeUnit}` : ""),
+      });
     if (processed && l.spaceRoom && l.spaceRoom !== "off" && l.spaceMixPercent > 0) {
       const i = ["club", "hall", "arena"].indexOf(l.spaceRoom);
       const readable = mockIrReadable(l.spaceIr[i]);
@@ -625,6 +637,7 @@ export class MockBackend implements Backend {
       ispSafe: l ? (mode === "processed" ? l.ispSafeProcessed : l.ispSafeOriginal) : "off",
       stages,
       tubeAuto: this.mockTubeAuto(),
+      tubeWarmUpSeconds: this.mockWarmUpSeconds(),
       path: s.path && { ...s.path, processing, processingStages: stages.map((x) => x.name), dither: processing },
       bitPerfect: s.bitPerfect && { ...s.bitPerfect, bitPerfect: !processing, dither: processing },
     });

@@ -3,6 +3,7 @@
 
 import type { EqPreset } from "./eqPresets";
 import type { TubeAutoSettings, TubeGenreRule } from "./tubeAuto";
+import { unitLabel } from "./tubeCharacter";
 
 export type ListeningMode = "original" | "processed";
 export type ReplayGainMode = "off" | "track" | "album";
@@ -36,6 +37,10 @@ export interface ListeningSettings {
   tubeEnabled: boolean;
   tubeType: TubeType;
   tubeDriveDb: number; // -30 .. +6
+  // The warm-up and the tubes' differences (task 9-8, a show; off by default).
+  tubeWarmUp: boolean;
+  tubeUnits: boolean;
+  tubeUnit: number; // 1 .. 99, kept while tubeUnits is off
   // Crossfeed for headphones (task 9-5), in 音作りモード only.
   crossfeedEnabled: boolean;
   crossfeedLevel: CrossfeedLevel;
@@ -147,6 +152,9 @@ export const defaultListening: ListeningSettings = {
   tubeEnabled: false,
   tubeType: "se300b",
   tubeDriveDb: -12,
+  tubeWarmUp: false,
+  tubeUnits: false,
+  tubeUnit: 1,
   crossfeedEnabled: false,
   crossfeedLevel: "default",
   spaceRoom: "off",
@@ -349,12 +357,15 @@ export function modeSummary(l: ListeningSettings, tubeAuto = false): string {
     l.toneTrebleDb !== 0 ? `TREBLE ${signedDb(l.toneTrebleDb)}` : "",
   ].filter((t) => t !== "");
   if (tone.length > 0) parts.push(`トーン（${tone.join("、")}）`);
-  if (l.tubeEnabled)
+  if (l.tubeEnabled) {
+    // The show (task 9-8), after DRIVE.
+    const show = [l.tubeWarmUp ? "、ウォームアップの演出" : "", l.tubeUnits ? `、${unitLabel(l.tubeUnit)}` : ""].join("");
     parts.push(
       tubeAuto
-        ? `真空管（ジャンルで自動・対応表にないときは ${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}）`
-        : `真空管（${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}）`,
+        ? `真空管（ジャンルで自動・対応表にないときは ${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}${show}）`
+        : `真空管（${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}${show}）`,
     );
+  }
   if (l.spaceRoom !== "off" && l.spaceMixPercent > 0)
     parts.push(`空間（${spaceText(l.spaceRoom, l.spaceMixPercent, playingSpaceSource(l, l.spaceRoom))}）`);
   if (l.crossfeedEnabled) parts.push(`クロスフィード（${CROSSFEED_LEVELS[l.crossfeedLevel].numbers}）`);

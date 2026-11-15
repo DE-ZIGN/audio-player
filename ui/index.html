@@ -215,6 +215,29 @@
               オン・オフを切り替えると、処理の遅れが変わるため、再生中は一瞬途切れます。
             </p>
 
+            <div class="tube-character">
+              <h3>演出 <small>ロマン枠：効果は確かめていません</small></h3>
+              <label class="check"><input type="checkbox" id="tube-warmup" /> ウォームアップ</label>
+              <p class="note" id="tube-warmup-now" aria-live="polite"></p>
+              <label class="check"><input type="checkbox" id="tube-units" /> 個体差</label>
+              <div class="tube-unit-row">
+                <label for="tube-unit">球の番号</label>
+                <input type="number" id="tube-unit" min="1" max="99" step="1" />
+                <button type="button" id="tube-unit-next">次の番号の球にする</button>
+              </div>
+              <p class="note" id="tube-unit-now"></p>
+              <p class="note">
+                実機の真空管のふるまいを、真空管のモデルで計算して再現する演出です。音が良くなる、本物らしくなるとは言えません（確かめていません）。ABX の「設定 A と 設定 B」で、あり・なしを聴き比べられます。
+              </p>
+              <p class="note">
+                ウォームアップ：アプリを起動してからの時間で、特性を「冷えた球」から「暖まった球」へ移します。冷えた球は、同じ回路でカソードのエミッション（電子を出す量）を 50% にして求めた特性です。冷えた特性の割合は時定数 4 分で減り、起動から 20 分で暖まった特性だけになります。
+              </p>
+              <p class="note">
+                個体差：同じ型番の球の、1 本ごとのばらつきです。球ごとにエミッションを ±10%、増幅率 μ を ±5% の範囲でずらし、その球で特性を求め直します。値は番号で決まり、同じ番号ならいつも同じ球です。左右は別の球で、PP では 2 本の差のぶん、打ち消し合っていた偶数次の倍音が残ります。
+              </p>
+              <p class="note">どちらも小さな音の音量は変えず、曲がり方（倍音の量）が変わります。</p>
+            </div>
+
             <div class="tube-auto">
               <h3>ジャンルで種類を選ぶ</h3>
               <label class="check"><input type="checkbox" id="tube-auto-enabled" /> 曲のジャンルで種類を自動で選ぶ</label>
@@ -391,6 +414,8 @@
               <label>トーン <select id="abx-a-tone" aria-label="A のトーン"><option value="current">今のトーン</option><option value="flat">なし</option></select></label>
               <label>真空管 <select id="abx-a-tube" aria-label="A の真空管"><option value="none">なし</option><option value="se300b">SE 300B</option><option value="ppel34">PP EL34</option><option value="ppclassa">PP CLASS A</option></select></label>
               <label>DRIVE <input type="number" id="abx-a-drive" min="-30" max="6" step="0.5" aria-label="A の DRIVE" /> dB</label>
+              <label>ウォームアップ <select id="abx-a-warmup" aria-label="A のウォームアップ"><option value="off">なし</option><option value="now">今の状態</option><option value="cold">起動直後に固定</option></select></label>
+              <label>球の番号 <input type="number" id="abx-a-unit" min="0" max="99" step="1" aria-label="A の球の番号（0 は個体差なし）" /></label>
             </div>
             <div class="abx-side">
               <b>B</b>
@@ -398,8 +423,10 @@
               <label>トーン <select id="abx-b-tone" aria-label="B のトーン"><option value="current">今のトーン</option><option value="flat">なし</option></select></label>
               <label>真空管 <select id="abx-b-tube" aria-label="B の真空管"><option value="none">なし</option><option value="se300b">SE 300B</option><option value="ppel34">PP EL34</option><option value="ppclassa">PP CLASS A</option></select></label>
               <label>DRIVE <input type="number" id="abx-b-drive" min="-30" max="6" step="0.5" aria-label="B の DRIVE" /> dB</label>
+              <label>ウォームアップ <select id="abx-b-warmup" aria-label="B のウォームアップ"><option value="off">なし</option><option value="now">今の状態</option><option value="cold">起動直後に固定</option></select></label>
+              <label>球の番号 <input type="number" id="abx-b-unit" min="0" max="99" step="1" aria-label="B の球の番号（0 は個体差なし）" /></label>
             </div>
-            <p class="note">どちらも音作りモードで、今の ReplayGain・ISP セーフ・音量をかけ、EQ・トーン・真空管を A と B で選んだものにします。B の音量は A に合わせます。真空管の DRIVE は、真空管を選んだ側だけに効きます。</p>
+            <p class="note">どちらも音作りモードで、今の ReplayGain・ISP セーフ・音量をかけ、EQ・トーン・真空管を A と B で選んだものにします。B の音量は A に合わせます。真空管の DRIVE と演出（ウォームアップ・球の番号。0 は個体差なし）は、真空管を選んだ側だけに効きます。「起動直後に固定」は、起動したばかりの冷えた球の特性のまま比べます。</p>
           </div>
           <p class="notice" id="abx-kind-note" hidden></p>
         </fieldset>

@@ -485,6 +485,7 @@ class AmpPanel {
     const st = this.stage;
     st.dataset.mode = a.mode;
     st.dataset.lit = a.tubesLit ? "1" : "0";
+    st.style.setProperty("--tube-glow", a.glow.toFixed(3));
     if (this.modeToggle) {
       const t = this.modeToggle;
       t.classList.toggle("down", a.mode === "tube");

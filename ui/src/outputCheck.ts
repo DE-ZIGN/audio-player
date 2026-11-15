@@ -3,7 +3,8 @@
 // warning and the meters show, worked out from the playback status. The
 // texts say what is done and what was measured; never that it sounds better.
 
-import { CROSSFEED_LEVELS, TUBE_LABELS, parseSpaceDetail, spaceText, type CrossfeedLevel, type TubeType } from "./settings";
+import { CROSSFEED_LEVELS, TUBE_LABELS, parseSpaceDetail, spaceText, type CrossfeedLevel } from "./settings";
+import { characterParts, parseTubeDetail } from "./tubeCharacter";
 import { dsdRateName, meterNote } from "./messages";
 import { dbText } from "./settings";
 import type { FormatInfo, Level, PlaybackStatus, StageState } from "./status";
@@ -128,8 +129,10 @@ export function pathModel(s: PlaybackStatus): PathModel {
     row("真空管", "tube", (g, st) => {
       const c = s.tubeAuto?.choice;
       const why = c ? (c.reason === "album" ? "（アルバムの指定）" : `（ジャンル：${c.matched}）`) : "";
-      const type = (TUBE_LABELS[st.detail as TubeType] ?? "ON") + why;
-      return g === null ? type : `${type}・DRIVE ${gainText(g)}`;
+      const d = parseTubeDetail(st.detail);
+      const type = (d.type ? TUBE_LABELS[d.type] : "ON") + why;
+      const show = characterParts(d.warmUpSeconds, d.unit).map((p) => `・${p}`).join(""); // task 9-8
+      return (g === null ? type : `${type}・DRIVE ${gainText(g)}`) + show;
     }),
     row("空間", "space", (_g, st) => {
       const sp = parseSpaceDetail(st.detail);

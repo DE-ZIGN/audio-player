@@ -183,6 +183,7 @@ export interface PlaybackStatus {
   path: SignalPath | null;
   stages: StageState[]; // processing path: the stages running now
   tubeAuto?: TubeAutoStatus; // the tube type by genre (task 9-7): the current track's album and choice
+  tubeWarmUpSeconds?: number; // since the app started: the tube's warm-up counts from it (task 9-8)
   bitPerfect: BitPerfectVerdict | null; // set with path
   delivery: DeliveryResult | null; // direct path only
   meter: MeterStatus;

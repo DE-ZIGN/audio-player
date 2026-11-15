@@ -62,6 +62,9 @@ juce::var listeningVar(const ListeningSettings& l)
     o->setProperty("tubeEnabled", l.tubeEnabled);
     o->setProperty("tubeType", tubeTypeKey(l.tubeType));
     o->setProperty("tubeDriveDb", l.tubeDriveDb);
+    o->setProperty("tubeWarmUp", l.tubeWarmUp);
+    o->setProperty("tubeUnits", l.tubeUnits);
+    o->setProperty("tubeUnit", l.tubeUnit);
     o->setProperty("crossfeedEnabled", l.crossfeedEnabled);
     o->setProperty("crossfeedLevel", crossfeedLevelKey(l.crossfeedLevel));
     o->setProperty("spaceRoom", spaceRoomKey(l.spaceRoom));
@@ -121,6 +124,9 @@ ListeningSettings listeningFrom(const juce::var& v)
     l.tubeEnabled = static_cast<bool>(v.getProperty("tubeEnabled", false));
     l.tubeType = tubeTypeFrom(v.getProperty("tubeType", "").toString().toStdString()).value_or(TubeType::Se300B);
     l.tubeDriveDb = number("tubeDriveDb", TubeStage::kDefaultDriveDb, TubeStage::kMinDriveDb, TubeStage::kMaxDriveDb);
+    l.tubeWarmUp = static_cast<bool>(v.getProperty("tubeWarmUp", false));
+    l.tubeUnits = static_cast<bool>(v.getProperty("tubeUnits", false));
+    l.tubeUnit = static_cast<int>(number("tubeUnit", kMinTubeUnit, kMinTubeUnit, kMaxTubeUnit));
     l.crossfeedEnabled = static_cast<bool>(v.getProperty("crossfeedEnabled", false));
     l.crossfeedLevel =
         crossfeedLevelFrom(v.getProperty("crossfeedLevel", "").toString().toStdString()).value_or(CrossfeedLevel::Default);

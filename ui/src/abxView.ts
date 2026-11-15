@@ -21,12 +21,15 @@ import {
 import type { EqPreset } from "./eqPresets";
 import { activeBands, defaultListening, type ListeningSettings, type SettingsInfo } from "./settings";
 import type { PlaybackStatus } from "./status";
+import { clampUnit } from "./tubeCharacter";
 
 interface SideEls {
   eq: HTMLSelectElement;
   tone: HTMLSelectElement;
   tube: HTMLSelectElement;
   drive: HTMLInputElement;
+  warmUp: HTMLSelectElement; // task 9-8
+  unit: HTMLInputElement;
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -83,7 +86,8 @@ export class AbxView {
   ) {
     const e = this.els;
     for (const side of [this.sideA, this.sideB])
-      for (const el of [side.eq, side.tone, side.tube, side.drive]) el.addEventListener("change", () => this.renderSetupNotes());
+      for (const el of [side.eq, side.tone, side.tube, side.drive, side.warmUp, side.unit])
+        el.addEventListener("change", () => this.renderSetupNotes());
     e.close.addEventListener("click", () => void this.close());
     e.done.addEventListener("click", () => void this.close());
     e.again.addEventListener("click", async () => {
@@ -131,6 +135,8 @@ export class AbxView {
       tone: $<HTMLSelectElement>(`abx-${k}-tone`),
       tube: $<HTMLSelectElement>(`abx-${k}-tube`),
       drive: $<HTMLInputElement>(`abx-${k}-drive`),
+      warmUp: $<HTMLSelectElement>(`abx-${k}-warmup`),
+      unit: $<HTMLInputElement>(`abx-${k}-unit`),
     };
   }
 
@@ -141,6 +147,8 @@ export class AbxView {
       tone: side.tone.value === "flat" ? "flat" : "current",
       tube: side.tube.value as SideTube,
       drive: Number.isFinite(drive) ? Math.min(6, Math.max(-30, drive)) : this.listening.tubeDriveDb,
+      warmUp: (["off", "now", "cold"] as const).find((w) => w === side.warmUp.value) ?? "off",
+      unit: Number(side.unit.value) >= 1 ? clampUnit(Number(side.unit.value)) : 0,
     };
   }
 
@@ -149,6 +157,8 @@ export class AbxView {
     side.tone.value = c.tone;
     side.tube.value = c.tube;
     side.drive.value = String(c.drive);
+    side.warmUp.value = c.warmUp ?? "off";
+    side.unit.value = String(c.unit ?? 0);
   }
 
   open() {
@@ -249,7 +259,8 @@ export class AbxView {
     else if (s.dop) problem = "DSD（DoP）の曲は ABX で比べられません（DoP のデータには処理をかけないため）。";
     const presets = this.kind() === "presets";
     e.presetBox.hidden = !presets;
-    for (const side of [this.sideA, this.sideB]) side.drive.disabled = side.tube.value === "none";
+    for (const side of [this.sideA, this.sideB])
+      for (const el of [side.drive, side.warmUp, side.unit]) el.disabled = side.tube.value === "none";
     const pairProblem = presets ? sidePairProblem(this.choice(this.sideA), this.choice(this.sideB)) : "";
     e.startBtn.disabled = problem !== "" || pairProblem !== "" || this.preparing;
     if (problem) {

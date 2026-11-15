@@ -280,6 +280,22 @@ export async function runSelfTest(
     if (hallRow?.value !== "HALL（実測）・MIX 15%") throw new Error(`space: HALL ${JSON.stringify(hallRow)}`);
     log.push(`space: HALL plays the measured IR (${hallRow.value})`);
 
+    // The tube's show (task 9-8): the warm-up and a unit reach the stage and
+    // the output check (the app started moments ago: a cold tube).
+    const showBase = (await backend.settings.get()).listening;
+    await backend.settings.setListening({ ...showBase, tubeWarmUp: true, tubeUnits: true, tubeUnit: 7 });
+    const shown = await waitFor(
+      "the tube's warm-up and unit",
+      (s) => /^ppel34;warmup=\d+;unit=7$/.test(s.stages.find((st) => st.name === "tube")?.detail ?? ""),
+      5000,
+    );
+    const showRow = pathModel(shown).processing.rows.find((r) => r.name === "真空管");
+    if (!showRow || !/^PP EL34・DRIVE −6\.0 dB・(ウォームアップ中（起動から \d+ 分）|暖まった状態)・球 No\.7$/.test(showRow.value))
+      throw new Error(`tube show: ${JSON.stringify(shown.stages)} ${JSON.stringify(showRow)}`);
+    log.push(`tube show: ${showRow.value}`);
+    await backend.settings.setListening({ ...showBase, tubeWarmUp: false, tubeUnits: false });
+    await waitFor("the tube without the show", (s) => s.stages.find((st) => st.name === "tube")?.detail === "ppel34", 3000);
+
     // The tube type by genre (task 9-7) through the real bridge: saved and read
     // back; a file opened by itself has no genre or album, so the manual type plays.
     const savedAuto = (await backend.settings.get()).tubeAuto;
@@ -399,6 +415,34 @@ export async function runSelfTest(
     log.push(
       `ABX 設定 A「${tubeA.name}」と 設定 B「${tubeB.name}」: match ${tubes.matchDb?.toFixed(2)} dB, ` +
         `${tubesEnd.abx!.result!.correct} of 2`,
+    );
+
+    // The tube's show in the ABX (task 9-8): B held at switch-on (cold) with
+    // unit 5, against A as it is now. B plays through the main chain, so its
+    // stage says the warm-up's time is held at 0.
+    const showA = sideRequest({ eq: "current", tone: "current", tube: "ppel34", drive: 0, warmUp: "now" }, current.listening, []);
+    const showB = sideRequest(
+      { eq: "current", tone: "current", tube: "ppel34", drive: 0, warmUp: "cold", unit: 5 },
+      current.listening,
+      [],
+    );
+    const shows = await backend.abx.start({ kind: "presets", startSeconds: 0, seconds: 2, trials: 2, a: showA, b: showB });
+    if (!shows.ok) throw new Error(`ABX show: ${shows.message}`);
+    const showRunning = await waitFor(
+      "ABX of the warm-up held cold",
+      (s) =>
+        s.abx?.running === true &&
+        s.state === "playing" &&
+        (backend.kind !== "app" || s.stages.find((st) => st.name === "tube")?.detail === "ppel34;warmup=0;unit=5"),
+      5000,
+    );
+    await backend.abx.abort();
+    await waitFor("ABX of the show stopped", (s) => s.abx?.running === false, 5000);
+    await backend.abx.close();
+    await waitFor("ABX closed", (s) => (s.abx ?? null) === null, 5000);
+    log.push(
+      `ABX show: A「${showA.name}」と B「${showB.name}」: match ${shows.matchDb?.toFixed(2)} dB; ` +
+        `B's tube ${showRunning.stages.find((st) => st.name === "tube")?.detail ?? "(mock)"}`,
     );
 
     await backend.settings.setListening(saved.listening);
