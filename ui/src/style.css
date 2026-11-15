@@ -722,6 +722,41 @@ button.icon.plain {
 .settings .note.first {
   margin-top: 0;
 }
+/* Task 6-10: each item's explanation folded behind a small 詳細 button. */
+.settings details.explain {
+  margin: 8px 0 0;
+}
+.settings details.explain > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 1px 8px 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.settings details.explain > summary::-webkit-details-marker {
+  display: none;
+}
+.settings details.explain > summary::before {
+  content: "▸";
+  font-size: 10px;
+}
+.settings details.explain[open] > summary::before {
+  content: "▾";
+}
+.settings details.explain > summary:hover,
+.settings details.explain > summary:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.settings details.explain > .note:first-of-type {
+  margin-top: 6px;
+}
 .settings .notice {
   white-space: pre-line;
 }
