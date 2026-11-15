@@ -17,6 +17,10 @@ repository), read as drawn for a 150% screen:
                                 taken off (used when present)
   UI-AMP-PP-PURE-NOTEXT-v1.png  the same, tubes dark (原音モード), lined up with
                                 the lit one pixel for pixel (used when present)
+  UI-AMP-PP-NOTEXT-XFEEDOFF-v1.png  the NOTEXT picture with the CROSSFEED lever
+                                down, nothing else changed (the toggle's off
+                                state is cut from it; without it, the on state
+                                is turned over)
   UI-AMP-PP-v1.png              the lit one with its words: used, with the words
                                 filled in here, while the NOTEXT pictures are
                                 missing; while the dark one is missing, the lit
@@ -173,7 +177,7 @@ def not_metal(shape) -> np.ndarray:
     """On the panel, what is not plain brushed metal: no streaks are copied from there."""
     m = rect_mask(shape, DIVIDERS + WORDS + [XFEED], origin=PANEL[:2])
     for (cx, cy), R, _ in KNOBS.values():
-        m |= disc(shape, cx, cy, R + 16, PANEL[:2])  # with the printed scale
+        m |= disc(shape, cx, cy, R + 26, PANEL[:2])  # with the printed scale (its ticks reach about R + 22)
     for cx, cy in SCREWS:
         m |= disc(shape, cx, cy, 13, PANEL[:2])
     return m
@@ -310,10 +314,13 @@ def amp(img: np.ndarray, words_drawn: bool):
 
 
 def xfeed(img: np.ndarray, down: bool) -> np.ndarray:
-    on = cut_out(img, without_box(img, XFEED, PANEL, not_metal_pp), XFEED)
-    # Lever down: the toggle turned over about the nut (the box is centred on it).
-    assert XFEED[1] + XFEED[3] == 2 * XFEED_NUT_Y
-    return on[::-1].copy() if down else on
+    cut = cut_out(img, without_box(img, XFEED, PANEL, not_metal_pp), XFEED)
+    if down:
+        # No picture with the lever down: the toggle turned over about the nut
+        # (the box is centred on it; the light then comes from below).
+        assert XFEED[1] + XFEED[3] == 2 * XFEED_NUT_Y
+        return cut[::-1].copy()
+    return cut
 
 
 def main():
@@ -354,7 +361,14 @@ def main():
     save(button(src, *ROUND['prev'][:2], r=ROUND['prev'][2] + 2, icon_r=15), 'pp-button.jpg')
     save(button(src, *ROUND['play'][:2], r=ROUND['play'][2] + 4, icon_r=19), 'pp-play.jpg')
     save_png(xfeed(lit, False), 'pp-xfeed-on.png', folder=OUT)
-    save_png(xfeed(lit, True), 'pp-xfeed-off.png', folder=OUT)
+    # The lever down, from the picture drawn so (only the toggle differs), when there is one.
+    off_path = os.path.join(SRC, 'UI-AMP-PP-NOTEXT-XFEEDOFF-v1.png')
+    if os.path.exists(off_path) and not words_drawn:
+        off = load(off_path)
+        save_png(cut_out(off, without_box(off, XFEED, PANEL, not_metal_pp), XFEED), 'pp-xfeed-off.png', folder=OUT)
+        print('the lever down from', os.path.basename(off_path))
+    else:
+        save_png(xfeed(lit, True), 'pp-xfeed-off.png', folder=OUT)
     if debug:
         save_to(lit[TOP:BOTTOM], 'pp-source.jpg', quality=86, folder=debug)
 
