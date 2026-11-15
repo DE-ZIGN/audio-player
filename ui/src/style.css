@@ -1195,11 +1195,23 @@ button.danger {
   padding: 0;
 }
 .oc-stages li {
+  padding: 3px 2px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+.oc-stage-main {
   display: flex;
   justify-content: space-between;
   gap: 6px;
-  padding: 3px 2px;
-  border-top: 1px solid var(--line);
+}
+.oc-stage-name {
+  white-space: nowrap;
+}
+/* Smaller lines under a row: what chose the tube type, the tube's show. */
+.oc-stage-sub {
+  text-align: right;
+  font-size: 11px;
+  line-height: 1.35;
   color: var(--muted);
 }
 .oc-stages li.on {
@@ -1207,6 +1219,9 @@ button.danger {
 }
 .oc-state {
   font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.oc-part {
   white-space: nowrap;
 }
 .oc-stages li.on .oc-state {

@@ -161,13 +161,27 @@ describe("signal path diagram", () => {
       tubeAuto: { album: null, genres: ["Jazz"], choice: { type: "se300b", reason: "genre", matched: "Jazz" } },
     };
     const row = (st: PlaybackStatus) => pathModel(st).processing.rows.find((r) => r.name === "真空管")!;
-    expect(row(s).value).toBe("SE 300B（ジャンル：Jazz）・DRIVE −12.0 dB");
+    // What chose the type goes on a line of its own under the row (the row stays short).
+    expect(row(s)).toMatchObject({ value: "SE 300B・DRIVE −12.0 dB", sub: ["ジャンル（Jazz）で選択"] });
     const album: PlaybackStatus = {
       ...s,
       tubeAuto: { album: { key: "k", title: "W" }, genres: [], choice: { type: "se300b", reason: "album", matched: "W" } },
     };
-    expect(row(album).value).toBe("SE 300B（アルバムの指定）・DRIVE −12.0 dB");
-    expect(row({ ...s, tubeAuto: { album: null, genres: [], choice: null } }).value).toBe("SE 300B・DRIVE −12.0 dB");
+    expect(row(album)).toMatchObject({ value: "SE 300B・DRIVE −12.0 dB", sub: ["アルバムの指定で選択"] });
+    expect(row({ ...s, tubeAuto: { album: null, genres: [], choice: null } })).toMatchObject({
+      value: "SE 300B・DRIVE −12.0 dB",
+      sub: [],
+    });
+  });
+  it("the tube's show (task 9-8): the warm-up and the unit on lines of their own", () => {
+    const s: PlaybackStatus = {
+      ...processed,
+      stages: [...processed.stages, { name: "tube", gainDb: -12, detail: "ppclassa;warmup=185;unit=7" }],
+      tubeAuto: { album: null, genres: ["Baroque"], choice: { type: "ppclassa", reason: "genre", matched: "Baroque" } },
+    };
+    const r = pathModel(s).processing.rows.find((x) => x.name === "真空管")!;
+    expect(r.value).toBe("PP CLASS A・DRIVE −12.0 dB");
+    expect(r.sub).toEqual(["ジャンル（Baroque）で選択", "ウォームアップ中（起動から 3 分）", "球 No.7"]);
   });
   it("DoP: the DSD file, no processing", () => {
     const s: PlaybackStatus = {

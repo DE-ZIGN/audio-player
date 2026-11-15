@@ -85,7 +85,15 @@ export class OutputView {
       const list = el("ul", "oc-stages");
       for (const r of b.rows) {
         const li = el("li", r.on ? "on" : "");
-        li.append(el("span", "", r.name), el("span", r.warn ? "oc-state warn" : "oc-state", r.warn ? `⚠ ${r.value}` : r.value));
+        const main = el("div", "oc-stage-main");
+        // The value breaks only between its parts (at "・"), never inside one.
+        const state = el("span", r.warn ? "oc-state warn" : "oc-state");
+        (r.warn ? `⚠ ${r.value}` : r.value).split("・").forEach((part, i, all) => {
+          state.append(el("span", "oc-part", i < all.length - 1 ? `${part}・` : part));
+        });
+        main.append(el("span", "oc-stage-name", r.name), state);
+        li.append(main);
+        for (const line of r.sub ?? []) li.append(el("div", "oc-stage-sub", line));
         list.append(li);
       }
       d.append(list);

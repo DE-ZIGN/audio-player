@@ -19,6 +19,7 @@ export interface StageRow {
   on: boolean;
   value: string;
   warn?: boolean;
+  sub?: string[]; // smaller lines under the row (the tube: what chose the type, the show)
 }
 
 export interface ProcessingBox {
@@ -117,23 +118,37 @@ export function pathModel(s: PlaybackStatus): PathModel {
   const p = s.path;
   const active = !!p && p.processing && !s.dop;
   const stage = (id: string) => (active ? s.stages.find((st) => st.name === id) : undefined);
-  const row = (name: string, id: string, value: (g: number | "-inf" | null, st: StageState) => string): StageRow => {
+  const row = (
+    name: string,
+    id: string,
+    value: (g: number | "-inf" | null, st: StageState) => string,
+    sub?: (st: StageState) => string[],
+  ): StageRow => {
     const st = stage(id);
-    return st ? { name, on: true, value: value(st.gainDb, st) } : { name, on: false, value: "OFF" };
+    if (!st) return { name, on: false, value: "OFF" };
+    return sub ? { name, on: true, value: value(st.gainDb, st), sub: sub(st) } : { name, on: true, value: value(st.gainDb, st) };
   };
   const limiterOn = !!stage("limiter");
   const rows: StageRow[] = [
     row("ReplayGain", "replaygain", gainText),
     row("EQ", "eq", (g) => (g === null ? "ON" : `プリアンプ ${gainText(g)}`)),
     row("トーン", "tone", (g) => (g === null ? "ON" : `プリアンプ ${gainText(g)}`)),
-    row("真空管", "tube", (g, st) => {
-      const c = s.tubeAuto?.choice;
-      const why = c ? (c.reason === "album" ? "（アルバムの指定）" : `（ジャンル：${c.matched}）`) : "";
-      const d = parseTubeDetail(st.detail);
-      const type = (d.type ? TUBE_LABELS[d.type] : "ON") + why;
-      const show = characterParts(d.warmUpSeconds, d.unit).map((p) => `・${p}`).join(""); // task 9-8
-      return (g === null ? type : `${type}・DRIVE ${gainText(g)}`) + show;
-    }),
+    row(
+      "真空管",
+      "tube",
+      (g, st) => {
+        const d = parseTubeDetail(st.detail);
+        const type = d.type ? TUBE_LABELS[d.type] : "ON";
+        return g === null ? type : `${type}・DRIVE ${gainText(g)}`;
+      },
+      (st) => {
+        // What chose the type (task 9-7) and the show (task 9-8), a line each.
+        const c = s.tubeAuto?.choice;
+        const why = c ? [c.reason === "album" ? "アルバムの指定で選択" : `ジャンル（${c.matched}）で選択`] : [];
+        const d = parseTubeDetail(st.detail);
+        return [...why, ...characterParts(d.warmUpSeconds, d.unit)];
+      },
+    ),
     row("空間", "space", (_g, st) => {
       const sp = parseSpaceDetail(st.detail);
       return sp ? spaceText(sp.room, sp.mix, sp.source) : "ON";

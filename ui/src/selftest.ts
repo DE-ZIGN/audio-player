@@ -290,9 +290,15 @@ export async function runSelfTest(
       5000,
     );
     const showRow = pathModel(shown).processing.rows.find((r) => r.name === "真空管");
-    if (!showRow || !/^PP EL34・DRIVE −6\.0 dB・(ウォームアップ中（起動から \d+ 分）|暖まった状態)・球 No\.7$/.test(showRow.value))
+    const showSub = showRow?.sub ?? [];
+    if (
+      showRow?.value !== "PP EL34・DRIVE −6.0 dB" ||
+      showSub.length !== 2 ||
+      !/^(ウォームアップ中（起動から \d+ 分）|暖まった状態)$/.test(showSub[0]) ||
+      showSub[1] !== "球 No.7"
+    )
       throw new Error(`tube show: ${JSON.stringify(shown.stages)} ${JSON.stringify(showRow)}`);
-    log.push(`tube show: ${showRow.value}`);
+    log.push(`tube show: ${showRow.value} / ${showSub.join(" / ")}`);
     await backend.settings.setListening({ ...showBase, tubeWarmUp: false, tubeUnits: false });
     await waitFor("the tube without the show", (s) => s.stages.find((st) => st.name === "tube")?.detail === "ppel34", 3000);
 
