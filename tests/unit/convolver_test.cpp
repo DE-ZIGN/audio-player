@@ -116,9 +116,9 @@ TEST_CASE("The layout keeps the latency about 2.7-2.9 ms at every rate", "[convo
 
 TEST_CASE("The convolver's output is the convolution sum with a known kernel", "[convolver]")
 {
-    const ConvolverLayout layout{32, 7}; // small blocks: tail partitions of 256
+    const ConvolverLayout layout{32, 8}; // small blocks: the head covers 15 x 32 frames, tail partitions of 256
     // Kernel lengths: inside the head, exactly the head, one tail part, across parts.
-    const std::size_t len = GENERATE(1u, 50u, 224u, 225u, 480u, 1000u, 3001u);
+    const std::size_t len = GENERATE(1u, 50u, 480u, 481u, 736u, 1000u, 3001u);
     CAPTURE(len);
     const auto k = noise(len, 11);
     const auto x = noise(6000, 13);
@@ -133,7 +133,7 @@ TEST_CASE("The convolver's output is the convolution sum with a known kernel", "
 
 TEST_CASE("Each channel uses its kernel channel; a mono kernel serves both", "[convolver]")
 {
-    const ConvolverLayout layout{32, 7};
+    const ConvolverLayout layout{32, 8};
     const auto kl = noise(900, 1), kr = noise(700, 2);
     const auto x = noise(2 * 5000, 3);
     PartitionedConvolver c;
@@ -166,7 +166,7 @@ TEST_CASE("At the real layout, a long kernel matches the sum", "[convolver]")
 
 TEST_CASE("Replacing the kernel crossfades over one tail block, keeping the input history", "[convolver]")
 {
-    const ConvolverLayout layout{32, 7};
+    const ConvolverLayout layout{32, 8};
     const std::size_t T = layout.tail();
     const auto ka = noise(1500, 31), kb = noise(1100, 32);
     const auto x = noise(8000, 33);
@@ -178,7 +178,7 @@ TEST_CASE("Replacing the kernel crossfades over one tail block, keeping the inpu
     c.prepare(layout, 1, 2000);
     c.setKernel(a.get());
     std::vector<double> y(x.size());
-    const std::size_t ask = 1000; // asked mid-block: takes over at 1024
+    const std::size_t ask = 1000; // asked mid-block: the new tail is computed from 1024, the fade runs 1280-1536
     c.process(x.data(), y.data(), ask);
     REQUIRE(c.crossfadeTo(b.get()));
     CHECK_FALSE(c.crossfadeTo(a.get())); // busy
@@ -186,7 +186,7 @@ TEST_CASE("Replacing the kernel crossfades over one tail block, keeping the inpu
     CHECK(c.kernel() == b.get());
     CHECK_FALSE(c.crossfading());
 
-    const std::size_t start = (ask / T + 1) * T;
+    const std::size_t start = (ask / T + 2) * T;
     double before = 0.0, after = 0.0;
     for (std::size_t i = 0; i < start; ++i)
         before = std::max(before, std::abs(y[i] - ya[i]));
@@ -206,7 +206,7 @@ TEST_CASE("Replacing the kernel crossfades over one tail block, keeping the inpu
 
 TEST_CASE("No kernel gives silence; a first kernel starts from silence", "[convolver]")
 {
-    const ConvolverLayout layout{32, 7};
+    const ConvolverLayout layout{32, 8};
     const auto k = noise(400, 41);
     auto x = noise(3000, 42);
     PartitionedConvolver c;
@@ -224,5 +224,56 @@ TEST_CASE("No kernel gives silence; a first kernel starts from silence", "[convo
     double m = 0.0;
     for (std::size_t i = 0; i < later.size(); ++i)
         m = std::max(m, std::abs(y[1500 + i] - expect[i]));
+    CHECK(m < 1e-12);
+}
+
+TEST_CASE("The tail's work is spread over the head blocks: no call does a whole tail block's work", "[convolver]")
+{
+    const ConvolverLayout layout{32, 8};
+    const std::size_t parts = 40;
+    const auto k = noise(32 * 15 + 256 * parts, 51);
+    const auto x = noise(2 * 20000, 52);
+    PartitionedConvolver c;
+    c.prepare(layout, 2, k.size());
+    const auto kernel = ConvolutionKernel::make(layout, {k, k});
+    c.setKernel(kernel.get());
+    // What one tail block's work costs at once: per channel an FFT, the parts, an inverse FFT.
+    const std::size_t whole = 2 * (PartitionedConvolver::kFftCost + parts * PartitionedConvolver::kPartCost +
+                                   PartitionedConvolver::kFftCost);
+    std::vector<double> y(x.size());
+    std::size_t worst = 0, total = 0;
+    for (std::size_t f = 0; f < x.size() / 2; f += 32) // one head block per call
+    {
+        c.process(x.data() + 2 * f, y.data() + 2 * f, 32);
+        worst = std::max(worst, c.lastTailWork());
+        total += c.lastTailWork();
+    }
+    CAPTURE(whole, worst);
+    CHECK(total > 0);
+    // A share per head block (an eighth here), give or take one FFT.
+    CHECK(worst <= whole / layout.tailBlocks + PartitionedConvolver::kFftCost + 1);
+    // And still the convolution sum.
+    CHECK(maxDiff(channel(y, 2, 1), direct(channel(x, 2, 1), k, 32)) < 1e-12);
+}
+
+TEST_CASE("A reset mid-stream: as if the input had started there (the old history is not used)", "[convolver]")
+{
+    const ConvolverLayout layout{32, 8};
+    const auto k = noise(3001, 61);
+    const auto x = noise(9000, 62);
+    PartitionedConvolver c;
+    c.prepare(layout, 1, 4000);
+    const auto kernel = ConvolutionKernel::make(layout, {k});
+    c.setKernel(kernel.get());
+    std::vector<double> y(x.size());
+    const std::size_t at = 4321; // mid head block, mid tail block
+    c.process(x.data(), y.data(), at);
+    c.reset();
+    c.process(x.data() + at, y.data() + at, x.size() - at);
+    const std::vector<double> later(x.begin() + static_cast<std::ptrdiff_t>(at), x.end());
+    const auto expect = direct(later, k, 32);
+    double m = 0.0;
+    for (std::size_t i = 0; i < later.size(); ++i)
+        m = std::max(m, std::abs(y[at + i] - expect[i]));
     CHECK(m < 1e-12);
 }

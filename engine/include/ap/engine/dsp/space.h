@@ -21,8 +21,9 @@
 //    not interrupt playback.
 //  - Changes: a new room, IR, pre-delay or low cut is built on the calling
 //    thread (a few ms; the IR is resampled to the output rate when it differs)
-//    and the convolver crossfades to it over one tail block (about 43 ms),
-//    with the same input history. MIX moves over 20 ms.
+//    and the convolver crossfades to it over one tail block (about 43 ms; it
+//    starts within two tail blocks, the new tail being computed first), with
+//    the same input history. MIX moves over 20 ms.
 //  - Full bypass: OFF, or MIX 0, is identity once MIX has faded out, so the
 //    output is the input bit for bit (the chain takes the direct path when
 //    nothing else is on).
