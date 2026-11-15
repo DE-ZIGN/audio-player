@@ -40,6 +40,10 @@ add_library(ap_engine STATIC
     src/dsp/tube_auto.cpp
     src/dsp/tone.cpp
     src/dsp/crossfeed.cpp
+    src/dsp/fft.cpp
+    src/dsp/convolver.cpp
+    src/dsp/room_ir.cpp
+    src/dsp/space.cpp
     src/listening_settings.cpp
     src/looping_source.cpp
     src/dsp/requantize.cpp

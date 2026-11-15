@@ -108,7 +108,9 @@ add_executable(ap_engine_unit_tests
     unit/tube_test.cpp
     unit/tube_auto_test.cpp
     unit/tone_test.cpp
-    unit/crossfeed_test.cpp)
+    unit/crossfeed_test.cpp
+    unit/convolver_test.cpp
+    unit/space_test.cpp)
 
 target_link_libraries(ap_engine_unit_tests PRIVATE ap_engine ap_test_support ap_catch_main)
 target_compile_definitions(ap_engine_unit_tests PRIVATE
@@ -165,7 +167,8 @@ if(TARGET ap_signalgen_lib)
         unit/audio_file_test.cpp
         unit/alac_file_source_test.cpp
         unit/mp3_file_source_test.cpp
-        unit/aac_file_source_test.cpp)
+        unit/aac_file_source_test.cpp
+        unit/room_ir_file_test.cpp)
     target_link_libraries(ap_engine_signal_tests PRIVATE
         ap_engine ap_signalgen_lib ap_test_support ap_asiosdk ole32 ap_catch_main)
     ap_apply_compiler_settings(ap_engine_signal_tests)
