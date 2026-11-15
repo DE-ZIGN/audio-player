@@ -81,3 +81,26 @@ describe("the settings screen's look (task 6-10, 2026-11-15)", () => {
     expect(r?.body).toMatch(/cursor:\s*pointer/);
   });
 });
+
+describe("the side panels in the zoomed views (task 6-10, 2026-11-15)", () => {
+  it("are at their real size, like the library view's", () => {
+    const r = all.find((x) => x.selector === '[data-look="real"] :is(.sidebar, .queue-panel) > *');
+    expect(r?.body).toMatch(/zoom:\s*calc\(1 \/ var\(--ui-zoom, 1\)\)/);
+  });
+  it("take the library view's sizes (no sizes of their own in the standard and amp views)", () => {
+    const parts = /(\.nav|\.nav-icon|\.queue-panel h2|\.queue-count|\.queue-list li|\.folder-list li|\.folders-head|\.folder-count|\.open-file|\.view-switch)(\s*,|\s*$)/;
+    const own = all.filter(
+      (r) =>
+        /\[data-(look="real"|ui-view="amp")\]/.test(r.selector) &&
+        r.selector.split(",").some((s) => parts.test(s.trim()) && /\[data-(look|ui-view)/.test(s)) &&
+        /(font-size|(^|[^-])height|padding):/.test(r.body),
+    );
+    expect(own.map((r) => r.selector)).toEqual([]);
+  });
+});
+
+describe("見た目's two boxes (task 6-10, 2026-11-15)", () => {
+  it("have room between them", () => {
+    expect(all.find((r) => r.selector === "#settings .themes + .themes")?.body).toMatch(/margin-top:\s*\d+px/);
+  });
+});
