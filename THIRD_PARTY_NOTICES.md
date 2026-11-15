@@ -193,6 +193,19 @@
 
 ---
 
+## MAIR（Microphone Array Impulse Response Library）の IR 1 本
+
+- バージョン：GitHub の `APL-Huddersfield/MAIR-Library-and-Renderer`（master、2026-11-06 に取得）のうち、`MainArrays/2ch_AB/Main_AB_M01_S01_FL.wav` と `Main_AB_M02_S01_FR.wav` だけ
+- ライセンス：CC-BY-4.0（Creative Commons Attribution 4.0 International）
+- 配布物：含む（空間の段の HALL の「内蔵（実測）」。エンジンに埋め込む。`engine/resources/ir/mair_st_pauls_ab_s01.wav`）
+- 入手先：https://github.com/APL-Huddersfield/MAIR-Library-and-Renderer
+- 著作権表示：Hyunkook Lee and Connor Millns, Applied Psychoacoustics Lab, University of Huddersfield. "Microphone Array Impulse Response (MAIR) Library for Spatial Audio Research," 143rd AES Convention, 2017.
+- ライセンス本文：ライブラリの `licence.txt`、https://creativecommons.org/licenses/by/4.0/legalcode
+- 変更：2 本のモノラルを 1 本のステレオにまとめ、直接音の 1 ms 前より前を切った（値はそのまま）。詳しくは `engine/resources/ir/README.md`。
+- アプリの中の表示：設定画面の「空間」に、作者・出典・ライセンス・変更を書いている。
+
+---
+
 ## 画面のビルドとテストにだけ使うもの（配布物に含まない）
 
 `ui/package.json` の devDependencies。Vite が `ui/src/` から作るファイルだけを配布し、これらのパッケージ自体は含まない。

@@ -648,6 +648,7 @@ TEST_CASE("A user IR for a room: loaded when set, reported when it cannot be rea
     const auto u = good.u8string();
     s.spaceIr[1] = std::string(u.begin(), u.end());
     s.spaceIr[2] = (dir.path() / "missing.wav").string();
+    s.spaceSource = {SpaceIrSource::Synthesized, SpaceIrSource::File, SpaceIrSource::File};
     ListeningChain c;
     c.apply(s);
     const auto st = c.spaceIrStatus();
@@ -659,7 +660,55 @@ TEST_CASE("A user IR for a room: loaded when set, reported when it cannot be rea
     CHECK(std::abs(st[1].seconds - 0.1) < 1e-9);
     CHECK_FALSE(st[2].loaded);
     CHECK_FALSE(st[2].error.empty());
-    CHECK(c.space->params().user[1] != nullptr);
-    CHECK(c.space->params().user[2] == nullptr); // falls back to the built-in room
+    CHECK(c.space->params().ir[1] != nullptr);
+    CHECK(c.space->params().source[1] == SpaceIrSource::File);
+    CHECK(c.space->params().ir[2] == nullptr); // falls back to ARENA's default, synthesized
+    CHECK(c.space->params().source[2] == SpaceIrSource::Synthesized);
     CHECK(c.space->displayDetail() == "hall;20;user");
+}
+
+TEST_CASE("Each room's IR: HALL measured and the others synthesized by default; a file when chosen", "[settings][space]")
+{
+    const ListeningSettings d;
+    CHECK(d.spaceSource == std::array{SpaceIrSource::Synthesized, SpaceIrSource::Measured, SpaceIrSource::Synthesized});
+
+    ListeningSettings s;
+    s.mode = ListeningMode::Processed;
+    s.spaceRoom = SpaceRoom::Hall;
+    ListeningChain c;
+    c.apply(s);
+    CHECK(c.space->params().ir[1] == measuredRoom(SpaceRoom::Hall));
+    CHECK(c.space->displayDetail() == "hall;20;measured");
+
+    s.spaceSource[1] = SpaceIrSource::Synthesized;
+    c.apply(s);
+    CHECK(c.space->params().ir[1] == nullptr);
+    CHECK(c.space->displayDetail() == "hall;20");
+
+    // File with no file: the room's default (measured, for HALL).
+    s.spaceSource[1] = SpaceIrSource::File;
+    c.apply(s);
+    CHECK(c.space->displayDetail() == "hall;20;measured");
+
+    // Measured where there is none: synthesized.
+    s.spaceRoom = SpaceRoom::Club;
+    s.spaceSource[0] = SpaceIrSource::Measured;
+    c.apply(s);
+    CHECK(c.space->params().ir[0] == nullptr);
+    CHECK(c.space->displayDetail() == "club;20");
+}
+
+TEST_CASE("Each room's IR source is saved and read back; older files and bad values are read sensibly", "[settings][space][text]")
+{
+    AppSettings a;
+    a.listening.spaceSource = {SpaceIrSource::File, SpaceIrSource::Synthesized, SpaceIrSource::Synthesized};
+    a.listening.spaceIr = {"C:\\ir\\club.wav", "", ""};
+    CHECK(settingsFromText(settingsToText(a)) == a);
+
+    // A file from before the sources: a path means the file.
+    const auto old = settingsFromText("space.ir.arena=D:\\a.wav\n");
+    CHECK(old.listening.spaceSource == std::array{SpaceIrSource::Synthesized, SpaceIrSource::Measured, SpaceIrSource::File});
+    // Measured for a room without one, and unknown values.
+    const auto bad = settingsFromText("space.source.club=measured\nspace.source.hall=loud\nspace.source.stage=file\n");
+    CHECK(bad.listening.spaceSource == std::array{SpaceIrSource::Synthesized, SpaceIrSource::Measured, SpaceIrSource::Synthesized});
 }

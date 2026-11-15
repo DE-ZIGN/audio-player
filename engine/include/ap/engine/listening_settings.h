@@ -69,7 +69,14 @@ struct ListeningSettings
     double spaceMixPercent = SpaceStage::kDefaultMixPercent; // 0 .. 100
     double spacePreDelayMs = SpaceStage::kDefaultPreDelayMs; // 0 .. 100
     double spaceLowCutHz = SpaceStage::kDefaultLowCutHz;     // 0 (none) or 20 .. 500
-    // The user's IR file for CLUB, HALL and ARENA (UTF-8 paths); empty: the built-in room.
+    // Which IR CLUB, HALL and ARENA play: HALL the measured one by default,
+    // the others the synthesized one (a room without a measured IR plays the
+    // synthesized one if asked for it).
+    std::array<SpaceIrSource, 3> spaceSource{SpaceIrSource::Synthesized, SpaceIrSource::Measured,
+                                             SpaceIrSource::Synthesized};
+    // The user's IR file for CLUB, HALL and ARENA (UTF-8 paths), used when the
+    // source is File (kept when another source is chosen). A file that cannot
+    // be read plays the room's default instead.
     std::array<std::string, 3> spaceIr;
 
     bool operator==(const ListeningSettings&) const = default;

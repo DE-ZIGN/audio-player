@@ -35,7 +35,7 @@ SpaceStage::~SpaceStage() = default;
 
 bool SpaceStage::kernelChanged(const Params& a, const Params& b)
 {
-    return a.room != b.room || a.preDelayMs != b.preDelayMs || a.lowCutHz != b.lowCutHz || a.user != b.user;
+    return a.room != b.room || a.preDelayMs != b.preDelayMs || a.lowCutHz != b.lowCutHz || a.ir != b.ir;
 }
 
 void SpaceStage::set(const Params& in)
@@ -92,7 +92,7 @@ std::vector<std::vector<double>> SpaceStage::buildTaps(const Params& p, double r
     ImpulseResponse ir;
     {
         std::lock_guard lock(buildMutex_);
-        const auto& user = p.user[roomIndex(p.room)];
+        const auto& user = p.ir[roomIndex(p.room)];
         if (cacheRoom_ != p.room || cacheRate_ != rate || cacheSource_ != user)
         {
             if (user)
@@ -180,7 +180,10 @@ std::string SpaceStage::displayDetail() const
     if (room != SpaceRoom::Off)
     {
         std::lock_guard lock(mutex_);
-        if (params_.user[roomIndex(room)])
+        const auto i = roomIndex(room);
+        if (params_.ir[i] && params_.source[i] == SpaceIrSource::Measured)
+            s += ";measured";
+        else if (params_.ir[i])
             s += ";user";
     }
     return s;

@@ -272,7 +272,8 @@ TEST_CASE("A user IR replaces the room's built-in one, resampled to the output r
     ir->channels[0][2205] = -0.5;
     SpaceStage s;
     auto p = params(SpaceRoom::Club, 20.0, 10.0, 0.0);
-    p.user[0] = ir;
+    p.ir[0] = ir;
+    p.source[0] = SpaceIrSource::File;
     s.set(p);
     CHECK(s.displayDetail() == "club;20;user");
     const auto wet = s.wetResponse(kRate);
@@ -291,4 +292,42 @@ TEST_CASE("A user IR replaces the room's built-in one, resampled to the output r
     for (std::size_t i = 4800; i < 43200; ++i)
         e = std::max(e, std::abs(up[i] - std::sin(2 * std::numbers::pi * 1000.0 * static_cast<double>(i) / 48000.0)));
     CHECK(e < 1e-3);
+}
+
+TEST_CASE("The bundled measured HALL: St Paul's Hall (MAIR, AB pair, S01)", "[space][room]")
+{
+    CHECK(hasMeasuredIr(SpaceRoom::Hall));
+    CHECK_FALSE(hasMeasuredIr(SpaceRoom::Club));
+    CHECK_FALSE(hasMeasuredIr(SpaceRoom::Arena));
+    CHECK(defaultSpaceIrSource(SpaceRoom::Hall) == SpaceIrSource::Measured);
+    CHECK(defaultSpaceIrSource(SpaceRoom::Club) == SpaceIrSource::Synthesized);
+    CHECK(measuredRoom(SpaceRoom::Club) == nullptr);
+    for (const auto s : {SpaceIrSource::Measured, SpaceIrSource::Synthesized, SpaceIrSource::File})
+        CHECK(spaceIrSourceFrom(spaceIrSourceKey(s)) == s);
+
+    const auto hall = measuredRoom(SpaceRoom::Hall);
+    REQUIRE(hall != nullptr);
+    CHECK(hall == measuredRoom(SpaceRoom::Hall)); // read once
+    CHECK(hall->sampleRate == 44100.0);
+    REQUIRE(hall->channels.size() == 2);
+    CHECK(std::abs(hall->seconds() - 2.965) < 0.01);
+    double peak = 0.0;
+    for (const auto& c : hall->channels)
+        for (const double v : c)
+            peak = std::max(peak, std::abs(v));
+    CHECK(std::abs(20.0 * std::log10(peak) - (-4.6)) < 0.2);
+    // Its decay in the 250 Hz - 2 kHz band (St Paul's Hall: RT60 2.1 s as published).
+    const double rt = bandRt(hall->channels[0], 250.0, 2000.0, hall->sampleRate);
+    CAPTURE(rt);
+    CHECK(rt > 1.7);
+    CHECK(rt < 2.4);
+
+    // As a room's IR in the stage: shown as measured.
+    SpaceStage st;
+    auto p = params(SpaceRoom::Hall, 20.0, 10.0, 0.0);
+    p.ir[1] = hall;
+    p.source[1] = SpaceIrSource::Measured;
+    st.set(p);
+    CHECK(st.displayDetail() == "hall;20;measured");
+    CHECK(st.wetResponse(kRate).size() == 2);
 }

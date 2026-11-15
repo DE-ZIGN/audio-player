@@ -202,6 +202,9 @@ std::string settingsToText(const AppSettings& s)
     out << "space.mix=" << number(l.spaceMixPercent) << '\n';
     out << "space.predelay=" << number(l.spacePreDelayMs) << '\n';
     out << "space.lowcut=" << number(l.spaceLowCutHz) << '\n';
+    out << "space.source.club=" << spaceIrSourceKey(l.spaceSource[0]) << '\n';
+    out << "space.source.hall=" << spaceIrSourceKey(l.spaceSource[1]) << '\n';
+    out << "space.source.arena=" << spaceIrSourceKey(l.spaceSource[2]) << '\n';
     out << "space.ir.club=" << oneLine(l.spaceIr[0]) << '\n';
     out << "space.ir.hall=" << oneLine(l.spaceIr[1]) << '\n';
     out << "space.ir.arena=" << oneLine(l.spaceIr[2]) << '\n';
@@ -232,6 +235,7 @@ AppSettings settingsFromText(std::string_view text)
     auto& l = s.listening;
     NamedEqPreset* preset = nullptr; // the preset the eqpreset.* lines belong to
     bool tubeRulesRead = false;
+    std::array<bool, 3> spaceSourceRead{}; // without it (a file from before), a path means File
     while (!text.empty())
     {
         const auto end = text.find('\n');
@@ -309,6 +313,19 @@ AppSettings settingsFromText(std::string_view text)
             const double cut = parseNumber(value).value_or(SpaceStage::kDefaultLowCutHz);
             l.spaceLowCutHz = cut <= 0.0 ? 0.0 : std::clamp(cut, SpaceStage::kMinLowCutHz, SpaceStage::kMaxLowCutHz);
         }
+        else if (key.starts_with("space.source."))
+        {
+            const auto room = spaceRoomFrom(key.substr(13));
+            const auto source = spaceIrSourceFrom(value);
+            if (room && *room != SpaceRoom::Off && source)
+            {
+                const auto i = static_cast<std::size_t>(*room) - 1;
+                l.spaceSource[i] = *source == SpaceIrSource::Measured && !hasMeasuredIr(*room)
+                                       ? SpaceIrSource::Synthesized
+                                       : *source;
+                spaceSourceRead[i] = true;
+            }
+        }
         else if (key == "space.ir.club")
             l.spaceIr[0] = std::string(value);
         else if (key == "space.ir.hall")
@@ -355,6 +372,9 @@ AppSettings settingsFromText(std::string_view text)
                 preset->bands.push_back(*b);
         }
     }
+    for (std::size_t i = 0; i < 3; ++i)
+        if (!spaceSourceRead[i] && !l.spaceIr[i].empty())
+            l.spaceSource[i] = SpaceIrSource::File;
     return s;
 }
 
@@ -387,7 +407,19 @@ void ListeningChain::apply(const ListeningSettings& s)
     sp.mixPercent = s.spaceMixPercent;
     sp.preDelayMs = s.spacePreDelayMs;
     sp.lowCutHz = s.spaceLowCutHz;
-    sp.user = irs_;
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        const auto room = static_cast<SpaceRoom>(i + 1);
+        auto source = s.spaceSource[i];
+        if (source == SpaceIrSource::Measured && !hasMeasuredIr(room))
+            source = SpaceIrSource::Synthesized;
+        if (source == SpaceIrSource::File && !irs_[i])
+            source = defaultSpaceIrSource(room); // no file, or it could not be read
+        sp.source[i] = source;
+        sp.ir[i] = source == SpaceIrSource::File       ? irs_[i]
+                 : source == SpaceIrSource::Measured   ? measuredRoom(room)
+                                                       : nullptr;
+    }
     space->set(sp);
 }
 

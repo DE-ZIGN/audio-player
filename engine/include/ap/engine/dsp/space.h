@@ -6,8 +6,8 @@
 //   out = (1 - MIX) * dry + MIX * wet
 // Nothing here is claimed to sound better; what it does is what is said.
 //
-//  - Rooms: OFF, CLUB, HALL, ARENA. Each is a built-in IR (room_ir.h), or an
-//    IR file the user gave that button.
+//  - Rooms: OFF, CLUB, HALL, ARENA. Each plays its synthesized IR, or an IR
+//    it is given: the bundled measured one (HALL) or the user's file (room_ir.h).
 //  - The wet IR is normalised to unit energy (per channel, on average), so a
 //    broadband signal comes out of the convolution at about its own level.
 //  - Pre-delay: the wet signal starts this long after the dry one. Low cut:
@@ -56,8 +56,11 @@ public:
         double mixPercent = kDefaultMixPercent; // 0 .. 100
         double preDelayMs = kDefaultPreDelayMs; // 0 .. kMaxPreDelayMs (at least the latency is used)
         double lowCutHz = kDefaultLowCutHz;     // 0 (none) or kMinLowCutHz .. kMaxLowCutHz
-        // The user's IR for CLUB, HALL, ARENA; nullptr: the built-in room.
-        std::array<std::shared_ptr<const ImpulseResponse>, 3> user;
+        // The IR for CLUB, HALL, ARENA (measured or the user's); nullptr: the synthesized room.
+        std::array<std::shared_ptr<const ImpulseResponse>, 3> ir;
+        // What each one is, for the display (Synthesized where ir is nullptr).
+        std::array<SpaceIrSource, 3> source{SpaceIrSource::Synthesized, SpaceIrSource::Synthesized,
+                                            SpaceIrSource::Synthesized};
 
         bool operator==(const Params&) const = default;
     };
@@ -84,7 +87,7 @@ public:
     std::string name() const override { return "space"; }
     void prepare(std::uint32_t sampleRate, std::uint16_t channels) override;
     bool isIdentity() const noexcept override { return mixTarget_ == 0.0 && settled_; }
-    // "hall;20" (room; MIX %), with ";user" when the room's IR is the user's.
+    // "hall;20" (room; MIX %; synthesized), "hall;20;measured" or "hall;20;user".
     std::string displayDetail() const override;
     void process(std::span<double> samples, std::uint16_t channels) noexcept override;
 

@@ -58,6 +58,17 @@ add_library(ap_engine STATIC
     src/output/asio_probe.cpp
     src/output/wasapi_exclusive_output.cpp)
 
+# The bundled IRs (task 9-6), built into the engine (cmake/EmbedFile.cmake).
+set(AP_IR_MAIR ${CMAKE_CURRENT_SOURCE_DIR}/resources/ir/mair_st_pauls_ab_s01.wav)
+set(AP_IR_MAIR_CPP ${CMAKE_CURRENT_BINARY_DIR}/generated/ir_mair_st_pauls_ab_s01.cpp)
+add_custom_command(OUTPUT ${AP_IR_MAIR_CPP}
+    COMMAND ${CMAKE_COMMAND} -DIN=${AP_IR_MAIR} -DOUT=${AP_IR_MAIR_CPP} -DNAME=kMairStPaulsAbS01
+            -P ${PROJECT_SOURCE_DIR}/cmake/EmbedFile.cmake
+    DEPENDS ${AP_IR_MAIR} ${PROJECT_SOURCE_DIR}/cmake/EmbedFile.cmake
+    COMMENT "Embedding the St Paul's Hall IR (MAIR, CC BY 4.0)"
+    VERBATIM)
+target_sources(ap_engine PRIVATE ${AP_IR_MAIR_CPP})
+
 target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt user32 advapi32 ap_asiosdk FLAC::FLAC ap_alac libmpg123 ap_ebur128 mfplat mfuuid)
 
 target_include_directories(ap_engine PUBLIC

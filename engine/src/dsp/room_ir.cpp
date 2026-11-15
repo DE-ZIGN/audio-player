@@ -8,10 +8,16 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <numbers>
 #include <stdexcept>
 
 namespace ap::engine {
+
+namespace embedded {
+extern const unsigned char kMairStPaulsAbS01[]; // engine/resources/ir/, see engine/CMakeLists.txt
+extern const std::size_t kMairStPaulsAbS01Size;
+} // namespace embedded
 
 namespace {
 
@@ -127,6 +133,93 @@ std::optional<SpaceRoom> spaceRoomFrom(std::string_view key) noexcept
         if (key == spaceRoomKey(r))
             return r;
     return std::nullopt;
+}
+
+const char* spaceIrSourceKey(SpaceIrSource source) noexcept
+{
+    switch (source)
+    {
+        case SpaceIrSource::Measured:    return "measured";
+        case SpaceIrSource::Synthesized: return "synth";
+        case SpaceIrSource::File:        return "file";
+    }
+    return "synth";
+}
+
+std::optional<SpaceIrSource> spaceIrSourceFrom(std::string_view key) noexcept
+{
+    for (const auto s : {SpaceIrSource::Measured, SpaceIrSource::Synthesized, SpaceIrSource::File})
+        if (key == spaceIrSourceKey(s))
+            return s;
+    return std::nullopt;
+}
+
+bool hasMeasuredIr(SpaceRoom room) noexcept
+{
+    return room == SpaceRoom::Hall;
+}
+
+SpaceIrSource defaultSpaceIrSource(SpaceRoom room) noexcept
+{
+    return hasMeasuredIr(room) ? SpaceIrSource::Measured : SpaceIrSource::Synthesized;
+}
+
+namespace {
+
+// The bundled IR: a WAV image of 32-bit float samples (as tools/ir_prepare.py writes it).
+ImpulseResponse parseFloatWav(const unsigned char* data, std::size_t size)
+{
+    auto u16 = [&](std::size_t at) { return static_cast<std::uint32_t>(data[at] | (data[at + 1] << 8)); };
+    auto u32 = [&](std::size_t at) { return u16(at) | (u16(at + 2) << 16); };
+    if (size < 12 || std::memcmp(data, "RIFF", 4) != 0 || std::memcmp(data + 8, "WAVE", 4) != 0)
+        throw std::runtime_error("bundled IR: not a WAV image");
+    std::uint32_t tag = 0, channels = 0, rate = 0, bits = 0;
+    const unsigned char* samples = nullptr;
+    std::size_t bytes = 0;
+    for (std::size_t pos = 12; pos + 8 <= size;)
+    {
+        const std::uint32_t len = u32(pos + 4);
+        if (pos + 8 + len > size)
+            break;
+        if (std::memcmp(data + pos, "fmt ", 4) == 0 && len >= 16)
+        {
+            tag = u16(pos + 8);
+            channels = u16(pos + 10);
+            rate = u32(pos + 12);
+            bits = u16(pos + 22);
+        }
+        else if (std::memcmp(data + pos, "data", 4) == 0)
+        {
+            samples = data + pos + 8;
+            bytes = len;
+        }
+        pos += 8 + len + (len & 1);
+    }
+    if (tag != 3 || bits != 32 || channels == 0 || rate == 0 || samples == nullptr)
+        throw std::runtime_error("bundled IR: not 32-bit float WAV");
+    const std::size_t frames = bytes / (4 * channels);
+    ImpulseResponse ir;
+    ir.sampleRate = rate;
+    ir.channels.assign(channels, std::vector<double>(frames));
+    for (std::size_t f = 0; f < frames; ++f)
+        for (std::size_t c = 0; c < channels; ++c)
+        {
+            float v;
+            std::memcpy(&v, samples + 4 * (f * channels + c), 4);
+            ir.channels[c][f] = v;
+        }
+    return ir;
+}
+
+} // namespace
+
+std::shared_ptr<const ImpulseResponse> measuredRoom(SpaceRoom room)
+{
+    if (room != SpaceRoom::Hall)
+        return nullptr;
+    static const std::shared_ptr<const ImpulseResponse> hall = std::make_shared<const ImpulseResponse>(
+        parseFloatWav(embedded::kMairStPaulsAbS01, embedded::kMairStPaulsAbS01Size));
+    return hall;
 }
 
 RoomDesign roomDesign(SpaceRoom room) noexcept
