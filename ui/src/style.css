@@ -729,34 +729,6 @@ button.icon.plain {
 .settings details.explain {
   margin: 8px 0 0;
 }
-.settings details.explain > summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  list-style: none;
-  cursor: pointer;
-  user-select: none;
-  font-size: 12px;
-  color: var(--muted);
-  padding: 1px 8px 1px 6px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-.settings details.explain > summary::-webkit-details-marker {
-  display: none;
-}
-.settings details.explain > summary::before {
-  content: "▸";
-  font-size: 10px;
-}
-.settings details.explain[open] > summary::before {
-  content: "▾";
-}
-.settings details.explain > summary:hover,
-.settings details.explain > summary:focus-visible {
-  color: var(--text);
-  border-color: var(--accent);
-}
 .settings details.explain > .note:first-of-type {
   margin-top: 6px;
 }
@@ -917,12 +889,6 @@ label.check {
   padding-left: 18px;
 }
 
-.settings.original-mode .tone-controls,
-.settings.original-mode .tube-controls,
-.settings.original-mode .space-controls,
-.settings.original-mode .crossfeed-controls {
-  opacity: 0.6;
-}
 
 /* EQ presets (task 6-9): on the settings screen and in the EQ dialog. */
 .eq-presets {
@@ -3348,21 +3314,98 @@ html[data-look="real"] {
 #settings {
   --spx: 1px;
   font-size: calc(16 * var(--spx));
+  line-height: 1.75;
   color: #fff;
 }
 [data-look="real"] #settings {
   --spx: calc(1px / var(--ui-zoom, 1));
 }
-#settings *:not(svg, svg *) {
+#settings :where(*:not(svg, svg *)) {
   font-size: inherit;
   color: inherit;
 }
 #settings :is(.note, small, .notice, .for-mode) {
   font-size: calc(14 * var(--spx));
+  line-height: 1.8;
 }
 #settings :is(button.primary, button.active) {
   color: var(--accent-text);
 }
 #settings .notice {
   color: var(--warn);
+}
+
+/* Headings that read as headings, with room before each (2026-11-15). */
+#settings h2 {
+  font-size: calc(20 * var(--spx));
+  font-weight: 700;
+  margin: 40px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--accent);
+  letter-spacing: 0.02em;
+}
+#settings h2:first-of-type {
+  margin-top: 4px;
+}
+#settings h3 {
+  font-size: calc(17 * var(--spx));
+  font-weight: 700;
+}
+#settings :is(h2, h3) small {
+  font-weight: 400;
+}
+/* In 原音モード the 音作りモード sections stay as they are (white); the
+   heading says they do not play now. */
+.settings.original-mode .for-mode::after {
+  content: "（今は原音モードなので、かかりません）";
+}
+/* The sliders start at one place: one width for every label (トーン, 真空管, 空間). */
+#settings .slider-row {
+  display: grid; /* (".setting > label" made it a block, so the columns never applied) */
+  grid-template-columns: 7em minmax(160px, 320px) 5.5em;
+  margin-bottom: 4px;
+}
+/* What can be clicked looks like a button: the link buttons and the
+   summaries that open more (詳細, 部屋ごとの IR, ジャンルの対応表...). */
+#settings :is(button.link, details > summary) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2px 12px;
+  margin: 4px 0;
+}
+#settings :is(button.link, details > summary):hover,
+#settings :is(button.link, details > summary):focus-visible {
+  border-color: var(--accent);
+}
+#settings details > summary::-webkit-details-marker {
+  display: none;
+}
+#settings details > summary::before {
+  content: "▸";
+  font-size: 0.75em;
+}
+#settings details[open] > summary::before {
+  content: "▾";
+}
+/* 見た目: each view's name, and a line under it. */
+#settings .themes label {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+#settings .themes label > span {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap; /* a name never breaks inside; a narrow screen moves a whole view down */
+}
+#settings .themes {
+  flex-wrap: wrap;
+  row-gap: 10px;
 }

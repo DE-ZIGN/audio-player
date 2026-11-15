@@ -45,8 +45,8 @@ describe("the settings screen's type (task 6-10)", () => {
   it("is white, 16 px, with the explanations at 14 px", () => {
     expect(body("#settings")).toMatch(/color:\s*#fff\b/);
     expect(body("#settings")).toMatch(/font-size:\s*calc\(16 \* var\(--spx\)\)/);
-    expect(body("#settings *:not(svg, svg *)")).toMatch(/font-size:\s*inherit/);
-    expect(body("#settings *:not(svg, svg *)")).toMatch(/color:\s*inherit/);
+    expect(body("#settings :where(*:not(svg, svg *))")).toMatch(/font-size:\s*inherit/);
+    expect(body("#settings :where(*:not(svg, svg *))")).toMatch(/color:\s*inherit/);
     expect(all.some((r) => r.selector.startsWith("#settings :is(.note") && /calc\(14 \* var\(--spx\)\)/.test(r.body))).toBe(true);
   });
   it("is at its real size in the zoomed views", () => {
@@ -56,5 +56,28 @@ describe("the settings screen's type (task 6-10)", () => {
   it("keeps the buttons on the accent dark, and warnings in their colour", () => {
     expect(all.some((r) => /^#settings :is\(button\.primary, button\.active\)/.test(r.selector) && /var\(--accent-text\)/.test(r.body))).toBe(true);
     expect(all.some((r) => /^#settings \.notice/.test(r.selector) && /var\(--warn\)/.test(r.body))).toBe(true);
+  });
+});
+
+describe("the settings screen's look (task 6-10, 2026-11-15)", () => {
+  const body = (sel: string) => all.find((r) => r.selector === sel)?.body ?? "";
+  it("does not dim the 音作りモード sections in 原音モード (the text stays white); the heading says so", () => {
+    expect(all.filter((r) => /\.original-mode .*-controls/.test(r.selector) && /opacity/.test(r.body))).toEqual([]);
+    expect(body(".settings.original-mode .for-mode::after")).toMatch(/content:\s*"/);
+  });
+  it("has headings that read as headings, room before each, and looser lines", () => {
+    expect(body("#settings h2")).toMatch(/font-size:\s*calc\(20 \* var\(--spx\)\)/);
+    expect(body("#settings h2")).toMatch(/font-weight:\s*700/);
+    expect(body("#settings h2")).toMatch(/margin:\s*40px 0 10px/);
+    expect(body("#settings")).toMatch(/line-height:\s*1\.75/);
+  });
+  it("lines the sliders up: one width for every label", () => {
+    expect(body("#settings .slider-row")).toMatch(/grid-template-columns:\s*7em /);
+    expect(body("#settings .slider-row")).toMatch(/display:\s*grid/);
+  });
+  it("shows that clickable words can be pressed (buttons)", () => {
+    const r = all.find((x) => x.selector.startsWith("#settings :is(button.link, details > summary)"));
+    expect(r?.body).toMatch(/border:\s*1px solid/);
+    expect(r?.body).toMatch(/cursor:\s*pointer/);
   });
 });

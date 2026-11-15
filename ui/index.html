@@ -304,7 +304,7 @@
               <input type="range" id="space-predelay" min="0" max="100" step="1" />
               <output id="space-predelay-value" for="space-predelay">10 ms</output>
             </label>
-            <label class="slider-row" for="space-lowcut">響きの低域カット
+            <label class="slider-row" for="space-lowcut">ローカット
               <input type="range" id="space-lowcut" min="10" max="500" step="10" />
               <output id="space-lowcut-value" for="space-lowcut">120 Hz</output>
             </label>
@@ -321,7 +321,7 @@
               <summary>詳細</summary>
               <p class="note">
                 部屋の響き（インパルス応答、IR）を、曲に畳み込んで混ぜます（区切った FFT による畳み込み、64bit 浮動小数点）。MIX は響きの割合で、0% は元の音だけ、100% は響きだけです。IR はエネルギーを 1 にそろえてあり、広い帯域の音では、響きが元の音とほぼ同じ大きさになります。
-                プリディレイは、元の音から響きが始まるまでの時間です（計算の区切りのため、最小 約 3 ms）。元の音は遅らせません。低域カットは響きの側だけにかける 2 次のハイパスで、元の音の低域は変えません。
+                プリディレイは、元の音から響きが始まるまでの時間です（計算の区切りのため、最小 約 3 ms）。元の音は遅らせません。ローカットは響きの側だけにかける 2 次のハイパスで、元の音の低域は変えません。
                 HALL の既定は、実在のホール（St Paul's Hall、英国）で測った IR です。CLUB と ARENA の既定、および「合成」は、鏡像法の初期反射と、帯域ごとに減衰する雑音から合成した IR で、実在の場所を測ったものではありません（数字は部屋の大きさと、中域の残響時間）。
                 部屋の切り替えは約 40 ms のクロスフェードで、再生は途切れません。OFF か MIX 0% なら処理を外し、ほかに処理がなければ原音経路と同じ出力です。真空管の後、クロスフィードの前にかかります。
               </p>
@@ -343,9 +343,9 @@
           <h2>見た目</h2>
           <fieldset class="themes">
             <legend>ビュー（見た目と配置だけが変わり、機能と表示する情報は同じです）</legend>
-            <label><input type="radio" name="ui-view" value="standard" /> 標準ビュー（写実的）</label>
-            <label><input type="radio" name="ui-view" value="amp" /> アンプビュー（真空管アンプ風。下の欄は小さめ）</label>
-            <label><input type="radio" name="ui-view" value="library" /> ライブラリビュー（平坦、曲の多い一覧向け）</label>
+            <label><input type="radio" name="ui-view" value="standard" /> <span><b>標準ビュー</b><small>写実的メディアプレイヤー</small></span></label>
+            <label><input type="radio" name="ui-view" value="amp" /> <span><b>アンプビュー</b><small>真空管アンプ風。情報欄は小さめ</small></span></label>
+            <label><input type="radio" name="ui-view" value="library" /> <span><b>ライブラリビュー</b><small>ライブラリ型メディアプレイヤー風</small></span></label>
           </fieldset>
           <fieldset class="themes" id="theme-set">
             <legend>ライブラリビューのテーマ（色だけが変わります）</legend>

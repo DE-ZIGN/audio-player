@@ -64,3 +64,21 @@ describe("the settings screen's explanations (task 6-10)", () => {
     expect(settings).toMatch(/<h3>演出 <small>ロマン枠：効果は確かめていません<\/small><\/h3>/);
   });
 });
+
+describe("the settings screen's words and layout (task 6-10, 2026-11-15)", () => {
+  it("calls the space's low cut ローカット", () => {
+    expect(settings).toMatch(/<label class="slider-row" for="space-lowcut">ローカット/);
+    expect(settings).not.toContain("響きの低域カット");
+  });
+  it("names the views on two lines, side by side as before", () => {
+    const themes = settings.slice(settings.indexOf('<fieldset class="themes">'));
+    for (const [value, name, sub] of [
+      ["standard", "標準ビュー", "写実的メディアプレイヤー"],
+      ["amp", "アンプビュー", "真空管アンプ風。情報欄は小さめ"],
+      ["library", "ライブラリビュー", "ライブラリ型メディアプレイヤー風"],
+    ])
+      expect(themes).toMatch(
+        new RegExp(`<input type="radio" name="ui-view" value="${value}" />\\s*<span><b>${name}</b><small>${sub}</small></span>`),
+      );
+  });
+});
