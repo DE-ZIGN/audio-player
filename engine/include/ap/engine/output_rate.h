@@ -40,10 +40,12 @@ struct OutputRateChoice
 // "track", "fixed", "atleast", "multiple": in the settings file and the page.
 const char* outputRateModeKey(OutputRateMode mode) noexcept;
 std::optional<OutputRateMode> outputRateModeFrom(std::string_view key) noexcept;
-// The rates offered for Fixed and AtLeast (44.1 to 384 kHz), and the multiples.
+// The rates offered for Fixed and AtLeast (44.1 to 768 kHz; 705.6 and 768 added
+// in task 10-5), and the multiples.
 bool isOutputRateChoiceRate(std::uint32_t rate) noexcept;
 bool isOutputRateMultiple(std::uint32_t multiple) noexcept;
-inline constexpr std::uint32_t kOutputRateChoiceRates[] = {44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000};
+inline constexpr std::uint32_t kOutputRateChoiceRates[] = {44100,  48000,  88200,  96000, 176400,
+                                                           192000, 352800, 384000, 705600, 768000};
 
 // The rates to try for a track at `sourceRate`, the one wanted first.
 std::vector<std::uint32_t> outputRateCandidates(std::uint32_t sourceRate, const OutputRateChoice& choice);

@@ -14,7 +14,7 @@ export const OUTPUT_RATE_MODES: Record<OutputRateMode, string> = {
 };
 
 // The rates offered for 固定 and 下限 (kOutputRateChoiceRates), and the multiples.
-export const OUTPUT_RATE_CHOICES = [44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000];
+export const OUTPUT_RATE_CHOICES = [44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000, 705600, 768000];
 export const OUTPUT_RATE_MULTIPLES = [2, 4, 8];
 
 // "44.1 kHz", "96 kHz".

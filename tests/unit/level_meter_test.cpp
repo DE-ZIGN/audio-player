@@ -7,6 +7,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <numbers>
@@ -188,4 +189,22 @@ TEST_CASE("VU: silence reads nothing, and the needle falls back", "[meter][vu]")
     m.process(sine(kRate, 0.5));
     m.process(std::vector<double>(kRate * 2, 0.0));
     CHECK(m.reading().vu[0] < 0.005);
+}
+
+TEST_CASE("Level meter: measuring time up to 768 kHz (benchmark, run by hand)", "[.][meter][benchmark]")
+{
+    // The meter runs on its own thread (OutputMeter): it has to keep up with
+    // real time, or it skips data (counted as dropped). Task 10-5.
+    for (const std::uint32_t rate : {48000u, 192000u, 384000u, 768000u})
+    {
+        ap::engine::LevelMeter m(rate, 2);
+        std::vector<double> x(static_cast<std::size_t>(rate) * 10 * 2);
+        for (std::size_t i = 0; i < x.size(); ++i)
+            x[i] = 0.5 * std::sin(2 * 3.141592653589793 * 1000.0 * static_cast<double>(i / 2) / rate);
+        const auto start = std::chrono::steady_clock::now();
+        for (std::size_t i = 0; i < x.size(); i += 2048)
+            m.process(std::span(x).subspan(i, std::min<std::size_t>(2048, x.size() - i)));
+        const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        WARN(rate << " Hz: 10 s of stereo measured in " << seconds << " s (" << 10.0 / seconds << "x real time)");
+    }
 }

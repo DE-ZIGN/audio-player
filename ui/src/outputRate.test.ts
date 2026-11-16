@@ -12,6 +12,8 @@ describe("rate texts", () => {
     expect(rateText(44100)).toBe("44.1 kHz");
     expect(rateText(96000)).toBe("96 kHz");
     expect(rateText(352800)).toBe("352.8 kHz");
+    expect(rateText(705600)).toBe("705.6 kHz"); // task 10-5
+    expect(rateText(768000)).toBe("768 kHz");
   });
   it("reads the resampler's detail", () => {
     expect(parseResampleDetail("44100;96000;setting")).toEqual({ from: 44100, to: 96000, reason: "setting" });

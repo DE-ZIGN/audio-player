@@ -53,6 +53,11 @@ TEST_CASE("Output rate: the choices give the rate wanted first", "[output-rate]"
     CHECK(first(48000, {OutputRateMode::Multiple, 0, 2}) == 96000);
     CHECK(first(96000, {OutputRateMode::Multiple, 0, 2}) == 192000);
     CHECK(first(44100, {OutputRateMode::Multiple, 0, 8}) == 352800);
+    // 705.6 and 768 kHz (task 10-5).
+    CHECK(first(96000, {OutputRateMode::Multiple, 0, 8}) == 768000);
+    CHECK(first(88200, {OutputRateMode::Multiple, 0, 8}) == 705600);
+    CHECK(first(44100, {OutputRateMode::Fixed, 768000}) == 768000);
+    CHECK(first(192000, {OutputRateMode::AtLeast, 705600}) == 705600);
 }
 
 TEST_CASE("Output rate: when the DAC refuses, the next choices", "[output-rate]")
@@ -79,6 +84,8 @@ TEST_CASE("Output rate: settings keys", "[output-rate][settings]")
         CHECK(outputRateModeFrom(outputRateModeKey(m)) == m);
     CHECK_FALSE(outputRateModeFrom("bogus"));
     CHECK(isOutputRateChoiceRate(96000));
+    CHECK(isOutputRateChoiceRate(705600)); // task 10-5
+    CHECK(isOutputRateChoiceRate(768000));
     CHECK_FALSE(isOutputRateChoiceRate(12345));
     CHECK(isOutputRateMultiple(4));
     CHECK_FALSE(isOutputRateMultiple(3));

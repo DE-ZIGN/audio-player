@@ -120,7 +120,11 @@ TEST_CASE("Resampling: a chosen rate - the processing path, the length, the leve
                           Case{44100, {OutputRateMode::Multiple, 0, 2}, 88200},
                           Case{48000, {OutputRateMode::AtLeast, 96000}, 96000},
                           Case{96000, {OutputRateMode::Fixed, 44100}, 44100},
-                          Case{192000, {OutputRateMode::Fixed, 48000}, 48000}})
+                          Case{192000, {OutputRateMode::Fixed, 48000}, 48000},
+                          // 705.6 and 768 kHz (task 10-5).
+                          Case{44100, {OutputRateMode::Fixed, 768000}, 768000},
+                          Case{96000, {OutputRateMode::Multiple, 0, 8}, 768000},
+                          Case{88200, {OutputRateMode::Multiple, 0, 8}, 705600}})
     {
         CAPTURE(c.from, c.to);
         ap::test::TempDir dir;
@@ -132,7 +136,8 @@ TEST_CASE("Resampling: a chosen rate - the processing path, the length, the leve
             x[2 * i + 1] = 0.5 * std::sin(2 * std::numbers::pi * 1000.0 * static_cast<double>(i) / c.from);
         const auto in = dir.write("in.wav", sg::encodeWav(sg::quantize(x, c.from, 2, sg::SampleFormat::Int24)));
 
-        const auto plan = play(in, dir.path() / "out.raw", chain(c.choice), floatAt({44100, 48000, 88200, 96000, 192000}));
+        const auto plan = play(in, dir.path() / "out.raw", chain(c.choice),
+                               floatAt({44100, 48000, 88200, 96000, 192000, 705600, 768000}));
         REQUIRE(plan.processing);
         CHECK(plan.output.sampleRate == c.to);
         REQUIRE(plan.resample);

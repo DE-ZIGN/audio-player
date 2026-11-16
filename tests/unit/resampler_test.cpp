@@ -9,6 +9,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <complex>
 #include <cstdint>
@@ -86,7 +87,8 @@ TEST_CASE("Resampler: the output lasts as long as the input", "[dsp][resampler]"
         std::uint32_t from, to;
     };
     for (const auto [from, to] : {Case{44100, 48000}, Case{44100, 88200}, Case{44100, 352800}, Case{96000, 44100},
-                                  Case{48000, 44100}, Case{192000, 96000}, Case{88200, 96000}, Case{384000, 44100}})
+                                  Case{48000, 44100}, Case{192000, 96000}, Case{88200, 96000}, Case{384000, 44100},
+                                  Case{44100, 705600}, Case{44100, 768000}, Case{96000, 768000}, Case{768000, 44100}})
         for (const std::size_t frames : {std::size_t{1}, std::size_t{1000}, std::size_t{44101}})
         {
             CAPTURE(from, to, frames);
@@ -133,7 +135,7 @@ TEST_CASE("Resampler: the pass band keeps its level", "[dsp][resampler]")
     };
     for (const auto [from, to, freq] :
          {Case{44100, 48000, 1000}, Case{44100, 48000, 20000}, Case{44100, 88200, 20000}, Case{96000, 44100, 1000},
-          Case{96000, 44100, 20000}, Case{48000, 192000, 20000}})
+          Case{96000, 44100, 20000}, Case{48000, 192000, 20000}, Case{44100, 768000, 20000}, Case{96000, 768000, 20000}})
     {
         CAPTURE(from, to, freq);
         const auto x = tone(freq, 0.5, from * 2, from); // 2 s
@@ -161,7 +163,10 @@ TEST_CASE("Resampler: aliases and images are at least 140 dB down", "[dsp][resam
           Case{96000, 44100, 30000, 14100}, Case{48000, 192000, 15000, 33000},
           // Just past the band's edge: 24.5 kHz would fold to 23.5 kHz; a 21 kHz
           // tone's image lies at 23.1 kHz.
-          Case{96000, 48000, 24500, 23500}, Case{44100, 88200, 21000, 23100}})
+          Case{96000, 48000, 24500, 23500}, Case{44100, 88200, 21000, 23100},
+          // Up to 705.6 and 768 kHz (task 10-5): a 30 kHz tone's image at 66 kHz
+          // (96 - 30); a 15 kHz tone's at 29.1 kHz (44.1 - 15).
+          Case{96000, 768000, 30000, 66000}, Case{44100, 705600, 15000, 29100}, Case{44100, 768000, 15000, 29100}})
     {
         CAPTURE(from, to, freq, unwanted);
         const auto x = tone(freq, 1.0, from * 3, from); // 3 s at full scale
@@ -207,4 +212,36 @@ TEST_CASE("Resampler: reset starts over", "[dsp][resampler]")
     r.process(x, b);
     r.finish(b);
     CHECK(a == b);
+}
+
+TEST_CASE("Resampler: processing time up to 768 kHz (benchmark, run by hand)", "[.][resampler][benchmark]")
+{
+    struct Case
+    {
+        std::uint32_t from, to;
+    };
+    for (const auto [from, to] :
+         {Case{44100, 96000}, Case{44100, 384000}, Case{44100, 705600}, Case{44100, 768000}, Case{96000, 768000},
+          Case{192000, 768000}})
+    {
+        // 10 s of stereo, in blocks of 480 output frames' worth (a 0.6 ms period at 768 kHz).
+        const auto x = tone(1000, 0.5, from * 10, from, 2);
+        dsp::Resampler r;
+        const std::size_t block = std::max<std::size_t>(1, 480ull * from / to);
+        r.prepare(from, to, 2, block);
+        std::vector<double> out;
+        out.reserve((r.maxOutputFrames(block) + 8) * 2);
+        double worst = 0.0;
+        const auto start = std::chrono::steady_clock::now();
+        for (std::size_t i = 0; i < x.size(); i += block * 2)
+        {
+            out.clear();
+            const auto t0 = std::chrono::steady_clock::now();
+            r.process(std::span(x).subspan(i, std::min(block * 2, x.size() - i)), out);
+            worst = std::max(worst, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+        }
+        const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        WARN(from << " -> " << to << ": 10 s of stereo in " << seconds << " s (" << 10.0 / seconds
+                  << "x real time), the worst block " << worst << " ms (a block lasts " << 480.0 * 1000.0 / to << " ms)");
+    }
 }
