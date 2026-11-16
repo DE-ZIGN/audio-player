@@ -45,6 +45,7 @@ add_library(ap_engine STATIC
     src/dsp/room_ir.cpp
     src/dsp/space.cpp
     src/dsp/resampler.cpp
+    src/output_rate.cpp
     src/listening_settings.cpp
     src/looping_source.cpp
     src/dsp/requantize.cpp

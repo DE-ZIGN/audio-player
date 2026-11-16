@@ -34,36 +34,46 @@ NegotiationResult negotiate(const PcmFormat& source, AudioOutput& output, bool a
     return result;
 }
 
-NegotiationResult negotiateProcessing(const PcmFormat& source, AudioOutput& output)
+NegotiationResult negotiateProcessing(const PcmFormat& source, AudioOutput& output,
+                                      const std::vector<std::uint32_t>& rates)
 {
     NegotiationResult result;
     result.exactCheck = output.checkFormat(source);
-    // Without the right rate or channel count no sample format helps; the
-    // rate is never converted (the resampler is phase 2).
-    if (!result.exactCheck.supported
-        && (result.exactCheck.reason == FormatRejection::SampleRate
-            || result.exactCheck.reason == FormatRejection::Channels))
+    // Without the right channel count no sample format or rate helps.
+    if (!result.exactCheck.supported && result.exactCheck.reason == FormatRejection::Channels)
         return result;
 
-    auto with = [&](std::uint16_t container, std::uint16_t valid, SampleType type) {
-        PcmFormat f = source;
-        f.containerBits = container;
-        f.validBits = valid;
-        f.type = type;
-        return f;
-    };
-    const PcmFormat candidates[] = {
-        with(32, 32, SampleType::Int), with(32, 24, SampleType::Int), with(24, 24, SampleType::Int),
-        with(16, 16, SampleType::Int), with(32, 32, SampleType::Float),
-    };
-    for (const auto& c : candidates)
+    const std::vector<std::uint32_t> tryRates = rates.empty() ? std::vector<std::uint32_t>{source.sampleRate} : rates;
+    for (const auto rate : tryRates)
     {
-        if (output.checkFormat(c).supported)
+        auto with = [&](std::uint16_t container, std::uint16_t valid, SampleType type) {
+            PcmFormat f = source;
+            f.sampleRate = rate;
+            f.containerBits = container;
+            f.validBits = valid;
+            f.type = type;
+            return f;
+        };
+        const PcmFormat candidates[] = {
+            with(32, 32, SampleType::Int), with(32, 24, SampleType::Int), with(24, 24, SampleType::Int),
+            with(16, 16, SampleType::Int), with(32, 32, SampleType::Float),
+        };
+        for (const auto& c : candidates)
         {
-            PlaybackPlan plan{source, c, Repack::None};
-            plan.processing = true;
-            result.plan = plan;
-            return result;
+            const auto check = output.checkFormat(c);
+            if (check.supported)
+            {
+                PlaybackPlan plan{source, c, Repack::None};
+                plan.processing = true;
+                if (rate != source.sampleRate)
+                    plan.resample = Resampling{source.sampleRate, rate,
+                                               rate == tryRates.front() ? Resampling::Reason::Setting
+                                                                        : Resampling::Reason::Unsupported};
+                result.plan = plan;
+                return result;
+            }
+            if (check.reason == FormatRejection::SampleRate)
+                break; // no sample format helps at this rate
         }
     }
     return result;

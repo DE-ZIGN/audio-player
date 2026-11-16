@@ -4,6 +4,7 @@
 #include <ap/engine/output/audio_output.h>
 #include <ap/engine/output/delivery_check.h>
 #include <ap/engine/output/output_meter.h>
+#include <ap/engine/output_rate.h>
 #include <ap/engine/pcm_source.h>
 #include <ap/engine/repack.h>
 
@@ -32,6 +33,12 @@ struct PlaybackPlan
     bool processingRequired = false;
     bool dither = false; // TPDF dither when quantizing (processing path, integer output)
     bool comparison = false; // listening comparison (task 3-7): original or processed, crossfaded
+    // Processing path: converted from the source's rate to the output's
+    // (task 10-3), and why. None: the output runs at the source's rate.
+    std::optional<Resampling> resample;
+    // The output rate choice this session was planned with (音作りモード; none
+    // in 原音モード). The player reopens when it changes.
+    std::optional<OutputRateChoice> rateChoice;
 };
 
 struct NegotiationResult
@@ -45,12 +52,16 @@ struct NegotiationResult
 // changes sample rate, channel count or sample values.
 NegotiationResult negotiate(const PcmFormat& source, AudioOutput& output, bool allowRepack);
 
-// Picks the output format for the processing path: the same sample rate and
-// channels as the source (never changed), with the most resolution the output
-// accepts: 32-bit integer, 24-bit in a 32-bit container, packed 24-bit,
-// 16-bit, then 32-bit float (only for outputs that take no integer format).
-// The plan has processing = true; exactCheck is the check of the source format.
-NegotiationResult negotiateProcessing(const PcmFormat& source, AudioOutput& output);
+// Picks the output format for the processing path: the first of `rates` the
+// output takes (by default only the source's rate; see outputRateCandidates),
+// the same channels, with the most resolution the output accepts: 32-bit
+// integer, 24-bit in a 32-bit container, packed 24-bit, 16-bit, then 32-bit
+// float (only for outputs that take no integer format). The plan has
+// processing = true, and `resample` when the rate is not the source's (the
+// reason: Setting when it is the first of `rates`, else Unsupported).
+// exactCheck is the check of the source format.
+NegotiationResult negotiateProcessing(const PcmFormat& source, AudioOutput& output,
+                                      const std::vector<std::uint32_t>& rates = {});
 
 struct PlaybackOptions
 {
