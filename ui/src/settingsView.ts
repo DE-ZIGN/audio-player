@@ -43,6 +43,14 @@ import {
   type TubeType,
 } from "./settings";
 import type { PlaybackStatus } from "./status";
+import {
+  OUTPUT_RATE_CHOICES,
+  OUTPUT_RATE_MODES,
+  OUTPUT_RATE_MULTIPLES,
+  outputRateNote,
+  rateText,
+  type OutputRateMode,
+} from "./outputRate";
 import { playingTubeType } from "./amp";
 import { TUBE_UNIT_MAX, clampUnit, unitChannelsText, unitLabel, warmUpText } from "./tubeCharacter";
 import { TubeAutoView } from "./tubeAutoView";
@@ -101,6 +109,10 @@ export class SettingsView {
     tubeUnitNow: $("tube-unit-now"),
     crossfeedEnabled: $<HTMLInputElement>("crossfeed-enabled"),
     crossfeedLevel: $("crossfeed-level"),
+    rateMode: $("rate-mode"),
+    rateHz: $<HTMLSelectElement>("rate-hz"),
+    rateMultiple: $<HTMLSelectElement>("rate-multiple"),
+    rateNote: $("rate-note"),
     spaceRoom: $("space-room"),
     spaceRoomNote: $("space-room-note"),
     spaceMix: $<HTMLInputElement>("space-mix"),
@@ -222,6 +234,40 @@ export class SettingsView {
         l.append(r, ` ${label}`);
         return l;
       }),
+    );
+
+    // The output rate (task 10-4).
+    this.els.rateMode.replaceChildren(
+      ...(Object.entries(OUTPUT_RATE_MODES) as [OutputRateMode, string][]).map(([value, label]) => {
+        const l = document.createElement("label");
+        const r = document.createElement("input");
+        r.type = "radio";
+        r.name = "rate-mode";
+        r.value = value;
+        r.addEventListener("change", () => r.checked && this.change({ outputRateMode: value }));
+        l.append(r, ` ${label}`);
+        return l;
+      }),
+    );
+    this.els.rateHz.replaceChildren(
+      ...OUTPUT_RATE_CHOICES.map((hz) => {
+        const o = document.createElement("option");
+        o.value = String(hz);
+        o.textContent = rateText(hz);
+        return o;
+      }),
+    );
+    this.els.rateMultiple.replaceChildren(
+      ...OUTPUT_RATE_MULTIPLES.map((k) => {
+        const o = document.createElement("option");
+        o.value = String(k);
+        o.textContent = `${k} 倍`;
+        return o;
+      }),
+    );
+    this.els.rateHz.addEventListener("change", () => this.change({ outputRateHz: Number(this.els.rateHz.value) }));
+    this.els.rateMultiple.addEventListener("change", () =>
+      this.change({ outputRateMultiple: Number(this.els.rateMultiple.value) }),
     );
 
     // The space (task 9-6). The bundled measured IR's credit (CC BY 4.0).
@@ -458,6 +504,19 @@ export class SettingsView {
     for (const r of e.crossfeedLevel.querySelectorAll<HTMLInputElement>('input[name="crossfeed-level"]'))
       r.checked = r.value === l.crossfeedLevel;
     this.renderSpace();
+    this.renderRate();
+  }
+
+  // The output rate (task 10-4): the rate for 固定・下限, the multiple for 整数倍.
+  private renderRate() {
+    const l = this.listening;
+    const e = this.els;
+    for (const r of e.rateMode.querySelectorAll<HTMLInputElement>('input[name="rate-mode"]')) r.checked = r.value === l.outputRateMode;
+    e.rateHz.value = String(l.outputRateHz);
+    e.rateMultiple.value = String(l.outputRateMultiple);
+    e.rateHz.disabled = l.outputRateMode !== "fixed" && l.outputRateMode !== "atleast";
+    e.rateMultiple.disabled = l.outputRateMode !== "multiple";
+    e.rateNote.textContent = outputRateNote(l);
   }
 
   // The tube's show (task 9-8): the warm-up's time and the unit's tubes.

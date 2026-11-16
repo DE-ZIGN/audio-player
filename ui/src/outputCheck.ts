@@ -5,6 +5,7 @@
 
 import { CROSSFEED_LEVELS, TUBE_LABELS, parseSpaceDetail, spaceText, type CrossfeedLevel } from "./settings";
 import { characterParts, parseTubeDetail } from "./tubeCharacter";
+import { resampleText } from "./outputRate";
 import { dsdRateName, meterNote } from "./messages";
 import { dbText } from "./settings";
 import type { FormatInfo, Level, PlaybackStatus, StageState } from "./status";
@@ -164,6 +165,7 @@ export function pathModel(s: PlaybackStatus): PathModel {
           warn: s.limiter.events > 0,
         }
       : { name: "保険のリミッター", on: false, value: "OFF" },
+    row("リサンプラー", "resampler", (_g, st) => resampleText(st.detail)), // task 10-4
     active && p.dither ? { name: "ディザ", on: true, value: "TPDF" } : { name: "ディザ", on: false, value: "OFF" },
   ];
   if (active && p.comparison) rows.push({ name: "聴き比べ", on: true, value: "ON" });
@@ -211,6 +213,7 @@ const STAGE_NAMES: Record<string, string> = {
   crossfeed: "クロスフィード",
   volume: "デジタル音量",
   "isp-safe": "ISP セーフ",
+  resampler: "リサンプラー",
 };
 
 export function verdictModel(s: PlaybackStatus): VerdictModel | null {

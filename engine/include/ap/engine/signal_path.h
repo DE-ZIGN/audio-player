@@ -5,6 +5,7 @@
 // output. The path display (M4) shows it and judges "bit-perfect" from it;
 // this record itself makes no judgement.
 
+#include <ap/engine/output_rate.h>
 #include <ap/engine/output/audio_output.h>
 #include <ap/engine/pcm_source.h>
 #include <ap/engine/repack.h>
@@ -35,6 +36,8 @@ struct SignalPath
     // Listening comparison: the output is the original or the processed sound
     // (the original side keeps its values but is not bit-perfect here).
     bool comparison = false;
+    // The rate conversion at the end of the processing path (task 10-3).
+    std::optional<Resampling> resample;
 
     // Delivery: a lossless container repack (values unchanged), then the output.
     Repack repack = Repack::None;

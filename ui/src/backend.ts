@@ -610,7 +610,12 @@ export class MockBackend implements Backend {
     if (this.volumeDb !== 0) stages.push({ name: "volume", gainDb: this.volumeDb });
     const isp = l ? (processed ? l.ispSafeProcessed : l.ispSafeOriginal) : "off";
     if (isp !== "off") stages.push({ name: "isp-safe", gainDb: isp === "fixed" ? -3 : -1.2 });
-    if (stages.length > 0) stages.push({ name: "limiter", gainDb: null });
+    // The output rate (task 10-4): the mock's DAC takes every rate.
+    const src = this.status.sourceFormat?.sampleRate;
+    const to = processed && src ? mockOutputRate(l, src) : src;
+    const converting = !!src && !!to && to !== src;
+    if (stages.length > 0 || converting) stages.push({ name: "limiter", gainDb: null });
+    if (converting) stages.push({ name: "resampler", gainDb: null, detail: `${src};${to};setting` });
     return stages;
   }
 
@@ -638,6 +643,11 @@ export class MockBackend implements Backend {
       stages,
       tubeAuto: this.mockTubeAuto(),
       tubeWarmUpSeconds: this.mockWarmUpSeconds(),
+      // The output at the converted rate (task 10-4).
+      outputFormat: s.outputFormat && {
+        ...s.outputFormat,
+        sampleRate: Number(stages.find((x) => x.name === "resampler")?.detail?.split(";")[1] ?? s.sourceFormat?.sampleRate ?? s.outputFormat.sampleRate),
+      },
       path: s.path && { ...s.path, processing, processingStages: stages.map((x) => x.name), dither: processing },
       bitPerfect: s.bitPerfect && { ...s.bitPerfect, bitPerfect: !processing, dither: processing },
     });
@@ -768,4 +778,18 @@ export async function createBackend(): Promise<Backend> {
   const fn: NativeFn = (name) => juce.getNativeFunction(name) as (...args: unknown[]) => Promise<unknown>;
   const info = (await fn("libraryInfo")()) as { coverBase?: string } | null;
   return new AppBackend(fn, info?.coverBase ?? "/art/track/");
+}
+
+// The rate the mock sends in 音作りモード (its DAC takes every rate; task 10-4).
+function mockOutputRate(l: ListeningSettings, src: number): number {
+  switch (l.outputRateMode) {
+    case "fixed":
+      return l.outputRateHz;
+    case "atleast":
+      return Math.max(src, l.outputRateHz);
+    case "multiple":
+      return src * l.outputRateMultiple;
+    default:
+      return src;
+  }
 }

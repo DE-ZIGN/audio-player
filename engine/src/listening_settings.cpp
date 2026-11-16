@@ -196,6 +196,9 @@ std::string settingsToText(const AppSettings& s)
     out << "tube.enabled=" << (l.tubeEnabled ? 1 : 0) << '\n';
     out << "tube.type=" << tubeTypeKey(l.tubeType) << '\n';
     out << "tube.drive=" << number(l.tubeDriveDb) << '\n';
+    out << "rate.mode=" << outputRateModeKey(l.outputRate.mode) << '\n';
+    out << "rate.hz=" << l.outputRate.rate << '\n';
+    out << "rate.multiple=" << l.outputRate.multiple << '\n';
     out << "tube.warmup=" << (l.tubeWarmUp ? 1 : 0) << '\n';
     out << "tube.units=" << (l.tubeUnits ? 1 : 0) << '\n';
     out << "tube.unit=" << l.tubeUnit << '\n';
@@ -297,6 +300,20 @@ AppSettings settingsFromText(std::string_view text)
             l.tubeEnabled = value == "1";
         else if (key == "tube.type")
             l.tubeType = tubeTypeFrom(value).value_or(TubeType::Se300B);
+        else if (key == "rate.mode")
+            l.outputRate.mode = outputRateModeFrom(value).value_or(OutputRateMode::Track);
+        else if (key == "rate.hz")
+        {
+            const auto hz = parseNumber(value);
+            if (hz && isOutputRateChoiceRate(static_cast<std::uint32_t>(*hz)) && *hz == std::floor(*hz))
+                l.outputRate.rate = static_cast<std::uint32_t>(*hz);
+        }
+        else if (key == "rate.multiple")
+        {
+            const auto m = parseNumber(value);
+            if (m && *m == std::floor(*m) && *m > 0 && isOutputRateMultiple(static_cast<std::uint32_t>(*m)))
+                l.outputRate.multiple = static_cast<std::uint32_t>(*m);
+        }
         else if (key == "tube.warmup")
             l.tubeWarmUp = value == "1";
         else if (key == "tube.units")
@@ -414,6 +431,8 @@ void ListeningChain::apply(const ListeningSettings& s)
     const bool tubePlays = processed && s.tubeEnabled;
     tube->setCharacter(tubePlays && s.tubeWarmUp,
                        tubePlays && s.tubeUnits ? std::optional<int>(s.tubeUnit) : std::nullopt);
+    // The output rate (task 10-4): 音作りモード only.
+    chain_->setOutputRate(processed ? std::optional<OutputRateChoice>(s.outputRate) : std::nullopt);
     crossfeed->setLevel(s.crossfeedLevel);
     crossfeed->setEnabled(processed && s.crossfeedEnabled);
     loadSpaceIrs(s.spaceIr);

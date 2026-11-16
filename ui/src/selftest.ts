@@ -11,6 +11,7 @@ import { ispWarning, pathModel, verdictModel } from "./outputCheck";
 import { applyUiView, currentUiView, type UiView } from "./uiView";
 import type { EqBand } from "./settings";
 import type { PlaybackStatus } from "./status";
+import { rateText } from "./outputRate";
 
 export interface SelfTestResult {
   ok: boolean;
@@ -301,6 +302,23 @@ export async function runSelfTest(
     log.push(`tube show: ${showRow.value} / ${showSub.join(" / ")}`);
     await backend.settings.setListening({ ...showBase, tubeWarmUp: false, tubeUnits: false });
     await waitFor("the tube without the show", (s) => s.stages.find((st) => st.name === "tube")?.detail === "ppel34", 3000);
+
+    // The output rate (task 10-4): twice the track's rate in 音作りモード -
+    // the real engine converts 48 to 96 kHz at the end of the path.
+    const rateBase = (await backend.settings.get()).listening;
+    await backend.settings.setListening({ ...rateBase, outputRateMode: "multiple", outputRateMultiple: 2 });
+    const doubled = await waitFor(
+      "the output at twice the rate",
+      (s) => s.stages.some((st) => st.name === "resampler") && s.outputFormat?.sampleRate === 2 * (s.sourceFormat?.sampleRate ?? 0),
+      5000,
+    );
+    const rateRow = pathModel(doubled).processing.rows.find((r) => r.name === "リサンプラー");
+    const from = doubled.sourceFormat?.sampleRate ?? 0;
+    if (rateRow?.value !== `${rateText(from)} → ${rateText(2 * from)}（設定）`)
+      throw new Error(`output rate: ${JSON.stringify(doubled.stages)} ${JSON.stringify(rateRow)}`);
+    log.push(`output rate: ${rateRow.value}`);
+    await backend.settings.setListening({ ...rateBase, outputRateMode: "track" });
+    await waitFor("the track's rate again", (s) => !s.stages.some((st) => st.name === "resampler") && s.outputFormat?.sampleRate === s.sourceFormat?.sampleRate, 5000);
 
     // The tube type by genre (task 9-7) through the real bridge: saved and read
     // back; a file opened by itself has no genre or album, so the manual type plays.

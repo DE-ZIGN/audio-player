@@ -3,6 +3,7 @@
 
 import { CROSSFEED_LEVELS, TUBE_LABELS, parseSpaceDetail, spaceText, type CrossfeedLevel } from "./settings";
 import { characterParts, parseTubeDetail } from "./tubeCharacter";
+import { resampleText } from "./outputRate";
 import type {
   DropoutCounts,
   FormatInfo,
@@ -93,6 +94,7 @@ const stageNames: Record<string, string> = {
   crossfeed: "クロスフィード",
   "isp-safe": "ISP セーフ",
   limiter: "保険のリミッター",
+  resampler: "リサンプラー",
   comparison: "聴き比べ",
 };
 
@@ -140,6 +142,7 @@ export function stageText(st: StageState): string {
     const level = CROSSFEED_LEVELS[st.detail as CrossfeedLevel];
     return level ? `${name}（${level.numbers}）` : name;
   }
+  if (st.name === "resampler") return `${name}（${resampleText(st.detail)}）`;
   if (st.gainDb === null) return name;
   if (st.name === "eq" || st.name === "tone") return `${name}（プリアンプ ${dbText(st.gainDb)}）`;
   if (st.name === "tube") {
@@ -457,6 +460,8 @@ export function outputTags(s: PlaybackStatus): OutputTag[] {
   if (volume && volume.gainDb !== null) tags.push({ text: `DIGITAL VOL ${dbText(volume.gainDb)}`, kind: "warn" });
   else if (v.comparison) tags.push({ text: "聴き比べ中", kind: "warn" });
   else if (v.deliveryMismatch) tags.push({ text: "自己確認で不一致", kind: "warn" });
+  else if (s.stages.some((st) => st.name === "resampler") && s.stages.every((st) => st.name === "resampler" || st.name === "limiter"))
+    tags.push({ text: "レート変換", kind: "warn" }); // task 10-4: the conversion is all that runs
   else tags.push({ text: "処理あり", kind: "warn" });
   return tags;
 }

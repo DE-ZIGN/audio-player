@@ -515,6 +515,27 @@ TEST_CASE("Tube warm-up and units reach the stage only with the tube in 音作�
     CHECK_FALSE(chain.tube->warmUp());
 }
 
+TEST_CASE("Output rate: the track's by default, saved and read back, applied in 音作りモード only", "[settings][output-rate]")
+{
+    const AppSettings d;
+    CHECK(d.listening.outputRate == OutputRateChoice{});
+    AppSettings a;
+    a.listening.outputRate = {OutputRateMode::Multiple, 192000, 4};
+    CHECK(settingsFromText(settingsToText(a)) == a);
+    // Unknown or out of range: the defaults.
+    const auto bad = settingsFromText("rate.mode=fast\nrate.hz=12345\nrate.multiple=3\n").listening.outputRate;
+    CHECK(bad == OutputRateChoice{});
+
+    ListeningChain chain;
+    ListeningSettings s;
+    s.outputRate = {OutputRateMode::Fixed, 96000, 2};
+    chain.apply(s); // 原音モード
+    CHECK_FALSE(chain.chain()->outputRate());
+    s.mode = ListeningMode::Processed;
+    chain.apply(s);
+    CHECK(chain.chain()->outputRate() == s.outputRate);
+}
+
 TEST_CASE("Reading tube and tone settings: unknown or out of range keeps them within limits", "[settings][tube][text]")
 {
     const auto s = settingsFromText("tube.enabled=1\n"

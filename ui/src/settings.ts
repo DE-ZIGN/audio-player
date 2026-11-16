@@ -4,6 +4,7 @@
 import type { EqPreset } from "./eqPresets";
 import type { TubeAutoSettings, TubeGenreRule } from "./tubeAuto";
 import { unitLabel } from "./tubeCharacter";
+import { outputRateSummary, type OutputRateMode } from "./outputRate";
 
 export type ListeningMode = "original" | "processed";
 export type ReplayGainMode = "off" | "track" | "album";
@@ -38,6 +39,10 @@ export interface ListeningSettings {
   tubeType: TubeType;
   tubeDriveDb: number; // -30 .. +6
   // The warm-up and the tubes' differences (task 9-8, a show; off by default).
+  // The output rate (task 10-4), in 音作りモード only.
+  outputRateMode: OutputRateMode;
+  outputRateHz: number; // 固定 and 下限
+  outputRateMultiple: number; // 整数倍: 2, 4, 8
   tubeWarmUp: boolean;
   tubeUnits: boolean;
   tubeUnit: number; // 1 .. 99, kept while tubeUnits is off
@@ -152,6 +157,9 @@ export const defaultListening: ListeningSettings = {
   tubeEnabled: false,
   tubeType: "se300b",
   tubeDriveDb: -12,
+  outputRateMode: "track",
+  outputRateHz: 96000,
+  outputRateMultiple: 2,
   tubeWarmUp: false,
   tubeUnits: false,
   tubeUnit: 1,
@@ -370,6 +378,8 @@ export function modeSummary(l: ListeningSettings, tubeAuto = false): string {
     parts.push(`空間（${spaceText(l.spaceRoom, l.spaceMixPercent, playingSpaceSource(l, l.spaceRoom))}）`);
   if (l.crossfeedEnabled) parts.push(`クロスフィード（${CROSSFEED_LEVELS[l.crossfeedLevel].numbers}）`);
   if (l.ispSafeProcessed !== "off") parts.push(`ISP セーフ（${ISP_LABELS[l.ispSafeProcessed]}）`);
+  const rate = outputRateSummary(l); // task 10-4: only when not the track's rate
+  if (rate) parts.push(rate);
   return parts.length === 0
     ? "音作りモード：かける処理がありません。音量 100% なら原音モードと同じ出力です。"
     : `音作りモード：${parts.join("、")}を 64bit 浮動小数点でかけます。`;

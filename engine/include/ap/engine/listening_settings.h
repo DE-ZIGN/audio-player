@@ -83,6 +83,9 @@ struct ListeningSettings
     // source is File (kept when another source is chosen). A file that cannot
     // be read plays the room's default instead.
     std::array<std::string, 3> spaceIr;
+    // The output rate (task 10-4), in 音作りモード only: the track's by
+    // default. 原音モード never converts.
+    OutputRateChoice outputRate;
 
     bool operator==(const ListeningSettings&) const = default;
 };

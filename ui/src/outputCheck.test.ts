@@ -97,6 +97,7 @@ describe("signal path diagram", () => {
       "デジタル音量",
       "ISP セーフ",
       "保険のリミッター",
+      "リサンプラー",
       "ディザ",
     ]);
     expect(m.output.lines).toEqual(["WASAPI 排他（イベント駆動）", "24bit（32bit コンテナ）/ 96 kHz", "詰め替え（値は同じ）"]);

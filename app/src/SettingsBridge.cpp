@@ -62,6 +62,9 @@ juce::var listeningVar(const ListeningSettings& l)
     o->setProperty("tubeEnabled", l.tubeEnabled);
     o->setProperty("tubeType", tubeTypeKey(l.tubeType));
     o->setProperty("tubeDriveDb", l.tubeDriveDb);
+    o->setProperty("outputRateMode", outputRateModeKey(l.outputRate.mode));
+    o->setProperty("outputRateHz", static_cast<int>(l.outputRate.rate));
+    o->setProperty("outputRateMultiple", static_cast<int>(l.outputRate.multiple));
     o->setProperty("tubeWarmUp", l.tubeWarmUp);
     o->setProperty("tubeUnits", l.tubeUnits);
     o->setProperty("tubeUnit", l.tubeUnit);
@@ -124,6 +127,13 @@ ListeningSettings listeningFrom(const juce::var& v)
     l.tubeEnabled = static_cast<bool>(v.getProperty("tubeEnabled", false));
     l.tubeType = tubeTypeFrom(v.getProperty("tubeType", "").toString().toStdString()).value_or(TubeType::Se300B);
     l.tubeDriveDb = number("tubeDriveDb", TubeStage::kDefaultDriveDb, TubeStage::kMinDriveDb, TubeStage::kMaxDriveDb);
+    // The output rate (task 10-4): unknown values keep the defaults.
+    l.outputRate.mode =
+        outputRateModeFrom(v.getProperty("outputRateMode", "").toString().toStdString()).value_or(OutputRateMode::Track);
+    if (const int hz = v.getProperty("outputRateHz", 0); hz > 0 && isOutputRateChoiceRate(static_cast<std::uint32_t>(hz)))
+        l.outputRate.rate = static_cast<std::uint32_t>(hz);
+    if (const int m = v.getProperty("outputRateMultiple", 0); m > 0 && isOutputRateMultiple(static_cast<std::uint32_t>(m)))
+        l.outputRate.multiple = static_cast<std::uint32_t>(m);
     l.tubeWarmUp = static_cast<bool>(v.getProperty("tubeWarmUp", false));
     l.tubeUnits = static_cast<bool>(v.getProperty("tubeUnits", false));
     l.tubeUnit = static_cast<int>(number("tubeUnit", kMinTubeUnit, kMinTubeUnit, kMaxTubeUnit));

@@ -543,10 +543,16 @@ PlayerStatus Player::status() const
         path.processingRequired = s.plan->processingRequired;
         path.dither = s.plan->dither;
         path.comparison = s.plan->comparison;
+        path.resample = s.plan->resample;
         path.repack = s.plan->repack;
         path.output = *outputPath_;
         if (path.processing && options_.processing)
             s.stages = options_.processing->activeStageStates();
+        // The rate conversion, last on the path: "from;to;setting" or "from;to;unsupported".
+        if (path.processing && path.resample)
+            s.stages.push_back({"resampler", std::nullopt,
+                                std::to_string(path.resample->from) + ";" + std::to_string(path.resample->to) + ";" +
+                                    (path.resample->reason == Resampling::Reason::Setting ? "setting" : "unsupported")});
         if (!path.processing && options_.deliveryCheck)
             s.delivery = options_.deliveryCheck->result();
         s.bitPerfect = judgeBitPerfect(path, s.stages, s.delivery); // from the complete path

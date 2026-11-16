@@ -3395,6 +3395,19 @@ html[data-look="real"] {
   zoom: calc(1 / var(--ui-zoom, 1));
 }
 
+/* The output rate (task 10-4): the rate and the multiple on one row. */
+#settings .rate-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 6px 0 2px;
+}
+#settings .rate-row label {
+  display: inline;
+  margin: 0;
+}
+
 /* 見た目: room between the two boxes. */
 #settings .themes + .themes {
   margin-top: 20px;
