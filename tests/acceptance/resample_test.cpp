@@ -13,12 +13,15 @@
 #include <ap/engine/dsp/volume.h>
 #include <ap/engine/output/dummy_output.h>
 #include <ap/engine/playback.h>
+#include <ap/engine/player.h>
+#include <ap/engine/pcm_source.h>
 #include <ap/engine/sha256.h>
 #include <ap/engine/wav_file_source.h>
 #include <ap/signalgen/signals.h>
 #include <ap/signalgen/wav_writer.h>
 
 #include "temp_dir.h"
+#include "trigger_source.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -191,4 +194,43 @@ TEST_CASE("Resampling: with the safety limiter's look-ahead the timing still hol
         if (std::abs(left[i]) > std::abs(left[peak]))
             peak = i;
     CHECK(std::abs(static_cast<double>(peak) - static_cast<double>(at) * to / from) <= 0.5 + 1e-9);
+}
+
+TEST_CASE("Resampling: changing the output rate while playing reopens at the position, the rate follows", "[acceptance][resample][player]")
+{
+    ap::test::TempDir dir;
+    constexpr std::size_t total = 44100;
+    std::vector<std::int16_t> v(total * 2);
+    for (std::size_t i = 0; i < total; ++i)
+        v[2 * i] = v[2 * i + 1] =
+            static_cast<std::int16_t>(8000.0 * std::sin(2 * std::numbers::pi * 440 * static_cast<double>(i) / 44100));
+    std::vector<std::byte> bytes(v.size() * 2);
+    std::memcpy(bytes.data(), v.data(), bytes.size());
+
+    auto c = chain(OutputRateChoice{}); // 音作りモード, the track's rate: the direct path first
+    PlaybackOptions options;
+    options.processing = c;
+    auto log = std::make_shared<std::vector<PcmFormat>>();
+    Player player([out = dir.path() / "o.raw", log] {
+        return std::make_unique<DummyOutput>(DummyOutput::Options{.path = out, .periodFrames = {441}, .sessionLog = log});
+    }, options);
+    auto src = std::make_unique<ap::test::TriggerSource>(
+        std::make_unique<MemoryPcmSource>(PcmFormat{44100, 2, 16, 16, SampleType::Int, 0x3}, bytes),
+        ap::test::TriggerSource::Triggers{{11025, [c] { c->setOutputRate(OutputRateChoice{OutputRateMode::Fixed, 96000}); }},
+                                          {33075, [c] { c->setOutputRate(OutputRateChoice{}); }}});
+    player.load(std::move(src));
+    player.play();
+    player.waitUntilIdle();
+
+    const auto s = player.status();
+    CHECK(s.state == PlayerState::Ended);
+    REQUIRE(log->size() == 3);
+    CHECK((*log)[0].sampleRate == 44100);
+    CHECK((*log)[1].sampleRate == 96000);
+    CHECK((*log)[2].sampleRate == 44100);
+    REQUIRE(s.transitions.size() == 2);
+    for (const auto& t : s.transitions)
+        CHECK(t.kind == TransitionKind::ProcessingChanged);
+    REQUIRE(s.path.has_value());
+    CHECK_FALSE(s.path->processing); // back on the direct path
 }
