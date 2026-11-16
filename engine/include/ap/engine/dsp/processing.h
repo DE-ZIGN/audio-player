@@ -7,6 +7,7 @@
 // Full bypass: when every stage reports isIdentity(), playback uses the direct
 // path and the processing code is not run at all (CLAUDE.md chapter 4).
 
+#include <ap/engine/output_rate.h>
 #include <ap/engine/track_info.h>
 
 #include <atomic>
@@ -106,7 +107,16 @@ public:
     // may be on one side only).
     void setReference(std::shared_ptr<ProcessingChain> reference);
 
-    // True when every stage is identity: the direct path is used.
+    // The output rate on the processing path (task 10-3): set in 音作りモード
+    // (ListeningChain::apply), none in 原音モード (the rate is never
+    // converted). A rate other than the track's, or one the output refuses
+    // in 音作りモード, takes the processing path even with every stage at
+    // identity. Thread-safe; the player reopens the output when it changes.
+    void setOutputRate(std::optional<OutputRateChoice> choice) noexcept;
+    std::optional<OutputRateChoice> outputRate() const noexcept;
+
+    // True when every stage is identity: the direct path is used (unless the
+    // output rate calls for a conversion, see planPlayback).
     bool bypassed() const noexcept;
 
     // Names of the stages that run on the processing path right now, in
@@ -142,6 +152,7 @@ private:
 
     std::vector<std::shared_ptr<ProcessingStage>> stages_;
     std::atomic<bool> comparingRequested_{false};
+    std::atomic<std::uint64_t> outputRate_{0}; // 0: none; else the choice, packed (see setOutputRate)
     mutable std::mutex referenceMutex_; // setReference and prepare only
     std::shared_ptr<ProcessingChain> reference_;
     std::shared_ptr<ProcessingChain> referenceNow_; // playback thread, from prepare()

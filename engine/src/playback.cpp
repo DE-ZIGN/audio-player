@@ -1,6 +1,7 @@
 #include <ap/engine/playback.h>
 
 #include <ap/engine/dsp/dither.h>
+#include <ap/engine/dsp/resampler.h>
 #include <ap/engine/dsp/sample_convert.h>
 
 #include <algorithm>
@@ -85,19 +86,31 @@ NegotiationResult planPlayback(const PcmSource& source, AudioOutput& output, con
     const bool dop = source.dop().has_value();
     const ProcessingChain* chain = options.processing.get();
     const bool active = !dop && chain && !chain->bypassed();
+    // The output rate (task 10-3): 音作りモード only, never DoP.
+    const auto choice = !dop && chain ? chain->outputRate() : std::nullopt;
+    const std::uint32_t rate = source.format().sampleRate;
+    const auto rates = choice ? outputRateCandidates(rate, *choice) : std::vector<std::uint32_t>{};
+    const bool convert = !rates.empty() && rates.front() != rate;
 
-    auto n = active ? negotiateProcessing(source.format(), output)
-                    : negotiate(source.format(), output, options.allowRepack);
+    auto n = active || convert ? negotiateProcessing(source.format(), output, rates)
+                               : negotiate(source.format(), output, options.allowRepack);
+    // 音作りモード: a rate the output refuses is converted to one it takes.
+    if (!n.plan && choice && !active && !convert && n.exactCheck.reason == FormatRejection::SampleRate)
+        n = negotiateProcessing(source.format(), output, rates);
     // A float source has no integer original: when the output takes no float,
     // it is quantized (with dither) on the processing path. An integer source
-    // the output cannot take is refused, never converted.
+    // the output cannot take is refused, never converted (in 原音モード).
     const bool floatRefused = !dop && source.format().type == SampleType::Float && !n.exactCheck.supported
                            && n.exactCheck.reason == FormatRejection::SampleType;
     if (!active && !n.plan && floatRefused)
-        n = negotiateProcessing(source.format(), output);
+        n = negotiateProcessing(source.format(), output, rates);
+    if (n.plan)
+        n.plan->rateChoice = choice;
     if (n.plan && n.plan->processing)
     {
         n.plan->processingStages = active ? chain->activeStageNames() : std::vector<std::string>{};
+        if (n.plan->resample)
+            n.plan->processingStages.push_back("resampler");
         n.plan->processingRequired = floatRefused;
         n.plan->dither = n.plan->output.type == SampleType::Int;
         n.plan->comparison = active && chain->comparing();
@@ -117,10 +130,14 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
         check->reset(); // before onStart: a status read then shows this session's counts
     ProcessingChain none;
     ProcessingChain* chain = nullptr;
+    // The resampler (task 10-3): the last thing on the processing path, after
+    // the stages (which run at the source's rate), before dither.
+    dsp::Resampler resampler;
     if (plan.processing)
     {
         chain = options.processing ? options.processing.get() : &none;
-        chain->prepare(plan.output.sampleRate, plan.output.channels);
+        chain->prepare(plan.source.sampleRate, plan.output.channels);
+        resampler.prepare(plan.source.sampleRate, plan.output.sampleRate, plan.output.channels, 8192);
     }
     output.open(plan.output);
     OutputMeter* meter = options.meter.get();
@@ -133,10 +150,12 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
     // frame k of this session on every path (the processing path compensates
     // its latency), so read positions mark output positions.
     std::uint64_t readFrames = 0;
-    auto noteTracks = [&source, meter, &readFrames](std::size_t got) noexcept {
+    const std::uint32_t inRate = plan.source.sampleRate, outRate = plan.output.sampleRate;
+    auto noteTracks = [&source, meter, &readFrames, inRate, outRate](std::size_t got) noexcept {
         if (meter)
             for (const auto& seg : source.lastReadTracks())
-                meter->trackStarts(readFrames + seg.frameOffset, seg.track.queueIndex);
+                meter->trackStarts(dsp::Resampler::outputFrames(readFrames + seg.frameOffset, inRate, outRate),
+                                   seg.track.queueIndex);
         readFrames += got;
     };
 
@@ -160,26 +179,32 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
                   flushed = false](std::span<std::byte> dst) mutable {
             const std::size_t frames = dst.size() / out.bytesPerFrame();
             const std::size_t ch = in.channels;
-            if (scratch.size() < frames * in.bytesPerFrame())
-                scratch.resize(frames * in.bytesPerFrame()); // first callback only, period size is fixed
-            if (samples.size() < (frames + latency) * ch)
-                samples.resize((frames + latency) * ch);
-            if (pending.capacity() < (2 * frames + 2 * latency) * ch)
-                pending.reserve((2 * frames + 2 * latency) * ch);
+            // Source frames to read for `frames` output frames (more when the
+            // output rate is higher, fewer when lower; at least one).
+            const std::size_t want = std::max<std::size_t>(
+                1, static_cast<std::size_t>((static_cast<std::uint64_t>(frames) * in.sampleRate + out.sampleRate - 1)
+                                            / out.sampleRate));
+            if (scratch.size() < want * in.bytesPerFrame())
+                scratch.resize(want * in.bytesPerFrame()); // first callback only, period size is fixed
+            if (samples.size() < (want + latency) * ch)
+                samples.resize((want + latency) * ch);
+            const std::size_t room = 2 * frames + resampler.maxOutputFrames(want + latency) + 2 * latency;
+            if (pending.capacity() < room * ch)
+                pending.reserve(room * ch);
 
             ScopedFlushDenormals ftz; // may run on a driver's thread: set and restore every time
             auto keep = [&](std::span<const double> block) {
                 std::size_t skip = std::min(toDrop, block.size() / ch);
                 toDrop -= skip;
-                pending.insert(pending.end(), block.begin() + static_cast<std::ptrdiff_t>(skip * ch), block.end());
+                resampler.process(block.subspan(skip * ch), pending); // appends unchanged at the same rate
             };
             while (pending.size() < frames * ch && !flushed)
             {
                 if (!ended)
                 {
-                    const std::size_t got = source.read(std::span(scratch).first(frames * in.bytesPerFrame()));
+                    const std::size_t got = source.read(std::span(scratch).first(want * in.bytesPerFrame()));
                     noteTracks(got);
-                    if (got < frames)
+                    if (got < want)
                         ended = true;
                     const auto block = std::span(samples).first(got * ch);
                     dsp::toDouble(std::span(scratch).first(got * in.bytesPerFrame()), in, block);
@@ -201,12 +226,14 @@ PlaybackReport play(PcmSource& source, AudioOutput& output, const PlaybackOption
                 else
                 {
                     flushed = true;
-                    if (latency == 0)
-                        break;
-                    const auto block = std::span(samples).first(latency * ch);
-                    std::fill(block.begin(), block.end(), 0.0);
-                    chain->process(block, in.channels);
-                    keep(block);
+                    if (latency > 0)
+                    {
+                        const auto block = std::span(samples).first(latency * ch);
+                        std::fill(block.begin(), block.end(), 0.0);
+                        chain->process(block, in.channels);
+                        keep(block);
+                    }
+                    resampler.finish(pending); // the last frames at the output rate
                 }
             }
             const std::size_t n = std::min(frames, pending.size() / ch);

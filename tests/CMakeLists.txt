@@ -191,7 +191,8 @@ ap_copy_engine_dlls(ap_engine_signal_tests) # before test discovery, which runs 
         acceptance/level_meter_test.cpp
         acceptance/isp_safe_test.cpp
         acceptance/comparison_test.cpp
-        acceptance/space_test.cpp)
+        acceptance/space_test.cpp
+        acceptance/resample_test.cpp)
     target_link_libraries(ap_acceptance_tests PRIVATE
         ap_engine ap_signalgen_lib ap_test_support ap_catch_main)
     ap_apply_compiler_settings(ap_acceptance_tests)

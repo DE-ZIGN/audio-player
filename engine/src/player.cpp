@@ -63,8 +63,12 @@ public:
         // position for the other path. DoP is never processed.
         if (const auto* chain = p_.options_.processing.get(); chain && !dop_ && p_.sessionPlan_)
         {
-            const bool wanted = p_.sessionPlan_->processingRequired || !chain->bypassed();
+            // A conversion of the rate (task 10-3) keeps the processing path while
+            // the choice stays; a changed choice reopens (it may change the rate).
+            const bool wanted = p_.sessionPlan_->processingRequired || !chain->bypassed() ||
+                                p_.sessionPlan_->resample.has_value();
             if (wanted != p_.sessionPlan_->processing || chain->comparing() != p_.sessionPlan_->comparison ||
+                chain->outputRate() != p_.sessionPlan_->rateChoice ||
                 (p_.sessionPlan_->processing && chain->needsReprepare()))
             {
                 p_.pathChangePending_ = true;

@@ -30,6 +30,26 @@ void ProcessingChain::updateUpstreamGains() const noexcept
     }
 }
 
+void ProcessingChain::setOutputRate(std::optional<OutputRateChoice> choice) noexcept
+{
+    // Bit 63: set; bits 40-47: the multiple; bits 32-39: the mode; bits 0-31: the rate.
+    outputRate_ = choice ? (std::uint64_t{1} << 63) | (std::uint64_t{choice->multiple & 0xFF} << 40)
+                               | (std::uint64_t{static_cast<std::uint8_t>(choice->mode)} << 32) | choice->rate
+                         : 0;
+}
+
+std::optional<OutputRateChoice> ProcessingChain::outputRate() const noexcept
+{
+    const std::uint64_t v = outputRate_;
+    if (v == 0)
+        return std::nullopt;
+    OutputRateChoice c;
+    c.rate = static_cast<std::uint32_t>(v);
+    c.mode = static_cast<OutputRateMode>((v >> 32) & 0xFF);
+    c.multiple = static_cast<std::uint32_t>((v >> 40) & 0xFF);
+    return c;
+}
+
 bool ProcessingChain::bypassed() const noexcept
 {
     updateUpstreamGains();
