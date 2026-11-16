@@ -102,6 +102,20 @@ target_include_directories(ap_ebur128 PRIVATE "${ebur128_SOURCE_DIR}/ebur128/que
 target_compile_definitions(ap_ebur128 PRIVATE _USE_MATH_DEFINES)
 set_target_properties(ap_ebur128 PROPERTIES FOLDER "third_party")
 
+# r8brain-free-src 7.6 (tag archive, 2026-09-30), MIT; its default FFT is
+# Takuya Ooura's (free to use, see THIRD_PARTY_NOTICES). The resampler (task
+# 10-1). Header only: an interface target with its folder as a system include.
+# Its other FFTs (PFFFT, IPP) and its DLL folder are not used.
+FetchContent_Declare(r8brain
+    URL      https://github.com/avaneev/r8brain-free-src/archive/refs/tags/7.6.tar.gz
+    URL_HASH SHA256=a7a1f0db33017486778bb9c99907f9911995051d50581b8236ba34d7b17b570b
+    SOURCE_SUBDIR not-used # its CMakeLists (if any) is not used: FetchContent only downloads
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(r8brain)
+add_library(ap_r8brain INTERFACE)
+target_include_directories(ap_r8brain SYSTEM INTERFACE "${r8brain_SOURCE_DIR}")
+target_compile_definitions(ap_r8brain INTERFACE R8B_PFFFT=0 R8B_PFFFT_DOUBLE=0 R8B_IPP=0)
+
 # SQLite 3.50.4 (amalgamation), public domain. The library database (task
 # 5-1, CLAUDE.md chapter 7). Built here as a static library with FTS5 (the
 # trigram tokenizer for Japanese substring search, task 5-4).

@@ -44,6 +44,7 @@ add_library(ap_engine STATIC
     src/dsp/convolver.cpp
     src/dsp/room_ir.cpp
     src/dsp/space.cpp
+    src/dsp/resampler.cpp
     src/listening_settings.cpp
     src/looping_source.cpp
     src/dsp/requantize.cpp
@@ -69,7 +70,7 @@ add_custom_command(OUTPUT ${AP_IR_MAIR_CPP}
     VERBATIM)
 target_sources(ap_engine PRIVATE ${AP_IR_MAIR_CPP})
 
-target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt user32 advapi32 ap_asiosdk FLAC::FLAC ap_alac libmpg123 ap_ebur128 mfplat mfuuid)
+target_link_libraries(ap_engine PRIVATE bcrypt ole32 avrt user32 advapi32 ap_asiosdk FLAC::FLAC ap_alac libmpg123 ap_ebur128 ap_r8brain mfplat mfuuid)
 
 target_include_directories(ap_engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)

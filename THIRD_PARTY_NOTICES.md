@@ -143,6 +143,21 @@
   - Copyright (c) 1991, 1993 The Regents of the University of California. All rights reserved.（queue.h）
 - ライセンス本文：libebur128 の `COPYING`、`doc/license/R128Scan.txt`、`doc/license/queue.txt`
 
+## r8brain-free-src
+
+- バージョン：7.6（タグ `7.6` のソースの配布 `r8brain-free-src-7.6.tar.gz`、2026-09-30、SHA-256 `a7a1f0db33017486778bb9c99907f9911995051d50581b8236ba34d7b17b570b`）
+- ライセンス：MIT（`LICENSE`）
+- 配布物：含む（リサンプラー。ヘッダーだけの部品で、エンジンに組み込む。既定の FFT（下の Ooura FFT）を使い、PFFFT・IPP・同梱の DLL は使わない）
+- 入手先：https://github.com/avaneev/r8brain-free-src （ソースは上の配布物。変更なし）
+- 著作権表示：Copyright (c) 2013-2026 Aleksey Vaneev
+- ライセンス本文：r8brain-free-src の `LICENSE`
+
+### r8brain-free-src に含まれる Ooura FFT
+
+- 内容：r8brain-free-src の `fft/fft4g.h`（Takuya Ooura の FFT を、r8brain の作者が係数の前計算のために手直ししたもの）
+- 著作権表示：Copyright Takuya OOURA, 1996-2001（http://www.kurims.kyoto-u.ac.jp/~ooura/fft.html ）
+- 利用条件（作者のページより）：You may use, copy, modify and distribute this code for any purpose (include commercial use) and without fee. Please refer to this package when you modify this code.
+
 ## TagLib
 
 - バージョン：2.1.1（リリースの配布 `taglib-2.1.1.tar.gz`、SHA-256 `3716d31f7c83cbf17b67c8cf44dd82b2a2f17e6780472287a16823e70305ddba`）
