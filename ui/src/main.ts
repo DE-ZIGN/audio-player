@@ -25,6 +25,7 @@ import { paintRange } from "./rangeFill";
 import { OutputView } from "./outputView";
 import { AbxView } from "./abxView";
 import { articleScreen } from "./articleCommand";
+import { playIcon, repeatIcon, setIcon } from "./icons";
 import { lengthText } from "./libraryFormat";
 import {
   bitPerfectText,
@@ -121,6 +122,15 @@ const queueIds = () => queue.items.map((i) => i.id);
 // Shuffle and repeat (task 9-9). While shuffle is on, the order the queue had
 // before it was mixed, to put back what is left when it goes off.
 let modes: PlayModes = { shuffle: false, repeat: "off" };
+
+// The transport's symbols, drawn before anything else runs (icons.ts); play
+// and repeat then follow the state.
+setIcon(els.shuffle, "shuffle");
+setIcon(els.prev, "prev");
+setIcon(els.play, playIcon(false));
+setIcon(els.stop, "stop");
+setIcon(els.next, "next");
+setIcon(els.repeat, repeatIcon(modes.repeat));
 let shuffleOriginal: number[] | null = null;
 
 function storageOrNull(): Storage | null {
@@ -136,6 +146,7 @@ function renderModes() {
   els.shuffle.title = `${shuffleLabel(modes.shuffle)}（この先の曲の順番を混ぜる）`;
   els.repeat.setAttribute("aria-pressed", String(modes.repeat !== "off"));
   els.repeat.dataset.repeat = modes.repeat;
+  setIcon(els.repeat, repeatIcon(modes.repeat)); // repeat one carries a 1
   els.repeat.title = `${repeatLabel(modes.repeat)}（押すごとに オフ → 全曲 → 1 曲）`;
   if (current) render(current);
 }
@@ -236,7 +247,7 @@ function renderTopBar(s: PlaybackStatus) {
   els.prev.disabled = !loaded;
   els.next.disabled = !loaded || nextTrackIndex(s.queueIndex, s.queueLength, modes.repeat) === null;
   const playing = s.state === "playing";
-  els.play.textContent = playing ? "❚❚" : "▶";
+  setIcon(els.play, playIcon(playing));
   els.play.title = playing ? "一時停止（スペース）" : "再生（スペース）";
   els.play.setAttribute("aria-label", playing ? "一時停止" : "再生");
 

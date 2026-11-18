@@ -13,7 +13,7 @@
 | panel-side.jpg | x 12〜218、y 142〜910 | 左の欄の地 |
 | panel-main.jpg | x 220〜1239、y 142〜910 | 本文の地 |
 | panel-queue.jpg | x 1242〜1660、y 142〜910 | 右の欄（再生キュー）の地 |
-| button.jpg | 前へのボタン（中心 345, 89.5） | 前へ・停止・次へのボタン（記号は文字で重ねる） |
+| button.jpg | 前へのボタン（中心 345, 89.5） | 前へ・停止・次へのボタン（記号は `ui/src/icons.ts` の絵を重ねる） |
 | play.jpg | 再生ボタン（中心 405.5, 89） | 再生ボタン |
 | vu-face.jpg | 左の VU メーター（x 1115〜1252、y 51〜114） | VU メーターの盤面と縁（目盛り・数字・針は SVG で重ねる） |
 
@@ -32,7 +32,7 @@
 |---|---|---|
 | amp/se-lit.jpg | `UI-AMP-SE-NOTEXT-v1` の x 0〜1672、y 42〜624 | アンプ部（真空管が灯った絵） |
 | amp/se-pure.jpg | `UI-AMP-SE-PURE-NOTEXT-v1` の同じ範囲 | アンプ部（真空管が消えた絵。2 枚を重ねて灯りを切り替える） |
-| amp/button.jpg | `UI-AMP-SE-NOTEXT-v1` の再生ボタン（中心 779, 575） | 前へ・停止・次へ（記号は文字で重ねる） |
+| amp/button.jpg | `UI-AMP-SE-NOTEXT-v1` の再生ボタン（中心 779, 575） | 前へ・停止・次へ（記号は `ui/src/icons.ts` の絵を重ねる） |
 | amp/play.jpg | `UI-AMP-SE-NOTEXT-v1` のアンバーの輪のボタン（中心 890, 575） | 再生・一時停止 |
 | amp/toggle-up.png、amp/toggle-down.png | MODE のトグル（x 117〜183、y 391〜509、座金が中心）を透過で切り抜いたもの。上は原音版、下は点灯版から（点灯版はトグルが 2 px 右・5 px 上に描かれているので、その分ずらして切る）。アンプの絵からはトグルを消してある | MODE のスイッチ（PURE・TUBE） |
 
@@ -55,6 +55,6 @@
 | ファイル | 見本の場所（px） | 使う場所 |
 |---|---|---|
 | amp/pp-lit.jpg、amp/pp-pure.jpg | `UI-AMP-PP-NOTEXT-v1`・`UI-AMP-PP-PURE-NOTEXT-v1` の x 0〜1672、y 42〜624 | アンプ部（灯った絵と消えた絵。2 枚を重ねて灯りを切り替える） |
-| amp/pp-button.jpg | 前へのボタン（中心 710.5, 576.5） | シャッフル・前へ・次へ・リピート・停止（記号は文字で重ねる） |
+| amp/pp-button.jpg | 前へのボタン（中心 710.5, 576.5） | シャッフル・前へ・次へ・リピート・停止（記号は `ui/src/icons.ts` の絵を重ねる） |
 | amp/pp-play.jpg | アンバーの輪のボタン（中心 836.5, 576.5） | 再生・一時停止 |
 | amp/pp-xfeed-on.png、amp/pp-xfeed-off.png | CROSSFEED のトグル（x 1519〜1583、y 393〜493、座金が中心）を透過で切り抜いたもの。オンは `UI-AMP-PP-NOTEXT-v1`、オフはレバーだけを下に倒した `UI-AMP-PP-NOTEXT-XFEEDOFF-v1`（ユーザーが画像生成で作成、2026-11-15。トグル以外は元の絵と画素まで同じ） | CROSSFEED のスイッチ |

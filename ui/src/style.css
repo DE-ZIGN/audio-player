@@ -176,6 +176,21 @@ button.link {
   gap: 6px;
   flex: none;
 }
+/* The transport's symbols are drawings (icons.ts), as large as the button's
+   font size and in its colour. */
+.transport button.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+.transport button.icon svg {
+  width: 1em;
+  height: 1em;
+  display: block;
+  flex: none;
+  pointer-events: none;
+}
 .seek {
   display: flex;
   align-items: center;
@@ -2167,7 +2182,7 @@ html[data-look="real"] {
 [data-look="real"] .queue-panel {
   background: var(--panel-queue) center / 100% 100% no-repeat;
 }
-/* Round buttons from the concept image; the symbols are text on top. */
+/* Round buttons from the concept image; the symbols are drawn on top (icons.ts). */
 /* They stand out of the plate: a dark side under the face, a shadow on the
    metal below, light on the upper rim; pressed, they sink. */
 [data-look="real"] .transport button.icon {
@@ -2414,17 +2429,25 @@ html[data-look="real"] {
   align-items: center;
   gap: 8px;
 }
+/* A symbol is 0.55 of a small button and 0.4 of the play button, as on the concept image. */
 [data-look="real"] .transport button.icon {
   width: 30px;
   height: 30px;
   min-width: 0;
   padding: 0;
-  font-size: 10px;
+  font-size: 16px;
 }
 [data-look="real"] .transport button.play {
   width: 37px;
   height: 37px;
-  font-size: 13px;
+  font-size: 15px;
+}
+/* The symbols' shadow on the glass; the lit ones glow (text-shadow does not reach a drawing). */
+[data-look="real"] .transport button.icon svg {
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
+}
+[data-look="real"] .transport button.play svg {
+  filter: drop-shadow(0 0 3px rgba(255, 160, 50, 0.85)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
 }
 [data-look="real"] .time {
   font-size: 11px;
@@ -2933,7 +2956,7 @@ html[data-look="real"] {
   top: var(--y);
   width: var(--d);
   height: var(--d);
-  font-size: 22px;
+  font-size: calc(var(--d) * 0.55);
   pointer-events: auto;
   color: #f6e2bc;
 }
@@ -2952,7 +2975,8 @@ html[data-look="real"] {
   --x: var(--play-x);
   --y: var(--play-y);
   --d: var(--play-d);
-  font-size: 26px;
+  font-size: calc(var(--d) * 0.4);
+  color: #ffdc8c; /* lit, as the concept image's */
 }
 [data-look="real"] .amp-stage .transport #stop {
   --x: var(--stop-x);
@@ -2968,10 +2992,6 @@ html[data-look="real"] {
   --x: var(--repeat-x);
   --y: var(--repeat-y);
   --d: var(--repeat-d);
-}
-/* The push-pull amp's stop is small, past the vent. */
-[data-look="real"] .amp-stage-pp .transport #stop {
-  font-size: 15px;
 }
 /* The volume as a number, and mute, beside the transport. */
 .amp-volume-slot {
@@ -3114,7 +3134,7 @@ html[data-look="real"] {
 
 /* --- Shuffle and repeat (task 9-9) -------------------------------------------
    In every view, either side of the transport. Lit in the accent when on;
-   repeat one carries a small "1". */
+   repeat one carries a small "1" (part of the drawing: icons.ts). */
 .transport button.mode {
   position: relative;
   color: var(--muted);
@@ -3123,51 +3143,25 @@ html[data-look="real"] {
   color: var(--accent);
   border-color: var(--accent);
 }
-.transport #repeat[data-repeat="one"]::after {
-  content: "1";
-  position: absolute;
-  right: 3px;
-  bottom: 1px;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1;
-}
 [data-look="real"] .transport button.mode {
   width: 24px;
   height: 24px;
-  font-size: 12px;
+  font-size: 13px;
   color: #b9a585;
 }
 [data-look="real"] .transport button.mode[aria-pressed="true"] {
   color: #ffc46b;
-  text-shadow:
-    0 0 6px rgba(255, 170, 60, 0.9),
-    0 1px 1px rgba(0, 0, 0, 0.8);
 }
-[data-look="real"] .transport #repeat[data-repeat="one"]::after {
-  right: 1px;
-  bottom: 0;
-  font-size: 8px;
+[data-look="real"] .transport button.mode[aria-pressed="true"] svg {
+  filter: drop-shadow(0 0 2.5px rgba(255, 170, 60, 0.95)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
 }
-/* On the amp's wood (amp.ts: the transport's places). */
-[data-look="real"] .amp-stage .transport #shuffle,
-[data-look="real"] .amp-stage .transport #repeat {
-  font-size: 22px;
-}
-[data-look="real"] .amp-stage .transport #repeat[data-repeat="one"]::after {
-  right: 9px;
-  bottom: 8px;
-  font-size: 12px;
-}
+/* On the amp's wood (amp.ts: the transport's places): sized by the button, as the others there. */
 [data-look="real"] .amp-stage .transport button.mode {
+  font-size: calc(var(--d) * 0.55);
   color: #a8957a;
 }
 [data-look="real"] .amp-stage .transport button.mode[aria-pressed="true"] {
   color: #ffc46b;
-  text-shadow:
-    0 0 8px rgba(255, 170, 60, 0.95),
-    0 0 2px rgba(255, 200, 120, 0.9),
-    0 1px 1px #000;
 }
 
 /* --- the push-pull amp's push buttons (task 9-9) -------------------------------
