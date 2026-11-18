@@ -113,7 +113,7 @@ export const LAMPS: Record<LampName, Point & { r: number }> = {
   auto: { x: 1538, y: 407, r: 5.5 },
 };
 
-export const TOGGLE = { x: 117, y: 391, width: 66, height: 118 }; // centred on the nut, room for the lever both ways
+export const TOGGLE = { x: 117, y: 391, width: 66, height: 135 }; // room for the lever both ways and its shadow, down to the panel's edge
 
 export interface Word extends Point {
   text: string[];

@@ -34,7 +34,7 @@
 | amp/se-pure.jpg | `UI-AMP-SE-PURE-NOTEXT-v1` の同じ範囲 | アンプ部（真空管が消えた絵。2 枚を重ねて灯りを切り替える） |
 | amp/button.jpg | `UI-AMP-SE-NOTEXT-v1` の再生ボタン（中心 779, 575） | 前へ・停止・次へ（記号は `ui/src/icons.ts` の絵を重ねる） |
 | amp/play.jpg | `UI-AMP-SE-NOTEXT-v1` のアンバーの輪のボタン（中心 890, 575） | 再生・一時停止 |
-| amp/toggle-up.png、amp/toggle-down.png | MODE のトグル（x 117〜183、y 391〜509、座金が中心）を透過で切り抜いたもの。上は原音版、下は点灯版から（点灯版はトグルが 2 px 右・5 px 上に描かれているので、その分ずらして切る）。アンプの絵からはトグルを消してある | MODE のスイッチ（PURE・TUBE） |
+| amp/toggle-up.png、amp/toggle-down.png | MODE のトグル（x 117〜183、y 391〜526。レバーの影がパネルの下の縁まで届く）を透過で切り抜いたもの。座金・玉・軸は測った形で不透明に切り、影は半透明の黒として持つ（2026-11-18 に切り抜き直した。PP の CROSSFEED も同じ）。上は原音版、下は点灯版から（点灯版はトグルが 2 px 右・5 px 上に描かれているので、その分ずらして切る）。アンプの絵からはトグルを消してある | MODE のスイッチ（PURE・TUBE） |
 
 ## プッシュプルのアンプ（PP EL34・PP CLASS A）
 

@@ -48,7 +48,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ui_mockup_parts import blend, box_blur, crop, dilate, feather, load, luminance, push_pull, rect_mask, blur  # noqa: E402
 from ui_mockup_parts import save as save_to  # noqa: E402
-from ui_amp_parts import TOP, BOTTOM, disc, fill_rows, put, button, without_box, cut_out, save_png  # noqa: E402
+from ui_amp_parts import TOP, BOTTOM, disc, fill_rows, put, button, without_box, cut_toggle, save_png  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'ui', 'src', 'textures', 'amp')
@@ -103,6 +103,14 @@ ROUND_GLOW = {'play': 52, 'other': 38}
 # enough for the lever up (tip at y 398) and turned over (tip at y 488).
 XFEED = (1519, 393, 1583, 493)
 XFEED_NUT_Y = 443
+# Its solid parts as drawn, lever up (on) and down (off): the nut, the ball and
+# the stem, as ui_amp_parts.TOGGLE_PARTS. The lever leans a little to the right.
+XFEED_PARTS = {
+    'on': {'nut': (1550.4, 443.0, 24.5, 22.5), 'ball': (1556.3, 406.3, 10.0),
+           'stem': ((1551.5, 441.0, 6.5), (1556.0, 409.0, 7.5))},
+    'off': {'nut': (1550.5, 443.0, 24.5, 22.5), 'ball': (1556.3, 476.5, 10.5),
+            'stem': ((1551.5, 445.0, 6.5), (1556.0, 472.0, 8.5))},
+}
 
 VENTS = [(150, 562, 462, 602), (1220, 562, 1522, 602)]  # the slots in the wood (kept)
 DIVIDERS = [(245, 345, 256, 505), (479, 345, 490, 505), (1178, 345, 1189, 505), (1477, 345, 1488, 505)]
@@ -314,7 +322,7 @@ def amp(img: np.ndarray, words_drawn: bool):
 
 
 def xfeed(img: np.ndarray, down: bool) -> np.ndarray:
-    cut = cut_out(img, without_box(img, XFEED, PANEL, not_metal_pp), XFEED)
+    cut = cut_toggle(img, without_box(img, XFEED, PANEL, not_metal_pp), XFEED, XFEED_PARTS['on'])
     if down:
         # No picture with the lever down: the toggle turned over about the nut
         # (the box is centred on it; the light then comes from below).
@@ -366,7 +374,8 @@ def main():
     off_path = os.path.join(SRC, 'UI-AMP-PP-NOTEXT-XFEEDOFF-v1.png')
     if os.path.exists(off_path) and not words_drawn:
         off = load(off_path)
-        save_png(cut_out(off, without_box(off, XFEED, PANEL, not_metal_pp), XFEED), 'pp-xfeed-off.png', folder=OUT)
+        save_png(cut_toggle(off, without_box(off, XFEED, PANEL, not_metal_pp), XFEED, XFEED_PARTS['off']), 'pp-xfeed-off.png',
+                 folder=OUT)
         print('the lever down from', os.path.basename(off_path))
     else:
         save_png(xfeed(lit, True), 'pp-xfeed-off.png', folder=OUT)

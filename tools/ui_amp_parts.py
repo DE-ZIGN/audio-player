@@ -113,7 +113,21 @@ VOLUME_POINTER = {'lit': 35.0, 'pure': 140.0}  # degrees from up, clockwise: the
 # its toggle (lever down) 2 px right and 5 px higher than the dark one: it is
 # cut from a box moved by as much, so the nut stays put when the lever moves.
 TOGGLE_DOWN_SHIFT = (2, -5)
-TOGGLE = (117, 391, 183, 509)
+TOGGLE = (117, 391, 183, 526)  # down to the panel's lower edge: the lever's shadow reaches it
+
+# The toggle's solid parts as each picture draws them (image px): the nut (an
+# ellipse: centre and radii), the lever's ball (centre and radius) and its
+# stem (a centre and half-width where it leaves the hole and where it meets
+# the ball). Everything else the toggle changes on the metal is its shadow.
+TOGGLE_PARTS = {
+    'up': {'nut': (150.7, 450.5, 25.0, 24.5), 'ball': (148.5, 423.3, 13.8),
+           'stem': ((150.0, 453.0, 8.5), (148.8, 426.0, 9.5))},
+    'down': {'nut': (151.0, 445.5, 26.5, 25.5), 'ball': (150.0, 478.5, 15.0),
+             'stem': ((151.0, 446.0, 6.5), (150.0, 474.0, 9.5))},
+}
+# Put back on the bare metal, a cut toggle must give the picture again: the
+# mean difference over its box stays under this (measured: about 0.01).
+TOGGLE_MATCH_LIMIT = 0.02
 
 # The VU meters: the paper inside the bezel, and the channel letter under it.
 VU_PAPER = {'L': (140, 185, 357, 301), 'R': (1318, 185, 1536, 301)}
@@ -238,18 +252,52 @@ def without_box(img: np.ndarray, box, panel, not_metal) -> np.ndarray:
     return put(img, blend(part, made, mask, 2), panel)
 
 
-def cut_out(img: np.ndarray, empty: np.ndarray, box) -> np.ndarray:
-    """What `img` has in `box` that `empty` (the same picture with the box
-    filled with metal) has not: the toggle with its shadow, as RGBA."""
+def toggle_solid(shape, parts, origin, grow: float = 1.0, fine: int = 4) -> np.ndarray:
+    """How much of each pixel the nut and the lever cover (0..1), from their
+    shapes: metal on metal cannot be told from the plate by colour."""
+    h, w = shape
+    yy, xx = np.mgrid[0:h * fine, 0:w * fine]
+    x = (xx + 0.5) / fine + origin[0]
+    y = (yy + 0.5) / fine + origin[1]
+    cx, cy, rx, ry = parts['nut']
+    m = ((x - cx) / (rx + grow)) ** 2 + ((y - cy) / (ry + grow)) ** 2 <= 1
+    bx, by, br = parts['ball']
+    m |= np.hypot(x - bx, y - by) <= br + grow
+    # The stem: within its half-width of the line from the hole to the ball (the lever may lean).
+    (x0, y0, w0), (x1, y1, w1) = parts['stem']
+    sx, sy = x1 - x0, y1 - y0
+    t = np.clip(((x - x0) * sx + (y - y0) * sy) / (sx * sx + sy * sy), 0, 1)
+    m |= np.hypot(x - (x0 + sx * t), y - (y0 + sy * t)) <= w0 + (w1 - w0) * t + grow
+    return m.reshape(h, fine, w, fine).mean(axis=(1, 3))
+
+
+def cut_toggle(img: np.ndarray, empty: np.ndarray, box, parts) -> np.ndarray:
+    """The toggle in `box` as RGBA, to be put on the picture without it
+    (`empty`, the box filled with metal): the nut and the lever as drawn,
+    opaque, and their shadow as black, as strong as the metal is darker in
+    the picture than bare. A shadow kept as the picture's own darkened pixels
+    showed as a patch with a hard edge (2026-11-18)."""
     a = crop(img, box)
     b = crop(empty, box)
-    d = np.abs(a - b).max(axis=2)
-    core = dilate(d > 0.14, 3)  # the toggle itself, not stray streaks
-    alpha = np.clip((d - 0.05) / 0.08, 0, 1) * core
-    alpha = np.maximum(alpha, feather(core & (d > 0.09), 1))
-    for _ in range(1):
-        alpha = box_blur(box_blur(alpha[..., None], 1, 0), 1, 1)[..., 0]
-    return np.concatenate([a, np.clip(alpha, 0, 1)[..., None]], axis=2)
+    h, w = a.shape[:2]
+    solid = toggle_solid((h, w), parts, box[:2])
+    shade = np.clip(1 - luminance(a) / np.maximum(luminance(b), 1e-3), 0, 1)
+    # Smoothed (the filled-in metal's streaks are not the picture's), from the metal only.
+    metal = (solid < 0.01) * 1.0
+    shade = blur(shade * metal, 2.5) / np.maximum(blur(metal, 2.5), 1e-3)
+    shade = np.clip((shade - 0.04) / 0.96, 0, 0.85)
+    # Nothing at the box's edge, so no line shows where the cut ends.
+    yy, xx = np.mgrid[0:h, 0:w]
+    shade *= np.clip(np.minimum.reduce([xx, yy, w - 1 - xx, h - 1 - yy]) / 6.0, 0, 1)
+    alpha = solid + (1 - solid) * shade
+    rgb = a * (solid / np.maximum(alpha, 1e-4))[..., None]  # the shadow's share is black
+    out = np.concatenate([rgb, alpha[..., None]], axis=2)
+    back = b * (1 - alpha[..., None]) + rgb * alpha[..., None]
+    miss = float(np.abs(back - a).mean())
+    if miss > TOGGLE_MATCH_LIMIT:
+        raise SystemExit(f'the cut toggle put back on the metal differs from the picture by {miss:.3f} '
+                         f'(limit {TOGGLE_MATCH_LIMIT}): check TOGGLE and TOGGLE_PARTS')
+    return out
 
 
 def save_png(rgba: np.ndarray, name: str, folder: str = ''):
@@ -440,10 +488,10 @@ def main():
     save(amp(pure, lamp, VOLUME_POINTER['pure'], DRAWN_BUTTONS['pure'], 11, words_drawn), 'se-pure.jpg', quality=86)
     save(button(lit, *BUTTONS[1], r=BUTTON_R + 2, icon_r=17), 'button.jpg')
     save(button(lit, *BUTTONS[2], r=BUTTON_R + 4, icon_r=19), 'play.jpg')  # 17 left a corner of the pause bar as a speck
-    save_png(cut_out(pure, without_box(pure, TOGGLE, PANEL, not_metal_se), TOGGLE), 'toggle-up.png')
+    save_png(cut_toggle(pure, without_box(pure, TOGGLE, PANEL, not_metal_se), TOGGLE, TOGGLE_PARTS['up']), 'toggle-up.png')
     dx, dy = TOGGLE_DOWN_SHIFT
     down = (TOGGLE[0] + dx, TOGGLE[1] + dy, TOGGLE[2] + dx, TOGGLE[3] + dy)
-    save_png(cut_out(lit, without_box(lit, down, PANEL, not_metal_se), down), 'toggle-down.png')
+    save_png(cut_toggle(lit, without_box(lit, down, PANEL, not_metal_se), down, TOGGLE_PARTS['down']), 'toggle-down.png')
     if debug:
         save_to(lamp, 'lamp.jpg', quality=92, folder=debug)
         mask = rect_mask((BOTTOM - TOP, 1672), WORDS, origin=(0, TOP))
