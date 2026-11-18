@@ -66,6 +66,7 @@ include(Dependencies)
 # ---------------------------------------------------------------------------
 add_subdirectory(engine)
 add_subdirectory(library)
+add_subdirectory(app/logic) # no JUCE; built and tested without the application too
 
 if(AP_BUILD_TOOLS)
     add_subdirectory(tools)

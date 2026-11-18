@@ -109,6 +109,10 @@ export interface Backend {
   uiReady(): Promise<void>;
   selfTestResult(result: { ok: boolean; log: string[] }): Promise<void>;
   onStatus(listener: (status: PlaybackStatus) => void): void;
+  // The article reader (task 7-1): a window of its own. No id: the list of articles.
+  openArticle(id?: string, section?: string): Promise<{ ok: boolean; message?: string }>;
+  // A link in an article asking for a screen (articleCommand.ts reads the payload).
+  onArticleCommand(listener: (payload: unknown) => void): void;
 }
 
 declare global {
@@ -126,6 +130,7 @@ declare global {
 export const STATUS_EVENT = "playbackStatus";
 export const LIBRARY_EVENT = "libraryChanged";
 export const OUTPUTS_EVENT = "outputsChanged";
+export const ARTICLE_COMMAND_EVENT = "articleCommand";
 
 type NativeFn = (name: string) => (...args: unknown[]) => Promise<unknown>;
 
@@ -258,6 +263,12 @@ class AppBackend implements Backend {
   }
   onStatus(listener: (status: PlaybackStatus) => void) {
     window.__JUCE__!.backend.addEventListener(STATUS_EVENT, (p) => listener(p as PlaybackStatus));
+  }
+  async openArticle(id = "", section = "") {
+    return ((await this.fn("openArticle")(id, section)) as { ok: boolean; message?: string } | null) ?? { ok: false };
+  }
+  onArticleCommand(listener: (payload: unknown) => void) {
+    window.__JUCE__!.backend.addEventListener(ARTICLE_COMMAND_EVENT, listener);
   }
 }
 
@@ -760,6 +771,12 @@ export class MockBackend implements Backend {
   onStatus(listener: (status: PlaybackStatus) => void) {
     this.listeners.push(listener);
   }
+  // In a plain browser the reader is just another tab; its "app:" links have nowhere to go.
+  async openArticle(id = "", section = "") {
+    window.open(`reader.html${id ? `?id=${encodeURIComponent(id)}` : ""}${section ? `#${encodeURIComponent(section)}` : ""}`, "ap-articles");
+    return { ok: true };
+  }
+  onArticleCommand() {}
 
   private halt() {
     if (this.timer !== undefined) clearInterval(this.timer);

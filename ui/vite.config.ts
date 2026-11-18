@@ -39,11 +39,30 @@ function mockups(): Plugin {
   };
 }
 
+// Development server only: the article reader's page (reader.html, task 7-1)
+// allows nothing but its own files; Vite's own styles and reload socket need
+// a little more while developing. The built page keeps the strict policy.
+function readerDevPolicy(): Plugin {
+  return {
+    name: "reader-dev-policy",
+    apply: "serve",
+    transformIndexHtml: {
+      order: "pre",
+      handler(html, ctx) {
+        if (!ctx.path.endsWith("reader.html")) return html;
+        return html
+          .replace("style-src 'self'", "style-src 'self' 'unsafe-inline'")
+          .replace("connect-src 'self'", "connect-src 'self' ws://localhost:5173");
+      },
+    },
+  };
+}
+
 // The built UI is served by the app's resource provider from <exe dir>/ui,
 // so asset URLs must be relative.
 export default defineConfig({
   base: "./",
-  plugins: [mockups()],
+  plugins: [mockups(), readerDevPolicy()],
   server: {
     port: 5173,
     strictPort: true,
@@ -51,6 +70,10 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    // Two pages: the main screen and the article reader (its own WebView).
+    rolldownOptions: {
+      input: { main: "index.html", reader: "reader.html" },
+    },
   },
   // Tests read style.css as text (src/fonts.test.ts); vitest leaves CSS out otherwise.
   test: {

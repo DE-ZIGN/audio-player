@@ -25,7 +25,11 @@ target_sources(ap_app PRIVATE
     src/LibraryBridge.cpp
     src/LibraryBridge.h
     src/UiResources.cpp
-    src/UiResources.h)
+    src/UiResources.h
+    src/ArticleWindow.cpp
+    src/ArticleWindow.h
+    src/ArticleSelfTest.cpp
+    src/ArticleSelfTest.h)
 
 target_compile_definitions(ap_app PRIVATE
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:ap_app,JUCE_PRODUCT_NAME>"
@@ -40,6 +44,7 @@ target_link_libraries(ap_app
     PRIVATE
         ap_engine
         ap_library
+        ap_app_logic
         juce::juce_core
         juce::juce_events
         juce::juce_graphics

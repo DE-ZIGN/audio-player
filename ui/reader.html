@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The article reader (task 7-1): a page apart from the main screen. It
+         loads nothing from outside (no ads, no tracking): only its own files.
+         The development server loosens this for its own scripts (vite.config.ts). -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'" />
+    <title>記事</title>
+  </head>
+  <body>
+    <header class="reader-head">
+      <button id="to-list" type="button">記事の一覧</button>
+    </header>
+    <main class="reader">
+      <article id="article" aria-live="polite"></article>
+    </main>
+    <script type="module" src="/src/reader/reader.ts"></script>
+  </body>
+</html>

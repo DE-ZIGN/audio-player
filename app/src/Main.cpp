@@ -78,6 +78,11 @@ private:
 //                       dummy output (--self-test-output=RAW, default in TEMP);
 //                       exit code 0 if the page and the output check pass.
 //                       A log is written next to the output (RAW.log).
+//   --article-self-test the article reader (task 7-1) opens the bundled article
+//                       in the real WebView2, follows its links and tries
+//                       addresses it must refuse; exit code 0 if every decision
+//                       is the expected one. Web links are recorded, not opened.
+//                       The log goes to %TEMP%/ap_app_article_self_test.log.
 class Application final : public juce::JUCEApplication, private juce::Timer
 {
 public:
@@ -174,7 +179,27 @@ public:
             };
         }
 
-        if (smokeTest_ && !options.onSelfTestResult)
+        if (args.contains("--article-self-test") && !options.onSelfTestResult)
+        {
+            smokeTest_ = true; // same window handling and timeout
+            if (!libraryGiven)
+            {
+                options.libraryFolder = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                                            .getChildFile("ap_app_self_test_library");
+                options.libraryFolder.deleteRecursively();
+            }
+            options.onArticleSelfTestResult = [](bool ok, const juce::StringArray& log) {
+                juce::File::getSpecialLocation(juce::File::tempDirectory)
+                    .getChildFile("ap_app_article_self_test.log")
+                    .replaceWithText(log.joinIntoString("\n"));
+                juce::MessageManager::callAsync([ok] {
+                    juce::JUCEApplication::getInstance()->setApplicationReturnValue(ok ? 0 : 1);
+                    juce::JUCEApplication::quit();
+                });
+            };
+        }
+
+        if (smokeTest_ && !options.onSelfTestResult && !options.onArticleSelfTestResult)
         {
             options.onUiReady = [] {
                 juce::MessageManager::callAsync([] {
@@ -187,7 +212,7 @@ public:
         {
             // Fail if the page has not reported back in time.
             setApplicationReturnValue(1);
-            startTimer(30000);
+            startTimer(options.onArticleSelfTestResult ? 90000 : 30000);
         }
 
         mainWindow_ = std::make_unique<MainWindow>(getApplicationName(), std::move(options), true);

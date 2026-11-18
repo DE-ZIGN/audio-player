@@ -65,6 +65,18 @@ MainComponent::MainComponent(MainOptions options)
     bridge_.onPoll = [this](const ap::engine::PlayerStatus& s, std::int64_t id) { library_.observe(s, id); };
     setSize(1280, 800); // the library view (task 6-1): a list, the side bar and the queue side by side
     bridge_.onUiReady = options_.onUiReady;
+    if (options_.onArticleSelfTestResult)
+    {
+        bridge_.onUiReady = [this] {
+            juce::MessageManager::callAsync([safe = juce::Component::SafePointer<MainComponent>(this)] {
+                if (safe == nullptr || safe->articleTest_ != nullptr || safe->browser_ == nullptr)
+                    return;
+                safe->articleTest_ = std::make_unique<ArticleSelfTest>(safe->articleWindow(), *safe->browser_,
+                                                                       safe->options_.onArticleSelfTestResult);
+                safe->articleTest_->start();
+            });
+        };
+    }
     bridge_.onSelfTestResult = options_.onSelfTestResult;
     const bool selfTest = options_.selfTestWav != juce::File{};
     if (selfTest)
@@ -95,6 +107,17 @@ MainComponent::MainComponent(MainOptions options)
     browserOptions = bridge_.registerFunctions(browserOptions);
     browserOptions = library_.registerFunctions(browserOptions);
     browserOptions = settings_.registerFunctions(browserOptions);
+    // openArticle(id, section): the article reader (task 7-1). Empty id: the list of articles.
+    browserOptions = browserOptions.withNativeFunction(
+        "openArticle", [this](const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion done) {
+            const auto message = openArticle(args.size() > 0 ? args[0].toString() : juce::String(),
+                                             args.size() > 1 ? args[1].toString() : juce::String());
+            auto* result = new juce::DynamicObject();
+            result->setProperty("ok", message.isEmpty());
+            if (message.isNotEmpty())
+                result->setProperty("message", message);
+            done(juce::var(result));
+        });
 
     if (!juce::WebBrowserComponent::areOptionsSupported(browserOptions))
     {
@@ -125,6 +148,48 @@ MainComponent::MainComponent(MainOptions options)
              + "&w=" + juce::String(browser_->getWidth()) + "&h=" + juce::String(browser_->getHeight());
     }
     browser_->goToURL(url);
+}
+
+ArticleWindow& MainComponent::articleWindow()
+{
+    if (articles_ == nullptr)
+    {
+        ArticleWindow::Hooks hooks;
+        hooks.onCommand = [this](const ArticleDecision& command) { sendArticleCommand(command); };
+        if (options_.onArticleSelfTestResult)
+        {
+            hooks.openExternally = [](const juce::String&) {}; // the test opens no browser
+            hooks.onDecision = [this](const juce::String& url, const ArticleDecision& d) {
+                if (articleTest_ != nullptr)
+                    articleTest_->record(url, d);
+            };
+        }
+        articles_ = std::make_unique<ArticleWindow>(options_.uiRoot, std::move(hooks));
+    }
+    return *articles_;
+}
+
+juce::String MainComponent::openArticle(const juce::String& id, const juce::String& section)
+{
+    // The page's own values are checked like any other: what is not an id
+    // or a section is left out (articleReaderUrl).
+    auto& window = articleWindow();
+    if (window.problem().isNotEmpty())
+        return window.problem();
+    window.showArticle(id, section);
+    return {};
+}
+
+void MainComponent::sendArticleCommand(const ArticleDecision& command)
+{
+    if (browser_ == nullptr)
+        return;
+    auto* payload = new juce::DynamicObject();
+    payload->setProperty("command", juce::String(command.command));
+    payload->setProperty("argument", juce::String(command.argument));
+    browser_->emitEventIfBrowserIsVisible("articleCommand", juce::var(payload));
+    if (auto* top = getTopLevelComponent(); top != nullptr && !options_.onArticleSelfTestResult)
+        top->toFront(true); // the screen that was asked for, in front of the article
 }
 
 void MainComponent::paint(juce::Graphics& g)

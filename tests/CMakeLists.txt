@@ -264,6 +264,18 @@ if(TARGET ap_signalgen_lib)
 endif()
 
 # ---------------------------------------------------------------------------
+# Application logic (no JUCE): where the article reader may go (task 7-1)
+# ---------------------------------------------------------------------------
+add_executable(ap_app_unit_tests
+    unit/article_policy_test.cpp)
+target_link_libraries(ap_app_unit_tests PRIVATE ap_app_logic ap_catch_main)
+ap_apply_compiler_settings(ap_app_unit_tests)
+set_target_properties(ap_app_unit_tests PROPERTIES FOLDER "tests")
+
+catch_discover_tests(ap_app_unit_tests ${AP_DISCOVER_ARGS}
+    PROPERTIES LABELS "unit")
+
+# ---------------------------------------------------------------------------
 # Application smoke test
 # ---------------------------------------------------------------------------
 if(AP_BUILD_APP)
@@ -273,6 +285,14 @@ if(AP_BUILD_APP)
     set_tests_properties(app_smoke_test PROPERTIES
         LABELS  "smoke"
         TIMEOUT 60)
+
+    # The article reader (task 7-1) in the real WebView2: the bundled article's
+    # links, addresses it must refuse, no native functions, nothing loaded
+    # from outside. Opens no browser.
+    add_test(NAME app_article_self_test COMMAND $<TARGET_FILE:ap_app> --article-self-test)
+    set_tests_properties(app_article_self_test PROPERTIES
+        LABELS  "smoke"
+        TIMEOUT 120)
 
     # End to end: the page plays, seeks and stops a 2 s file through the
     # native bridge into a dummy output; the app checks the bytes.

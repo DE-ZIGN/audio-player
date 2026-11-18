@@ -24,6 +24,7 @@ import { VuMeter } from "./vuMeter";
 import { paintRange } from "./rangeFill";
 import { OutputView } from "./outputView";
 import { AbxView } from "./abxView";
+import { articleScreen } from "./articleCommand";
 import { lengthText } from "./libraryFormat";
 import {
   bitPerfectText,
@@ -520,6 +521,28 @@ async function main() {
   };
   document.getElementById("oc-abx")?.addEventListener("click", () => void openAbx());
   document.getElementById("settings-abx")?.addEventListener("click", () => void openAbx());
+
+  // The article reader (task 7-1): a window of its own. A link in an article
+  // may ask for one of three screens here; it changes no setting and plays nothing.
+  document.getElementById("open-articles")?.addEventListener("click", async () => {
+    const r = await backend.openArticle();
+    if (!r.ok && r.message) {
+      els.error.hidden = false;
+      els.error.dataset.from = "action";
+      els.error.textContent = r.message;
+    }
+  });
+  backend.onArticleCommand((payload) => {
+    const to = articleScreen(payload);
+    const dialog = (id: string) => document.getElementById(id) as HTMLDialogElement | null;
+    if (!to || dialog("abx-dialog")?.open) return; // an ABX under way is left alone
+    if (to.screen === "abx") return void openAbx();
+    dialog("eq-dialog")?.close();
+    if (to.screen === "output-check") return outputView.open();
+    els.outputDialog.close();
+    document.querySelector<HTMLButtonElement>('.nav[data-view="settings"]')?.click();
+    if (to.section) document.querySelector(`#settings h2[data-section="${to.section}"]`)?.scrollIntoView();
+  });
   backend.onStatus((s) => {
     render(s);
     settings.onStatus(s);

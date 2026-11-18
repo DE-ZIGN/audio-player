@@ -1,0 +1,107 @@
+/* The article reader (task 7-1). One look for every view and theme of the
+   main screen: dark background, light text, amber for links. */
+:root {
+  --bg: #14120f;
+  --panel: #1c1915;
+  --line: #3a342b;
+  --text: #ece4d4;
+  --muted: #a89f8e;
+  --accent: #f0a63a;
+  color-scheme: dark;
+}
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif;
+  font-size: 16px;
+  line-height: 1.85;
+}
+.reader-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.reader-head button {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 5px 12px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.reader-head button:hover,
+.reader-head button:focus-visible {
+  border-color: var(--accent);
+}
+.reader {
+  max-width: 44em;
+  margin: 0 auto;
+  padding: 24px 24px 80px;
+}
+h1 {
+  font-size: 26px;
+  line-height: 1.4;
+  margin: 12px 0 20px;
+}
+h2 {
+  font-size: 20px;
+  line-height: 1.5;
+  margin: 40px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  scroll-margin-top: 56px;
+}
+h3 {
+  font-size: 17px;
+  margin: 28px 0 8px;
+  scroll-margin-top: 56px;
+}
+p {
+  margin: 0 0 16px;
+}
+ul {
+  margin: 0 0 16px;
+  padding-left: 1.4em;
+}
+li {
+  margin: 4px 0;
+}
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* A link that opens a screen of the player. */
+a.link-command::before {
+  content: "▸ ";
+}
+/* A link that leaves for the default browser. */
+a.link-web::after {
+  content: " ↗";
+}
+.missing {
+  color: var(--muted);
+}
+.article-list {
+  list-style: none;
+  padding: 0;
+}
+.article-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
