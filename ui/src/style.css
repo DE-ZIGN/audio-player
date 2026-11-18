@@ -176,15 +176,21 @@ button.link {
   gap: 6px;
   flex: none;
 }
-/* The transport's symbols are drawings (icons.ts), as large as the button's
-   font size and in its colour. */
-.transport button.icon {
+/* The transport's symbols and the volume's (mute) are drawings (icons.ts),
+   as large as the button's font size and in its colour. */
+.transport button.icon,
+#mute {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 16px;
 }
-.transport button.icon svg {
+/* Muted: in the accent, so it is seen. */
+#mute[data-icon="muted"] {
+  color: var(--accent);
+}
+.transport button.icon svg,
+#mute svg {
   width: 1em;
   height: 1em;
   display: block;
@@ -2920,9 +2926,13 @@ html[data-look="real"] {
   font-weight: 600;
   letter-spacing: 0.12em;
   white-space: nowrap;
+  overflow: hidden; /* the words are sized to fit (ampView.ts); nothing spills onto the wood */
   color: #ffd38a;
   text-shadow: 0 0 6px rgba(255, 166, 60, 0.75);
   cursor: pointer;
+}
+.amp-badge-text {
+  display: inline-block; /* its width is measured to fit the plate */
 }
 .amp-badge[data-kind="ok"] {
   color: #d2f7ff;
@@ -3009,9 +3019,16 @@ html[data-look="real"] {
   min-width: 4em;
 }
 .amp-volume-slot #mute {
-  font-size: 22px;
+  font-size: 24px;
   width: 40px;
   height: 40px;
+  color: #ecd9b6; /* as the number beside it */
+}
+.amp-volume-slot #mute[data-icon="muted"] {
+  color: #ffc46b;
+}
+.amp-volume-slot #mute svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
 }
 
 /* Under the amp: the side bar's items closer together (the panel is short),
@@ -3246,7 +3263,7 @@ html[data-look="real"] {
 .amp-stage-pp .amp-volume-slot #mute {
   width: 30px;
   height: 30px;
-  font-size: 18px;
+  font-size: 20px;
 }
 [data-look="real"] .amp-stage-pp .amp-volume-slot .vol-label {
   font-size: 15px;

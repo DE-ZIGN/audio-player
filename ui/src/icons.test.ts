@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ICON_BOX, ICONS, mirrored, playIcon, repeatIcon, type IconName } from "./icons";
+import { ICON_BOX, ICONS, mirrored, playIcon, repeatIcon, volumeIcon, type IconName } from "./icons";
 import html from "../index.html?raw";
 import css from "./style.css?raw";
 
@@ -18,7 +18,7 @@ const xs = (name: IconName) =>
 describe("the transport's symbols", () => {
   it("there is one for each button and state", () => {
     expect(Object.keys(ICONS).sort()).toEqual(
-      ["next", "pause", "play", "prev", "repeat", "repeatOne", "shuffle", "stop"].sort(),
+      ["muted", "next", "pause", "play", "prev", "repeat", "repeatOne", "shuffle", "stop", "volume"].sort(),
     );
     for (const [name, shapes] of Object.entries(ICONS)) {
       expect(shapes.length, name).toBeGreaterThan(0);
@@ -51,6 +51,17 @@ describe("the transport's symbols", () => {
     expect(ICONS.repeatOne.slice(0, ICONS.repeat.length)).toEqual(ICONS.repeat);
     expect(ICONS.repeatOne).toHaveLength(ICONS.repeat.length + 1);
   });
+  it("the volume: a loudspeaker with its waves, or with a cross when muted", () => {
+    const body = ICONS.volume[0];
+    expect(body.stroke).toBeFalsy();
+    expect(ICONS.muted[0]).toEqual(body); // the same loudspeaker
+    expect(ICONS.volume.slice(1).every((s) => s.stroke)).toBe(true); // two waves
+    expect(ICONS.volume).toHaveLength(3);
+    expect(ICONS.muted.slice(1).every((s) => s.stroke)).toBe(true); // the cross
+    expect(ICONS.muted).toHaveLength(3);
+    expect(volumeIcon(false)).toBe("volume");
+    expect(volumeIcon(true)).toBe("muted");
+  });
   it("which symbol a button shows", () => {
     expect(playIcon(false)).toBe("play");
     expect(playIcon(true)).toBe("pause"); // while playing, the button pauses
@@ -62,7 +73,7 @@ describe("the transport's symbols", () => {
 
 describe("the page leaves the symbols to icons.ts", () => {
   it("the transport's buttons carry no characters, only their names", () => {
-    for (const id of ["shuffle", "prev", "play", "stop", "next", "repeat"]) {
+    for (const id of ["shuffle", "prev", "play", "stop", "next", "repeat", "mute"]) {
       const m = new RegExp(`<button id="${id}"([^>]*)>([^<]*)</button>`).exec(html);
       expect(m, id).not.toBeNull();
       expect(m![2].trim(), id).toBe("");
@@ -73,6 +84,6 @@ describe("the page leaves the symbols to icons.ts", () => {
     expect(css).not.toMatch(/#repeat\[data-repeat="one"\]::after/);
   });
   it("a symbol is as large as the button's font size, in the button's colour", () => {
-    expect(css).toMatch(/\.transport button\.icon svg\s*\{[^}]*width:\s*1em;[^}]*height:\s*1em;/);
+    expect(css).toMatch(/\.transport button\.icon svg,\s*#mute svg\s*\{[^}]*width:\s*1em;[^}]*height:\s*1em;/);
   });
 });

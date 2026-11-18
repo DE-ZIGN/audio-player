@@ -25,7 +25,7 @@ import { paintRange } from "./rangeFill";
 import { OutputView } from "./outputView";
 import { AbxView } from "./abxView";
 import { articleScreen } from "./articleCommand";
-import { playIcon, repeatIcon, setIcon } from "./icons";
+import { playIcon, repeatIcon, setIcon, volumeIcon } from "./icons";
 import { lengthText } from "./libraryFormat";
 import {
   bitPerfectText,
@@ -131,6 +131,7 @@ setIcon(els.play, playIcon(false));
 setIcon(els.stop, "stop");
 setIcon(els.next, "next");
 setIcon(els.repeat, repeatIcon(modes.repeat));
+setIcon(els.mute, volumeIcon(false));
 let shuffleOriginal: number[] | null = null;
 
 function storageOrNull(): Storage | null {
@@ -256,7 +257,7 @@ function renderTopBar(s: PlaybackStatus) {
   paintRange(els.volSlider);
   els.volLabel.textContent = volumeLabel(s.volumeDb);
   els.volLabel.classList.toggle("changed", s.volumeDb !== 0);
-  els.mute.textContent = s.volumeDb === "-inf" ? "🔇" : "🔊";
+  setIcon(els.mute, volumeIcon(s.volumeDb === "-inf"));
 }
 
 let drawnQueue = { version: -2, index: -1, state: "" };

@@ -3,14 +3,20 @@ import {
   AMP_SIZE,
   AMP_TOP,
   ampState,
+  BADGE_MARGIN,
+  BADGE_MIN_FONT,
   badgeOf,
+  badgeTextWidth,
   BUTTONS,
+  fittedFontSize,
   dragValue,
   KNOB_SPECS,
   knobAngle,
   KNOBS,
   LAMPS,
   modeChange,
+  PP_LAYOUT,
+  SE_LAYOUT,
   snap,
   stepValue,
   TOGGLE,
@@ -131,6 +137,20 @@ describe("what the amp shows (task 9-9)", () => {
     expect(ampState(l, tube("se300b"), false).look).toBe("se");
     // Nothing playing: the manual type.
     expect(ampState(listening({ tubeType: "ppel34" }), emptyStatus, false).type).toBe("ppel34");
+  });
+  it("the badge's words are made smaller when they are wider than the plate", () => {
+    // Fits: the size as designed.
+    expect(fittedFontSize(20, 150, 188)).toBe(20);
+    expect(fittedFontSize(20, 188, 188)).toBe(20);
+    // "DIGITAL VOL -56.4 dB" at 20 px is about 260 wide: on the single-ended amp's plate, 14.4 px.
+    expect(fittedFontSize(20, 260, 188)).toBe(14.4);
+    expect(fittedFontSize(20, 260, 188) * (260 / 20)).toBeLessThanOrEqual(188);
+    // Never below what can be read; nothing measured (the amp is not shown): as designed.
+    expect(fittedFontSize(20, 2000, 188)).toBe(BADGE_MIN_FONT);
+    expect(fittedFontSize(20, 0, 188)).toBe(20);
+    // Both plates leave the same margin either side of the words.
+    expect(badgeTextWidth(SE_LAYOUT)).toBe(SE_LAYOUT.badge.width - 2 * BADGE_MARGIN);
+    expect(badgeTextWidth(PP_LAYOUT)).toBe(PP_LAYOUT.badge.width - 2 * BADGE_MARGIN);
   });
   it("the badge: BIT-PERFECT, TUBE PROCESSING, or what keeps it from being bit-perfect; nothing when nothing plays", () => {
     expect(badgeOf(pure).kind).toBe("ok");

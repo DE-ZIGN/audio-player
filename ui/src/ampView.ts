@@ -20,7 +20,9 @@ import {
   AMP_SIZE,
   AMP_TOP,
   ampState,
+  badgeTextWidth,
   dragValue,
+  fittedFontSize,
   knobAngle,
   KNOB_SPECS,
   knobText,
@@ -330,6 +332,8 @@ class AmpPanel {
   private readonly modeToggle: HTMLButtonElement | null = null;
   private readonly crossfeedToggle: HTMLButtonElement | null = null;
   private readonly badge: HTMLButtonElement;
+  private readonly badgeText: HTMLSpanElement; // the badge's words, sized to fit the plate
+  private badgeFitted = ""; // the words the size was last worked out for
   private readonly vus: [AmpVu, AmpVu];
   readonly transportSlot: HTMLElement;
   readonly volumeSlot: HTMLElement;
@@ -440,6 +444,8 @@ class AmpPanel {
     this.badge.type = "button";
     this.badge.title = "出力の確認（経路と BIT-PERFECT の判定）";
     this.badge.addEventListener("click", () => this.host.openOutputCheck());
+    this.badgeText = html("span", "amp-badge-text");
+    this.badge.append(this.badgeText);
     this.stage.append(this.badge);
 
     // Where the transport and the volume's readout go while this amp is shown.
@@ -521,9 +527,34 @@ class AmpPanel {
     this.knobs.bass.setDisabled(!a.processingControls, why);
     this.knobs.treble.setDisabled(!a.processingControls, why);
     this.knobs.mix.setDisabled(!a.processingControls, why);
-    this.badge.textContent = a.badge.text;
+    this.badgeText.textContent = a.badge.text;
     this.badge.dataset.kind = a.badge.kind;
     this.badge.disabled = a.badge.kind === "none";
+    this.fitBadge();
+  }
+
+  // The badge's words fit its plate: long ones ("DIGITAL VOL -56.4 dB" on the
+  // single-ended amp's short plate) are written smaller (amp.ts:
+  // fittedFontSize). Measured against the plate in the same units, so the
+  // view's scale does not matter.
+  private fitBadge() {
+    const text = this.badgeText.textContent ?? "";
+    if (text === this.badgeFitted) return;
+    // The size goes on the badge, not on the words: its letter spacing is in em and must follow.
+    this.badge.style.fontSize = ""; // as designed, to measure
+    const plate = this.badge.clientWidth;
+    if (text !== "" && (this.badgeText.offsetWidth === 0 || plate === 0)) return; // not shown now: worked out when it is
+    const room = (plate * badgeTextWidth(this.layout)) / this.layout.badge.width;
+    // Letters do not narrow exactly with their size (their widths are rounded
+    // to the screen), so what was set is measured again, a few times at most.
+    let size = parseFloat(getComputedStyle(this.badge).fontSize) || 20;
+    for (let i = 0; i < 4; i++) {
+      const next = fittedFontSize(size, this.badgeText.offsetWidth, room);
+      if (next === size) break;
+      size = next;
+      this.badge.style.fontSize = px(size);
+    }
+    this.badgeFitted = text;
   }
 
   show(on: boolean) {

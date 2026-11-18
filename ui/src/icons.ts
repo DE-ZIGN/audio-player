@@ -18,7 +18,17 @@
 
 import type { RepeatMode } from "./playModes";
 
-export type IconName = "shuffle" | "prev" | "play" | "pause" | "stop" | "next" | "repeat" | "repeatOne";
+export type IconName =
+  | "shuffle"
+  | "prev"
+  | "play"
+  | "pause"
+  | "stop"
+  | "next"
+  | "repeat"
+  | "repeatOne"
+  | "volume"
+  | "muted";
 
 export interface IconShape {
   d: string; // absolute path commands only
@@ -48,6 +58,10 @@ const REPEAT: IconShape[] = [
   { d: "M6.4 14.8L1.4 17.8L6.4 20.8Z" },
 ];
 
+// The volume's button (mute): a loudspeaker. Not in the concept images; drawn
+// with the same lines as the others (it was an emoji, coloured by the system).
+const SPEAKER: IconShape = { d: "M2.5 9H6.5L12 4.2V19.8L6.5 15H2.5Z" };
+
 export const ICONS: Record<IconName, IconShape[]> = {
   shuffle: [
     // From the upper left down to the lower right, and the other way, crossing in the middle.
@@ -63,11 +77,19 @@ export const ICONS: Record<IconName, IconShape[]> = {
   stop: [{ d: "M5.5 5.5H18.5V18.5H5.5Z" }],
   repeat: REPEAT,
   repeatOne: [...REPEAT, { d: "M10.6 10.1L12.3 9H13.4V15H11.9V10.9L10.6 11.7Z" }],
+  // Two waves leaving the loudspeaker.
+  volume: [SPEAKER, { d: "M15.5 9A4.2 4.2 0 0 1 15.5 15", stroke: true }, { d: "M18 5.8A8.6 8.6 0 0 1 18 18.2", stroke: true }],
+  // A cross where the waves were.
+  muted: [SPEAKER, { d: "M15.8 9L21.8 15", stroke: true }, { d: "M21.8 9L15.8 15", stroke: true }],
 };
 
 // While playing, the button pauses.
 export function playIcon(playing: boolean): IconName {
   return playing ? "pause" : "play";
+}
+
+export function volumeIcon(muted: boolean): IconName {
+  return muted ? "muted" : "volume";
 }
 
 export function repeatIcon(mode: RepeatMode): IconName {

@@ -348,6 +348,22 @@ export function lookOf(type: TubeType): AmpLook {
   return type === "se300b" ? "se" : "pp";
 }
 
+// The badge's words fit its plate: a long one ("DIGITAL VOL -56.4 dB" on the
+// single-ended amp's short plate) is written smaller, never below what can be
+// read. textWidth is the words' width at the size `base` (0: not measured,
+// the amp is not shown); letter spacing is in em, so the width follows the size.
+export const BADGE_MARGIN = 6; // either side of the words, inside the plate
+export const BADGE_MIN_FONT = 11;
+
+export function badgeTextWidth(layout: { badge: { width: number } }): number {
+  return layout.badge.width - 2 * BADGE_MARGIN;
+}
+
+export function fittedFontSize(base: number, textWidth: number, room: number): number {
+  if (textWidth <= room) return base;
+  return Math.max(BADGE_MIN_FONT, Math.floor(((base * room) / textWidth) * 10) / 10);
+}
+
 // The badge on the wood: BIT-PERFECT when it is so, TUBE PROCESSING while
 // the tube is in the path, else what keeps it from being bit-perfect
 // (DIGITAL VOL -6.0 dB and the like, as the output field says it).
