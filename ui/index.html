@@ -115,275 +115,305 @@
         <section class="settings" id="settings" hidden>
           <p class="error" id="settings-error" hidden></p>
 
-          <h2 data-section="output">出力</h2>
-          <div class="setting">
-            <label for="output-device">出力デバイス</label>
-            <select id="output-device"></select>
-            <p class="notice" id="output-device-status" hidden></p>
-            <details class="explain">
-              <summary>詳細</summary>
-              <p class="note">
-                WASAPI は排他モードで出します（ほかのアプリの音は混ざりません）。ASIO ドライバーは、選んだときに別のプロセスで読み込んで確かめます。
-              </p>
-            </details>
-          </div>
-          <div class="setting">
-            <label class="check"><input type="checkbox" id="output-dop" /> DSD を DoP で送る</label>
-            <p class="note keep">
-              DoP に対応した DAC だけでオンにしてください。対応していない DAC では大きな雑音になります（DAC が対応しているかは自動では分かりません）。出力を選び直すとオフに戻ります。
-            </p>
-          </div>
-
-          <h2 data-section="mode">モード</h2>
-          <div class="setting modes" role="radiogroup" aria-label="モード">
-            <label class="mode-card"><input type="radio" name="mode" value="original" />
-              <span><b>原音モード</b><small>ReplayGain・EQ をかけません。音量 100% で処理がなければ、ビットパーフェクトの経路で出します。</small></span>
-            </label>
-            <label class="mode-card"><input type="radio" name="mode" value="processed" />
-              <span><b>音作りモード</b><small>下の ReplayGain・EQ・ISP セーフを 64bit 浮動小数点でかけます。</small></span>
-            </label>
-          </div>
-          <p class="note" id="mode-summary"></p>
-          <div class="setting">
-            <button type="button" id="settings-abx">ABX で聴き比べる…</button>
-            <span class="note">今の曲で、原音と音作りの違いを聞き分けられるかを、ブラインドテストで確かめます。</span>
-          </div>
-
-          <h2 data-section="isp-safe">ISP セーフ</h2>
-          <div class="setting">
-            <div class="pair">
-              <label for="isp-original">原音モードでは</label>
-              <select id="isp-original"></select>
-              <label for="isp-processed">音作りモードでは</label>
-              <select id="isp-processed"></select>
-            </div>
-            <details class="explain">
-              <summary>詳細</summary>
-              <p class="note">
-                曲の True Peak（サンプルの間のピーク）が −0.5 dBTP 以下になるように、音量を線形に下げます。「計測した値」は取り込み時に測った曲（アルバムの ReplayGain ではアルバム）の True Peak から、測っていない曲は −3 dB。どちらも保険のリミッター（−0.3 dBTP）を通します。
-              </p>
-            </details>
-          </div>
-
-          <h2 data-section="replaygain">ReplayGain <small class="for-mode">音作りモードでかけます</small></h2>
-          <div class="setting">
-            <div class="radios" id="replaygain"></div>
-            <details class="explain">
-              <summary>詳細</summary>
-              <p class="note">
-                曲（またはアルバム）の統合ラウドネスを −18 LUFS に合わせます。値は取り込み時の解析から。上げるときは True Peak が 0 dBTP を超えない分までにします。解析していない曲にはかけません。
-              </p>
-            </details>
-          </div>
-
-          <h2 data-section="eq">EQ <small class="for-mode">音作りモードでかけます</small></h2>
-          <div class="setting">
-            <div class="eq-tools">
-              <label class="check"><input type="checkbox" id="eq-enabled" /> EQ を使う</label>
-              <span class="spacer-flex"></span>
-              <button type="button" id="eq-import">ファイルから読み込む…</button>
-              <button type="button" id="eq-open" class="primary">EQ を開く</button>
-            </div>
-            <div id="eq-presets"></div>
-            <svg class="eq-curve" id="eq-curve" viewBox="0 0 560 160" preserveAspectRatio="none" role="button" tabindex="0" aria-label="EQ の周波数特性（クリックで EQ を開く）"></svg>
-            <p class="note" id="eq-preamp"></p>
-            <p class="notice" id="eq-warnings" hidden></p>
-            <details class="explain">
-              <summary>詳細</summary>
-              <p class="note">
-                最小位相の IIR（バイクアッド）で 64bit 浮動小数点。プリアンプは、自動なら最大のブーストの分だけ下げ、EQ そのものではどの周波数も 0 dB を超えないようにします。手で決めることもでき、そのとき超えた分は保険のリミッターが受け持ちます（働いた回数と量を表示します）。読み込めるのは AutoEQ の ParametricEQ.txt と Equalizer APO の書き方です（ファイルのプリアンプの値は使いません）。
-              </p>
-            </details>
-          </div>
-
-          <h2 data-section="tone">トーン <small class="for-mode">音作りモードでかけます</small></h2>
-          <div class="setting tone-controls">
-            <label class="slider-row" for="tone-bass">BASS
-              <input type="range" id="tone-bass" min="-10" max="10" step="0.5" />
-              <output id="tone-bass-value" for="tone-bass">0.0 dB</output>
-            </label>
-            <label class="slider-row" for="tone-treble">TREBLE
-              <input type="range" id="tone-treble" min="-10" max="10" step="0.5" />
-              <output id="tone-treble-value" for="tone-treble">0.0 dB</output>
-            </label>
-            <button type="button" id="tone-reset" class="link">0 に戻す</button>
-            <details class="explain">
-              <summary>詳細</summary>
-              <p class="note">
-                BASS は 150 Hz、TREBLE は 4.5 kHz を中心に、なだらかに上げ下げします（±10 dB）。上げた分はプリアンプで下げ、0 dB を超えて持ち上げません。パラメトリック EQ の後にかかります。
-              </p>
-            </details>
-          </div>
-
-          <h2 data-section="tube">真空管 <small class="for-mode">音作りモードでかけます</small></h2>
-          <div class="setting tube-controls">
-            <label class="check"><input type="checkbox" id="tube-enabled" /> 真空管を使う</label>
-            <div class="radios" id="tube-type" role="radiogroup" aria-label="真空管の種類"></div>
-            <p class="note" id="tube-type-note"></p>
-            <label class="slider-row" for="tube-drive">DRIVE
-              <input type="range" id="tube-drive" min="-30" max="6" step="0.5" />
-              <output id="tube-drive-value" for="tube-drive">-12.0 dB</output>
-            </label>
-            <button type="button" id="tube-drive-reset" class="link">既定（-12 dB）に戻す</button>
-            <p class="note keep">オン・オフを切り替えると、処理の遅れが変わるため、再生中は一瞬途切れます。</p>
-            <details class="explain">
-              <summary>詳細</summary>
-              <p class="note">
-                真空管のモデル（Koren の式）と負荷線から求めた伝達特性で、倍音を加えます（波形整形方式）。信号の大きさに応じたバイアスの変化と電源の沈み込みを、回路の時定数にもとづいて簡易に再現しています。
-                小さな音の音量は変えず、DRIVE で曲がり方（倍音の量）が変わります。DRIVE 0 dB で、0 dBFS の山がグリッドを 0 V まで振ります。
-              </p>
-            </details>
-
-            <div class="tube-character">
-              <h3>演出 <small>ロマン枠：効果は確かめていません</small></h3>
-              <label class="check"><input type="checkbox" id="tube-warmup" /> ウォームアップ</label>
-              <p class="note" id="tube-warmup-now" aria-live="polite"></p>
-              <label class="check"><input type="checkbox" id="tube-units" /> 個体差</label>
-              <div class="tube-unit-row">
-                <label for="tube-unit">球の番号</label>
-                <input type="number" id="tube-unit" min="1" max="99" step="1" />
-                <button type="button" id="tube-unit-next">次の番号の球にする</button>
+          <!-- The tabs (2026-11-18): settingsTabs.ts says which sections each one shows;
+               settingsTabsView.ts makes the buttons. One group per heading. -->
+          <div class="settings-tabs" id="settings-tabs" role="tablist" aria-orientation="vertical" aria-label="設定の項目"></div>
+          <div class="settings-panes" id="settings-panes" role="tabpanel">
+            <div class="settings-group" data-group="output">
+              <h2 data-section="output">出力</h2>
+              <div class="setting">
+                <label for="output-device">出力デバイス</label>
+                <select id="output-device"></select>
+                <p class="notice" id="output-device-status" hidden></p>
+                <details class="explain">
+                  <summary>詳細</summary>
+                  <p class="note">
+                    WASAPI は排他モードで出します（ほかのアプリの音は混ざりません）。ASIO ドライバーは、選んだときに別のプロセスで読み込んで確かめます。
+                  </p>
+                </details>
               </div>
-              <p class="note" id="tube-unit-now"></p>
-              <details class="explain">
-                <summary>詳細</summary>
-                <p class="note">
-                  実機の真空管のウォームアップや個体差を、真空管のモデルで計算して再現する演出です。球を変えて聴き比べるといった、マニアならではの楽しみを体験してください。データ上、音の違いは出ていますが、実際に聴いて違いが感じ取れるか？ ぜひ ABX（「設定 A と 設定 B」）で試してみてください。
+              <div class="setting">
+                <label class="check"><input type="checkbox" id="output-dop" /> DSD を DoP で送る</label>
+                <p class="note keep">
+                  DoP に対応した DAC だけでオンにしてください。対応していない DAC では大きな雑音になります（DAC が対応しているかは自動では分かりません）。出力を選び直すとオフに戻ります。
                 </p>
-                <p class="note">
-                  ウォームアップ：アプリを起動してからの時間で、特性を「冷えた球」から「暖まった球」へ移します。冷えた球は、同じ回路でカソードのエミッション（電子を出す量）を 50% にして求めた特性です。冷えた特性の割合は時定数 4 分で減り、起動から 20 分で暖まった特性だけになります。
-                </p>
-                <p class="note">
-                  個体差：同じ型番の球の、1 本ごとのばらつきです。球ごとにエミッションを ±10%、増幅率 μ を ±5% の範囲でずらし、その球で特性を求め直します。値は番号で決まり、同じ番号ならいつも同じ球です。左右は別の球で、PP では 2 本の差のぶん、打ち消し合っていた偶数次の倍音が残ります。
-                </p>
-                <p class="note">どちらも小さな音の音量は変えず、曲がり方（倍音の量）が変わります。</p>
-              </details>
+              </div>
             </div>
 
-            <div class="tube-auto">
-              <h3>ジャンルで種類を選ぶ</h3>
-              <label class="check"><input type="checkbox" id="tube-auto-enabled" /> 曲のジャンルで種類を自動で選ぶ</label>
-              <p class="note" id="tube-auto-now" aria-live="polite"></p>
-              <label class="tube-auto-album" id="tube-auto-album-row" hidden>
-                このアルバム（<span id="tube-auto-album-name"></span>）
-                <select id="tube-auto-album" aria-label="このアルバムの真空管の種類"></select>
-              </label>
-              <details>
-                <summary>ジャンルの対応表（<span id="tube-auto-rule-count"></span>）</summary>
-                <table class="tube-rules">
-                  <thead><tr><th>ジャンル</th><th>種類</th><th></th></tr></thead>
-                  <tbody id="tube-auto-rules"></tbody>
-                </table>
-                <button type="button" id="tube-auto-add">行を足す</button>
-                <button type="button" id="tube-auto-reset" class="link">初期値に戻す</button>
-              </details>
-              <p class="notice" id="tube-auto-problem" hidden></p>
-              <details>
-                <summary>アルバムごとの指定（<span id="tube-auto-album-count"></span>）</summary>
-                <ul class="tube-albums" id="tube-auto-albums"></ul>
-              </details>
-              <p class="note keep">対応表の初期値は出発点で、ジャンルに合う種類を示すものではありません。</p>
-              <details class="explain">
-                <summary>詳細</summary>
-                <p class="note">
-                  曲ごとに、アルバムの指定 → ジャンルの対応表 → 上で手動で選んだ種類、の順で決めます。ジャンルのタグは「;」「/」「,」で区切り、大文字・小文字と全角・半角を区別せずに比べます。完全に一致する行を先に、なければジャンルの一部に含まれる行（「Vocal Jazz」の「Jazz」）を、表の上から探します。
-                  種類は曲の境目で切り替わります（20 ms でなめらかに）。どの種類も小さな音の音量はそろえてあり、音楽に近い信号（DRIVE −12 dB）で差は 0.03 dB 以内です。ABX で比べるときは使いません。
-                </p>
-              </details>
+            <div class="settings-group" data-group="mode">
+              <h2 data-section="mode">モード</h2>
+              <div class="setting modes" role="radiogroup" aria-label="モード">
+                <label class="mode-card"><input type="radio" name="mode" value="original" />
+                  <span><b>原音モード</b><small>ReplayGain・EQ をかけません。音量 100% で処理がなければ、ビットパーフェクトの経路で出します。</small></span>
+                </label>
+                <label class="mode-card"><input type="radio" name="mode" value="processed" />
+                  <span><b>音作りモード</b><small>下の ReplayGain・EQ・ISP セーフを 64bit 浮動小数点でかけます。</small></span>
+                </label>
+              </div>
+              <p class="note" id="mode-summary"></p>
+              <div class="setting">
+                <button type="button" id="settings-abx">ABX で聴き比べる…</button>
+                <span class="note">今の曲で、原音と音作りの違いを聞き分けられるかを、ブラインドテストで確かめます。</span>
+              </div>
             </div>
-          </div>
 
-          <h2 data-section="space">空間 <small class="for-mode">音作りモードでかけます</small></h2>
-          <div class="setting space-controls">
-            <div class="radios" id="space-room" role="radiogroup" aria-label="空間（部屋）"></div>
-            <p class="note" id="space-room-note"></p>
-            <label class="slider-row" for="space-mix">MIX
-              <input type="range" id="space-mix" min="0" max="100" step="1" />
-              <output id="space-mix-value" for="space-mix">20%</output>
-            </label>
-            <label class="slider-row" for="space-predelay">プリディレイ
-              <input type="range" id="space-predelay" min="0" max="100" step="1" />
-              <output id="space-predelay-value" for="space-predelay">10 ms</output>
-            </label>
-            <label class="slider-row" for="space-lowcut">ローカット
-              <input type="range" id="space-lowcut" min="10" max="500" step="10" />
-              <output id="space-lowcut-value" for="space-lowcut">120 Hz</output>
-            </label>
-            <button type="button" id="space-reset" class="link">既定に戻す（MIX 20%・10 ms・120 Hz）</button>
-            <details class="space-irs">
-              <summary>部屋ごとの IR（実測・合成・自分のファイル）</summary>
-              <ul id="space-irs"></ul>
-              <p class="note">
-                自分のファイルは、WAV・FLAC・AIFF の、モノラルかステレオの IR を読めます。最初の音より前の無音は除き、5 秒より長い分は切ります。出力のレートと違えば、変換して使います。読めないファイルのときは、その部屋の内蔵の IR を使います。
-              </p>
-              <p class="note" id="space-credit"></p>
-            </details>
-            <details class="explain">
-              <summary>詳細</summary>
-              <p class="note">
-                部屋の響き（インパルス応答、IR）を、曲に畳み込んで混ぜます（区切った FFT による畳み込み、64bit 浮動小数点）。MIX は響きの割合で、0% は元の音だけ、100% は響きだけです。IR はエネルギーを 1 にそろえてあり、広い帯域の音では、響きが元の音とほぼ同じ大きさになります。
-                プリディレイは、元の音から響きが始まるまでの時間です（計算の区切りのため、最小 約 3 ms）。元の音は遅らせません。ローカットは響きの側だけにかける 2 次のハイパスで、元の音の低域は変えません。
-                HALL の既定は、実在のホール（St Paul's Hall、英国）で測った IR です。CLUB と ARENA の既定、および「合成」は、鏡像法の初期反射と、帯域ごとに減衰する雑音から合成した IR で、実在の場所を測ったものではありません（数字は部屋の大きさと、中域の残響時間）。
-                部屋の切り替えは約 40 ms のクロスフェードで、再生は途切れません。OFF か MIX 0% なら処理を外し、ほかに処理がなければ原音経路と同じ出力です。真空管の後、クロスフィードの前にかかります。
-              </p>
-            </details>
-          </div>
-
-          <h2 data-section="crossfeed">クロスフィード <small class="for-mode">音作りモードでかけます</small></h2>
-          <div class="setting crossfeed-controls">
-            <label class="check"><input type="checkbox" id="crossfeed-enabled" /> クロスフィードを使う（ヘッドホン向け）</label>
-            <div class="radios" id="crossfeed-level" role="radiogroup" aria-label="クロスフィードの強さ"></div>
-            <details class="explain">
-              <summary>詳細</summary>
-              <p class="note">
-                左右それぞれの低い音を、反対側にも少し遅れた位相で混ぜます（bs2b の方式）。数字は、混ぜる音のローパスの周波数と、低い音で反対側がまっすぐの音より何 dB 小さいか。中央の音は、低域で 0 dB、高域でやや下がります（標準で 15 kHz に −1.75 dB）。ステレオの曲だけにかけます。真空管の後にかかります。
-              </p>
-            </details>
-          </div>
-
-          <h2 data-section="output-rate">出力レート <small class="for-mode">音作りモードでかけます</small></h2>
-          <div class="setting rate-controls">
-            <div class="radios" id="rate-mode" role="radiogroup" aria-label="出力レート"></div>
-            <div class="rate-row">
-              <label for="rate-hz">レート</label>
-              <select id="rate-hz"></select>
-              <label for="rate-multiple">倍数</label>
-              <select id="rate-multiple"></select>
+            <div class="settings-group" data-group="isp-safe">
+              <h2 data-section="isp-safe">ISP セーフ</h2>
+              <div class="setting">
+                <div class="pair">
+                  <label for="isp-original">原音モードでは</label>
+                  <select id="isp-original"></select>
+                  <label for="isp-processed">音作りモードでは</label>
+                  <select id="isp-processed"></select>
+                </div>
+                <details class="explain">
+                  <summary>詳細</summary>
+                  <p class="note">
+                    曲の True Peak（サンプルの間のピーク）が −0.5 dBTP 以下になるように、音量を線形に下げます。「計測した値」は取り込み時に測った曲（アルバムの ReplayGain ではアルバム）の True Peak から、測っていない曲は −3 dB。どちらも保険のリミッター（−0.3 dBTP）を通します。
+                  </p>
+                </details>
+              </div>
             </div>
-            <p class="note" id="rate-note"></p>
-            <p class="note keep">レートを上げても、元の録音にない音（情報）は増えません。変換すると BIT-PERFECT ではなくなります。</p>
-            <details class="explain">
-              <summary>詳細</summary>
-              <p class="note">
-                リサンプラー（r8brain-free-src、直線位相）で、処理の最後（保険のリミッターの後、ディザの前）にレートを変換します。EQ・真空管・空間などの計算は、曲のレートのままです。設計値は阻止域の減衰 180 dB。自動テストでの測定では、折り返し（エイリアス）とイメージは 200 dB 以上小さく、20 kHz までの音量の差は 0.01 dB 未満です。
-              </p>
-              <p class="note">
-                固定：どの曲もそのレートで出します。曲ごとに DAC のレートが切り替わらなくなります（レートの違う曲の境目では出力を開き直すので、一瞬途切れます）。下限：そのレート未満の曲だけを上げます。整数倍：曲の 2・4・8 倍で出します（44.1 kHz の曲は 88.2・176.4・352.8 kHz）。DAC が受け付けないときは、受け付けるいちばん大きい倍数、それもなければ曲のレートのままです。
-              </p>
-              <p class="note">
-                音作りモードで、DAC が曲のレートを受け付けないときは、受け付けるレート（同じ系列の 2 倍・半分などを優先）へ変換して鳴らします。原音モードでは変換せず、再生できない理由を表示します。
-              </p>
-            </details>
-          </div>
 
-          <h2 data-section="look">見た目</h2>
-          <fieldset class="themes">
-            <legend>ビュー（見た目と配置だけが変わり、機能と表示する情報は同じです）</legend>
-            <label><input type="radio" name="ui-view" value="standard" /> <span><b>標準ビュー</b><small>写実的メディアプレイヤー</small></span></label>
-            <label><input type="radio" name="ui-view" value="amp" /> <span><b>アンプビュー</b><small>真空管アンプ風。情報欄は小さめ</small></span></label>
-            <label><input type="radio" name="ui-view" value="library" /> <span><b>ライブラリビュー</b><small>ライブラリ型メディアプレイヤー風</small></span></label>
-          </fieldset>
-          <fieldset class="themes" id="theme-set">
-            <legend>ライブラリビューのテーマ（色だけが変わります）</legend>
-            <label><input type="radio" name="theme" value="amber" /> アンバー</label>
-            <label><input type="radio" name="theme" value="bluegray" /> ブルーグレー</label>
-          </fieldset>
+            <div class="settings-group" data-group="replaygain">
+              <h2 data-section="replaygain">ReplayGain <small class="for-mode">音作りモードでかけます</small></h2>
+              <div class="setting">
+                <div class="radios" id="replaygain"></div>
+                <details class="explain">
+                  <summary>詳細</summary>
+                  <p class="note">
+                    曲（またはアルバム）の統合ラウドネスを −18 LUFS に合わせます。値は取り込み時の解析から。上げるときは True Peak が 0 dBTP を超えない分までにします。解析していない曲にはかけません。
+                  </p>
+                </details>
+              </div>
+            </div>
 
-          <!-- The article reader (task 7-1): a window of its own, apart from this page. -->
-          <h2>記事</h2>
-          <div class="setting">
-            <button type="button" id="open-articles">記事を開く…</button>
-            <span class="note">このプレイヤーの考え方や、ビットパーフェクト・ABX などの解説を、別の窓で開きます（記事は準備中です）。</span>
+            <div class="settings-group" data-group="eq">
+              <h2 data-section="eq">EQ <small class="for-mode">音作りモードでかけます</small></h2>
+              <div class="setting">
+                <div class="eq-tools">
+                  <label class="check"><input type="checkbox" id="eq-enabled" /> EQ を使う</label>
+                  <span class="spacer-flex"></span>
+                  <button type="button" id="eq-import">ファイルから読み込む…</button>
+                  <button type="button" id="eq-open" class="primary">EQ を開く</button>
+                </div>
+                <div id="eq-presets"></div>
+                <svg class="eq-curve" id="eq-curve" viewBox="0 0 560 160" preserveAspectRatio="none" role="button" tabindex="0" aria-label="EQ の周波数特性（クリックで EQ を開く）"></svg>
+                <p class="note" id="eq-preamp"></p>
+                <p class="notice" id="eq-warnings" hidden></p>
+                <details class="explain">
+                  <summary>詳細</summary>
+                  <p class="note">
+                    最小位相の IIR（バイクアッド）で 64bit 浮動小数点。プリアンプは、自動なら最大のブーストの分だけ下げ、EQ そのものではどの周波数も 0 dB を超えないようにします。手で決めることもでき、そのとき超えた分は保険のリミッターが受け持ちます（働いた回数と量を表示します）。読み込めるのは AutoEQ の ParametricEQ.txt と Equalizer APO の書き方です（ファイルのプリアンプの値は使いません）。
+                  </p>
+                </details>
+              </div>
+            </div>
+
+            <div class="settings-group" data-group="tone">
+              <h2 data-section="tone">トーン <small class="for-mode">音作りモードでかけます</small></h2>
+              <div class="setting tone-controls">
+                <label class="slider-row" for="tone-bass">BASS
+                  <input type="range" id="tone-bass" min="-10" max="10" step="0.5" />
+                  <output id="tone-bass-value" for="tone-bass">0.0 dB</output>
+                </label>
+                <label class="slider-row" for="tone-treble">TREBLE
+                  <input type="range" id="tone-treble" min="-10" max="10" step="0.5" />
+                  <output id="tone-treble-value" for="tone-treble">0.0 dB</output>
+                </label>
+                <button type="button" id="tone-reset" class="link">0 に戻す</button>
+                <details class="explain">
+                  <summary>詳細</summary>
+                  <p class="note">
+                    BASS は 150 Hz、TREBLE は 4.5 kHz を中心に、なだらかに上げ下げします（±10 dB）。上げた分はプリアンプで下げ、0 dB を超えて持ち上げません。パラメトリック EQ の後にかかります。
+                  </p>
+                </details>
+              </div>
+            </div>
+
+            <div class="settings-group" data-group="tube">
+              <h2 data-section="tube">真空管 <small class="for-mode">音作りモードでかけます</small></h2>
+              <div class="setting tube-controls">
+                <label class="check"><input type="checkbox" id="tube-enabled" /> 真空管を使う</label>
+                <div class="radios" id="tube-type" role="radiogroup" aria-label="真空管の種類"></div>
+                <p class="note" id="tube-type-note"></p>
+                <label class="slider-row" for="tube-drive">DRIVE
+                  <input type="range" id="tube-drive" min="-30" max="6" step="0.5" />
+                  <output id="tube-drive-value" for="tube-drive">-12.0 dB</output>
+                </label>
+                <button type="button" id="tube-drive-reset" class="link">既定（-12 dB）に戻す</button>
+                <p class="note keep">オン・オフを切り替えると、処理の遅れが変わるため、再生中は一瞬途切れます。</p>
+                <details class="explain">
+                  <summary>詳細</summary>
+                  <p class="note">
+                    真空管のモデル（Koren の式）と負荷線から求めた伝達特性で、倍音を加えます（波形整形方式）。信号の大きさに応じたバイアスの変化と電源の沈み込みを、回路の時定数にもとづいて簡易に再現しています。
+                    小さな音の音量は変えず、DRIVE で曲がり方（倍音の量）が変わります。DRIVE 0 dB で、0 dBFS の山がグリッドを 0 V まで振ります。
+                  </p>
+                </details>
+
+                <div class="tube-character">
+                  <h3>演出 <small>ロマン枠：効果は確かめていません</small></h3>
+                  <label class="check"><input type="checkbox" id="tube-warmup" /> ウォームアップ</label>
+                  <p class="note" id="tube-warmup-now" aria-live="polite"></p>
+                  <label class="check"><input type="checkbox" id="tube-units" /> 個体差</label>
+                  <div class="tube-unit-row">
+                    <label for="tube-unit">球の番号</label>
+                    <input type="number" id="tube-unit" min="1" max="99" step="1" />
+                    <button type="button" id="tube-unit-next">次の番号の球にする</button>
+                  </div>
+                  <p class="note" id="tube-unit-now"></p>
+                  <details class="explain">
+                    <summary>詳細</summary>
+                    <p class="note">
+                      実機の真空管のウォームアップや個体差を、真空管のモデルで計算して再現する演出です。球を変えて聴き比べるといった、マニアならではの楽しみを体験してください。データ上、音の違いは出ていますが、実際に聴いて違いが感じ取れるか？ ぜひ ABX（「設定 A と 設定 B」）で試してみてください。
+                    </p>
+                    <p class="note">
+                      ウォームアップ：アプリを起動してからの時間で、特性を「冷えた球」から「暖まった球」へ移します。冷えた球は、同じ回路でカソードのエミッション（電子を出す量）を 50% にして求めた特性です。冷えた特性の割合は時定数 4 分で減り、起動から 20 分で暖まった特性だけになります。
+                    </p>
+                    <p class="note">
+                      個体差：同じ型番の球の、1 本ごとのばらつきです。球ごとにエミッションを ±10%、増幅率 μ を ±5% の範囲でずらし、その球で特性を求め直します。値は番号で決まり、同じ番号ならいつも同じ球です。左右は別の球で、PP では 2 本の差のぶん、打ち消し合っていた偶数次の倍音が残ります。
+                    </p>
+                    <p class="note">どちらも小さな音の音量は変えず、曲がり方（倍音の量）が変わります。</p>
+                  </details>
+                </div>
+
+                <div class="tube-auto">
+                  <h3>ジャンルで種類を選ぶ</h3>
+                  <label class="check"><input type="checkbox" id="tube-auto-enabled" /> 曲のジャンルで種類を自動で選ぶ</label>
+                  <p class="note" id="tube-auto-now" aria-live="polite"></p>
+                  <label class="tube-auto-album" id="tube-auto-album-row" hidden>
+                    このアルバム（<span id="tube-auto-album-name"></span>）
+                    <select id="tube-auto-album" aria-label="このアルバムの真空管の種類"></select>
+                  </label>
+                  <details>
+                    <summary>ジャンルの対応表（<span id="tube-auto-rule-count"></span>）</summary>
+                    <table class="tube-rules">
+                      <thead><tr><th>ジャンル</th><th>種類</th><th></th></tr></thead>
+                      <tbody id="tube-auto-rules"></tbody>
+                    </table>
+                    <button type="button" id="tube-auto-add">行を足す</button>
+                    <button type="button" id="tube-auto-reset" class="link">初期値に戻す</button>
+                  </details>
+                  <p class="notice" id="tube-auto-problem" hidden></p>
+                  <details>
+                    <summary>アルバムごとの指定（<span id="tube-auto-album-count"></span>）</summary>
+                    <ul class="tube-albums" id="tube-auto-albums"></ul>
+                  </details>
+                  <p class="note keep">対応表の初期値は出発点で、ジャンルに合う種類を示すものではありません。</p>
+                  <details class="explain">
+                    <summary>詳細</summary>
+                    <p class="note">
+                      曲ごとに、アルバムの指定 → ジャンルの対応表 → 上で手動で選んだ種類、の順で決めます。ジャンルのタグは「;」「/」「,」で区切り、大文字・小文字と全角・半角を区別せずに比べます。完全に一致する行を先に、なければジャンルの一部に含まれる行（「Vocal Jazz」の「Jazz」）を、表の上から探します。
+                      種類は曲の境目で切り替わります（20 ms でなめらかに）。どの種類も小さな音の音量はそろえてあり、音楽に近い信号（DRIVE −12 dB）で差は 0.03 dB 以内です。ABX で比べるときは使いません。
+                    </p>
+                  </details>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-group" data-group="space">
+              <h2 data-section="space">空間 <small class="for-mode">音作りモードでかけます</small></h2>
+              <div class="setting space-controls">
+                <div class="radios" id="space-room" role="radiogroup" aria-label="空間（部屋）"></div>
+                <p class="note" id="space-room-note"></p>
+                <label class="slider-row" for="space-mix">MIX
+                  <input type="range" id="space-mix" min="0" max="100" step="1" />
+                  <output id="space-mix-value" for="space-mix">20%</output>
+                </label>
+                <label class="slider-row" for="space-predelay">プリディレイ
+                  <input type="range" id="space-predelay" min="0" max="100" step="1" />
+                  <output id="space-predelay-value" for="space-predelay">10 ms</output>
+                </label>
+                <label class="slider-row" for="space-lowcut">ローカット
+                  <input type="range" id="space-lowcut" min="10" max="500" step="10" />
+                  <output id="space-lowcut-value" for="space-lowcut">120 Hz</output>
+                </label>
+                <button type="button" id="space-reset" class="link">既定に戻す（MIX 20%・10 ms・120 Hz）</button>
+                <details class="space-irs">
+                  <summary>部屋ごとの IR（実測・合成・自分のファイル）</summary>
+                  <ul id="space-irs"></ul>
+                  <p class="note">
+                    自分のファイルは、WAV・FLAC・AIFF の、モノラルかステレオの IR を読めます。最初の音より前の無音は除き、5 秒より長い分は切ります。出力のレートと違えば、変換して使います。読めないファイルのときは、その部屋の内蔵の IR を使います。
+                  </p>
+                  <p class="note" id="space-credit"></p>
+                </details>
+                <details class="explain">
+                  <summary>詳細</summary>
+                  <p class="note">
+                    部屋の響き（インパルス応答、IR）を、曲に畳み込んで混ぜます（区切った FFT による畳み込み、64bit 浮動小数点）。MIX は響きの割合で、0% は元の音だけ、100% は響きだけです。IR はエネルギーを 1 にそろえてあり、広い帯域の音では、響きが元の音とほぼ同じ大きさになります。
+                    プリディレイは、元の音から響きが始まるまでの時間です（計算の区切りのため、最小 約 3 ms）。元の音は遅らせません。ローカットは響きの側だけにかける 2 次のハイパスで、元の音の低域は変えません。
+                    HALL の既定は、実在のホール（St Paul's Hall、英国）で測った IR です。CLUB と ARENA の既定、および「合成」は、鏡像法の初期反射と、帯域ごとに減衰する雑音から合成した IR で、実在の場所を測ったものではありません（数字は部屋の大きさと、中域の残響時間）。
+                    部屋の切り替えは約 40 ms のクロスフェードで、再生は途切れません。OFF か MIX 0% なら処理を外し、ほかに処理がなければ原音経路と同じ出力です。真空管の後、クロスフィードの前にかかります。
+                  </p>
+                </details>
+              </div>
+            </div>
+
+            <div class="settings-group" data-group="crossfeed">
+              <h2 data-section="crossfeed">クロスフィード <small class="for-mode">音作りモードでかけます</small></h2>
+              <div class="setting crossfeed-controls">
+                <label class="check"><input type="checkbox" id="crossfeed-enabled" /> クロスフィードを使う（ヘッドホン向け）</label>
+                <div class="radios" id="crossfeed-level" role="radiogroup" aria-label="クロスフィードの強さ"></div>
+                <details class="explain">
+                  <summary>詳細</summary>
+                  <p class="note">
+                    左右それぞれの低い音を、反対側にも少し遅れた位相で混ぜます（bs2b の方式）。数字は、混ぜる音のローパスの周波数と、低い音で反対側がまっすぐの音より何 dB 小さいか。中央の音は、低域で 0 dB、高域でやや下がります（標準で 15 kHz に −1.75 dB）。ステレオの曲だけにかけます。真空管の後にかかります。
+                  </p>
+                </details>
+              </div>
+            </div>
+
+            <div class="settings-group" data-group="output-rate">
+              <h2 data-section="output-rate">出力レート <small class="for-mode">音作りモードでかけます</small></h2>
+              <div class="setting rate-controls">
+                <div class="radios" id="rate-mode" role="radiogroup" aria-label="出力レート"></div>
+                <div class="rate-row">
+                  <label for="rate-hz">レート</label>
+                  <select id="rate-hz"></select>
+                  <label for="rate-multiple">倍数</label>
+                  <select id="rate-multiple"></select>
+                </div>
+                <p class="note" id="rate-note"></p>
+                <p class="note keep">レートを上げても、元の録音にない音（情報）は増えません。変換すると BIT-PERFECT ではなくなります。</p>
+                <details class="explain">
+                  <summary>詳細</summary>
+                  <p class="note">
+                    リサンプラー（r8brain-free-src、直線位相）で、処理の最後（保険のリミッターの後、ディザの前）にレートを変換します。EQ・真空管・空間などの計算は、曲のレートのままです。設計値は阻止域の減衰 180 dB。自動テストでの測定では、折り返し（エイリアス）とイメージは 200 dB 以上小さく、20 kHz までの音量の差は 0.01 dB 未満です。
+                  </p>
+                  <p class="note">
+                    固定：どの曲もそのレートで出します。曲ごとに DAC のレートが切り替わらなくなります（レートの違う曲の境目では出力を開き直すので、一瞬途切れます）。下限：そのレート未満の曲だけを上げます。整数倍：曲の 2・4・8 倍で出します（44.1 kHz の曲は 88.2・176.4・352.8 kHz）。DAC が受け付けないときは、受け付けるいちばん大きい倍数、それもなければ曲のレートのままです。
+                  </p>
+                  <p class="note">
+                    音作りモードで、DAC が曲のレートを受け付けないときは、受け付けるレート（同じ系列の 2 倍・半分などを優先）へ変換して鳴らします。原音モードでは変換せず、再生できない理由を表示します。
+                  </p>
+                </details>
+              </div>
+            </div>
+
+            <div class="settings-group" data-group="look">
+              <h2 data-section="look">見た目</h2>
+              <fieldset class="themes">
+                <legend>ビュー（見た目と配置だけが変わり、機能と表示する情報は同じです）</legend>
+                <label><input type="radio" name="ui-view" value="standard" /> <span><b>標準ビュー</b><small>写実的メディアプレイヤー</small></span></label>
+                <label><input type="radio" name="ui-view" value="amp" /> <span><b>アンプビュー</b><small>真空管アンプ風。情報欄は小さめ</small></span></label>
+                <label><input type="radio" name="ui-view" value="library" /> <span><b>ライブラリビュー</b><small>ライブラリ型メディアプレイヤー風</small></span></label>
+              </fieldset>
+              <fieldset class="themes" id="theme-set">
+                <legend>ライブラリビューのテーマ（色だけが変わります）</legend>
+                <label><input type="radio" name="theme" value="amber" /> アンバー</label>
+                <label><input type="radio" name="theme" value="bluegray" /> ブルーグレー</label>
+              </fieldset>
+            </div>
+
+            <div class="settings-group" data-group="articles">
+              <!-- The article reader (task 7-1): a window of its own, apart from this page. -->
+              <h2>記事</h2>
+              <div class="setting">
+                <button type="button" id="open-articles">記事を開く…</button>
+                <span class="note">このプレイヤーの考え方や、ビットパーフェクト・ABX などの解説を、別の窓で開きます（記事は準備中です）。</span>
+              </div>
+        
+            </div>
           </div>
         </section>
       </main>

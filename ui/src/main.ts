@@ -20,6 +20,7 @@ import {
   type PlayModes,
 } from "./playModes";
 import { SettingsView } from "./settingsView";
+import { SettingsTabsView } from "./settingsTabsView";
 import { VuMeter } from "./vuMeter";
 import { paintRange } from "./rangeFill";
 import { OutputView } from "./outputView";
@@ -512,6 +513,7 @@ async function main() {
     (ids, where) => void enqueue(ids, where),
   );
   const settings = new SettingsView(backend.settings);
+  const settingsTabs = new SettingsTabsView(); // the tabs down the left of the settings screen
   document
     .querySelector<HTMLButtonElement>('.nav[data-view="settings"]')
     ?.addEventListener("click", () => void settings.refresh());
@@ -553,7 +555,7 @@ async function main() {
     if (to.screen === "output-check") return outputView.open();
     els.outputDialog.close();
     document.querySelector<HTMLButtonElement>('.nav[data-view="settings"]')?.click();
-    if (to.section) document.querySelector(`#settings h2[data-section="${to.section}"]`)?.scrollIntoView();
+    if (to.section) settingsTabs.showSection(to.section); // its tab, and the heading in view
   });
   backend.onStatus((s) => {
     render(s);

@@ -711,14 +711,82 @@ button.icon.plain {
 }
 
 /* --- settings (task 6-3) ------------------------------------------------- */
+/* The settings as tabs (2026-11-18, the user): the tabs down the left, the
+   chosen tab's sections on the right; each side scrolls on its own. */
 .settings {
   flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: 22px;
+}
+#settings-error {
+  grid-column: 1 / -1;
+}
+.settings-tabs {
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+.settings-tabs button {
+  flex: none;
+  text-align: left;
+  padding: 7px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.settings-tabs button[aria-selected="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  font-weight: 700;
+}
+.settings-panes {
+  grid-row: 2;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
   padding: 0 8px 32px 0;
 }
-.settings > * {
+.settings-group {
+  margin-bottom: 36px; /* between two sections of one tab */
+}
+.settings-group > * {
   max-width: 720px;
+}
+/* The amp view's panel is short and wide: there the tabs go along the top,
+   in one row, so all of them are still in sight at once. */
+[data-ui-view="amp"] .settings {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+[data-ui-view="amp"] .settings-tabs {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow: visible;
+  padding-bottom: 0;
+  margin-bottom: 8px;
+}
+[data-ui-view="amp"] .settings-tabs button {
+  padding: 0 14px;
+  border-left-width: 1px;
+  border-bottom: 3px solid transparent;
+}
+[data-ui-view="amp"] .settings-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+}
+[data-ui-view="amp"] .settings-panes {
+  grid-row: 3;
 }
 .settings h2 {
   font-size: 16px;
