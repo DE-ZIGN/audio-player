@@ -19,6 +19,14 @@ pixel.
                          off (by the image tool that drew them; everything
                          else within a pixel of the originals). Used when
                          present: the words then need no filling in here.
+  UI-AMP-SE-PURE-NOTEXT-MODEDOWN-v1.png
+                         the dark NOTEXT picture with the MODE lever down and
+                         nothing else changed (the user, 2026-11-18). Used
+                         when present: both levers are then cut from the same
+                         picture, so the nut and its shadow do not change when
+                         the lever moves. Without it the lever down comes from
+                         the lit picture, which draws its nut a little larger
+                         and 5 px higher.
 
 What comes out (ui/src/textures/amp/):
   se-lit.jpg, se-pure.jpg  the amp itself (x 0..1672, y 42..624: under the
@@ -119,12 +127,17 @@ TOGGLE = (117, 391, 183, 526)  # down to the panel's lower edge: the lever's sha
 # ellipse: centre and radii), the lever's ball (centre and radius) and its
 # stem (a centre and half-width where it leaves the hole and where it meets
 # the ball). Everything else the toggle changes on the metal is its shadow.
+# 'up' and 'down' are the dark picture and the same picture with the lever
+# down (one nut); 'down_lit' is the lit picture's own toggle (another nut).
 TOGGLE_PARTS = {
-    'up': {'nut': (150.7, 450.5, 25.0, 24.5), 'ball': (148.5, 423.3, 13.8),
+    'up': {'nut': (150.6, 450.4, 24.4, 24.2), 'ball': (148.5, 423.3, 13.8),
            'stem': ((150.0, 453.0, 8.5), (148.8, 426.0, 9.5))},
-    'down': {'nut': (151.0, 445.5, 26.5, 25.5), 'ball': (150.0, 478.5, 15.0),
-             'stem': ((151.0, 446.0, 6.5), (150.0, 474.0, 9.5))},
+    'down': {'nut': (150.6, 450.4, 24.4, 24.2), 'ball': (150.1, 477.0, 13.5),
+             'stem': ((150.2, 445.0, 4.0), (150.1, 468.0, 7.0))},
+    'down_lit': {'nut': (151.0, 445.5, 26.5, 25.5), 'ball': (150.0, 478.5, 15.0),
+                 'stem': ((151.0, 446.0, 6.5), (150.0, 474.0, 9.5))},
 }
+LEVER_DOWN_PICTURE = 'UI-AMP-SE-PURE-NOTEXT-MODEDOWN-v1.png'
 # Put back on the bare metal, a cut toggle must give the picture again: the
 # mean difference over its box stays under this (measured: about 0.01).
 TOGGLE_MATCH_LIMIT = 0.02
@@ -488,10 +501,26 @@ def main():
     save(amp(pure, lamp, VOLUME_POINTER['pure'], DRAWN_BUTTONS['pure'], 11, words_drawn), 'se-pure.jpg', quality=86)
     save(button(lit, *BUTTONS[1], r=BUTTON_R + 2, icon_r=17), 'button.jpg')
     save(button(lit, *BUTTONS[2], r=BUTTON_R + 4, icon_r=19), 'play.jpg')  # 17 left a corner of the pause bar as a speck
-    save_png(cut_toggle(pure, without_box(pure, TOGGLE, PANEL, not_metal_se), TOGGLE, TOGGLE_PARTS['up']), 'toggle-up.png')
-    dx, dy = TOGGLE_DOWN_SHIFT
-    down = (TOGGLE[0] + dx, TOGGLE[1] + dy, TOGGLE[2] + dx, TOGGLE[3] + dy)
-    save_png(cut_toggle(lit, without_box(lit, down, PANEL, not_metal_se), down, TOGGLE_PARTS['down']), 'toggle-down.png')
+    bare = without_box(pure, TOGGLE, PANEL, not_metal_se)
+    save_png(cut_toggle(pure, bare, TOGGLE, TOGGLE_PARTS['up']), 'toggle-up.png')
+    down_path = os.path.join(SRC, LEVER_DOWN_PICTURE)
+    if os.path.exists(down_path) and not words_drawn:
+        # The same picture with the lever down: the same nut, the same bare metal under it.
+        same = load(down_path)
+        if same.shape != pure.shape:
+            raise SystemExit(f'{LEVER_DOWN_PICTURE} is not {pure.shape[1]} x {pure.shape[0]}')
+        changed = np.abs(same - pure).max(axis=2)
+        changed[TOGGLE[1]:TOGGLE[3], TOGGLE[0]:TOGGLE[2]] = 0
+        if changed.max() > 0.02:
+            ys, xs = np.where(changed > 0.02)
+            raise SystemExit(f'{LEVER_DOWN_PICTURE} differs from the dark picture outside the toggle '
+                             f'(x {xs.min()}..{xs.max()}, y {ys.min()}..{ys.max()}): only the lever may change')
+        save_png(cut_toggle(same, bare, TOGGLE, TOGGLE_PARTS['down']), 'toggle-down.png')
+        print('the lever down from', LEVER_DOWN_PICTURE)
+    else:
+        dx, dy = TOGGLE_DOWN_SHIFT
+        down = (TOGGLE[0] + dx, TOGGLE[1] + dy, TOGGLE[2] + dx, TOGGLE[3] + dy)
+        save_png(cut_toggle(lit, without_box(lit, down, PANEL, not_metal_se), down, TOGGLE_PARTS['down_lit']), 'toggle-down.png')
     if debug:
         save_to(lamp, 'lamp.jpg', quality=92, folder=debug)
         mask = rect_mask((BOTTOM - TOP, 1672), WORDS, origin=(0, TOP))
