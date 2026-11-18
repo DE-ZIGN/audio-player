@@ -49,9 +49,12 @@ describe("the settings screen's type (task 6-10)", () => {
     expect(body("#settings :where(*:not(svg, svg *))")).toMatch(/color:\s*inherit/);
     expect(all.some((r) => r.selector.startsWith("#settings :is(.note") && /calc\(14 \* var\(--spx\)\)/.test(r.body))).toBe(true);
   });
-  it("is at its real size in the zoomed views", () => {
+  it("is at its real size in the zoomed views (with the rest of the middle panel, 2026-11-18)", () => {
     expect(body("#settings")).toMatch(/--spx:\s*1px/);
-    expect(body('[data-look="real"] #settings')).toMatch(/--spx:\s*calc\(1px \/ var\(--ui-zoom, 1\)\)/);
+    // The panel's contents are shown at the real size as a whole; the settings set no scale of their own.
+    expect(all.filter((r) => /\[data-look="real"\]/.test(r.selector) && /--spx:/.test(r.body))).toEqual([]);
+    const r = all.find((x) => x.selector === '[data-look="real"] :is(.sidebar, .queue-panel, .content) > *');
+    expect(r?.body).toMatch(/zoom:\s*calc\(1 \/ var\(--ui-zoom, 1\)\)/);
   });
   it("keeps the buttons on the accent dark, and warnings in their colour", () => {
     expect(all.some((r) => /^#settings :is\(button\.primary, button\.active\)/.test(r.selector) && /var\(--accent-text\)/.test(r.body))).toBe(true);
@@ -84,7 +87,7 @@ describe("the settings screen's look (task 6-10, 2026-11-15)", () => {
 
 describe("the side panels in the zoomed views (task 6-10, 2026-11-15)", () => {
   it("are at their real size, like the library view's", () => {
-    const r = all.find((x) => x.selector === '[data-look="real"] :is(.sidebar, .queue-panel) > *');
+    const r = all.find((x) => x.selector === '[data-look="real"] :is(.sidebar, .queue-panel, .content) > *');
     expect(r?.body).toMatch(/zoom:\s*calc\(1 \/ var\(--ui-zoom, 1\)\)/);
   });
   it("take the library view's sizes (no sizes of their own in the standard and amp views)", () => {
@@ -117,6 +120,27 @@ describe("an album in the amp view (2026-11-15, the user)", () => {
   });
   it("keeps the head (and its cover) whole, and gives the list the panel's height", () => {
     expect(body(`${open} > #album-head`)).toMatch(/flex-shrink:\s*0/);
-    expect(body(`${open} > #table`)).toMatch(/height:\s*calc\(100cqh - var\(--amp-now-line\)\)/);
+    expect(body(`${open} > #table`)).toMatch(/height:\s*calc\(100cqh \* var\(--ui-zoom, 1\) - var\(--amp-now-line\)\)/); // the panel in zoomed px, its contents at the real size
+  });
+});
+
+describe("the middle panel in the zoomed views (2026-11-18, the user)", () => {
+  // The heading, the search, the track list, the album tiles and an album's
+  // head: at their real size, the same as the library view's.
+  it("takes the library view's sizes (no type or row sizes of its own in the standard and amp views)", () => {
+    const parts =
+      /(\.content-head h1|#search|#sort|\.view-toggle button|\.table-head|\.table-head button|\.row \.mark|\.tile-title|\.tile-sub|\.album-cover|\.album-info h2|\.album-artist|\.album-meta|\.album-meta \.tag)(\s*,|\s*$)/;
+    const own = all.filter(
+      (r) =>
+        /\[data-look="real"\]/.test(r.selector) &&
+        r.selector.split(",").some((s) => parts.test(s.trim())) &&
+        /(font-size|(^|[^-])(width|height)):/.test(r.body),
+    );
+    expect(own.map((r) => r.selector)).toEqual([]);
+  });
+  it("uses the library view's rows and tiles", () => {
+    const real = all.find((r) => r.selector === ':root[data-look="real"]')?.body ?? "";
+    expect(real).not.toMatch(/--row-h:|--tile-min:|--tile-text:/);
+    expect(real).toMatch(/--sidebar-w:/); // the panels themselves keep the concept image's sizes
   });
 });

@@ -2068,15 +2068,11 @@ dd {
   /* Sizes from the concept images, read as drawn for a 150% screen (decided
      2026-11-13): one image pixel is 2/3 of a CSS pixel. See the block
      "sizes from the concept image" at the end. */
-  --row-h: 28px;
   --topbar-h: 72px; /* the bar (70 px) and the dark gap under it (2 px) */
   --sidebar-w: 137px;
   --queue-w: 279px;
   --status-h: 21px; /* on the wood of the frame's foot */
-  --tile-min: 120px;
-  --tile-text: 40px;
-  --tile-gap: 36px;
-  --tile-row-gap: 14px;
+  /* Rows and tiles: the library view's (the middle panel is shown at its real size, 2026-11-18). */
   --bg: #120d09;
   --surface: #1a130d;
   --surface-2: #241a12;
@@ -2124,14 +2120,10 @@ dd {
   font-weight: 400;
 }
 [data-look="real"] .content-head h1 {
-  font-size: 27px;
   font-weight: 400;
 }
 [data-look="real"] .nav.active {
   box-shadow: 0 0 10px rgba(244, 166, 64, 0.22);
-}
-[data-look="real"] .tile-title {
-  font-size: 14px;
 }
 [data-look="real"] .output-field .tag {
   border-color: #5a4028;
@@ -2591,34 +2583,15 @@ html[data-look="real"] {
 [data-look="real"] .content {
   padding: 15px 18px 0 22px;
 }
-[data-look="real"] .content-head h1 {
-  font-size: 25px;
-}
+/* The panel's contents are at their real size, with the library view's
+   type and rows (2026-11-18; see "the panels at their real size" below). */
 [data-look="real"] #search {
-  flex: 0 1 243px;
   margin-left: auto;
-  height: 24px;
-  padding: 2px 10px;
-}
-[data-look="real"] #search,
-[data-look="real"] #sort {
-  font-size: 12px;
-}
-[data-look="real"] #sort {
-  width: 115px;
-  height: 24px;
-  padding: 0 4px;
-}
-[data-look="real"] .view-toggle button {
-  height: 24px;
-  min-width: 29px;
 }
 [data-look="real"] .table-head {
-  font-size: 11px;
   letter-spacing: 0.04em;
 }
 [data-look="real"] .table-head button {
-  font-size: 11px;
   font-family: inherit;
 }
 [data-look="real"] .row {
@@ -2634,30 +2607,13 @@ html[data-look="real"] {
 [data-look="real"] .grid {
   margin-left: 17px; /* the tiles sit a little in from the heading */
 }
-[data-look="real"] .tile-title {
-  font-size: 13px;
-  margin-top: 4px;
-}
-[data-look="real"] .tile-sub {
-  font-size: 10.5px;
-}
-
-/* The album's head: a large cover with amber light around it. */
+/* The album's head: the cover with amber light around it. */
 [data-look="real"] .album-cover {
-  width: 130px;
-  height: 130px;
   border-radius: 2px;
   box-shadow: 0 0 0 1px var(--accent), 0 0 14px rgba(244, 166, 64, 0.4);
 }
 [data-look="real"] .album-info h2 {
-  font-size: 30px;
   font-weight: 400;
-}
-[data-look="real"] .album-artist {
-  font-size: 16px;
-}
-[data-look="real"] .album-meta {
-  font-size: 13px;
 }
 
 /* Queue: a line under the head, roomy rows with lines between. */
@@ -2674,11 +2630,7 @@ html[data-look="real"] {
 
 /* Text one size smaller in the standard view (2026-11-13, the user): the
    parts that otherwise take the shared sizes. */
-[data-look="real"] .vol-label,
-[data-look="real"] .row .mark {
-  font-size: 10px;
-}
-[data-look="real"] .album-meta .tag {
+[data-look="real"] .vol-label {
   font-size: 10px;
 }
 
@@ -3320,9 +3272,6 @@ html[data-look="real"] {
   line-height: 1.75;
   color: #fff;
 }
-[data-look="real"] #settings {
-  --spx: calc(1px / var(--ui-zoom, 1));
-}
 #settings :where(*:not(svg, svg *)) {
   font-size: inherit;
   color: inherit;
@@ -3413,13 +3362,16 @@ html[data-look="real"] {
   row-gap: 10px;
 }
 
-/* --- the side panels at their real size (task 6-10, 2026-11-15, the user) ---
+/* --- the panels at their real size (task 6-10, 2026-11-15; the middle panel
+   too since 2026-11-18, the user) ---
    In the standard and amp views the whole page is zoomed to the window
-   (--ui-zoom); the side bar (曲, アルバム, 設定, 監視フォルダー...) and the queue
-   keep their text and rows at the real size, the same as the library view's
-   (its sizes apply: the zoomed views set none of their own here). The panels
-   themselves (their wood, their padding) still scale with the view. */
-[data-look="real"] :is(.sidebar, .queue-panel) > * {
+   (--ui-zoom); the side bar (曲, アルバム, 設定, 監視フォルダー...), the queue and
+   the middle panel (the heading, the search, the lists, the tiles, an album's
+   head, the settings) keep their text and rows at the real size, the same as
+   the library view's (its sizes apply: the zoomed views set none of their own
+   here). The panels themselves (their wood, their padding) still scale with
+   the view. */
+[data-look="real"] :is(.sidebar, .queue-panel, .content) > * {
   zoom: calc(1 / var(--ui-zoom, 1));
 }
 
@@ -3460,5 +3412,7 @@ html[data-look="real"] {
 }
 [data-ui-view="amp"] .content:has(> #album-head:not([hidden])) > #table {
   flex: 0 0 auto;
-  height: calc(100cqh - var(--amp-now-line)); /* with the 再生中 line, the panel's height */
+  /* With the 再生中 line, the panel's height. The panel is measured in the view's
+     zoomed pixels and its contents are at their real size (2026-11-18), hence the factor. */
+  height: calc(100cqh * var(--ui-zoom, 1) - var(--amp-now-line));
 }
