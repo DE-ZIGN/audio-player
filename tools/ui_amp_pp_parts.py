@@ -358,7 +358,8 @@ def main():
     b, pure_keys = amp(pure, words_drawn)
     save(b, 'pp-pure.jpg', quality=86)
     src = lit
-    save(button(src, *ROUND['prev'][:2], r=ROUND['prev'][2] + 2, icon_r=15), 'pp-button.jpg')
+    # The symbols reach 17.5 px from the centre (the rim starts at 24): 15 left their ends on the glass.
+    save(button(src, *ROUND['prev'][:2], r=ROUND['prev'][2] + 2, icon_r=20), 'pp-button.jpg')
     save(button(src, *ROUND['play'][:2], r=ROUND['play'][2] + 4, icon_r=19), 'pp-play.jpg')
     save_png(xfeed(lit, False), 'pp-xfeed-on.png', folder=OUT)
     # The lever down, from the picture drawn so (only the toggle differs), when there is one.

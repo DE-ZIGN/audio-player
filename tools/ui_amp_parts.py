@@ -59,6 +59,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ui_mockup_parts import (blend, blur, box_blur, crop, dilate, feather, load, luminance,  # noqa: E402
                              model_brushed, push_pull, rect_mask, save_mask)
 from ui_mockup_parts import save as save_to  # noqa: E402
+from ui_mockup_parts import without_symbol  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'ui', 'src', 'textures', 'amp')
@@ -399,14 +400,7 @@ def amp(img: np.ndarray, lamp: np.ndarray, pointer: float, drawn, seed: int, wor
 
 def button(img: np.ndarray, cx: float, cy: float, r: float, icon_r: float) -> np.ndarray:
     box = (int(round(cx - r)), int(round(cy - r)), int(round(cx + r)), int(round(cy + r)))
-    part = crop(img, box)
-    h, w = part.shape[:2]
-    yy, xx = np.mgrid[0:h, 0:w]
-    icon = np.hypot(xx - (cx - box[0]), yy - (cy - box[1])) < icon_r
-    filled = push_pull(part, ~icon)
-    for _ in range(2):
-        filled = box_blur(box_blur(filled, 1, 0), 1, 1)
-    return blend(part, filled, icon, 3)
+    return without_symbol(crop(img, box), cx - box[0], cy - box[1], icon_r)
 
 
 def main():
@@ -445,7 +439,7 @@ def main():
     save(amp(lit, lamp, VOLUME_POINTER['lit'], DRAWN_BUTTONS['lit'], 11, words_drawn), 'se-lit.jpg', quality=86)
     save(amp(pure, lamp, VOLUME_POINTER['pure'], DRAWN_BUTTONS['pure'], 11, words_drawn), 'se-pure.jpg', quality=86)
     save(button(lit, *BUTTONS[1], r=BUTTON_R + 2, icon_r=17), 'button.jpg')
-    save(button(lit, *BUTTONS[2], r=BUTTON_R + 4, icon_r=17), 'play.jpg')
+    save(button(lit, *BUTTONS[2], r=BUTTON_R + 4, icon_r=19), 'play.jpg')  # 17 left a corner of the pause bar as a speck
     save_png(cut_out(pure, without_box(pure, TOGGLE, PANEL, not_metal_se), TOGGLE), 'toggle-up.png')
     dx, dy = TOGGLE_DOWN_SHIFT
     down = (TOGGLE[0] + dx, TOGGLE[1] + dy, TOGGLE[2] + dx, TOGGLE[3] + dy)

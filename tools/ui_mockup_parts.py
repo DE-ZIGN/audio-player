@@ -275,16 +275,46 @@ def frame(img: np.ndarray) -> np.ndarray:
     return out
 
 
-def button(img: np.ndarray, cx: float, cy: float, r: float, icon_r: float) -> np.ndarray:
-    box = (int(round(cx - r)), int(round(cy - r)), int(round(cx + r)), int(round(cy + r)))
-    part = crop(img, box)
+# A round button's face with its symbol taken off is smooth glass: nowhere
+# does it differ from its own blur by more than this (measured: 0.03 at most
+# on the six buttons cut here; the edge of a symbol left behind gives 0.09 to
+# 0.35).
+SYMBOL_LEFT_LIMIT = 0.04
+
+
+def symbol_left(part: np.ndarray, icon_r: float) -> float:
+    """How sharp the sharpest thing on a cut button's face is, out to just
+    past the disc that was filled in: what is left of a symbol when icon_r was
+    too small for it (the pp-button.jpg of 2026-11-14 kept the ends of its
+    symbol this way)."""
     h, w = part.shape[:2]
     yy, xx = np.mgrid[0:h, 0:w]
-    icon = np.hypot(xx - (cx - box[0]), yy - (cy - box[1])) < icon_r
+    face = np.hypot(xx - (w - 1) / 2, yy - (h - 1) / 2) < icon_r + 1
+    lum = luminance(part)
+    soft = box_blur(box_blur(lum, 2, 0), 2, 1)
+    return float(np.abs(lum - soft)[face].max())
+
+
+def without_symbol(part: np.ndarray, cx: float, cy: float, icon_r: float) -> np.ndarray:
+    """A cut round button with the disc of radius icon_r around (cx, cy)
+    filled in from the glass around it. Stops when a symbol is still there."""
+    h, w = part.shape[:2]
+    yy, xx = np.mgrid[0:h, 0:w]
+    icon = np.hypot(xx - cx, yy - cy) < icon_r
     filled = push_pull(part, ~icon)
     for _ in range(2):  # soften what was filled in
         filled = box_blur(box_blur(filled, 1, 0), 1, 1)
-    return blend(part, filled, icon, 3)
+    out = blend(part, filled, icon, 3)
+    left = symbol_left(out, icon_r)
+    if left > SYMBOL_LEFT_LIMIT:
+        raise SystemExit(f'a button still shows its symbol (sharpness {left:.3f}, limit {SYMBOL_LEFT_LIMIT}): '
+                         f'icon_r={icon_r} is too small for it')
+    return out
+
+
+def button(img: np.ndarray, cx: float, cy: float, r: float, icon_r: float) -> np.ndarray:
+    box = (int(round(cx - r)), int(round(cy - r)), int(round(cx + r)), int(round(cy + r)))
+    return without_symbol(crop(img, box), cx - box[0], cy - box[1], icon_r)
 
 
 def vu_face(img: np.ndarray) -> tuple:
