@@ -215,7 +215,8 @@ public:
             startTimer(options.onArticleSelfTestResult ? 90000 : 30000);
         }
 
-        mainWindow_ = std::make_unique<MainWindow>(getApplicationName(), std::move(options), true);
+        // The window carries the product's name as shown; getApplicationName() is the name for files.
+        mainWindow_ = std::make_unique<MainWindow>(juce::String::fromUTF8(AP_DISPLAY_NAME_STRING), std::move(options), true);
         if (smokeTest_)
         {
             // Keep the window out of the way; WebView2 needs it to exist and be shown.

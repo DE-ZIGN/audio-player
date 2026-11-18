@@ -6,9 +6,17 @@ project(audio_player
     LANGUAGES C CXX)
 
 # ---------------------------------------------------------------------------
-# Product identity (provisional; change here only)
+# Product identity (change here only)
 # ---------------------------------------------------------------------------
-set(AP_PRODUCT_NAME "AudioPlayer" CACHE STRING "Provisional product name shown to users")
+# The product's name, as shown to the user (decided 2026-11-18): the window's
+# title, the page's title.
+set(AP_DISPLAY_NAME "DE:ZIGN AUDIO PLAYER" CACHE STRING "The product's name as shown to users")
+# The name used for files: the executable and the data folder under
+# %LOCALAPPDATA%. Still the provisional one: a colon cannot be in a file or
+# folder name, and renaming the data folder means moving the user's library
+# and settings (to be decided with the release work, M8). The same goes for
+# the publisher's name and the application ID below.
+set(AP_PRODUCT_NAME "AudioPlayer" CACHE STRING "Provisional name for the executable and the data folder")
 set(AP_COMPANY_NAME "AudioPlayer Project" CACHE STRING "Provisional company / publisher name")
 set(AP_BUNDLE_ID    "com.audioplayer.app" CACHE STRING "Provisional reverse-DNS application ID")
 
