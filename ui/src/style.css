@@ -206,6 +206,7 @@ button.link {
 }
 .seek input {
   flex: 1;
+  min-width: 0; /* a slider keeps its built-in 129 px otherwise, and the row ran over the volume */
   accent-color: var(--accent);
 }
 .time {
@@ -312,6 +313,17 @@ button.icon.plain {
   gap: 4px;
   flex: none;
   width: 178px; /* the slider itself gets about 100 px */
+}
+/* The library view's window can be any width (the other views are laid out
+   at one size and zoomed): its rows narrow instead of running over each
+   other. The seek row keeps the two times and a short bar; the volume row
+   goes down to a slider of 50 px. */
+[data-look="flat"] .seek {
+  min-width: 160px;
+}
+[data-look="flat"] .volume-box {
+  flex: 0 1 178px;
+  min-width: 130px;
 }
 .volume-box input {
   flex: 1;
@@ -1525,6 +1537,11 @@ dd {
     grid-template-columns: var(--sidebar-w) 1fr 0;
   }
   [data-look="flat"] .queue-panel {
+    display: none;
+  }
+  /* The small cover in the top bar gives way too, so the output field
+     stays in the window down to about 1020 px. */
+  [data-look="flat"] .now-cover {
     display: none;
   }
 }
