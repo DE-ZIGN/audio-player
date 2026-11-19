@@ -79,3 +79,60 @@ describe("the page and its style", () => {
     expect(/\[data-ui-view="amp"\] \.settings\s*\{([^}]*)\}/.exec(plain)?.[1] ?? "").toMatch(/grid-template-columns:\s*minmax\(0, 1fr\)/);
   });
 });
+
+// The look chosen from three trials (2026-11-19, the user: "B"): the tabs are
+// one panel, each with a lamp that is lit for the chosen one (as the amp's
+// TUBE TYPE lamps); a heading is in the accent colour with a thin line that
+// fades out to the right. The same in every view and theme, so no colour of
+// one theme is written into these rules.
+describe("the settings screen's look: a panel of lamps and lined headings", () => {
+  const plain = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const body = (sel: string) => new RegExp(`(?:^|\\})\\s*${sel.replace(/[.#[\]"=():*]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(plain)?.[1] ?? "";
+  it("the tabs are one panel, no taller than it needs, that still scrolls when the window is short", () => {
+    const tabs = body(".settings-tabs");
+    expect(tabs).toMatch(/align-self:\s*start/);
+    expect(tabs).toMatch(/max-height:\s*100%/);
+    expect(tabs).toMatch(/overflow-y:\s*auto/);
+    expect(tabs).toMatch(/border-radius:/);
+    expect(tabs).toMatch(/background:\s*linear-gradient/);
+  });
+  it("every tab has a lamp; the chosen tab's is lit in the accent, and the tab is bold (not colour alone)", () => {
+    const lamp = body("#settings-tabs button::before");
+    expect(lamp).toMatch(/content:\s*""/);
+    expect(lamp).toMatch(/border-radius:\s*50%/);
+    const lit = body('#settings-tabs button[aria-selected="true"]::before');
+    expect(lit).toMatch(/background:\s*radial-gradient\([^;]*var\(--accent\)/);
+    expect(lit).toMatch(/box-shadow:[^;]*var\(--accent\)/);
+    expect(body('#settings-tabs button[aria-selected="true"]')).toMatch(/font-weight:\s*700/);
+  });
+  it("the tabs' colours are stated under #settings-tabs (the settings screen makes everything inherit its white)", () => {
+    expect(body("#settings-tabs button")).toMatch(/color:\s*rgba\(255, 255, 255, 0\.78\)/);
+    expect(body('#settings-tabs button[aria-selected="true"]')).toMatch(/color:\s*#fff/);
+  });
+  it("the tab the keyboard is on shows it, inside the panel's edge", () => {
+    const focus = body("#settings-tabs button:focus-visible");
+    expect(focus).toMatch(/outline:\s*2px solid var\(--accent\)/);
+    expect(focus).toMatch(/outline-offset:\s*-/);
+  });
+  it("a heading is in the accent colour, with a line fading out to the right in place of the underline", () => {
+    const h2 = body("#settings h2");
+    expect(h2).toMatch(/color:\s*var\(--accent\)/);
+    expect(h2).toMatch(/display:\s*flex/);
+    expect(h2).toMatch(/border-bottom:\s*0;/);
+    const line = body("#settings h2::after");
+    expect(line).toMatch(/flex:\s*1/);
+    expect(line).toMatch(/background:\s*linear-gradient\(90deg, var\(--accent\), transparent\)/);
+    expect(body("#settings h2 small")).toMatch(/color:\s*#fff/); // "音作りモードでかけます" stays white
+  });
+  it("follows the theme: none of these rules names a theme's own colour", () => {
+    const rules = [...plain.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+      .filter((m) => /#settings-tabs|\.settings-tabs|#settings h2/.test(m[1]))
+      .map((m) => m[2])
+      .join(" ");
+    expect(rules).not.toMatch(/#f0a63a|#f4a640|#8fa8c4|240, 166, 58|244, 166, 64|143, 168, 196/i);
+  });
+  it("in the amp view the panel of tabs is a row, as wide as its tabs", () => {
+    expect(body('[data-ui-view="amp"] .settings-tabs')).toMatch(/justify-self:\s*start/);
+    expect(body('[data-ui-view="amp"] #settings-tabs button')).toMatch(/border-right:/);
+  });
+});

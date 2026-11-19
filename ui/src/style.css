@@ -719,36 +719,80 @@ button.icon.plain {
   display: grid;
   grid-template-columns: 168px minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  column-gap: 22px;
+  column-gap: 30px;
 }
 #settings-error {
   grid-column: 1 / -1;
 }
+/* The tabs' look (2026-11-19, the user chose it from three trials): one
+   panel, a lamp on each tab, lit for the chosen one, as the amp's TUBE TYPE
+   lamps. The same in every view and theme: the colours come from the theme's
+   variables, the lights and shades are white and black laid over them.
+   The buttons are named by #settings-tabs: the settings screen makes
+   everything inside it inherit its white (#settings :where(*), below). */
 .settings-tabs {
   grid-row: 2;
+  align-self: start; /* as tall as its tabs ... */
+  max-height: 100%; /* ... and scrolling in a short window */
   display: flex;
   flex-direction: column;
-  gap: 2px;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: 8px;
+  border: 1px solid var(--line);
+  border-top-color: rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
 }
-.settings-tabs button {
+#settings-tabs button {
+  position: relative;
   flex: none;
   text-align: left;
-  padding: 7px 12px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-left: 3px solid transparent;
-  border-radius: var(--radius);
+  padding: 10px 12px 10px 36px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-radius: 0;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.78);
   cursor: pointer;
   white-space: nowrap;
 }
-.settings-tabs button[aria-selected="true"] {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  border-left-color: var(--accent);
+#settings-tabs button:last-child {
+  border-bottom: 0;
+  box-shadow: none;
+}
+/* The lamp: a dark socket ... */
+#settings-tabs button::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+#settings-tabs button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+/* ... lit for the chosen tab, which is also bold (not by colour alone). */
+#settings-tabs button[aria-selected="true"] {
+  color: #fff;
   font-weight: 700;
+  background: linear-gradient(90deg, var(--accent-soft), transparent 85%);
+}
+#settings-tabs button[aria-selected="true"]::before {
+  background: radial-gradient(circle at 38% 34%, color-mix(in srgb, var(--accent) 20%, #fff), var(--accent) 58%);
+  box-shadow: 0 0 7px 1px var(--accent), 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+#settings-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px; /* inside: the panel cuts what is outside it */
 }
 .settings-panes {
   grid-row: 2;
@@ -772,18 +816,23 @@ button.icon.plain {
 [data-ui-view="amp"] .settings-tabs {
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 4px;
-  overflow: visible;
-  padding-bottom: 0;
+  justify-self: start; /* as wide as its tabs */
+  max-height: none;
+  overflow: hidden; /* the row keeps the panel's round corners */
   margin-bottom: 8px;
 }
-[data-ui-view="amp"] .settings-tabs button {
-  padding: 0 14px;
-  border-left-width: 1px;
-  border-bottom: 3px solid transparent;
+[data-ui-view="amp"] #settings-tabs button {
+  padding: 2px 16px 2px 32px;
+  border-bottom: 0;
+  border-right: 1px solid rgba(0, 0, 0, 0.45);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.04);
 }
-[data-ui-view="amp"] .settings-tabs button[aria-selected="true"] {
-  border-bottom-color: var(--accent);
+[data-ui-view="amp"] #settings-tabs button:last-child {
+  border-right: 0;
+  box-shadow: none;
+}
+[data-ui-view="amp"] #settings-tabs button::before {
+  left: 12px;
 }
 [data-ui-view="amp"] .settings-panes {
   grid-row: 3;
@@ -3400,17 +3449,37 @@ html[data-look="real"] {
   color: var(--warn);
 }
 
-/* Headings that read as headings, with room before each (2026-11-15). */
+/* Headings that read as headings, with room before each (2026-11-15).
+   Since 2026-11-19 (the look the user chose): in the accent colour, wide-set,
+   with a thin line fading out to the right in place of the underline. What
+   follows the name in small print ("音作りモードでかけます") stays white. */
 #settings h2 {
-  font-size: calc(20 * var(--spx));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: calc(18 * var(--spx));
   font-weight: 700;
-  margin: 40px 0 10px;
-  padding-bottom: 6px;
-  border-bottom: 2px solid var(--accent);
-  letter-spacing: 0.02em;
+  margin: 44px 0 14px;
+  padding: 0;
+  border-bottom: 0; /* (".settings h2" has an underline) */
+  letter-spacing: 0.14em;
+  color: var(--accent);
 }
 #settings h2:first-of-type {
   margin-top: 4px;
+}
+#settings h2::after {
+  content: "";
+  flex: 1;
+  min-width: 24px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  opacity: 0.55;
+}
+#settings h2 small {
+  margin-left: 0;
+  letter-spacing: 0;
+  color: #fff;
 }
 #settings h3 {
   font-size: calc(17 * var(--spx));

@@ -69,9 +69,11 @@ describe("the settings screen's look (task 6-10, 2026-11-15)", () => {
     expect(body(".settings.original-mode .for-mode::after")).toMatch(/content:\s*"/);
   });
   it("has headings that read as headings, room before each, and looser lines", () => {
-    expect(body("#settings h2")).toMatch(/font-size:\s*calc\(20 \* var\(--spx\)\)/);
+    // 18 px and wide-set since 2026-11-19 (the look the user chose; 20 px before).
+    expect(body("#settings h2")).toMatch(/font-size:\s*calc\(18 \* var\(--spx\)\)/);
     expect(body("#settings h2")).toMatch(/font-weight:\s*700/);
-    expect(body("#settings h2")).toMatch(/margin:\s*40px 0 10px/);
+    expect(body("#settings h2")).toMatch(/margin:\s*44px 0 14px/);
+    expect(body("#settings h2")).toMatch(/letter-spacing:\s*0\.14em/);
     expect(body("#settings")).toMatch(/line-height:\s*1\.75/);
   });
   it("lines the sliders up: one width for every label", () => {
