@@ -311,9 +311,12 @@ TEST_CASE("Moves: the monitor follows a move between two watched folders", "[lib
         REQUIRE(monitor.waitUntilIdle(10s));
         {
             auto lib = LibraryDb::open(db);
-            auto st = lib.database().prepare("SELECT id FROM tracks");
-            REQUIRE(st.step());
-            t = st.integer(0);
+            // Read, and be done reading, before writing on the same
+            // connection: with the SELECT still open, a commit by the monitor
+            // in between makes the UPDATE fail at once ("database is locked",
+            // without the busy wait: the read is older than the database).
+            // Seen on the CI runner, 2026-11-19.
+            t = scalar(lib, "SELECT id FROM tracks");
             setRating(lib, t, 60);
         }
         moveAcrossDrives(src, b / "01.wav");

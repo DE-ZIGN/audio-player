@@ -370,8 +370,12 @@ TEST_CASE("replaceUpcoming many times while playing never mixes tracks up", "[en
 {
     // Each replacement changes what follows A while the next track may be
     // loading; whatever follows A must be one whole track of the last list.
+    // A is long enough for every replacement to come while it plays, on a
+    // slow machine too (the 5 ms sleeps can take 15 ms and more each; with
+    // 0.2 s of A the CI runner was past A, and past the end, after 15 of
+    // them, 2026-11-19). The test says so itself if that is ever not so.
     Rig rig;
-    const auto a = trackData(48000, 9600, 0); // 0.2 s
+    const auto a = trackData(48000, 72000, 0); // 1.5 s
     std::vector<std::vector<std::byte>> others;
     for (int i = 0; i < 20; ++i)
         others.push_back(trackData(48000, 480, 10 + i));
@@ -383,6 +387,7 @@ TEST_CASE("replaceUpcoming many times while playing never mixes tracks up", "[en
         player.replaceUpcoming({item("N" + std::to_string(i), 48000, others[i])});
         std::this_thread::sleep_for(5ms);
     }
+    REQUIRE(player.status().trackName == "A"); // all of them came while A played
     player.waitUntilIdle();
     const auto s = player.status();
     CHECK(s.state == PlayerState::Ended);

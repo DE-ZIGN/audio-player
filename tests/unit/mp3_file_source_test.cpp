@@ -434,7 +434,11 @@ TEST_CASE("openAudioFile opens MP3 by content, with or without ID3v2, and Japane
 
     for (const auto& p : {plain, dir.path() / "tagged.dat"})
     {
-        CAPTURE(p.filename().string());
+        // The name as UTF-8. Not path::string(): that is the system's code
+        // page, which throws for a Japanese name on a Windows that is not
+        // Japanese (seen on the CI runner, code page 1252, 2026-11-19).
+        const auto name8 = p.filename().u8string();
+        CAPTURE(std::string(name8.begin(), name8.end()));
         CHECK(detectAudioFile(p) == AudioFileKind::Mp3);
         const auto src = openAudioFile(p);
         CHECK(src->containerName() == "MP3");
