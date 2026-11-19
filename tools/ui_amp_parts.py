@@ -465,12 +465,13 @@ def button(img: np.ndarray, cx: float, cy: float, r: float, icon_r: float) -> np
     return without_symbol(crop(img, box), cx - box[0], cy - box[1], icon_r)
 
 
-# The amber-ringed play buttons (2026-11-19, the user saw it): cut square, they
-# carried the picture's own wood round the ring, lit by its glow and with
-# other grain than the wood the page puts them on, and the ring sat off the
-# middle. Now they are cut on the ring's own centre (measured, below) and only
-# the button is kept: past keep_r it fades out by size_r, the edge of the
-# picture, so the page's wood shows round it.
+# The SE amp's amber-ringed play button (2026-11-19, the user saw it): cut
+# square, it carried the picture's own wood round the ring, lit by its glow
+# and with other grain than the wood the page puts it on, and the ring sat off
+# the middle. Now it is cut on the ring's own centre (measured, below) and
+# only the button is kept: the ring and the thin dark line round it. Past
+# keep_r it fades out, to nothing at edge_r, so the page's wood shows round
+# it; the page hangs its shadows on that shape (style.css).
 RING_CENTRE_LIMIT = 3.0  # px: the ring found this far from where it is said to be stops the script
 
 
@@ -503,16 +504,17 @@ def shifted_crop(img: np.ndarray, cx: float, cy: float, half: int) -> np.ndarray
     return top * (1 - fy) + bot * fy
 
 
-def ring_button(img: np.ndarray, cx: float, cy: float, size_r: int, keep_r: float, icon_r: float) -> np.ndarray:
-    """The amber-ringed button, RGBA: centred on its ring as drawn, its symbol
-    removed, transparent past the ring's dark rim (keep_r .. size_r)."""
+def ring_button(img: np.ndarray, cx: float, cy: float, size_r: int, keep_r: float, edge_r: float,
+                icon_r: float) -> np.ndarray:
+    """The amber-ringed button, RGBA, 2 * size_r square: centred on its ring as
+    drawn, its symbol removed, transparent past the ring (keep_r .. edge_r)."""
     rx, ry, _ = ring_centre(img, cx, cy)
     if np.hypot(rx - cx, ry - cy) > RING_CENTRE_LIMIT:
         raise SystemExit(f'the play ring is at {rx:.1f}, {ry:.1f}, not near {cx}, {cy}')
     part = without_symbol(shifted_crop(img[..., :3], rx, ry, size_r), size_r, size_r, icon_r)
     yy, xx = np.mgrid[0:2 * size_r, 0:2 * size_r]
     d = np.hypot(xx + 0.5 - size_r, yy + 0.5 - size_r)
-    t = np.clip((size_r - d) / (size_r - keep_r), 0, 1)
+    t = np.clip((edge_r - d) / (edge_r - keep_r), 0, 1)
     alpha = t * t * (3 - 2 * t)
     return np.dstack([part, alpha])
 
@@ -553,10 +555,13 @@ def main():
     save(amp(lit, lamp, VOLUME_POINTER['lit'], DRAWN_BUTTONS['lit'], 11, words_drawn), 'se-lit.jpg', quality=86)
     save(amp(pure, lamp, VOLUME_POINTER['pure'], DRAWN_BUTTONS['pure'], 11, words_drawn), 'se-pure.jpg', quality=86)
     save(button(lit, *BUTTONS[1], r=BUTTON_R + 2, icon_r=17), 'button.jpg')
-    # The ring (measured 891.4, 576.3, r 31.6) has a dark rim out to 36; the
-    # picture's lit wood is past it. 37 is the page's radius for it (amp.ts).
+    # The ring (measured: centre 891.4, 576.3, brightest at r 31.6) ends at
+    # about 34, with a thin dark line at 35 to 36; past that is the picture's
+    # wood, lit by the ring. Kept to 37 (the first cut), that wood read as a
+    # brown band round the ring. 37 is the page's radius for the button
+    # (amp.ts): the picture is shown at its own size.
     # icon_r 17 left a corner of the pause bar as a speck.
-    save_png(ring_button(lit, *BUTTONS[2], size_r=37, keep_r=35.5, icon_r=19), 'play.png')
+    save_png(ring_button(lit, *BUTTONS[2], size_r=37, keep_r=35, edge_r=36.5, icon_r=19), 'play.png')
     bare = without_box(pure, TOGGLE, PANEL, not_metal_se)
     save_png(cut_toggle(pure, bare, TOGGLE, TOGGLE_PARTS['up']), 'toggle-up.png')
     down_path = os.path.join(SRC, LEVER_DOWN_PICTURE)

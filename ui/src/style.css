@@ -3025,6 +3025,28 @@ html[data-look="real"] {
   font-size: calc(var(--d) * 0.4);
   color: #ffdc8c; /* lit, as the concept image's */
 }
+/* The SE amp's play button is cut round its ring, transparent past it
+   (amp/play.png; 2026-11-19): its shadow and glow follow that shape. On the
+   button's own circle, 3 px out from the ring, they drew a band round it. */
+[data-look="real"] .amp-stage[data-look="se"] .transport button.play {
+  background: none;
+  box-shadow: none;
+  isolation: isolate;
+}
+[data-look="real"] .amp-stage[data-look="se"] .transport button.play::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--button-play) center / cover;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 6px rgba(244, 166, 64, 0.35));
+}
+[data-look="real"] .amp-stage[data-look="se"] .transport button.play:active:not(:disabled) {
+  box-shadow: none;
+}
+[data-look="real"] .amp-stage[data-look="se"] .transport button.play:active:not(:disabled)::before {
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 6px rgba(244, 166, 64, 0.35));
+}
 [data-look="real"] .amp-stage .transport #stop {
   --x: var(--stop-x);
   --y: var(--stop-y);

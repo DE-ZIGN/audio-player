@@ -55,7 +55,7 @@ import xfeedOff from "./textures/amp/pp-xfeed-off.png";
 import seButton from "./textures/amp/button.jpg";
 import sePlay from "./textures/amp/play.png";
 import ppButton from "./textures/amp/pp-button.jpg";
-import ppPlay from "./textures/amp/pp-play.png";
+import ppPlay from "./textures/amp/pp-play.jpg";
 
 const PICTURES: Record<AmpLook, { pure: string; lit: string; button: string; play: string }> = {
   se: { pure: sePure, lit: seLit, button: seButton, play: sePlay },
