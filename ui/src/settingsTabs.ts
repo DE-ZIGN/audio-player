@@ -5,7 +5,7 @@
 //
 // How the sections are grouped is decided here only: move a name to another
 // tab, or add a tab, and the page follows (settingsTabs.test.ts checks that
-// every section is in exactly one tab).
+// every section is in exactly one tab, or set aside below).
 
 export interface SettingsTab {
   id: string;
@@ -20,8 +20,16 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   { id: "eq", label: "EQ・トーン", sections: ["eq", "tone"] },
   { id: "tube", label: "真空管", sections: ["tube"] },
   { id: "space", label: "空間", sections: ["space", "crossfeed"] },
-  { id: "look", label: "見た目", sections: ["look", "articles"] },
+  { id: "look", label: "見た目", sections: ["look"] },
 ];
+
+// Sections that stay in the page but are in no tab, so they are never shown
+// (the tabs' view hides every group that is not in the chosen tab).
+// "articles": the article reader is put off (M7; the user, 2026-11-19), so
+// its entry (記事を開く…) is out of sight until there are articles to read.
+// The reader itself (task 7-1) is still built and tested. To bring the entry
+// back, move the name into the look tab's sections above.
+export const HIDDEN_SECTIONS: readonly string[] = ["articles"];
 
 export const SETTINGS_TAB_KEY = "settingsTab"; // the tab last used (localStorage)
 

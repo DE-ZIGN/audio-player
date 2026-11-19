@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { savedSettingsTab, SETTINGS_TABS, tabByKey, tabOfSection } from "./settingsTabs";
+import { HIDDEN_SECTIONS, savedSettingsTab, SETTINGS_TABS, tabByKey, tabOfSection } from "./settingsTabs";
 import { ARTICLE_SETTINGS_SECTIONS } from "./articleCommand";
 import html from "../index.html?raw";
 import css from "./style.css?raw";
@@ -17,11 +17,19 @@ const groups = [...settings.matchAll(/<div class="settings-group" data-group="([
 }));
 
 describe("the settings screen's tabs", () => {
-  it("every section of the page is in exactly one tab, and every tab's sections are in the page", () => {
+  it("every section of the page is in exactly one tab or set aside, and every tab's sections are in the page", () => {
     const inTabs = SETTINGS_TABS.flatMap((t) => t.sections);
-    expect(new Set(inTabs).size).toBe(inTabs.length);
-    expect([...inTabs].sort()).toEqual(groups.map((g) => g.name).sort());
+    const placed = [...inTabs, ...HIDDEN_SECTIONS];
+    expect(new Set(placed).size).toBe(placed.length);
+    expect([...placed].sort()).toEqual(groups.map((g) => g.name).sort());
     expect(groups.length).toBeGreaterThanOrEqual(12);
+  });
+  it("the article reader's entry is set aside (M7 is put off): in the page, in no tab", () => {
+    expect(HIDDEN_SECTIONS).toEqual(["articles"]);
+    expect(groups.some((g) => g.name === "articles")).toBe(true); // still there, for when the reader comes back
+    expect(settings).toMatch(/id="open-articles"/);
+    expect(tabOfSection("articles")).toBeNull();
+    expect(SETTINGS_TABS.find((t) => t.id === "look")?.sections).toEqual(["look"]);
   });
   it("each group starts with its heading", () => {
     expect(groups.every((g) => g.first === "h2")).toBe(true);
