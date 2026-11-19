@@ -33,7 +33,7 @@
 | amp/se-lit.jpg | `UI-AMP-SE-NOTEXT-v1` の x 0〜1672、y 42〜624 | アンプ部（真空管が灯った絵） |
 | amp/se-pure.jpg | `UI-AMP-SE-PURE-NOTEXT-v1` の同じ範囲 | アンプ部（真空管が消えた絵。2 枚を重ねて灯りを切り替える） |
 | amp/button.jpg | `UI-AMP-SE-NOTEXT-v1` の再生ボタン（中心 779, 575） | 前へ・停止・次へ（記号は `ui/src/icons.ts` の絵を重ねる） |
-| amp/play.jpg | `UI-AMP-SE-NOTEXT-v1` のアンバーの輪のボタン（中心 890, 575） | 再生・一時停止 |
+| amp/play.png | `UI-AMP-SE-NOTEXT-v1` のアンバーの輪のボタン。輪の中心（測ると 891.4, 576.3）に合わせて 74 × 74 px で切り、輪の外の暗い縁（半径 35.5 px）から外を透かす（2026-11-19。前は四角い JPG で、元の絵の照らされた木目が輪の周りに残り、ページの木目とずれて見えた） | 再生・一時停止 |
 | amp/toggle-up.png、amp/toggle-down.png | MODE のトグル（x 117〜183、y 391〜526。レバーの影がパネルの下の縁まで届く）を透過で切り抜いたもの。座金・玉・軸は測った形で不透明に切り、影は半透明の黒として持つ（2026-11-18 に切り抜き直した。PP の CROSSFEED も同じ）。上は原音版 `UI-AMP-SE-PURE-NOTEXT-v1`、下はそのレバーだけを下に倒した `UI-AMP-SE-PURE-NOTEXT-MODEDOWN-v1`（ユーザーが画像生成で作成、2026-11-18。トグルの外は元の絵と画素まで同じ）から切る。座金は上下で同じ。後者がないときは、下を点灯版から切る（点灯版はトグルが 2 px 右・5 px 上、座金も少し大きく描かれている）。アンプの絵からはトグルを消してある | MODE のスイッチ（PURE・TUBE） |
 
 ## プッシュプルのアンプ（PP EL34・PP CLASS A）
@@ -56,5 +56,5 @@
 |---|---|---|
 | amp/pp-lit.jpg、amp/pp-pure.jpg | `UI-AMP-PP-NOTEXT-v1`・`UI-AMP-PP-PURE-NOTEXT-v1` の x 0〜1672、y 42〜624 | アンプ部（灯った絵と消えた絵。2 枚を重ねて灯りを切り替える） |
 | amp/pp-button.jpg | 前へのボタン（中心 710.5, 576.5） | シャッフル・前へ・次へ・リピート・停止（記号は `ui/src/icons.ts` の絵を重ねる） |
-| amp/pp-play.jpg | アンバーの輪のボタン（中心 836.5, 576.5） | 再生・一時停止 |
+| amp/pp-play.png | アンバーの輪のボタン。輪の中心（測ると 836.3, 575.5）に合わせて 82 × 82 px で切り、半径 39.5 px から外を透かす（2026-11-19。SE と同じ理由）。ページは半径 39 px で出す | 再生・一時停止 |
 | amp/pp-xfeed-on.png、amp/pp-xfeed-off.png | CROSSFEED のトグル（x 1519〜1583、y 393〜493、座金が中心）を透過で切り抜いたもの。オンは `UI-AMP-PP-NOTEXT-v1`、オフはレバーだけを下に倒した `UI-AMP-PP-NOTEXT-XFEEDOFF-v1`（ユーザーが画像生成で作成、2026-11-15。トグル以外は元の絵と画素まで同じ） | CROSSFEED のスイッチ |

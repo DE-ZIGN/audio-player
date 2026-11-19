@@ -28,7 +28,8 @@ repository), read as drawn for a 150% screen:
 
 What comes out (ui/src/textures/amp/):
   pp-lit.jpg, pp-pure.jpg   the amp (x 0..1672, y 42..624), as se-lit / se-pure
-  pp-button.jpg, pp-play.jpg  the round buttons on the wood, symbols removed
+  pp-button.jpg, pp-play.png  the round buttons on the wood, symbols removed;
+                                the amber one cut round its ring (transparent past it)
   pp-xfeed-on.png, pp-xfeed-off.png  the CROSSFEED toggle, lever up and down, cut
                                 out (the amp pictures have no toggle)
 
@@ -48,7 +49,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ui_mockup_parts import blend, box_blur, crop, dilate, feather, load, luminance, push_pull, rect_mask, blur  # noqa: E402
 from ui_mockup_parts import save as save_to  # noqa: E402
-from ui_amp_parts import TOP, BOTTOM, disc, fill_rows, put, button, without_box, cut_toggle, save_png  # noqa: E402
+from ui_amp_parts import TOP, BOTTOM, disc, fill_rows, put, button, ring_button, without_box, cut_toggle, save_png  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'ui', 'src', 'textures', 'amp')
@@ -368,7 +369,9 @@ def main():
     src = lit
     # The symbols reach 17.5 px from the centre (the rim starts at 24): 15 left their ends on the glass.
     save(button(src, *ROUND['prev'][:2], r=ROUND['prev'][2] + 2, icon_r=20), 'pp-button.jpg')
-    save(button(src, *ROUND['play'][:2], r=ROUND['play'][2] + 4, icon_r=19), 'pp-play.jpg')
+    # The ring (measured 836.3, 575.5, r 37.4) and its glow end at about 41;
+    # the page shows it in its 39 (amp.ts), so a little smaller than drawn.
+    save_png(ring_button(src, *ROUND['play'][:2], size_r=41, keep_r=39.5, icon_r=19), 'pp-play.png', folder=OUT)
     save_png(xfeed(lit, False), 'pp-xfeed-on.png', folder=OUT)
     # The lever down, from the picture drawn so (only the toggle differs), when there is one.
     off_path = os.path.join(SRC, 'UI-AMP-PP-NOTEXT-XFEEDOFF-v1.png')

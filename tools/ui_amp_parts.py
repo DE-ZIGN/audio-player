@@ -33,8 +33,9 @@ What comes out (ui/src/textures/amp/):
                            drawn title bar, down to the wood under the panel).
                            The page shows one over the other and fades
                            between them, so the tubes light up and go dark.
-  button.jpg, play.jpg     the round buttons on the wood (plain and the
-                           amber-ringed one), their symbols removed
+  button.jpg, play.png     the round buttons on the wood (plain and the
+                           amber-ringed one), their symbols removed; the
+                           amber one cut round its ring (transparent past it)
   toggle-up.png,           the MODE toggle, lever up (PURE) and down (TUBE),
   toggle-down.png          cut out (transparent round it): the amp pictures
                            have no toggle, so neither lever shows through
@@ -464,6 +465,58 @@ def button(img: np.ndarray, cx: float, cy: float, r: float, icon_r: float) -> np
     return without_symbol(crop(img, box), cx - box[0], cy - box[1], icon_r)
 
 
+# The amber-ringed play buttons (2026-11-19, the user saw it): cut square, they
+# carried the picture's own wood round the ring, lit by its glow and with
+# other grain than the wood the page puts them on, and the ring sat off the
+# middle. Now they are cut on the ring's own centre (measured, below) and only
+# the button is kept: past keep_r it fades out by size_r, the edge of the
+# picture, so the page's wood shows round it.
+RING_CENTRE_LIMIT = 3.0  # px: the ring found this far from where it is said to be stops the script
+
+
+def ring_centre(img: np.ndarray, cx: float, cy: float, r0: float = 20, r1: float = 55) -> tuple:
+    """The centre and radius of the bright ring round (cx, cy): the brightest
+    point along each of 360 rays, a circle fitted through them."""
+    L = img[..., :3].mean(2)
+    pts = []
+    rs = np.arange(r0, r1, 0.25)
+    for t in np.linspace(0, 2 * np.pi, 360, endpoint=False):
+        xs, ys = cx + rs * np.cos(t), cy + rs * np.sin(t)
+        v = L[ys.round().astype(int), xs.round().astype(int)]
+        pts.append((xs[v.argmax()], ys[v.argmax()]))
+    p = np.array(pts)
+    a = np.c_[2 * p[:, 0], 2 * p[:, 1], np.ones(len(p))]
+    c = np.linalg.lstsq(a, (p ** 2).sum(1), rcond=None)[0]
+    return float(c[0]), float(c[1]), float(np.sqrt(c[2] + c[0] ** 2 + c[1] ** 2))
+
+
+def shifted_crop(img: np.ndarray, cx: float, cy: float, half: int) -> np.ndarray:
+    """2*half pixels square with (cx, cy) at its middle (bilinear for the part
+    of a pixel)."""
+    x0, y0 = cx - half, cy - half
+    ix, iy = int(np.floor(x0)), int(np.floor(y0))
+    fx, fy = x0 - ix, y0 - iy
+    n = 2 * half
+    a = img[iy:iy + n + 1, ix:ix + n + 1]
+    top = a[:n, :n] * (1 - fx) + a[:n, 1:n + 1] * fx
+    bot = a[1:n + 1, :n] * (1 - fx) + a[1:n + 1, 1:n + 1] * fx
+    return top * (1 - fy) + bot * fy
+
+
+def ring_button(img: np.ndarray, cx: float, cy: float, size_r: int, keep_r: float, icon_r: float) -> np.ndarray:
+    """The amber-ringed button, RGBA: centred on its ring as drawn, its symbol
+    removed, transparent past the ring's dark rim (keep_r .. size_r)."""
+    rx, ry, _ = ring_centre(img, cx, cy)
+    if np.hypot(rx - cx, ry - cy) > RING_CENTRE_LIMIT:
+        raise SystemExit(f'the play ring is at {rx:.1f}, {ry:.1f}, not near {cx}, {cy}')
+    part = without_symbol(shifted_crop(img[..., :3], rx, ry, size_r), size_r, size_r, icon_r)
+    yy, xx = np.mgrid[0:2 * size_r, 0:2 * size_r]
+    d = np.hypot(xx + 0.5 - size_r, yy + 0.5 - size_r)
+    t = np.clip((size_r - d) / (size_r - keep_r), 0, 1)
+    alpha = t * t * (3 - 2 * t)
+    return np.dstack([part, alpha])
+
+
 def main():
     global OUT, SRC
     args = sys.argv[1:]
@@ -500,7 +553,10 @@ def main():
     save(amp(lit, lamp, VOLUME_POINTER['lit'], DRAWN_BUTTONS['lit'], 11, words_drawn), 'se-lit.jpg', quality=86)
     save(amp(pure, lamp, VOLUME_POINTER['pure'], DRAWN_BUTTONS['pure'], 11, words_drawn), 'se-pure.jpg', quality=86)
     save(button(lit, *BUTTONS[1], r=BUTTON_R + 2, icon_r=17), 'button.jpg')
-    save(button(lit, *BUTTONS[2], r=BUTTON_R + 4, icon_r=19), 'play.jpg')  # 17 left a corner of the pause bar as a speck
+    # The ring (measured 891.4, 576.3, r 31.6) has a dark rim out to 36; the
+    # picture's lit wood is past it. 37 is the page's radius for it (amp.ts).
+    # icon_r 17 left a corner of the pause bar as a speck.
+    save_png(ring_button(lit, *BUTTONS[2], size_r=37, keep_r=35.5, icon_r=19), 'play.png')
     bare = without_box(pure, TOGGLE, PANEL, not_metal_se)
     save_png(cut_toggle(pure, bare, TOGGLE, TOGGLE_PARTS['up']), 'toggle-up.png')
     down_path = os.path.join(SRC, LEVER_DOWN_PICTURE)
