@@ -55,11 +55,13 @@ import xfeedOff from "./textures/amp/pp-xfeed-off.png";
 import seButton from "./textures/amp/button.jpg";
 import sePlay from "./textures/amp/play.png";
 import ppButton from "./textures/amp/pp-button.jpg";
-import ppPlay from "./textures/amp/pp-play.jpg";
 
-const PICTURES: Record<AmpLook, { pure: string; lit: string; button: string; play: string }> = {
+// play: the play button's own picture. The PP amp has none: its play button
+// stays on the amp pictures, where the page has it (2026-11-19), and the
+// page draws only the symbol on it.
+const PICTURES: Record<AmpLook, { pure: string; lit: string; button: string; play: string | null }> = {
   se: { pure: sePure, lit: seLit, button: seButton, play: sePlay },
-  pp: { pure: ppPure, lit: ppLit, button: ppButton, play: ppPlay },
+  pp: { pure: ppPure, lit: ppLit, button: ppButton, play: null },
 };
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -349,7 +351,7 @@ class AmpPanel {
     this.stage.dataset.look = layout.look;
     // The round buttons cut from this picture, and where the transport goes on it.
     this.stage.style.setProperty("--button", `url("${pic.button}")`);
-    this.stage.style.setProperty("--button-play", `url("${pic.play}")`);
+    this.stage.style.setProperty("--button-play", pic.play === null ? "none" : `url("${pic.play}")`);
     for (const [name, b] of Object.entries(layout.transport) as [TransportName, (typeof layout.transport)[TransportName]][]) {
       this.stage.style.setProperty(`--${name}-x`, px(b.x - b.r));
       this.stage.style.setProperty(`--${name}-y`, px(top(b.y) - b.r));

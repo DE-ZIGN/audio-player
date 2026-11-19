@@ -28,7 +28,8 @@ repository), read as drawn for a 150% screen:
 
 What comes out (ui/src/textures/amp/):
   pp-lit.jpg, pp-pure.jpg   the amp (x 0..1672, y 42..624), as se-lit / se-pure
-  pp-button.jpg, pp-play.jpg  the round buttons on the wood, symbols removed
+  pp-button.jpg             the round button on the wood, its symbol removed
+                            (the play button stays on the amp pictures, see below)
   pp-xfeed-on.png, pp-xfeed-off.png  the CROSSFEED toggle, lever up and down, cut
                                 out (the amp pictures have no toggle)
 
@@ -47,6 +48,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ui_mockup_parts import blend, box_blur, crop, dilate, feather, load, luminance, push_pull, rect_mask, blur  # noqa: E402
+from ui_mockup_parts import without_symbol  # noqa: E402
 from ui_mockup_parts import save as save_to  # noqa: E402
 from ui_amp_parts import TOP, BOTTOM, disc, fill_rows, put, button, without_box, cut_toggle, save_png  # noqa: E402
 
@@ -98,6 +100,18 @@ VU_HUMP = {'L': (207, 245), 'R': (1467, 245)}
 ROUND = {'shuffle': (600.5, 576.5, 28.5), 'prev': (710.5, 576.5, 28.5), 'play': (836.5, 576.5, 39.0),
          'next': (963.5, 576.5, 28.5), 'repeat': (1075.5, 576.5, 28.5)}
 ROUND_GLOW = {'play': 52, 'other': 38}
+# The play button stays on the amp pictures (2026-11-19, the user): the page
+# has it where the picture draws it, and both pictures draw it alike, lit.
+# Taken off (r 52, the wood filled in from the sides) and put back as a cut
+# picture, it had smeared wood round it and a band of the picture's own wood
+# inside the page's circle. Only its symbol goes: the pause bars reach about
+# 17 px from the centre, the ring starts at 34.
+# The wood is still filled in as before, play's disc too, and the picture is
+# put back over that disc afterwards: so the wood round the other buttons
+# comes out as it did (the fill of one disc depends on the others).
+PLAY_KEPT_R = ROUND_GLOW['play'] + 4  # past the fill's soft edge
+PLAY_SYMBOL_R = 19
+PLAY_FACE_R = 30  # the box the symbol is filled in from (inside the ring)
 
 # The CROSSFEED toggle: a box centred on the nut (y 416..470: centre 443), tall
 # enough for the lever up (tip at y 398) and turned over (tip at y 488).
@@ -303,7 +317,15 @@ def wood_without_buttons(img: np.ndarray, words_drawn: bool) -> np.ndarray:
     mask = buttons & ~badge & ~panel
     vents = rect_mask(shape, VENTS, origin=WOOD[:2])
     made = fill_rows(part, mask, badge | panel | vents, edge=4, grain=6)
-    return put(out, blend(part, made, mask, 2), WOOD)
+    filled = blend(part, made, mask, 2)
+    # The play button keeps its ring, its glow and the wood round it; the page draws the symbol.
+    x, y, _ = ROUND['play']
+    kept = disc(shape, x, y, PLAY_KEPT_R, WOOD[:2])
+    filled[kept] = part[kept]
+    out = put(out, filled, WOOD)
+    r = PLAY_FACE_R
+    box = (int(round(x - r)), int(round(y - r)), int(round(x + r)), int(round(y + r)))
+    return put(out, without_symbol(crop(out, box), x - box[0], y - box[1], PLAY_SYMBOL_R), box)
 
 
 def amp(img: np.ndarray, words_drawn: bool):
@@ -368,7 +390,6 @@ def main():
     src = lit
     # The symbols reach 17.5 px from the centre (the rim starts at 24): 15 left their ends on the glass.
     save(button(src, *ROUND['prev'][:2], r=ROUND['prev'][2] + 2, icon_r=20), 'pp-button.jpg')
-    save(button(src, *ROUND['play'][:2], r=ROUND['play'][2] + 4, icon_r=19), 'pp-play.jpg')
     save_png(xfeed(lit, False), 'pp-xfeed-on.png', folder=OUT)
     # The lever down, from the picture drawn so (only the toggle differs), when there is one.
     off_path = os.path.join(SRC, 'UI-AMP-PP-NOTEXT-XFEEDOFF-v1.png')
