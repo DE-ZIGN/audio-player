@@ -1,0 +1,127 @@
+# Builds the app and runs every test (task 8-1): on each push to main, on pull
+# requests, and by hand. The steps are the README's own: cmake --preset vs2022,
+# cmake --build --preset release, ctest --preset release.
+#
+# The actions are pinned to a commit (the version is in the comment): a tag
+# can be moved, a commit cannot.
+name: build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch replaces the run in progress.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows x64 (Release)
+    # Named, not windows-latest: the preset asks for Visual Studio 2022, which
+    # this image has (windows-latest may move on to a later Visual Studio).
+    runs-on: windows-2025
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The UI is built with npm from inside the CMake build (ui/CMakeLists.txt).
+      - name: Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      # Windows Server comes without Media Foundation. The player decodes AAC
+      # with it (CLAUDE.md: no AAC decoder of our own), and the tests make
+      # their AAC and ALAC files with its encoders.
+      - name: Media Foundation
+        shell: powershell
+        run: |
+          $feature = Get-WindowsFeature -Name Server-Media-Foundation
+          if ($feature.Installed) {
+            Write-Output "Media Foundation is already installed."
+          } else {
+            $result = Install-WindowsFeature -Name Server-Media-Foundation
+            Write-Output "Installed: $($result.Success); restart needed: $($result.RestartNeeded)"
+            if (-not $result.Success) { throw "Media Foundation could not be installed." }
+            if ("$($result.RestartNeeded)" -ne "No") {
+              Write-Output "::warning::Media Foundation asks for a restart; the AAC and ALAC tests may fail on this runner."
+            }
+          }
+
+      # The app's self tests open the real WebView2 (the smoke label). The
+      # image lists Edge, not the WebView2 runtime: put it in when it is not
+      # there, from Microsoft's own evergreen installer.
+      - name: WebView2 runtime
+        shell: powershell
+        run: |
+          $keys = @(
+            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+            "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+            "HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+          )
+          function Get-WebView2Version {
+            foreach ($key in $keys) {
+              $pv = (Get-ItemProperty -Path $key -Name pv -ErrorAction SilentlyContinue).pv
+              if ($pv -and $pv -ne "0.0.0.0") { return $pv }
+            }
+            return $null
+          }
+          $version = Get-WebView2Version
+          if (-not $version) {
+            $setup = Join-Path $env:RUNNER_TEMP "MicrosoftEdgeWebview2Setup.exe"
+            Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile $setup
+            $signature = Get-AuthenticodeSignature -FilePath $setup
+            if ($signature.Status -ne "Valid" -or $signature.SignerCertificate.Subject -notmatch "O=Microsoft Corporation") {
+              throw "The WebView2 installer is not signed by Microsoft ($($signature.Status))."
+            }
+            $process = Start-Process -FilePath $setup -ArgumentList "/silent", "/install" -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw "The WebView2 installer ended with $($process.ExitCode)." }
+            $version = Get-WebView2Version
+          }
+          if (-not $version) { throw "The WebView2 runtime is not installed." }
+          Write-Output "WebView2 runtime $version"
+
+      # The dependencies come down here, each checked against its SHA-256
+      # (cmake/Dependencies.cmake).
+      - name: Configure
+        run: cmake --preset vs2022
+
+      - name: Build
+        run: cmake --build --preset release --parallel
+
+      # In two steps, so a failure says which kind it is: first the tests that
+      # need nothing but the machine, then the app itself in a window.
+      - name: Unit and acceptance tests
+        run: ctest --preset release -LE smoke
+
+      - name: The app's self tests (WebView2)
+        run: ctest --preset release -L smoke
+
+      - name: Keep the test logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-logs
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            build/vs2022/Testing/Temporary/LastTest.log
+            build/vs2022/tests/app_self_test/*.log
