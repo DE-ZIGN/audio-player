@@ -87,6 +87,13 @@ export async function runSelfTest(
     const total = latest.totalFrames;
     log.push(`loaded ${latest.fileName}, ${total} frames`);
 
+    // The test plays its track once, to the end. The page has just applied
+    // the repeat mode the user last chose (main.ts: it is kept in the web
+    // view's storage, which this test shares with the app as used): with
+    // repeat on, the track never ends (2026-11-19: "timeout: end after
+    // seek"). Off for this run only; what is saved stays as it is.
+    await backend.setRepeat("off");
+
     await backend.play();
     await waitFor("playing with progress", (s) => s.state === "playing" && s.positionFrames > 0, 5000);
     log.push("playing, position advances (event)");
