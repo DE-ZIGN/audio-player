@@ -29,9 +29,12 @@ concurrency:
 jobs:
   windows:
     name: Windows x64 (Release)
-    # Named, not windows-latest: the preset asks for Visual Studio 2022, which
-    # this image has (windows-latest may move on to a later Visual Studio).
-    runs-on: windows-2025
+    # The preset asks for Visual Studio 2022 (CLAUDE.md chapter 3), and this is
+    # the image that has it. windows-latest and windows-2025 are the image with
+    # Visual Studio 2026 only (seen 2026-11-19: "could not find any instance of
+    # Visual Studio"). When this image is retired, the project moves to the
+    # later Visual Studio first.
+    runs-on: windows-2022
     timeout-minutes: 90
 
     steps:
