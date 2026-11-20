@@ -236,12 +236,12 @@ EqPreset parseEqPreset(std::string_view text)
                     preset.filePreampDb = *v;
                     continue;
                 }
-            preset.warnings.push_back(std::format("{} 行目: Preamp の値が読めません", lineNo));
+            preset.warnings.push_back({lineNo, EqWarningKind::PreampUnreadable, {}});
             continue;
         }
         if (!head.starts_with("FILTER"))
         {
-            preset.warnings.push_back(std::format("{} 行目: 読めない行なので飛ばしました", lineNo));
+            preset.warnings.push_back({lineNo, EqWarningKind::LineUnreadable, {}});
             continue;
         }
         // "Filter 1:" or "Filter:" then ON/OFF and the type.
@@ -254,7 +254,7 @@ EqPreset parseEqPreset(std::string_view text)
         }
         if (i + 1 >= w.size())
         {
-            preset.warnings.push_back(std::format("{} 行目: フィルターの書き方が読めません", lineNo));
+            preset.warnings.push_back({lineNo, EqWarningKind::FilterUnreadable, {}});
             continue;
         }
         const std::string state = upper(w[i]);
@@ -264,7 +264,7 @@ EqPreset parseEqPreset(std::string_view text)
         const auto type = filterType(typeName);
         if (state != "ON" || !type)
         {
-            preset.warnings.push_back(std::format("{} 行目: 対応していない種類（{}）なので飛ばしました", lineNo, w[i + 1]));
+            preset.warnings.push_back({lineNo, EqWarningKind::TypeUnsupported, w[i + 1]});
             continue;
         }
         EqBand band;
@@ -292,7 +292,7 @@ EqPreset parseEqPreset(std::string_view text)
         }
         if (!ok || !hasFc)
         {
-            preset.warnings.push_back(std::format("{} 行目: 周波数やゲインの値が読めません", lineNo));
+            preset.warnings.push_back({lineNo, EqWarningKind::ValuesUnreadable, {}});
             continue;
         }
         preset.bands.push_back(band);

@@ -264,7 +264,25 @@ TEST_CASE("AutoEQ and Equalizer APO text is read", "[dsp][eq][autoeq]")
     CHECK(p.bands[3] == EqBand{EqFilterType::Peak, 2000, 1.5, 2.0});
     CHECK(p.bands[4] == EqBand{EqFilterType::BandPass, 1000, 0.0, 1.0});
     CHECK(p.bands[5] == EqBand{EqFilterType::Notch, 60, 0.0, 30.0});
-    CHECK(p.warnings.size() == 3); // the unreadable number, "Channel:" and BWLP
+    // What was skipped, by line (the page writes the words, task 11-3).
+    CHECK(p.warnings == std::vector<EqWarning>{{9, EqWarningKind::ValuesUnreadable, ""},
+                                               {10, EqWarningKind::LineUnreadable, ""},
+                                               {12, EqWarningKind::TypeUnsupported, "BWLP"}});
+}
+
+TEST_CASE("AutoEQ text: an unreadable preamp, a filter line cut short, a state that is not ON", "[dsp][eq][autoeq]")
+{
+    const auto p = parseEqPreset("Preamp: loud\n"
+                                 "Filter 1:\n"
+                                 "Filter 2: MAYBE PK Fc 100 Hz Gain 1 dB Q 1\n"
+                                 "Filter 3: ON pk Fc 200 Hz Gain 2 dB Q 1\n");
+    CHECK_FALSE(p.filePreampDb.has_value());
+    REQUIRE(p.bands.size() == 1);
+    CHECK(p.bands[0] == EqBand{EqFilterType::Peak, 200, 2.0, 1.0});
+    // The type as written in the file.
+    CHECK(p.warnings == std::vector<EqWarning>{{1, EqWarningKind::PreampUnreadable, ""},
+                                               {2, EqWarningKind::FilterUnreadable, ""},
+                                               {3, EqWarningKind::TypeUnsupported, "PK"}});
 }
 
 TEST_CASE("EQ: bands that cannot be realised at the rate are skipped and counted", "[dsp][eq]")

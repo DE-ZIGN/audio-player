@@ -387,28 +387,43 @@ std::vector<double> resampleIr(const std::vector<double>& x, double fromRate, do
     return y;
 }
 
+const char* irFileProblemKey(IrFileProblem problem) noexcept
+{
+    switch (problem)
+    {
+        case IrFileProblem::None:       return "none";
+        case IrFileProblem::Missing:    return "missing";
+        case IrFileProblem::NotAudio:   return "notAudio";
+        case IrFileProblem::Dsd:        return "dsd";
+        case IrFileProblem::Unreadable: return "unreadable";
+        case IrFileProblem::TooLong:    return "tooLong";
+        case IrFileProblem::Silent:     return "silent";
+        case IrFileProblem::Other:      return "other";
+    }
+    return "other";
+}
+
 LoadedIr loadImpulseResponse(const std::filesystem::path& path)
 {
     std::unique_ptr<PcmSource> source;
     std::error_code ec;
     if (!std::filesystem::is_regular_file(path, ec))
-        throw std::runtime_error("ファイルが見つかりません（移動したか、消したのかもしれません）");
+        throw IrFileError(IrFileProblem::Missing, "IR file not found");
     try
     {
         source = openAudioFile(path);
     }
-    catch (const std::exception&)
+    catch (const std::exception& e)
     {
-        throw std::runtime_error("このファイルは IR として読めません（WAV・FLAC・AIFF などの PCM のファイルを選んでください）");
+        throw IrFileError(IrFileProblem::NotAudio, std::string("not an audio file the player reads: ") + e.what());
     }
     if (source->dop())
-        throw std::runtime_error("DSD のファイルは IR に使えません（PCM のファイルを選んでください）");
+        throw IrFileError(IrFileProblem::Dsd, "a DSD file cannot be an IR");
     const PcmFormat format = source->format();
     if (format.channels == 0 || format.sampleRate == 0)
-        throw std::runtime_error("このファイルは IR として読めません");
-    constexpr double kMaxFileSeconds = 60.0;
-    if (static_cast<double>(source->totalFrames()) > kMaxFileSeconds * format.sampleRate)
-        throw std::runtime_error("IR のファイルが長すぎます（60 秒まで）");
+        throw IrFileError(IrFileProblem::Unreadable, "no channels or no sample rate");
+    if (static_cast<double>(source->totalFrames()) > kMaxIrFileSeconds * format.sampleRate)
+        throw IrFileError(IrFileProblem::TooLong, "IR file longer than 60 s");
 
     const std::size_t channels = format.channels;
     std::vector<std::byte> bytes(static_cast<std::size_t>(format.bytesPerFrame()) * 8192);
@@ -433,7 +448,7 @@ LoadedIr loadImpulseResponse(const std::filesystem::path& path)
         if (std::isfinite(v))
             peak = std::max(peak, std::abs(v));
     if (frames == 0 || peak <= 0.0)
-        throw std::runtime_error("IR のファイルに音が入っていません");
+        throw IrFileError(IrFileProblem::Silent, "IR file is silent");
 
     // The first arrival: the first sample above -80 dB of the peak, in any channel used.
     std::size_t start = frames;

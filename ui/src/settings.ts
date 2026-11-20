@@ -6,6 +6,7 @@ import type { TubeAutoSettings, TubeGenreRule } from "./tubeAuto";
 import { unitLabel } from "./tubeCharacter";
 import { outputRateSummary, type OutputRateMode } from "./outputRate";
 import { t, type MessageKey } from "./i18n";
+import { nativeText, type NativeText } from "./nativeText";
 
 export type ListeningMode = "original" | "processed";
 export type ReplayGainMode = "off" | "track" | "album";
@@ -61,11 +62,12 @@ export interface ListeningSettings {
   spaceIr: [string, string, string];
 }
 
-// What became of a user IR file (task 9-6), as the app reports it.
+// What became of a user IR file (task 9-6), as the app reports it. The
+// app's messages are codes and values (task 11-3, nativeText.ts).
 export interface SpaceIrStatus {
   path: string;
   loaded: boolean;
-  error?: string;
+  error?: NativeText;
   seconds: number;
   sampleRate: number;
   channels: number; // used: 1 or 2
@@ -98,7 +100,7 @@ export interface OutputDevice {
 export interface OutputsInfo {
   wasapi: OutputDevice[];
   asio: OutputDevice[];
-  message?: string;
+  message?: NativeText;
 }
 
 export interface EqInfo {
@@ -114,25 +116,25 @@ export interface EqCurve extends EqInfo {
 export interface EqImport {
   ok: boolean;
   cancelled?: boolean;
-  message?: string;
+  message?: NativeText;
   bands?: EqBand[];
-  warnings?: string[];
+  warnings?: NativeText[];
   filePreampDb?: number | null;
 }
 
 export interface PresetsResult {
   ok: boolean;
-  message?: string;
+  message?: NativeText;
   eqPresets?: EqPreset[];
 }
 export interface TubeAutoResult {
   ok: boolean;
-  message?: string;
+  message?: NativeText;
   tubeAuto?: TubeAutoSettings;
 }
 export interface SetResult {
   ok: boolean;
-  message?: string;
+  message?: NativeText;
   eq?: EqInfo;
   spaceIrs?: SpaceIrStatus[]; // task 9-6
 }
@@ -280,7 +282,8 @@ export function spaceIrText(l: ListeningSettings, room: Exclude<SpaceRoom, "off"
     if (l.spaceSource?.[i] === "file" && l.spaceIr[i] === "") return t("status.space.noFile", { fallback });
     if (l.spaceSource?.[i] === "file" && st && !st.loaded) {
       const name = st.path.split(/[\\/]/).pop() ?? st.path;
-      return `⚠ ${t("status.space.unreadable", { name, error: st.error ?? t("status.space.unknownError"), fallback })}`;
+      const error = nativeText(st.error) || t("status.space.unknownError");
+      return `⚠ ${t("status.space.unreadable", { name, error, fallback })}`;
     }
     return builtInIrText(room, playing);
   }

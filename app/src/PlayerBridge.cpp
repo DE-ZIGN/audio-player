@@ -3,6 +3,7 @@
 #include "EqVar.h"
 
 #include "AsioCheck.h"
+#include "NativeVar.h"
 
 #include <cmath>
 #include <ap/engine/output/asio_output.h>
@@ -270,7 +271,14 @@ juce::WebBrowserComponent::Options PlayerBridge::registerFunctions(juce::WebBrow
     using Completion = juce::WebBrowserComponent::NativeFunctionCompletion;
 
     return options
-        .withNativeFunction("openFile", [this](Args, Completion done) { openFileAsync(std::move(done)); })
+        .withNativeFunction("openFile",
+                            [this](Args args, Completion done) {
+                                // The dialog's title: the page's, in its language (task 11-3).
+                                const auto title = args.isEmpty() ? juce::String() : args[0].toString();
+                                openFileAsync(title.isNotEmpty() ? title
+                                                                 : juce::String::fromUTF8("音声ファイルを開く（複数選べます）"),
+                                              std::move(done));
+                            })
         .withNativeFunction("play", [this](Args, Completion done) {
             player_.play();
             pushStatus(true);
@@ -386,12 +394,12 @@ juce::WebBrowserComponent::Options PlayerBridge::registerFunctions(juce::WebBrow
         });
 }
 
-juce::String PlayerBridge::load(const juce::File& file)
+NativeMessage PlayerBridge::load(const juce::File& file)
 {
     return loadFiles({file});
 }
 
-juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
+NativeMessage PlayerBridge::loadFiles(juce::Array<juce::File> files)
 {
     // Play in file-name order (the dialog does not guarantee an order).
     std::sort(files.begin(), files.end(), [](const juce::File& a, const juce::File& b) {
@@ -410,8 +418,7 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
         catch (const std::exception& e)
         {
             // The engine's texts are UTF-8 (the file's name may be in them).
-            return juce::String::fromUTF8("このファイルは読めません（WAV、FLAC、AIFF、ALAC・AAC（.m4a）、MP3、DSF、DFF に対応）: ") + file.getFileName() + " ("
-                 + juce::String::fromUTF8(e.what()) + ")";
+            return msg::playerUnreadable(utf8Of(file.getFileName()), e.what());
         }
         // Read ahead on a separate thread so the playback thread never waits
         // for the disk (dropout prevention only). The next track is opened
@@ -432,7 +439,7 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
     pushStatus(true);
     const auto s = player_.status();
     if (s.state == PlayerState::Error)
-        return juce::String::fromUTF8("ファイルを開けませんでした: ") + juce::String::fromUTF8(s.error.detail.c_str());
+        return msg::playerOpenFailed(s.error.detail);
     return {};
 }
 
@@ -485,13 +492,13 @@ void PlayerBridge::replaceUpcoming(std::vector<QueueFile> files)
     pushStatus(true);
 }
 
-juce::String PlayerBridge::playQueue(std::vector<QueueFile> files, std::size_t start)
+NativeMessage PlayerBridge::playQueue(std::vector<QueueFile> files, std::size_t start)
 {
     std::vector<QueueItem> items;
     for (const auto& f : files)
         items.push_back(itemFor(f));
     if (items.empty())
-        return juce::String::fromUTF8("再生する曲がありません");
+        return msg::playerNothingToPlay();
     queueMeta_.clear();
     for (auto& f : files)
         queueMeta_.push_back(std::move(f));
@@ -502,17 +509,16 @@ juce::String PlayerBridge::playQueue(std::vector<QueueFile> files, std::size_t s
     if (s.state == PlayerState::Error)
     {
         pushStatus(true);
-        return juce::String::fromUTF8("ファイルを開けませんでした: ") + juce::String::fromUTF8(s.error.detail.c_str());
+        return msg::playerOpenFailed(s.error.detail);
     }
     player_.play();
     pushStatus(true);
     return {};
 }
 
-void PlayerBridge::openFileAsync(juce::WebBrowserComponent::NativeFunctionCompletion completion)
+void PlayerBridge::openFileAsync(const juce::String& title, juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
-    chooser_ = std::make_unique<juce::FileChooser>(juce::String::fromUTF8("音声ファイルを開く（複数選べます）"),
-                                                   juce::File{}, supportedAudioFilePattern());
+    chooser_ = std::make_unique<juce::FileChooser>(title, juce::File{}, supportedAudioFilePattern());
     chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles
                               | juce::FileBrowserComponent::canSelectMultipleItems,
                           [this, completion = std::move(completion)](const juce::FileChooser& fc) {
@@ -526,9 +532,9 @@ void PlayerBridge::openFileAsync(juce::WebBrowserComponent::NativeFunctionComple
                               else
                               {
                                   const auto message = loadFiles(files);
-                                  result->setProperty("ok", message.isEmpty());
-                                  if (message.isNotEmpty())
-                                      result->setProperty("message", message);
+                                  result->setProperty("ok", message.empty());
+                                  if (!message.empty())
+                                      result->setProperty("message", nativeVar(message));
                               }
                               completion(juce::var(result));
                           });
@@ -588,7 +594,8 @@ juce::var PlayerBridge::statusAsVar() const
     o->setProperty("outputName", juce::String::fromUTF8(s.outputName.c_str()));
     {
         std::lock_guard lock(outputMutex_);
-        o->setProperty("outputNotice", juce::String::fromUTF8(outputNotice_.c_str()));
+        // "" when playback is on the chosen output; else { code, values } (task 11-3).
+        o->setProperty("outputNotice", outputNotice_.empty() ? juce::var("") : nativeVar(outputNotice_));
     }
     o->setProperty("path", s.path ? pathVar(*s.path) : juce::var());
 
@@ -732,7 +739,7 @@ void PlayerBridge::setOutput(const OutputChoice& output)
     {
         std::lock_guard lock(outputMutex_);
         output_ = output;
-        outputNotice_.clear();
+        outputNotice_ = {};
     }
     player_.setAllowDop(output.allowDop);
     if (wasPlaying)
@@ -767,9 +774,9 @@ std::unique_ptr<AudioOutput> PlayerBridge::openChosenOutput()
         std::lock_guard lock(outputMutex_);
         c = output_;
     }
-    auto setNotice = [this](std::string text) {
+    auto setNotice = [this](NativeMessage notice) {
         std::lock_guard lock(outputMutex_);
-        outputNotice_ = std::move(text);
+        outputNotice_ = std::move(notice);
     };
 
     if (c.kind == OutputKind::Asio)
@@ -784,14 +791,14 @@ std::unique_ptr<AudioOutput> PlayerBridge::openChosenOutput()
                 driver = &d;
         if (driver == nullptr)
         {
-            setNotice("選んだ ASIO ドライバー（" + c.name + "）が見つかりません。設定で出力を選び直してください");
+            setNotice(msg::asioDriverMissing(c.name));
             throw OutputException(OutputError::DeviceNotFound, "ASIO driver not found: " + c.name);
         }
         // A driver that crashes its host is caught in a child process first (task 1-4).
         const auto check = checkAsioDriver(*driver);
         if (check.status != AsioProbeResult::Status::Ok)
         {
-            setNotice(asioProblemText(check));
+            setNotice(asioProblem(check));
             throw OutputException(OutputError::DeviceError, "ASIO driver check failed: " + check.message);
         }
         setNotice({});
@@ -799,12 +806,12 @@ std::unique_ptr<AudioOutput> PlayerBridge::openChosenOutput()
     }
 
     std::string id; // empty: the Windows default device
-    std::string notice;
+    NativeMessage notice;
     if (!c.id.empty() || !c.name.empty())
     {
         const auto r = resolveOutputDevice({c.id, c.name}, WasapiExclusiveOutput::listDevices());
         if (r.match == DeviceMatch::DefaultDevice)
-            notice = "選んだ出力（" + c.name + "）が見つからないため、Windows の既定のデバイスで再生しています";
+            notice = msg::outputFallbackDefault(c.name);
         if (r.device)
             id = r.device->id;
     }
@@ -816,20 +823,20 @@ std::unique_ptr<AudioOutput> PlayerBridge::openChosenOutput()
 
 void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserComponent::NativeFunctionCompletion done)
 {
-    auto fail = [&done](const char* message) {
+    auto fail = [&done](const NativeMessage& message) {
         auto* o = new juce::DynamicObject();
         o->setProperty("ok", false);
-        o->setProperty("message", juce::String::fromUTF8(message));
+        o->setProperty("message", nativeVar(message));
         done(juce::var(o));
     };
     if ((abx_ && abx_->running) || abxPreparing_)
-        return fail("ABX はもう始まっています");
+        return fail(msg::abxAlreadyRunning());
     abx_.reset();
     const auto s = player_.status();
     if (s.state == PlayerState::Empty || s.queueIndex >= queueMeta_.size() || !s.sourceFormat)
-        return fail("ABX で聴く曲を、先に再生してください");
+        return fail(msg::abxNotPlaying());
     if (s.dop)
-        return fail("DSD（DoP）の曲は ABX で比べられません（DoP のデータには処理をかけないため）");
+        return fail(msg::abxDop());
     const auto file = queueMeta_[s.queueIndex];
     const auto kindName = request.getProperty("kind", "processed").toString();
     const std::string kind = kindName == "16bit" ? "16bit" : kindName == "presets" ? "presets" : "processed";
@@ -843,7 +850,7 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
         const auto a = presetFrom(request.getProperty("a", {}));
         const auto b = presetFrom(request.getProperty("b", {}));
         if (!a || !b)
-            return fail("比べる 2 つの設定を選んでください");
+            return fail(msg::abxChoosePair());
         const auto sideA = request.getProperty("a", {}), sideB = request.getProperty("b", {});
         for (auto [settings, preset, side] :
              {std::tuple{&settingsA, &*a, &sideA}, std::tuple{&settingsB, &*b, &sideB}})
@@ -947,7 +954,7 @@ void PlayerBridge::abxStartAsync(const juce::var& request, juce::WebBrowserCompo
             if (!error.empty())
             {
                 o->setProperty("ok", false);
-                o->setProperty("message", juce::String::fromUTF8("区間を解析できませんでした: ") + juce::String::fromUTF8(error.c_str()));
+                o->setProperty("message", nativeVar(msg::abxAnalysisFailed(error)));
                 done(juce::var(o));
                 return;
             }

@@ -2,6 +2,8 @@
 
 #include <ap/engine/output/asio_probe.h>
 
+#include <NativeMessages.h>
+
 #include <string>
 
 namespace ap::app {
@@ -19,7 +21,7 @@ ap::engine::AsioProbeResult checkAsioDriver(const ap::engine::AsioDriverInfo& dr
 // result line to the standard output and returns the exit code.
 int runAsioProbeChild(const std::string& clsid);
 
-// Japanese, for the user, when the check did not pass.
-std::string asioProblemText(const ap::engine::AsioProbeResult& result);
+// Why the driver cannot be used, for the page (task 11-3); empty when the check passed.
+NativeMessage asioProblem(const ap::engine::AsioProbeResult& result);
 
 } // namespace ap::app

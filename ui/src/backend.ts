@@ -2,8 +2,14 @@
 // provides window.__JUCE__ and native functions; in a plain browser (Vite dev
 // server opened directly) a mock backend simulates playback so the page can
 // be worked on without the app.
+//
+// The app's messages are codes and values (task 11-3, nativeText.ts); the mock
+// sends the same codes, so the page shows the same sentences. The file
+// dialogs' titles are the page's, in its language.
 
 import type { EqPreset } from "./eqPresets";
+import { t } from "./i18n";
+import type { NativeText } from "./nativeText";
 import { chooseTubeType, type TubeAutoSettings } from "./tubeAuto";
 import type { RepeatMode } from "./playModes";
 import { emptyStatus, type BitPerfectVerdict, type MeterStatus, type PlaybackStatus, type SignalPath } from "./status";
@@ -51,7 +57,7 @@ export interface QueueInfo {
 export interface OpenResult {
   ok: boolean;
   cancelled?: boolean;
-  message?: string;
+  message?: NativeText;
 }
 
 // The library (task 6-1), see app/src/LibraryBridge.h.
@@ -85,7 +91,7 @@ export interface SettingsApi {
 
 // The ABX (task 6-6), see app/src/PlayerBridge.h. Its state comes with the status.
 export interface AbxApi {
-  start(r: AbxRequest): Promise<{ ok: boolean; message?: string; matchDb?: number }>;
+  start(r: AbxRequest): Promise<{ ok: boolean; message?: NativeText; matchDb?: number }>;
   choose(c: AbxChoice): Promise<void>;
   answer(xIs: "A" | "B"): Promise<void>;
   abort(): Promise<void>;
@@ -110,7 +116,7 @@ export interface Backend {
   selfTestResult(result: { ok: boolean; log: string[] }): Promise<void>;
   onStatus(listener: (status: PlaybackStatus) => void): void;
   // The article reader (task 7-1): a window of its own. No id: the list of articles.
-  openArticle(id?: string, section?: string): Promise<{ ok: boolean; message?: string }>;
+  openArticle(id?: string, section?: string): Promise<{ ok: boolean; message?: NativeText }>;
   // A link in an article asking for a screen (articleCommand.ts reads the payload).
   onArticleCommand(listener: (payload: unknown) => void): void;
 }
@@ -143,7 +149,7 @@ class AppLibrary implements LibraryApi {
     return ((await this.fn("libraryFolders")()) as Folder[] | null) ?? [];
   }
   async addFolder() {
-    return (await this.fn("libraryAddFolder")()) as ActionResult;
+    return (await this.fn("libraryAddFolder")(t("page.chooser.addFolder"))) as ActionResult;
   }
   async removeFolder(id: number) {
     await this.fn("libraryRemoveFolder")(id);
@@ -186,10 +192,10 @@ class AppSettings implements SettingsApi {
     return ((await this.fn("settingsSetOutput")(o)) as SetResult | null) ?? { ok: false };
   }
   async importEq() {
-    return ((await this.fn("settingsImportEq")()) as EqImport | null) ?? { ok: false };
+    return ((await this.fn("settingsImportEq")(t("page.chooser.eq"))) as EqImport | null) ?? { ok: false };
   }
   async chooseIr() {
-    return ((await this.fn("settingsChooseIr")()) as IrChoice | null) ?? { ok: false };
+    return ((await this.fn("settingsChooseIr")(t("page.chooser.ir"))) as IrChoice | null) ?? { ok: false };
   }
   async eqCurve(bands: EqBand[]) {
     return (await this.fn("settingsEqCurve")(bands)) as EqCurve;
@@ -219,7 +225,7 @@ class AppBackend implements Backend {
     this.library = new AppLibrary(fn, coverBase);
     this.settings = new AppSettings(fn);
     this.abx = {
-      start: async (r) => ((await fn("abxStart")(r)) as { ok: boolean; message?: string; matchDb?: number } | null) ?? { ok: false },
+      start: async (r) => ((await fn("abxStart")(r)) as { ok: boolean; message?: NativeText; matchDb?: number } | null) ?? { ok: false },
       choose: async (c) => void (await fn("abxChoose")(c)),
       answer: async (x) => void (await fn("abxAnswer")(x)),
       abort: async () => void (await fn("abxAbort")()),
@@ -229,7 +235,7 @@ class AppBackend implements Backend {
   readonly abx: AbxApi;
 
   async openFile(): Promise<OpenResult> {
-    return (await this.fn("openFile")()) as OpenResult;
+    return (await this.fn("openFile")(t("page.chooser.openFiles"))) as OpenResult;
   }
   async play() {
     await this.fn("play")();
@@ -265,7 +271,7 @@ class AppBackend implements Backend {
     window.__JUCE__!.backend.addEventListener(STATUS_EVENT, (p) => listener(p as PlaybackStatus));
   }
   async openArticle(id = "", section = "") {
-    return ((await this.fn("openArticle")(id, section)) as { ok: boolean; message?: string } | null) ?? { ok: false };
+    return ((await this.fn("openArticle")(id, section)) as { ok: boolean; message?: NativeText } | null) ?? { ok: false };
   }
   onArticleCommand(listener: (payload: unknown) => void) {
     window.__JUCE__!.backend.addEventListener(ARTICLE_COMMAND_EVENT, listener);
@@ -387,8 +393,8 @@ export class MockBackend implements Backend {
   private abxCorrect = 0;
   readonly abx: AbxApi = {
     start: async (r) => {
-      if (this.status.state === "empty") return { ok: false, message: "ABX で聴く曲を、先に再生してください" };
-      if (this.status.dop) return { ok: false, message: "DSD（DoP）の曲は ABX で比べられません（DoP のデータには処理をかけないため）" };
+      if (this.status.state === "empty") return { ok: false, message: { code: "abx.notPlaying" } };
+      if (this.status.dop) return { ok: false, message: { code: "abx.dop" } };
       await new Promise((res) => setTimeout(res, 400)); // the loudness match
       const rate = this.status.sourceFormat?.sampleRate ?? 48000;
       this.abxX = Array.from({ length: r.trials }, () => Math.random() < 0.5);
@@ -502,7 +508,7 @@ export class MockBackend implements Backend {
           const t = lib.track(id);
           return t ? [t] : [];
         });
-        if (found.length === 0) return { ok: false, message: "再生できる曲がありません" };
+        if (found.length === 0) return { ok: false, message: { code: "library.noPlayableTracks" } };
         this.halt();
         this.tracks = found.map((t) => ({
           name: t.title,

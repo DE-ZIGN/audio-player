@@ -1,6 +1,9 @@
 #include "MainComponent.h"
 
+#include "NativeVar.h"
 #include "UiResources.h"
+
+#include <StartupTexts.h>
 
 #include <ap/engine/output/dummy_output.h>
 
@@ -82,9 +85,9 @@ MainComponent::MainComponent(MainOptions options)
     if (selfTest)
     {
         const auto message = bridge_.load(options_.selfTestWav);
-        if (message.isNotEmpty())
+        if (!message.empty())
         {
-            problem_ = message;
+            problem_ = juce::String(technicalText(message)); // the self test's file: not for users
             return;
         }
     }
@@ -113,24 +116,25 @@ MainComponent::MainComponent(MainOptions options)
             const auto message = openArticle(args.size() > 0 ? args[0].toString() : juce::String(),
                                              args.size() > 1 ? args[1].toString() : juce::String());
             auto* result = new juce::DynamicObject();
-            result->setProperty("ok", message.isEmpty());
-            if (message.isNotEmpty())
-                result->setProperty("message", message);
+            result->setProperty("ok", message.empty());
+            if (!message.empty())
+                result->setProperty("message", nativeVar(message));
             done(juce::var(result));
         });
 
+    // Before the page exists: the app's own texts, in the Windows display language (task 11-3).
+    const auto language = windowsStartupLanguage();
     if (!juce::WebBrowserComponent::areOptionsSupported(browserOptions))
     {
-        problem_ = juce::String::fromUTF8(
-            "画面の表示に必要な Microsoft Edge WebView2 ランタイムが見つかりません。"
-            "Microsoft のサイトから「WebView2 ランタイム」をインストールしてください。");
+        problem_ = juce::String::fromUTF8(startupText(StartupText::WebViewMissing, language).c_str());
         return;
     }
 
     const bool useDevServer = options_.devServerUrl.isNotEmpty();
     if (!useDevServer && !options_.uiRoot.getChildFile("index.html").existsAsFile())
     {
-        problem_ = juce::String::fromUTF8("画面のファイルが見つかりません: ") + options_.uiRoot.getFullPathName();
+        problem_ = juce::String::fromUTF8(
+            startupText(StartupText::PageMissing, language, options_.uiRoot.getFullPathName().toStdString()).c_str());
         return;
     }
 
@@ -169,12 +173,12 @@ ArticleWindow& MainComponent::articleWindow()
     return *articles_;
 }
 
-juce::String MainComponent::openArticle(const juce::String& id, const juce::String& section)
+NativeMessage MainComponent::openArticle(const juce::String& id, const juce::String& section)
 {
     // The page's own values are checked like any other: what is not an id
     // or a section is left out (articleReaderUrl).
     auto& window = articleWindow();
-    if (window.problem().isNotEmpty())
+    if (!window.problem().empty())
         return window.problem();
     window.showArticle(id, section);
     return {};

@@ -1,5 +1,8 @@
 // Shapes of the library data the app sends (task 6-1). Must match
-// app/src/LibraryBridge.cpp.
+// app/src/LibraryBridge.cpp. Its messages are codes and values (task 11-3,
+// nativeText.ts).
+
+import type { NativeText } from "./nativeText";
 
 export interface TrackRow {
   id: number;
@@ -76,13 +79,13 @@ export interface LibraryCounts {
   toMeasure: number; // waiting for the analysis
   folders: number;
   scanning: boolean;
-  problem: string; // why the library could not be opened (empty: fine)
+  problem: NativeText; // why the library could not be opened ("": fine)
 }
 
 export interface ActionResult {
   ok: boolean;
   cancelled?: boolean;
-  message?: string;
+  message?: NativeText;
 }
 
 export const emptyCounts: LibraryCounts = {

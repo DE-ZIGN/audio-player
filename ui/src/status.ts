@@ -1,6 +1,7 @@
 // Shape of the playback status the app sends to the UI (event "playbackStatus"
 // and native function "getStatus"). Must match app/src/PlayerBridge.cpp.
 
+import type { NativeText } from "./nativeText";
 import type { TubeAutoStatus } from "./tubeAuto";
 
 export type PlayerState = "empty" | "stopped" | "playing" | "ended" | "error";
@@ -202,8 +203,9 @@ export interface PlaybackStatus {
   repack: Repack;
   outputName: string;
   // Why playback is not on the chosen output, or why it could not start there
-  // (task 6-3: the chosen device is gone, an ASIO driver failed its check). Japanese.
-  outputNotice: string;
+  // (task 6-3: the chosen device is gone, an ASIO driver failed its check):
+  // "" or a code and its values (task 11-3, nativeText.ts).
+  outputNotice: NativeText;
   positionFrames: number;
   totalFrames: number;
   error: PlaybackError;

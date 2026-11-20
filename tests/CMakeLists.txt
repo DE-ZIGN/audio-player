@@ -79,6 +79,7 @@ set_target_properties(ap_catch_main PROPERTIES FOLDER "tests")
 # ---------------------------------------------------------------------------
 add_executable(ap_engine_unit_tests
     unit/version_test.cpp
+    unit/pcm_format_test.cpp
     unit/sha256_test.cpp
     unit/repack_test.cpp
     unit/format_probe_test.cpp
@@ -265,10 +266,13 @@ if(TARGET ap_signalgen_lib)
 endif()
 
 # ---------------------------------------------------------------------------
-# Application logic (no JUCE): where the article reader may go (task 7-1)
+# Application logic (no JUCE): where the article reader may go (task 7-1),
+# the codes for the page and the texts before the page exists (task 11-3)
 # ---------------------------------------------------------------------------
 add_executable(ap_app_unit_tests
-    unit/article_policy_test.cpp)
+    unit/article_policy_test.cpp
+    unit/native_messages_test.cpp
+    unit/startup_texts_test.cpp)
 target_link_libraries(ap_app_unit_tests PRIVATE ap_app_logic ap_catch_main)
 ap_apply_compiler_settings(ap_app_unit_tests)
 set_target_properties(ap_app_unit_tests PROPERTIES FOLDER "tests")

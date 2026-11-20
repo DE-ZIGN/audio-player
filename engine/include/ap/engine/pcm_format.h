@@ -30,7 +30,9 @@ struct PcmFormat
     bool operator==(const PcmFormat&) const = default;
 };
 
-// Human-readable summary in Japanese, e.g. "44.1 kHz / 24bit（32bit コンテナ）/ 2ch".
+// A summary for technical details (exception texts, logs), in English, e.g.
+// "44.1 kHz / 24-bit in 32-bit container / 2ch". The page writes the formats
+// it shows itself (ui/src/messages.ts).
 std::string describe(const PcmFormat& format);
 
 } // namespace ap::engine

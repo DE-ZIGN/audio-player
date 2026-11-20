@@ -5,6 +5,7 @@
 
 import type { BASE_JA, Messages } from "./ja";
 import * as controls from "./parts/controls";
+import * as native from "./parts/native";
 import * as page from "./parts/page";
 import * as status from "./parts/status";
 
@@ -26,4 +27,4 @@ const base: Record<keyof typeof BASE_JA, string> = {
   "list.separator": ", ",
 };
 
-export const en: Messages = { ...base, ...page.en, ...status.en, ...controls.en };
+export const en: Messages = { ...base, ...page.en, ...status.en, ...controls.en, ...native.en };

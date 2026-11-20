@@ -339,6 +339,12 @@ export const ja = {
   "page.knob.title": "{label}：上下にドラッグ（Shift で細かく）、ホイール、ダブルクリックで既定値",
   "page.knob.typeValue": "クリックして数値を入力",
   "page.knob.valueLabel": "{label}の値",
+
+  // --- the file dialogs' titles (task 11-3): the page gives them to the app ---
+  "page.chooser.openFiles": "音声ファイルを開く（複数選べます）",
+  "page.chooser.addFolder": "音楽のフォルダーを選ぶ（中のフォルダーも含めて監視します）",
+  "page.chooser.ir": "空間の IR のファイルを選ぶ（WAV・FLAC・AIFF、モノラルかステレオ）",
+  "page.chooser.eq": "EQ の設定を読み込む（AutoEQ の ParametricEQ.txt、Equalizer APO）",
 } as const;
 
 export const en: Record<keyof typeof ja, string> = { ...ja };

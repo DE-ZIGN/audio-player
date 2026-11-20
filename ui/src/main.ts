@@ -27,6 +27,7 @@ import { paintRange } from "./rangeFill";
 import { OutputView } from "./outputView";
 import { AbxView } from "./abxView";
 import { articleScreen } from "./articleCommand";
+import { nativeText } from "./nativeText";
 import { playIcon, repeatIcon, setIcon, volumeIcon } from "./icons";
 import { lengthText } from "./libraryFormat";
 import {
@@ -379,8 +380,9 @@ function render(s: PlaybackStatus) {
   els.dopNote.hidden = note === "";
   els.dopNote.textContent = note;
   els.outputName.textContent = s.outputName || "—";
-  els.outputNotice.hidden = !s.outputNotice;
-  els.outputNotice.textContent = s.outputNotice ? `⚠ ${s.outputNotice}` : "";
+  const notice = nativeText(s.outputNotice);
+  els.outputNotice.hidden = !notice;
+  els.outputNotice.textContent = notice ? `⚠ ${notice}` : "";
   els.outputMode.textContent = s.path ? outputModeText(s.path) : "—";
   els.volume.textContent = (s.path && volumeText(s.path)) || "—";
   const rateChange = rateChangeText(s);
@@ -421,12 +423,24 @@ async function playRequest(req: PlayRequest) {
   const r = modes.shuffle
     ? await backend.library.play(shuffleStart(req.ids, req.start), 0)
     : await backend.library.play(req.ids, req.start);
-  if (!r.ok && r.message) {
-    els.error.hidden = false;
-    els.error.dataset.from = "action";
-    els.error.textContent = r.message;
-  }
+  const message = r.message;
+  if (!r.ok && message) showActionError(() => nativeText(message));
   render(await backend.getStatus());
+}
+
+// An error from something done here (not from the status), kept so that it is
+// drawn again in the language chosen, while it is still the one shown.
+let actionError: { text: () => string; shown: string } | null = null;
+function showActionError(text: () => string) {
+  els.error.hidden = false;
+  els.error.dataset.from = "action";
+  els.error.textContent = text();
+  actionError = { text, shown: els.error.textContent };
+}
+function redrawActionError() {
+  if (!actionError || els.error.hidden || els.error.textContent !== actionError.shown) return;
+  els.error.textContent = actionError.text();
+  actionError.shown = els.error.textContent;
 }
 
 // "Play next" and "add to the end" (task 6-2): the tracks after the current
@@ -436,9 +450,7 @@ async function enqueue(ids: number[], where: "next" | "end") {
   const loaded = current !== null && current.state !== "empty";
   if (!loaded || queue.items.length === 0) return playRequest({ ids, start: 0 });
   if (queue.items.some((i) => i.id === 0)) {
-    els.error.hidden = false;
-    els.error.dataset.from = "action";
-    els.error.textContent = t("page.queue.cannotAdd");
+    showActionError(() => t("page.queue.cannotAdd"));
     return;
   }
   if (modes.shuffle && shuffleOriginal)
@@ -554,6 +566,7 @@ function redrawForLanguage() {
   drawAbxNote();
   drawBackendKind();
   if (shownCounts) drawCounts(shownCounts);
+  redrawActionError();
   drawnQueue = { version: -2, index: -1, state: "" }; // the queue's buttons
   renderModes(); // the shuffle and repeat titles, and the status (render)
 }
@@ -607,11 +620,8 @@ async function main() {
   // may ask for one of three screens here; it changes no setting and plays nothing.
   document.getElementById("open-articles")?.addEventListener("click", async () => {
     const r = await backend.openArticle();
-    if (!r.ok && r.message) {
-      els.error.hidden = false;
-      els.error.dataset.from = "action";
-      els.error.textContent = r.message;
-    }
+    const message = r.message;
+    if (!r.ok && message) showActionError(() => nativeText(message));
   });
   backend.onArticleCommand((payload) => {
     const to = articleScreen(payload);
@@ -639,11 +649,8 @@ async function main() {
   els.open.addEventListener("click", async () => {
     shuffleOriginal = null; // opened files are not reordered
     const r = await backend.openFile();
-    if (!r.ok && !r.cancelled && r.message) {
-      els.error.hidden = false;
-      els.error.dataset.from = "action";
-      els.error.textContent = r.message;
-    }
+    const message = r.message;
+    if (!r.ok && !r.cancelled && message) showActionError(() => nativeText(message));
     render(await backend.getStatus());
   });
   els.play.addEventListener("click", () => void togglePlay());

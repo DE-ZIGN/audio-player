@@ -12,6 +12,7 @@ import { applyUiView, currentUiView, type UiView } from "./uiView";
 import type { EqBand } from "./settings";
 import type { PlaybackStatus } from "./status";
 import { rateText } from "./outputRate";
+import { nativeText } from "./nativeText";
 
 export interface SelfTestResult {
   ok: boolean;
@@ -271,12 +272,20 @@ export async function runSelfTest(
     const irState = irSet.spaceIrs?.[0];
     if (!irSet.ok || !irState || irState.loaded || !irState.error)
       throw new Error(`space IR: an unreadable file was not reported ${JSON.stringify(irSet)}`);
+    // The app sends what happened, a code (task 11-3); the page writes the sentence.
+    const irError = nativeText(irState.error);
+    if (
+      typeof irState.error !== "object" ||
+      irState.error.code !== "space.irMissing" ||
+      irError !== "ファイルが見つかりません（移動したか、消したのかもしれません）"
+    )
+      throw new Error(`space IR: the reason did not come as its code and sentence ${JSON.stringify(irState.error)} ${irError}`);
     const builtIn = await waitFor(
       "the space on its built-in IR",
       (s) => s.stages.find((st) => st.name === "space")?.detail === "club;15",
       3000,
     );
-    log.push(`space IR: unreadable file reported (${irState.error}); ${builtIn.stages.find((st) => st.name === "space")?.detail}`);
+    log.push(`space IR: unreadable file reported (${irState.error.code}: ${irError}); ${builtIn.stages.find((st) => st.name === "space")?.detail}`);
     // HALL plays the bundled measured IR (St Paul's Hall) by default.
     await backend.settings.setListening({ ...(await backend.settings.get()).listening, spaceRoom: "hall" });
     const measured = await waitFor(
@@ -357,7 +366,7 @@ export async function runSelfTest(
     // the queue and the position come back.
     const beforeAbx = latest;
     const started = await backend.abx.start({ kind: "processed", startSeconds: 0, seconds: 2, trials: 4 });
-    if (!started.ok) throw new Error(`ABX: ${started.message}`);
+    if (!started.ok) throw new Error(`ABX: ${nativeText(started.message)}`);
     await waitFor(
       "ABX playing the region through the comparison",
       (s) => s.abx?.running === true && s.state === "playing" && s.path?.comparison === true,
@@ -402,7 +411,7 @@ export async function runSelfTest(
       a: FLAT_PRESET,
       b: presetB,
     });
-    if (!pair.ok) throw new Error(`ABX 設定 A と設定 B: ${pair.message}`);
+    if (!pair.ok) throw new Error(`ABX 設定 A と設定 B: ${nativeText(pair.message)}`);
     const pairRunning = await waitFor(
       "ABX of two presets playing",
       (s) => s.abx?.running === true && s.abx.kind === "presets" && s.state === "playing" && s.path?.comparison === true,
@@ -428,7 +437,7 @@ export async function runSelfTest(
     const tubeA = sideRequest({ eq: "current", tone: "current", tube: "none", drive: 0 }, current.listening, []);
     const tubeB = sideRequest({ eq: "current", tone: "current", tube: "ppel34", drive: 0 }, current.listening, []);
     const tubes = await backend.abx.start({ kind: "presets", startSeconds: 0, seconds: 2, trials: 2, a: tubeA, b: tubeB });
-    if (!tubes.ok) throw new Error(`ABX tube: ${tubes.message}`);
+    if (!tubes.ok) throw new Error(`ABX tube: ${nativeText(tubes.message)}`);
     const tubesRunning = await waitFor(
       "ABX of the tube playing",
       // (the mock engine does not run the sides' settings: the tube's stage only in the app)
@@ -458,7 +467,7 @@ export async function runSelfTest(
       [],
     );
     const shows = await backend.abx.start({ kind: "presets", startSeconds: 0, seconds: 2, trials: 2, a: showA, b: showB });
-    if (!shows.ok) throw new Error(`ABX show: ${shows.message}`);
+    if (!shows.ok) throw new Error(`ABX show: ${nativeText(shows.message)}`);
     const showRunning = await waitFor(
       "ABX of the warm-up held cold",
       (s) =>

@@ -3,6 +3,7 @@
 #include "EqVar.h"
 
 #include "AsioCheck.h"
+#include "NativeVar.h"
 
 #include <ap/engine/output/asio_output.h>
 
@@ -84,8 +85,27 @@ juce::var listeningVar(const ListeningSettings& l)
     return juce::var(o);
 }
 
+// Why an IR file cannot be read, for the page (task 11-3). Anything the engine
+// has no kind for: its technical text, as it is.
+juce::var irProblemVar(const SpaceIrStatus& s)
+{
+    switch (s.problem)
+    {
+        case IrFileProblem::Missing:    return nativeVar(msg::spaceIrMissing());
+        case IrFileProblem::NotAudio:   return nativeVar(msg::spaceIrNotAudio());
+        case IrFileProblem::Dsd:        return nativeVar(msg::spaceIrDsd());
+        case IrFileProblem::Unreadable: return nativeVar(msg::spaceIrUnreadable());
+        case IrFileProblem::TooLong:    return nativeVar(msg::spaceIrTooLong());
+        case IrFileProblem::Silent:     return nativeVar(msg::spaceIrSilent());
+        case IrFileProblem::None:
+        case IrFileProblem::Other:      break;
+    }
+    return juce::String::fromUTF8(s.error.c_str());
+}
+
 // What became of the user IR files (task 9-6): [{ path, loaded, error?, seconds,
 // sampleRate, channels, fileChannels, truncated }] for CLUB, HALL, ARENA.
+// error: a message (task 11-3) or a technical text.
 juce::var spaceIrsVar(const std::array<SpaceIrStatus, 3>& st)
 {
     juce::Array<juce::var> list;
@@ -94,8 +114,8 @@ juce::var spaceIrsVar(const std::array<SpaceIrStatus, 3>& st)
         auto* o = new juce::DynamicObject();
         o->setProperty("path", juce::String::fromUTF8(s.path.c_str()));
         o->setProperty("loaded", s.loaded);
-        if (!s.error.empty())
-            o->setProperty("error", juce::String::fromUTF8(s.error.c_str()));
+        if (s.problem != IrFileProblem::None || !s.error.empty())
+            o->setProperty("error", irProblemVar(s));
         o->setProperty("seconds", s.seconds);
         o->setProperty("sampleRate", s.sampleRate);
         o->setProperty("channels", static_cast<int>(s.channels));
@@ -179,13 +199,36 @@ OutputChoice outputFrom(const juce::var& v)
     return c;
 }
 
-juce::var result(bool ok, const juce::String& message = {})
+juce::var result(bool ok, const NativeMessage& message = {})
 {
     auto* o = new juce::DynamicObject();
     o->setProperty("ok", ok);
-    if (message.isNotEmpty())
-        o->setProperty("message", message);
+    if (!message.empty())
+        o->setProperty("message", nativeVar(message));
     return juce::var(o);
+}
+
+// An EQ file's skipped line, for the page (task 11-3).
+NativeMessage eqWarningMessage(const EqWarning& w)
+{
+    const auto line = std::to_string(w.line);
+    switch (w.kind)
+    {
+        case EqWarningKind::PreampUnreadable: return msg::eqPreampUnreadable(line);
+        case EqWarningKind::LineUnreadable:   return msg::eqLineSkipped(line);
+        case EqWarningKind::FilterUnreadable: return msg::eqFilterUnreadable(line);
+        case EqWarningKind::TypeUnsupported:  return msg::eqTypeUnsupported(line, w.typeName);
+        case EqWarningKind::ValuesUnreadable: return msg::eqValuesUnreadable(line);
+    }
+    return msg::eqLineSkipped(line);
+}
+
+// A file chooser's title: the page's, in its language (task 11-3); this one
+// when it sends none (a page older than the app).
+juce::String chooserTitle(const juce::Array<juce::var>& args, const char* fallbackUtf8)
+{
+    const auto title = args.isEmpty() ? juce::String() : args[0].toString();
+    return title.isNotEmpty() ? title : juce::String::fromUTF8(fallbackUtf8);
 }
 
 juce::var eqInfo(const std::vector<EqBand>& bands, double rate)
@@ -393,8 +436,7 @@ juce::WebBrowserComponent::Options SettingsBridge::registerFunctions(juce::WebBr
                                 }
                                 catch (const std::exception&)
                                 {
-                                    o->setProperty("message",
-                                                   juce::String::fromUTF8("出力デバイスの一覧を読めませんでした"));
+                                    o->setProperty("message", nativeVar(msg::outputListFailed()));
                                 }
                                 for (const auto& d : listAsioDrivers()) // the registry only: no driver is loaded
                                 {
@@ -414,8 +456,16 @@ juce::WebBrowserComponent::Options SettingsBridge::registerFunctions(juce::WebBr
                                 else
                                     setOutputAsync(args[0], std::move(done));
                             })
-        .withNativeFunction("settingsImportEq", [this](Args, Completion done) { importEqAsync(std::move(done)); })
-        .withNativeFunction("settingsChooseIr", [this](Args, Completion done) { chooseIrAsync(std::move(done)); })
+        .withNativeFunction("settingsImportEq",
+                            [this](Args args, Completion done) {
+                                importEqAsync(chooserTitle(args, "EQ の設定を読み込む（AutoEQ の ParametricEQ.txt、Equalizer APO）"),
+                                              std::move(done));
+                            })
+        .withNativeFunction("settingsChooseIr",
+                            [this](Args args, Completion done) {
+                                chooseIrAsync(chooserTitle(args, "空間の IR のファイルを選ぶ（WAV・FLAC・AIFF、モノラルかステレオ）"),
+                                              std::move(done));
+                            })
         .withNativeFunction("settingsEqSolo",
                             [this](Args args, Completion done) {
                                 const int i = args.isEmpty() ? -1 : static_cast<int>(args[0]);
@@ -466,7 +516,7 @@ void SettingsBridge::setOutputAsync(const juce::var& v, juce::WebBrowserComponen
             driver = d;
     if (!driver)
     {
-        done(result(false, juce::String::fromUTF8("この ASIO ドライバーは登録されていません")));
+        done(result(false, msg::asioNotRegistered()));
         return;
     }
     // Loading the driver in a child process takes up to about 10 s: not on the message thread.
@@ -477,7 +527,7 @@ void SettingsBridge::setOutputAsync(const juce::var& v, juce::WebBrowserComponen
                 return;
             if (check.status != AsioProbeResult::Status::Ok)
             {
-                done(result(false, juce::String::fromUTF8(asioProblemText(check).c_str())));
+                done(result(false, asioProblem(check)));
                 return;
             }
             apply(std::move(choice));
@@ -486,11 +536,9 @@ void SettingsBridge::setOutputAsync(const juce::var& v, juce::WebBrowserComponen
     });
 }
 
-void SettingsBridge::chooseIrAsync(juce::WebBrowserComponent::NativeFunctionCompletion done)
+void SettingsBridge::chooseIrAsync(const juce::String& title, juce::WebBrowserComponent::NativeFunctionCompletion done)
 {
-    chooser_ = std::make_unique<juce::FileChooser>(
-        juce::String::fromUTF8("空間の IR のファイルを選ぶ（WAV・FLAC・AIFF、モノラルかステレオ）"), juce::File{},
-        "*.wav;*.flac;*.aif;*.aiff;*.aifc");
+    chooser_ = std::make_unique<juce::FileChooser>(title, juce::File{}, "*.wav;*.flac;*.aif;*.aiff;*.aifc");
     chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                           [done = std::move(done)](const juce::FileChooser& fc) {
                               const auto file = fc.getResult();
@@ -503,11 +551,9 @@ void SettingsBridge::chooseIrAsync(juce::WebBrowserComponent::NativeFunctionComp
                           });
 }
 
-void SettingsBridge::importEqAsync(juce::WebBrowserComponent::NativeFunctionCompletion done)
+void SettingsBridge::importEqAsync(const juce::String& title, juce::WebBrowserComponent::NativeFunctionCompletion done)
 {
-    chooser_ = std::make_unique<juce::FileChooser>(
-        juce::String::fromUTF8("EQ の設定を読み込む（AutoEQ の ParametricEQ.txt、Equalizer APO）"), juce::File{},
-        "*.txt;*.cfg");
+    chooser_ = std::make_unique<juce::FileChooser>(title, juce::File{}, "*.txt;*.cfg");
     chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                           [done = std::move(done)](const juce::FileChooser& fc) {
                               const auto file = fc.getResult();
@@ -527,7 +573,7 @@ void SettingsBridge::importEqAsync(juce::WebBrowserComponent::NativeFunctionComp
                                   o->setProperty("bands", bandsVar(preset.bands));
                                   juce::Array<juce::var> warnings;
                                   for (const auto& w : preset.warnings)
-                                      warnings.add(juce::String::fromUTF8(w.c_str()));
+                                      warnings.add(nativeVar(eqWarningMessage(w)));
                                   o->setProperty("warnings", warnings);
                                   o->setProperty("filePreampDb",
                                                  preset.filePreampDb ? juce::var(*preset.filePreampDb) : juce::var());
@@ -535,8 +581,7 @@ void SettingsBridge::importEqAsync(juce::WebBrowserComponent::NativeFunctionComp
                               }
                               catch (const std::exception& e)
                               {
-                                  done(result(false, juce::String::fromUTF8("このファイルは読めません: ")
-                                                         + file.getFileName() + " (" + juce::String::fromUTF8(e.what()) + ")"));
+                                  done(result(false, msg::eqFileUnreadable(utf8Of(file.getFileName()), e.what())));
                               }
                           });
 }

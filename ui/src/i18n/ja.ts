@@ -6,11 +6,13 @@
 // never claim that something sounds better (CLAUDE.md chapter 1).
 
 import * as controls from "./parts/controls";
+import * as native from "./parts/native";
 import * as page from "./parts/page";
 import * as status from "./parts/status";
 
-// The parts each part of the page moves its texts into (task 11-2).
-export const PARTS = { page, status, controls };
+// The parts each part of the page moves its texts into (task 11-2), and the
+// engine's and the app's messages (task 11-3).
+export const PARTS = { page, status, controls, native };
 
 const base = {
   // The settings screen's tabs (settingsTabs.ts).
@@ -36,7 +38,7 @@ const base = {
 
 export const BASE_JA = base;
 
-export const ja = { ...base, ...page.ja, ...status.ja, ...controls.ja } as const;
+export const ja = { ...base, ...page.ja, ...status.ja, ...controls.ja, ...native.ja } as const;
 
 export type MessageKey = keyof typeof ja;
 export type Messages = Record<MessageKey, string>;

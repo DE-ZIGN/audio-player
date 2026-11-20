@@ -3,6 +3,7 @@
 
 import { t } from "./i18n";
 import type { LibraryCounts, TrackRow } from "./library";
+import { nativeText } from "./nativeText";
 
 export function lengthText(seconds: number | null): string {
   if (seconds === null || !Number.isFinite(seconds)) return "—";
@@ -62,7 +63,7 @@ export function truePeakCell(r: Pick<TrackRow, "analysis" | "truePeakDb">): Peak
 const n = (x: number) => x.toLocaleString("en-US");
 
 export function countsText(c: LibraryCounts): string {
-  if (c.problem) return c.problem;
+  if (c.problem) return nativeText(c.problem);
   if (c.folders === 0) return t("controls.library.counts.noFolders");
   const parts = [t("controls.library.counts.tracks", { n: n(c.tracks) })];
   if (c.albums > 0) parts.push(t("controls.library.counts.albums", { n: n(c.albums) }));

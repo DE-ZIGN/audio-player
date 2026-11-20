@@ -74,13 +74,29 @@ bool eqIsFlat(const std::vector<EqBand>& bands);
 // AutoEQ "ParametricEQ.txt" and Equalizer APO lines:
 //   Preamp: -6.2 dB
 //   Filter 1: ON PK Fc 105 Hz Gain -3.1 dB Q 0.70
-// Types PK/PEQ, LS/LSC, HS/HSC, LP/LPQ, HP/HPQ, BP, NO. OFF filters and unknown lines
-// are skipped and reported in `warnings` (Japanese, for display).
+// Types PK/PEQ, LS/LSC, HS/HSC, LP/LPQ, HP/HPQ, BP, NO. OFF filters are
+// skipped; lines that cannot be used are skipped and reported in `warnings`
+// (what and where, no words: the page writes them, task 11-3).
+enum class EqWarningKind
+{
+    PreampUnreadable, // "Preamp:" without a number
+    LineUnreadable,   // neither "Preamp:" nor "Filter"
+    FilterUnreadable, // a filter line without its state and type
+    TypeUnsupported,  // a type not in the list, or a state other than ON/OFF
+    ValuesUnreadable, // Fc missing, or Fc, Gain or Q not a number
+};
+struct EqWarning
+{
+    std::size_t line = 0; // from 1
+    EqWarningKind kind = EqWarningKind::LineUnreadable;
+    std::string typeName; // TypeUnsupported: the type as written in the file
+    bool operator==(const EqWarning&) const = default;
+};
 struct EqPreset
 {
     std::vector<EqBand> bands;
     std::optional<double> filePreampDb; // as written in the file (the stage computes its own)
-    std::vector<std::string> warnings;
+    std::vector<EqWarning> warnings;
 };
 EqPreset parseEqPreset(std::string_view text);
 EqPreset loadEqPreset(const std::filesystem::path& path); // throws std::runtime_error

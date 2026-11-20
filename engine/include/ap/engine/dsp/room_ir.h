@@ -25,6 +25,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -99,10 +100,39 @@ struct LoadedIr
     std::size_t trimmedFrames = 0;  // near-silence removed from the start
 };
 
+// Why a file cannot be an IR (task 11-3: the page writes the words).
+enum class IrFileProblem
+{
+    None,
+    Missing,    // no such file (moved or deleted)
+    NotAudio,   // not a file the player reads
+    Dsd,        // DSD: an IR must be PCM
+    Unreadable, // no channels or no rate
+    TooLong,    // longer than kMaxIrFileSeconds
+    Silent,     // nothing in it
+    Other,      // anything else (the technical text says what)
+};
+// "none", "missing", "notAudio", "dsd", "unreadable", "tooLong", "silent", "other".
+const char* irFileProblemKey(IrFileProblem problem) noexcept;
+
+// The longest file read (the IR used is cut at kMaxIrSeconds).
+inline constexpr double kMaxIrFileSeconds = 60.0;
+
+class IrFileError : public std::runtime_error
+{
+public:
+    IrFileError(IrFileProblem problem, const std::string& what) : std::runtime_error(what), problem_(problem) {}
+    IrFileProblem problem() const noexcept { return problem_; }
+
+private:
+    IrFileProblem problem_;
+};
+
 // Reads an IR file (WAV, FLAC, AIFF and the other PCM formats the player
 // reads): mono or stereo (of more channels, the first two), any rate; the
 // silence before the first arrival is removed (below -80 dB of the peak).
-// Throws std::runtime_error with a message for the user (Japanese).
+// Throws IrFileError (its text in English, for logs) when the file cannot be
+// an IR; other exceptions from reading pass through.
 LoadedIr loadImpulseResponse(const std::filesystem::path& path);
 
 } // namespace ap::engine

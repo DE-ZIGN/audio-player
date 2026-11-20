@@ -49,8 +49,8 @@ public:
 
 private:
     // The article reader (task 7-1): a window of its own, made when first asked for.
-    // Returns what is wrong (Japanese), or an empty string.
-    juce::String openArticle(const juce::String& id, const juce::String& section);
+    // Returns what is wrong (for the page, task 11-3), or an empty message.
+    NativeMessage openArticle(const juce::String& id, const juce::String& section);
     ArticleWindow& articleWindow();
     // A listed command from an article: the main screen opens that screen.
     void sendArticleCommand(const ArticleDecision& command);
@@ -61,7 +61,7 @@ private:
     SettingsBridge settings_;
     LibraryBridge library_;
     std::unique_ptr<juce::WebBrowserComponent> browser_;
-    juce::String problem_; // shown instead of the UI when it cannot be loaded
+    juce::String problem_; // shown instead of the UI when it cannot be loaded (StartupTexts.h)
     std::unique_ptr<ArticleWindow> articles_;
     std::unique_ptr<ArticleSelfTest> articleTest_;
 

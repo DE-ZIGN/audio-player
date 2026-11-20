@@ -148,7 +148,8 @@ struct SpaceIrStatus
 {
     std::string path;   // as set (empty: the built-in room)
     bool loaded = false;
-    std::string error;  // why it could not be read (Japanese), when not loaded
+    IrFileProblem problem = IrFileProblem::None; // why it could not be read, when not loaded (the page says it)
+    std::string error;                           // the technical text (English), when not loaded
     double seconds = 0.0;
     double sampleRate = 0.0;
     std::uint16_t channels = 0;     // used (1 or 2)

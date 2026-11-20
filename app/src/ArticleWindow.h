@@ -9,6 +9,7 @@
 // it tries to open goes through decideArticleNavigation (ArticlePolicy.h).
 
 #include <ArticlePolicy.h>
+#include <NativeMessages.h>
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
@@ -33,8 +34,8 @@ public:
     ArticleWindow(const juce::File& uiRoot, Hooks hooks);
     ~ArticleWindow() override;
 
-    // Empty when the reader can be shown; else what is missing (Japanese, for the user).
-    const juce::String& problem() const { return problem_; }
+    // Empty when the reader can be shown; else what is missing (for the main page, task 11-3).
+    const NativeMessage& problem() const { return problem_; }
 
     // Shows the window with that article (empty id: the list of articles).
     void showArticle(const juce::String& id, const juce::String& section);
@@ -50,7 +51,7 @@ private:
     bool decide(const juce::String& url);
 
     Hooks hooks_;
-    juce::String problem_;
+    NativeMessage problem_;
     juce::WebBrowserComponent* browser_ = nullptr; // owned by the window (its content)
     juce::uint32 lastEffectMs_ = 0;                // commands and web links: one in a while
 

@@ -6,6 +6,8 @@
 #include <ap/library/library_db.h>
 #include <ap/library/library_monitor.h>
 
+#include <NativeMessages.h>
+
 #include <juce_gui_extra/juce_gui_extra.h>
 
 #include <filesystem>
@@ -27,11 +29,13 @@ namespace ap::app {
 // Native functions (JavaScript -> C++), see ui/src/backend.ts:
 //   libraryInfo()            { coverBase }: covers are coverBase + "<track id>.jpg"
 //   libraryFolders()         [{ id, path, tracks, missing }]
-//   libraryAddFolder()       shows a folder dialog; { ok, cancelled?, message? }
+//   libraryAddFolder(title)  shows a folder dialog (the page's title); { ok, cancelled?, message? }
 //   libraryRemoveFolder(id)
 //   libraryTracks(query)     { rows, total }; query { search, sort, descending, albumKey, offset, limit }
 //   libraryAlbums(query)     { rows, total }; query { search, sort, descending, offset, limit }
-//   libraryCounts()          { tracks, missing, albums, toMeasure, scanning }
+//   libraryCounts()          { tracks, missing, albums, toMeasure, scanning, problem }
+// A message for the page (message, problem) is { code, values }
+// (NativeMessages.h, task 11-3); problem is "" when the library is open.
 //   libraryPlay(ids, start)  plays these tracks as the queue, from ids[start]
 //   libraryReplaceUpcoming(ids)  these tracks after the current one (task 6-2)
 // Plays are counted from what the player reports (observe(), task 6-2).
@@ -53,7 +57,7 @@ public:
         std::string albumKey; // empty: not in an album
         std::string album;
     };
-    using PlayQueue = std::function<juce::String(std::vector<QueueEntry>, std::size_t start)>;
+    using PlayQueue = std::function<NativeMessage(std::vector<QueueEntry>, std::size_t start)>;
     using ReplaceUpcoming = std::function<void(std::vector<QueueEntry>)>;
 
     // `folder` holds the database and the cover cache; created when missing.
@@ -69,13 +73,14 @@ public:
     // Serves "/art/track/<id>.jpg" (the cover thumbnail); empty for anything else.
     std::optional<juce::WebBrowserComponent::Resource> provideResource(const juce::String& url);
 
-    // Empty when the library could not be opened; else why (Japanese).
-    const juce::String& problem() const noexcept { return problem_; }
+    // Empty when the library is open; else why it could not be opened (for the page).
+    const NativeMessage& problem() const noexcept { return problem_; }
 
 private:
     void timerCallback() override;
     void restartMonitor();
-    void addFolderAsync(juce::WebBrowserComponent::NativeFunctionCompletion completion);
+    void addFolderAsync(const juce::String& title, juce::WebBrowserComponent::NativeFunctionCompletion completion);
+    juce::var problemVar() const; // "" or { code, values }
     juce::var counts();
     std::vector<QueueEntry> entriesFor(const juce::var& ids);
     void record(const std::vector<std::pair<std::int64_t, ap::library::PlayRecord>>& plays);
@@ -91,7 +96,7 @@ private:
     juce::WebBrowserComponent* browser_ = nullptr;
     std::unique_ptr<juce::FileChooser> chooser_;
     juce::String lastCounts_;
-    juce::String problem_;
+    NativeMessage problem_;
 };
 
 } // namespace ap::app

@@ -12,8 +12,8 @@ const OUT_OF_SCOPE: [RegExp, string][] = [
   [/\/i18n\//, "the tables themselves"],
   [/\/selftest\.ts$/, "the app's self test: it runs in Japanese and checks the Japanese texts"],
   [/\/dev\//, "development tools, not in the app"],
-  [/\/mock[A-Z][^/]*\.ts$/, "the mock engine's data (track names, devices); its messages become codes in 11-3"],
-  [/\/backend\.ts$/, "the mock engine: its messages stand in for the app's own, which become codes in 11-3"],
+  [/\/mock[A-Z][^/]*\.ts$/, "the mock engine's data (track names, devices, genres); its messages are the app's codes (11-3)"],
+  [/\/backend\.ts$/, "the mock engine's data (track names, its output's name, genres); its messages are the app's codes (11-3)"],
   [/\/reader\//, "the article reader: task 11-5"],
 ];
 

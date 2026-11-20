@@ -479,8 +479,14 @@ void ListeningChain::loadSpaceIrs(const std::array<std::string, 3>& paths)
                 st.truncated = loaded.truncated;
                 irs_[i] = std::make_shared<const ImpulseResponse>(std::move(loaded.ir));
             }
+            catch (const IrFileError& e)
+            {
+                st.problem = e.problem();
+                st.error = e.what();
+            }
             catch (const std::exception& e)
             {
+                st.problem = IrFileProblem::Other;
                 st.error = e.what();
             }
         }

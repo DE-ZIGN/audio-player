@@ -78,7 +78,9 @@ describe("the tables", () => {
   it("every key the page uses is in the tables, and every key in the tables is used", () => {
     const known = new Set(Object.keys(ja));
     expect([...keysNamed()].filter((k) => !known.has(k))).toEqual([]);
-    expect([...known].filter((k) => !inUse(k))).toEqual([]);
+    // The app's messages ("native.<code>", task 11-3) are used through their
+    // codes: nativeText.test.ts checks them against app/logic/NativeMessages.h.
+    expect([...known].filter((k) => !k.startsWith("native.") && !inUse(k))).toEqual([]);
   });
   it("the English never says the sound gets better (CLAUDE.md chapter 1)", () => {
     const claims = /\b(improves?|improved|improving|better sound|sounds? better|enhances?|enhanced|superior|purer|cleaner sound)\b/i;

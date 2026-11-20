@@ -1,6 +1,6 @@
 // Task 9-6: reading the user's IR files - mono or stereo, any rate, the
 // silence before the first arrival removed, longer files cut at 5 s; files
-// that cannot be IRs give a message.
+// that cannot be IRs give the reason (a kind, task 11-3).
 
 #include <ap/engine/dsp/room_ir.h>
 #include <ap/signalgen/dsd.h>
@@ -13,7 +13,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cmath>
+#include <filesystem>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 using namespace ap::engine;
@@ -75,19 +77,52 @@ TEST_CASE("A long mono FLAC IR is cut at 5 s with a fade-out", "[space][irfile]"
     CHECK(ir.ir.channels[0].back() == 0.0);
 }
 
-TEST_CASE("Files that cannot be IRs give a message", "[space][irfile]")
+namespace {
+
+// What loadImpulseResponse reports for a file (None when it reads it).
+IrFileProblem problemOf(const std::filesystem::path& path)
+{
+    try
+    {
+        loadImpulseResponse(path);
+    }
+    catch (const IrFileError& e)
+    {
+        CHECK(std::string(e.what()).size() > 0); // the technical text, for logs
+        return e.problem();
+    }
+    return IrFileProblem::None;
+}
+
+} // namespace
+
+TEST_CASE("Files that cannot be IRs give the reason, as a kind (the page writes the words)", "[space][irfile]")
 {
     ap::test::TempDir dir;
     const auto silent = dir.path() / "silent.wav";
     sg::writeWav(silent, floatPcm(48000, 1, std::vector<double>(4800, 0.0)));
-    CHECK_THROWS_AS(loadImpulseResponse(silent), std::runtime_error);
+    CHECK(problemOf(silent) == IrFileProblem::Silent);
 
     const auto text = dir.path() / "notes.wav";
     const std::uint8_t junk[] = {'h', 'e', 'l', 'l', 'o'};
     dir.write("notes.wav", junk);
-    CHECK_THROWS_AS(loadImpulseResponse(text), std::runtime_error);
+    CHECK(problemOf(text) == IrFileProblem::NotAudio);
 
     const auto dsf = dir.path() / "dsd.dsf";
     sg::writeBytes(dsf, sg::encodeDsf(sg::dsdSine(2822400, 2, 4096, 1000.0, -20.0), 2822400));
-    CHECK_THROWS_AS(loadImpulseResponse(dsf), std::runtime_error);
+    CHECK(problemOf(dsf) == IrFileProblem::Dsd);
+
+    CHECK(problemOf(dir.path() / "missing.wav") == IrFileProblem::Missing);
+    CHECK(problemOf(dir.path()) == IrFileProblem::Missing); // a folder is not a file
+
+    // Longer than 60 s.
+    const auto longer = dir.path() / "long.wav";
+    std::vector<double> s(static_cast<std::size_t>(8000) * 61, 0.0);
+    s[0] = 0.5;
+    sg::writeWav(longer, floatPcm(8000, 1, s));
+    CHECK(problemOf(longer) == IrFileProblem::TooLong);
+
+    // Each kind's key, for the status (stable, not words).
+    CHECK(std::string(irFileProblemKey(IrFileProblem::Missing)) == "missing");
+    CHECK(std::string(irFileProblemKey(IrFileProblem::TooLong)) == "tooLong");
 }

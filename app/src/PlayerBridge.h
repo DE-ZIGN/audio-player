@@ -4,6 +4,8 @@
 #include <ap/engine/listening_settings.h>
 #include <ap/engine/player.h>
 
+#include <NativeMessages.h>
+
 #include <juce_gui_extra/juce_gui_extra.h>
 
 #include <chrono>
@@ -20,7 +22,7 @@ namespace ap::app {
 // Connects the web UI to the engine's Player.
 //
 // Native functions (JavaScript -> C++), see ui/src/backend.ts:
-//   openFile()   shows a file dialog and loads the chosen WAV
+//   openFile(title)  shows a file dialog (the page's title) and loads the chosen files
 //   play(), stop(), seek(frame)
 //   getStatus()  returns the current status object
 //   uiReady()    the page has finished starting up
@@ -49,6 +51,8 @@ namespace ap::app {
 // position before it are put back. The status carries "abx" (see ui/src/abx.ts).
 // Event (C++ -> JavaScript): "playbackStatus" with the status object,
 // sent at most 10 times per second and only when it changed.
+// Messages for the page (a result's message, the status's outputNotice) are
+// { code, values } (NativeMessages.h, task 11-3).
 class PlayerBridge final : private juce::Timer
 {
 public:
@@ -65,14 +69,14 @@ public:
     // selfTestResult({ ok, log }) from the page in self-test mode.
     std::function<void(const juce::var&)> onSelfTestResult;
 
-    // Loads WAV files as the play queue (in file-name order); returns an empty
-    // string on success, else a Japanese message.
-    juce::String loadFiles(juce::Array<juce::File> files);
-    juce::String load(const juce::File& file);
+    // Loads audio files as the play queue (in file-name order); returns an
+    // empty message on success, else what went wrong (for the page).
+    NativeMessage loadFiles(juce::Array<juce::File> files);
+    NativeMessage load(const juce::File& file);
 
     // Plays tracks from the library as the queue, from `start` (task 6-1).
     // Each carries its measured ReplayGain values (task 5-6). Returns an empty
-    // string on success, else a Japanese message.
+    // message on success, else what went wrong (for the page).
     struct QueueFile
     {
         std::string name;
@@ -86,7 +90,7 @@ public:
         std::string albumKey; // empty: not in an album
         std::string album;
     };
-    juce::String playQueue(std::vector<QueueFile> files, std::size_t start);
+    NativeMessage playQueue(std::vector<QueueFile> files, std::size_t start);
     // Replaces the tracks after the current one; the current track plays on (task 6-2).
     void replaceUpcoming(std::vector<QueueFile> files);
 
@@ -112,7 +116,7 @@ public:
 
 private:
     void timerCallback() override;
-    void openFileAsync(juce::WebBrowserComponent::NativeFunctionCompletion completion);
+    void openFileAsync(const juce::String& title, juce::WebBrowserComponent::NativeFunctionCompletion completion);
     void pushStatus(bool force);
     ap::engine::QueueItem itemFor(const QueueFile& f) const;
     std::optional<ap::engine::TubeChoice> tubeChoiceFor(const QueueFile& f) const;
@@ -160,7 +164,7 @@ private:
     ap::engine::TubeAutoSettings tubeAuto_;
     mutable std::mutex outputMutex_;   // guards output_ and outputNotice_
     ap::engine::OutputChoice output_;
-    std::string outputNotice_; // why playback is not on the chosen output (Japanese), if it is not
+    NativeMessage outputNotice_; // why playback is not on the chosen output, if it is not (for the page)
     std::vector<QueueMeta> queueMeta_; // parallel to the player's queue
     int queueVersion_ = 0;
 

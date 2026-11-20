@@ -5,6 +5,7 @@
 
 import type { SettingsApi } from "./backend";
 import { onLangChange, t } from "./i18n";
+import { nativeText, type NativeText } from "./nativeText";
 import { TUBE_LABELS, type TubeType } from "./settings";
 import type { PlaybackStatus } from "./status";
 import {
@@ -26,7 +27,7 @@ export class TubeAutoView {
   private status: TubeAutoStatus | null = null;
   private sendTimer: ReturnType<typeof setTimeout> | undefined;
   private shownNow = "";
-  private saveFailed: { message?: string } | null = null; // the app's answer to the last send, when it failed
+  private saveFailed: { message?: NativeText } | null = null; // the app's answer to the last send, when it failed
 
   private readonly els = {
     enabled: $<HTMLInputElement>("tube-auto-enabled"),
@@ -127,7 +128,7 @@ export class TubeAutoView {
     const text = problem
       ? `⚠ ${t("controls.tubeAuto.problemNotSaved", { problem })}`
       : this.saveFailed
-        ? `⚠ ${this.saveFailed.message ?? t("controls.tubeAuto.saveFailed")}`
+        ? `⚠ ${nativeText(this.saveFailed.message) || t("controls.tubeAuto.saveFailed")}`
         : "";
     this.els.problem.hidden = text === "";
     this.els.problem.textContent = text;

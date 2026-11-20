@@ -5,6 +5,7 @@
 
 import type { SettingsApi } from "./backend";
 import { onLangChange, t } from "./i18n";
+import { nativeText, type NativeText } from "./nativeText";
 import { EqEditor } from "./eqEditor";
 import { PresetBar, type PresetHost } from "./eqPresetBar";
 import { applyPreset, type EqPreset } from "./eqPresets";
@@ -190,7 +191,7 @@ export class SettingsView {
       },
       save: async (list) => {
         const r = await this.api.setEqPresets(list);
-        if (!r.ok) return r.message ?? t("page.settings.eq.presetSaveFailed");
+        if (!r.ok) return nativeText(r.message) || t("page.settings.eq.presetSaveFailed");
         this.presets = r.eqPresets ?? list;
         this.renderPresets();
         return null;
@@ -314,6 +315,8 @@ export class SettingsView {
   // Everything this screen drew, again in the language chosen.
   private relabel() {
     for (const draw of this.namers) draw();
+    this.redrawError();
+    this.drawImportNotes();
     if (!this.loaded) return;
     this.renderListening(); // the notes, the curve's line, the space's IR list (and the EQ editor, the amp view)
     this.renderOutputs();
@@ -360,7 +363,7 @@ export class SettingsView {
       this.renderListening();
       await this.refreshOutputs();
     } catch (e) {
-      this.showError(t("page.settings.readFailed", { error: String(e) }));
+      this.showError(() => t("page.settings.readFailed", { error: String(e) }));
     }
   }
 
@@ -400,10 +403,7 @@ export class SettingsView {
     this.els.device.value = selectedOutputValue(this.outputs, this.output);
     this.els.dop.checked = this.output.allowDop;
     const missing = this.options.find((o) => o.missing);
-    this.showDeviceStatus(
-      this.outputs.message ??
-        (missing ? t("page.settings.output.missing") : ""),
-    );
+    this.showDeviceStatus(nativeText(this.outputs.message) || (missing ? t("page.settings.output.missing") : ""));
   }
 
   private group(label: string) {
@@ -423,7 +423,7 @@ export class SettingsView {
     this.els.device.disabled = false;
     this.showDeviceStatus("");
     if (r.ok) this.output = choice;
-    else this.showError(r.message ?? t("page.settings.output.chooseFailed"));
+    else this.showFailure(r.message, "page.settings.output.chooseFailed");
     this.renderOutputs();
   }
 
@@ -432,7 +432,7 @@ export class SettingsView {
     const choice = { ...this.output, allowDop: this.els.dop.checked };
     const r = await this.api.setOutput(choice);
     if (r.ok) this.output = choice;
-    else this.showError(r.message ?? t("page.settings.output.dopFailed"));
+    else this.showFailure(r.message, "page.settings.output.dopFailed");
     this.els.dop.checked = this.output.allowDop;
   }
 
@@ -453,7 +453,7 @@ export class SettingsView {
     clearTimeout(this.sendTimer);
     this.sendTimer = setTimeout(async () => {
       const r = await this.api.setListening(this.listening);
-      if (!r.ok) this.showError(r.message ?? t("page.settings.applyFailed"));
+      if (!r.ok) this.showFailure(r.message, "page.settings.applyFailed");
       if (r.spaceIrs) {
         this.spaceIrs = r.spaceIrs;
         this.renderSpace();
@@ -622,17 +622,28 @@ export class SettingsView {
     const r = await this.api.importEq();
     if (r.cancelled) return;
     if (!r.ok || !r.bands) {
-      this.showError(r.message ?? t("page.settings.eq.importFailed"));
+      this.showFailure(r.message, "page.settings.eq.importFailed");
       return;
     }
-    const notes = [...(r.warnings ?? [])];
-    if (r.bands.length > MAX_BANDS) notes.push(t("page.settings.eq.tooManyBands", { max: MAX_BANDS }));
-    if (r.filePreampDb !== undefined && r.filePreampDb !== null)
-      notes.push(t("page.settings.eq.filePreamp", { db: dbText(r.filePreampDb) }));
+    // The file's lines skipped (the app's codes, task 11-3) and the page's own
+    // notes, kept as they are made so that they are drawn again in the language chosen.
+    const bands = r.bands.length;
+    const preamp = r.filePreampDb;
+    this.importNotes = [
+      ...(r.warnings ?? []).map((w) => () => nativeText(w)),
+      ...(bands > MAX_BANDS ? [() => t("page.settings.eq.tooManyBands", { max: MAX_BANDS })] : []),
+      ...(preamp !== undefined && preamp !== null ? [() => t("page.settings.eq.filePreamp", { db: dbText(preamp) })] : []),
+    ];
+    this.drawImportNotes();
+    this.change({ eqBands: r.bands.slice(0, MAX_BANDS), eqEnabled: true });
+  }
+
+  private importNotes: (() => string)[] = [];
+  private drawImportNotes() {
+    const notes = this.importNotes.map((n) => n());
     this.els.warnings.hidden = notes.length === 0;
     this.els.warnings.textContent = notes.map((n) => `⚠ ${n}`).join("\n");
     this.editor.showWarnings(notes);
-    this.change({ eqBands: r.bands.slice(0, MAX_BANDS), eqEnabled: true });
   }
 
   // --- the small curve (a preview; the editor has the large one) ---------------
@@ -675,8 +686,19 @@ export class SettingsView {
           (l.mode === "original" ? ` ${t("page.settings.eq.originalNotApplied")}` : "");
   }
 
-  private showError(text: string) {
+  // The app's reason when it gives one (task 11-3), else the page's own.
+  private showFailure(message: NativeText | undefined, fallback: Parameters<typeof t>[0]) {
+    this.showError(() => nativeText(message) || t(fallback));
+  }
+
+  // The error is kept, so that it is drawn again in the language chosen.
+  private shownError: (() => string) | null = null;
+  private showError(text: () => string) {
+    this.shownError = text;
     this.els.error.hidden = false;
-    this.els.error.textContent = text;
+    this.els.error.textContent = text();
+  }
+  private redrawError() {
+    if (this.shownError && !this.els.error.hidden) this.els.error.textContent = this.shownError();
   }
 }

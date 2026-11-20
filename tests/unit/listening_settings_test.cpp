@@ -714,12 +714,14 @@ TEST_CASE("A user IR for a room: loaded when set, reported when it cannot be rea
     const auto st = c.spaceIrStatus();
     CHECK(st[0].path.empty());
     CHECK(st[1].loaded);
+    CHECK(st[1].problem == IrFileProblem::None);
     CHECK(st[1].error.empty());
     CHECK(st[1].sampleRate == 44100);
     CHECK(st[1].channels == 1);
     CHECK(std::abs(st[1].seconds - 0.1) < 1e-9);
     CHECK_FALSE(st[2].loaded);
-    CHECK_FALSE(st[2].error.empty());
+    CHECK(st[2].problem == IrFileProblem::Missing); // the page says why (task 11-3)
+    CHECK_FALSE(st[2].error.empty());               // the technical text (English)
     CHECK(c.space->params().ir[1] != nullptr);
     CHECK(c.space->params().source[1] == SpaceIrSource::File);
     CHECK(c.space->params().ir[2] == nullptr); // falls back to ARENA's default, synthesized

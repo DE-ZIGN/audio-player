@@ -1,6 +1,7 @@
 // The settings for the mock backend (a plain browser, no app). The app does
 // this in the engine (app/src/SettingsBridge.cpp); here the page's own copy of
 // the EQ formulas (eqResponse.ts) stands in, so the page can be worked on.
+// Its messages are the app's codes and values (task 11-3, nativeText.ts).
 
 import type { EqPreset } from "./eqPresets";
 import type { TubeAutoSettings, TubeGenreRule } from "./tubeAuto";
@@ -103,7 +104,17 @@ export class MockSettings {
       path === ""
         ? { path, loaded: false, seconds: 0, sampleRate: 0, channels: 0, fileChannels: 0, truncated: false }
         : !mockIrReadable(path)
-          ? { path, loaded: false, error: "このファイルは IR として読めません（模擬）", seconds: 0, sampleRate: 0, channels: 0, fileChannels: 0, truncated: false }
+          ? {
+              path,
+              loaded: false,
+              // As the app says it: a path that is not there, or a file it cannot read.
+              error: { code: path.includes("no such") ? "space.irMissing" : "space.irNotAudio", values: {} },
+              seconds: 0,
+              sampleRate: 0,
+              channels: 0,
+              fileChannels: 0,
+              truncated: false,
+            }
           : { path, loaded: true, seconds: 2.84, sampleRate: 44100, channels: 2, fileChannels: 2, truncated: false },
     );
   }
@@ -128,12 +139,7 @@ export class MockSettings {
   }
   async setOutput(o: OutputChoice): Promise<SetResult> {
     if (o.kind === "asio") await new Promise((r) => setTimeout(r, 600)); // the check in a child process
-    if (o.id === "{MOCK-CRASH}")
-      return {
-        ok: false,
-        message:
-          "この ASIO ドライバーは使えません。読み込むと異常終了します（確かめるための別のプロセスで起きたので、このアプリは無事です）",
-      };
+    if (o.id === "{MOCK-CRASH}") return { ok: false, message: { code: "asio.crashed" } };
     this.output = { ...o };
     return { ok: true };
   }
@@ -141,7 +147,7 @@ export class MockSettings {
     return {
       ok: true,
       bands: structuredClone(MOCK_PRESET),
-      warnings: ["Filter 6: OFF のフィルターは読み飛ばしました（模擬）"],
+      warnings: [{ code: "eq.typeUnsupported", values: { line: "6", type: "BWLP" } }],
       filePreampDb: -6.2,
     };
   }

@@ -118,9 +118,9 @@ ArticleSelfTest::~ArticleSelfTest()
 
 void ArticleSelfTest::start()
 {
-    if (window_.problem().isNotEmpty())
+    if (!window_.problem().empty())
     {
-        finish(false, "the reader cannot be shown: " + window_.problem());
+        finish(false, "the reader cannot be shown: " + juce::String(technicalText(window_.problem())));
         return;
     }
     window_.setTopLeftPosition(-20000, -20000); // out of the way, like the main window in a test

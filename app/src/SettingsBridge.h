@@ -26,12 +26,15 @@ namespace ap::app {
 //                              spacePreDelayMs, spaceLowCutHz, spaceSource: ["measured" | "synth" |
 //                              "file" for club, hall, arena], spaceIr: [club, hall, arena paths];
 //                              spaceIrs: what became of each file, also in settingsGet())
-//   settingsChooseIr()         a file dialog for a space IR; { ok, cancelled?, path }
+//   settingsChooseIr(title)    a file dialog for a space IR; { ok, cancelled?, path }
 //   settingsOutputs()          { wasapi: [{ id, name, isDefault }], asio: [{ id, name }], message? }
 //   settingsSetOutput(o)       an ASIO driver is checked in a child process first;
 //                              { ok, message? }
-//   settingsImportEq()         a file dialog for an AutoEQ / Equalizer APO file;
+//   settingsImportEq(title)    a file dialog for an AutoEQ / Equalizer APO file;
 //                              { ok, cancelled?, bands, warnings, filePreampDb?, message? }
+// Task 11-3: a message (message, warnings[i], spaceIrs[i].error) is { code,
+// values } (NativeMessages.h; a technical text may come as a plain string),
+// and a dialog's title is the page's (in its language).
 //   settingsEqCurve(bands)     { sampleRate, preampDb, skipped, points: [[Hz, dB], ...] }
 //                              (preampDb: the automatic one)
 //   settingsEqSolo(i)          solo EQ band i (-1: off); not saved
@@ -58,8 +61,8 @@ private:
     void save();
     juce::var settingsVar() const;
     void setOutputAsync(const juce::var& choice, juce::WebBrowserComponent::NativeFunctionCompletion done);
-    void importEqAsync(juce::WebBrowserComponent::NativeFunctionCompletion done);
-    void chooseIrAsync(juce::WebBrowserComponent::NativeFunctionCompletion done);
+    void importEqAsync(const juce::String& title, juce::WebBrowserComponent::NativeFunctionCompletion done);
+    void chooseIrAsync(const juce::String& title, juce::WebBrowserComponent::NativeFunctionCompletion done);
 
     juce::File file_;
     ap::engine::AppSettings settings_;

@@ -7,6 +7,7 @@ import { cssPixels, onUiViewChange } from "./uiView";
 import type { Backend } from "./backend";
 import { onLangChange, t, type MessageKey } from "./i18n";
 import type { AlbumRow, AlbumSort, Folder, LibraryCounts, TrackRow, TrackSort } from "./library";
+import { nativeText } from "./nativeText";
 import { dbtpText, formatText, lengthText, rateText, truePeakCell } from "./libraryFormat";
 import { gridLayout, pagesFor, visibleRange } from "./virtual";
 
@@ -144,7 +145,8 @@ export class LibraryView {
     new ResizeObserver(() => this.schedule()).observe(this.els.grid);
     this.els.addFolder.addEventListener("click", async () => {
       const r = await this.backend.library.addFolder();
-      if (!r.ok && !r.cancelled && r.message) this.showError(r.message);
+      const message = r.message;
+      if (!r.ok && !r.cancelled && message) this.showError(() => nativeText(message));
       await this.refreshFolders();
     });
     this.els.body.addEventListener("keydown", (e) => this.onKey(e));
@@ -165,6 +167,7 @@ export class LibraryView {
         this.schedule();
       }
       void this.refreshFolders();
+      this.redrawError();
     });
   }
 
@@ -304,7 +307,7 @@ export class LibraryView {
       this.total = result.total;
     } catch (e) {
       if (gen === this.generation) this.pages.delete(page);
-      this.showError(t("controls.library.readFailed", { error: String(e) }));
+      this.showError(() => t("controls.library.readFailed", { error: String(e) }));
     }
     this.schedule();
   }
@@ -572,7 +575,7 @@ export class LibraryView {
       limit: album ? 2000 : PLAY_LIMIT,
     });
     const rows = page.rows.filter((r) => r.present);
-    if (rows.length === 0) return this.showError(t("controls.library.noPlayable"));
+    if (rows.length === 0) return this.showError(() => t("controls.library.noPlayable"));
     const clicked = album ? page.rows[i] : page.rows[0];
     const start = Math.max(0, rows.findIndex((r) => r.id === clicked?.id));
     this.onPlay({ ids: rows.map((r) => r.id), start });
@@ -635,9 +638,19 @@ export class LibraryView {
     }, 1500);
   }
 
-  showError(message: string) {
+  // The error is kept, so that it is drawn again in the language chosen while
+  // it is still the one shown (the page's other errors share the element).
+  private shownError: { text: () => string; shown: string } | null = null;
+  showError(text: () => string) {
     this.els.error.hidden = false;
-    this.els.error.textContent = message;
+    this.els.error.textContent = text();
+    this.shownError = { text, shown: this.els.error.textContent };
+  }
+  private redrawError() {
+    const e = this.shownError;
+    if (!e || this.els.error.hidden || this.els.error.textContent !== e.shown) return;
+    this.els.error.textContent = e.text();
+    e.shown = this.els.error.textContent;
   }
 }
 

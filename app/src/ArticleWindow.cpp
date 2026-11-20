@@ -2,6 +2,8 @@
 
 #include "UiResources.h"
 
+#include <StartupTexts.h>
+
 namespace ap::app {
 
 namespace {
@@ -64,7 +66,9 @@ private:
 };
 
 ArticleWindow::ArticleWindow(const juce::File& uiRoot, Hooks hooks)
-    : DocumentWindow(juce::String::fromUTF8("記事"), kBackground, DocumentWindow::allButtons), hooks_(std::move(hooks))
+    : DocumentWindow(juce::String::fromUTF8(startupText(StartupText::ArticleWindowTitle, windowsStartupLanguage()).c_str()),
+                     kBackground, DocumentWindow::allButtons),
+      hooks_(std::move(hooks))
 {
     setUsingNativeTitleBar(true);
     setResizable(true, true);
@@ -85,10 +89,10 @@ ArticleWindow::ArticleWindow(const juce::File& uiRoot, Hooks hooks)
                                  [uiRoot](const juce::String& url) { return provideReaderResource(uiRoot, url); });
 
     if (!juce::WebBrowserComponent::areOptionsSupported(options))
-        problem_ = juce::String::fromUTF8("記事の表示に必要な Microsoft Edge WebView2 ランタイムが見つかりません。");
+        problem_ = msg::articleWebViewMissing();
     else if (!uiRoot.getChildFile("reader.html").existsAsFile())
-        problem_ = juce::String::fromUTF8("記事の画面のファイルが見つかりません: ") + uiRoot.getFullPathName();
-    if (problem_.isNotEmpty())
+        problem_ = msg::articlePageMissing(uiRoot.getFullPathName().toStdString());
+    if (!problem_.empty())
         return;
 
     auto browser = std::make_unique<Browser>(*this, options);

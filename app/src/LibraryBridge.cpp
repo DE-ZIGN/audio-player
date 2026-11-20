@@ -1,5 +1,7 @@
 #include "LibraryBridge.h"
 
+#include "NativeVar.h"
+
 #include <ap/library/analysis.h>
 #include <ap/library/browse.h>
 #include <ap/library/covers.h>
@@ -132,13 +134,11 @@ LibraryBridge::LibraryBridge(juce::File folder, PlayQueue playQueue, ReplaceUpco
     }
     catch (const NewerSchemaError&)
     {
-        problem_ = juce::String::fromUTF8("ライブラリのデータベースは、このアプリより新しい版で作られています。新しい版のアプリを使ってください: ")
-                 + str(databaseFile_);
+        problem_ = msg::libraryNewerDatabase(utf8Of(str(databaseFile_)));
     }
     catch (const std::exception& e)
     {
-        problem_ = juce::String::fromUTF8("ライブラリのデータベースを開けませんでした: ") + str(databaseFile_) + " ("
-                 + juce::String::fromUTF8(e.what()) + ")";
+        problem_ = msg::libraryOpenFailed(utf8Of(str(databaseFile_)), e.what());
     }
     startTimerHz(1);
 }
@@ -214,6 +214,11 @@ void LibraryBridge::restartMonitor()
     monitor_ = std::make_unique<LibraryMonitor>(databaseFile_);
 }
 
+juce::var LibraryBridge::problemVar() const
+{
+    return problem_.empty() ? juce::var("") : nativeVar(problem_);
+}
+
 juce::var LibraryBridge::counts()
 {
     auto* o = new juce::DynamicObject();
@@ -227,7 +232,7 @@ juce::var LibraryBridge::counts()
         o->setProperty("folders", static_cast<int>(listFolders(*db_).size()));
     }
     o->setProperty("scanning", monitor_ && !monitor_->waitUntilIdle(std::chrono::milliseconds(0)));
-    o->setProperty("problem", problem_);
+    o->setProperty("problem", problemVar());
     return juce::var(o);
 }
 
@@ -272,7 +277,7 @@ juce::WebBrowserComponent::Options LibraryBridge::registerFunctions(juce::WebBro
         .withNativeFunction("libraryInfo", [this](Args, Completion done) {
             auto* o = new juce::DynamicObject();
             o->setProperty("coverBase", juce::WebBrowserComponent::getResourceProviderRoot() + "art/track/");
-            o->setProperty("problem", problem_);
+            o->setProperty("problem", problemVar());
             done(juce::var(o));
         })
         .withNativeFunction("libraryFolders", guarded([this](Args) {
@@ -288,7 +293,15 @@ juce::WebBrowserComponent::Options LibraryBridge::registerFunctions(juce::WebBro
             }
             return juce::var(rows);
         }))
-        .withNativeFunction("libraryAddFolder", [this](Args, Completion done) { addFolderAsync(std::move(done)); })
+        .withNativeFunction("libraryAddFolder",
+                            [this](Args args, Completion done) {
+                                // The dialog's title: the page's, in its language (task 11-3).
+                                const auto title = args.isEmpty() ? juce::String() : args[0].toString();
+                                addFolderAsync(title.isNotEmpty()
+                                                   ? title
+                                                   : juce::String::fromUTF8("音楽のフォルダーを選ぶ（中のフォルダーも含めて監視します）"),
+                                               std::move(done));
+                            })
         .withNativeFunction("libraryRemoveFolder", guarded([this](Args args) {
             if (!args.isEmpty())
             {
@@ -339,20 +352,20 @@ juce::WebBrowserComponent::Options LibraryBridge::registerFunctions(juce::WebBro
             if (entries.empty())
             {
                 o->setProperty("ok", false);
-                o->setProperty("message", juce::String::fromUTF8("再生できる曲がありません（ファイルが見つかりません）"));
+                o->setProperty("message", nativeVar(msg::libraryNoPlayableTracks()));
                 return juce::var(o);
             }
             const auto message = playQueue_(std::move(entries), start);
-            o->setProperty("ok", message.isEmpty());
-            if (message.isNotEmpty())
-                o->setProperty("message", message);
+            o->setProperty("ok", message.empty());
+            if (!message.empty())
+                o->setProperty("message", nativeVar(message));
             return juce::var(o);
         }));
 }
 
-void LibraryBridge::addFolderAsync(juce::WebBrowserComponent::NativeFunctionCompletion completion)
+void LibraryBridge::addFolderAsync(const juce::String& title, juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
-    chooser_ = std::make_unique<juce::FileChooser>(juce::String::fromUTF8("音楽のフォルダーを選ぶ（中のフォルダーも含めて監視します）"));
+    chooser_ = std::make_unique<juce::FileChooser>(title);
     chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
                           [this, completion = std::move(completion)](const juce::FileChooser& fc) {
                               auto* result = new juce::DynamicObject();
@@ -378,8 +391,7 @@ void LibraryBridge::addFolderAsync(juce::WebBrowserComponent::NativeFunctionComp
                               catch (const std::exception& e)
                               {
                                   result->setProperty("ok", false);
-                                  result->setProperty("message", juce::String::fromUTF8("フォルダーを加えられませんでした: ")
-                                                                     + juce::String::fromUTF8(e.what()));
+                                  result->setProperty("message", nativeVar(msg::libraryAddFolderFailed(e.what())));
                               }
                               completion(juce::var(result));
                           });

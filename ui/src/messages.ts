@@ -5,6 +5,7 @@ import { CROSSFEED_LEVELS, TUBE_LABELS, parseSpaceDetail, spaceText, type Crossf
 import { characterParts, parseTubeDetail } from "./tubeCharacter";
 import { resampleText } from "./outputRate";
 import { t, type MessageKey } from "./i18n";
+import { nativeText } from "./nativeText";
 import type {
   DropoutCounts,
   FormatInfo,
@@ -420,7 +421,7 @@ export function errorText(s: PlaybackStatus): string {
 
   if (e.kind === "output") {
     // The app's own reason (task 6-3: an ASIO driver that failed its check, a driver that is gone).
-    if (s.outputNotice) return s.outputNotice;
+    if (s.outputNotice) return nativeText(s.outputNotice);
     const key = e.outputError ? OUTPUT_ERROR_KEYS[e.outputError] : undefined;
     return key ? t(key) : t("status.error.device", { detail: e.detail });
   }

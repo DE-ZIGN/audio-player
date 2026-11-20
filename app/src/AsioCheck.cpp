@@ -66,21 +66,20 @@ int runAsioProbeChild(const std::string& clsid)
     return 0;
 }
 
-std::string asioProblemText(const AsioProbeResult& r)
+NativeMessage asioProblem(const AsioProbeResult& r)
 {
     switch (r.status)
     {
         case AsioProbeResult::Status::Ok:
             return {};
         case AsioProbeResult::Status::LoadFailed:
-            return "この ASIO ドライバーは使えません。初期化に失敗しました（" + r.message + "）";
+            return msg::asioLoadFailed(r.message);
         case AsioProbeResult::Status::Crashed:
-            return "この ASIO ドライバーは使えません。読み込むと異常終了します（確かめるための別のプロセスで起きたので、"
-                   "このアプリは無事です）";
+            return msg::asioCrashed();
         case AsioProbeResult::Status::TimedOut:
-            return "この ASIO ドライバーは使えません。応答がありませんでした";
+            return msg::asioTimedOut();
     }
-    return "この ASIO ドライバーは使えません";
+    return msg::asioUnusable();
 }
 
 } // namespace ap::app

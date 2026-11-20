@@ -111,6 +111,22 @@ void printErr(const std::string& s)
     std::fwrite(s.data(), 1, s.size(), stderr);
 }
 
+// A line the EQ file reader skipped (the engine says what and where; the app's
+// page has its own words, ui/src/i18n/parts/native.ts).
+std::string eqWarningText(const EqWarning& w)
+{
+    switch (w.kind)
+    {
+        case EqWarningKind::PreampUnreadable: return std::format("{} 行目: Preamp の値が読めません", w.line);
+        case EqWarningKind::LineUnreadable:   return std::format("{} 行目: 読めない行なので飛ばしました", w.line);
+        case EqWarningKind::FilterUnreadable: return std::format("{} 行目: フィルターの書き方が読めません", w.line);
+        case EqWarningKind::TypeUnsupported:
+            return std::format("{} 行目: 対応していない種類（{}）なので飛ばしました", w.line, w.typeName);
+        case EqWarningKind::ValuesUnreadable: return std::format("{} 行目: 周波数やゲインの値が読めません", w.line);
+    }
+    return std::format("{} 行目", w.line);
+}
+
 std::string duration(std::uint64_t frames, std::uint32_t rate)
 {
     const double seconds = static_cast<double>(frames) / rate;
@@ -1002,7 +1018,7 @@ int runQueue(const Options& o)
     {
         const auto preset = loadEqPreset(fs::path{o.eqPreset});
         for (const auto& w : preset.warnings)
-            print("  EQ: " + w + "\n");
+            print("  EQ: " + eqWarningText(w) + "\n");
         eqBands = preset.bands;
         print(std::format("  EQ: {} バンド（ファイルのプリアンプ {}、こちらでは自動で決める）\n", preset.bands.size(),
                           preset.filePreampDb ? std::format("{:+.1f} dB", *preset.filePreampDb) : std::string("なし")));

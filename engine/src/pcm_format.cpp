@@ -21,11 +21,11 @@ std::string describe(const PcmFormat& f)
     const std::string rate = std::format("{:g} kHz", f.sampleRate / 1000.0);
     std::string bits;
     if (f.type == SampleType::Float)
-        bits = std::format("{}bit 浮動小数点", f.containerBits);
+        bits = std::format("{}-bit float", f.containerBits);
     else if (f.validBits == f.containerBits)
-        bits = std::format("{}bit", f.validBits);
+        bits = std::format("{}-bit", f.validBits);
     else
-        bits = std::format("{}bit（{}bit コンテナ）", f.validBits, f.containerBits);
+        bits = std::format("{}-bit in {}-bit container", f.validBits, f.containerBits);
     return std::format("{} / {} / {}ch", rate, bits, f.channels);
 }
 

@@ -24,6 +24,7 @@ target_sources(ap_app PRIVATE
     src/AsioCheck.h
     src/LibraryBridge.cpp
     src/LibraryBridge.h
+    src/NativeVar.h
     src/UiResources.cpp
     src/UiResources.h
     src/ArticleWindow.cpp

@@ -20,6 +20,7 @@ import {
 } from "./abx";
 import type { EqPreset } from "./eqPresets";
 import { onLangChange, t } from "./i18n";
+import { nativeText, type NativeText } from "./nativeText";
 import { activeBands, defaultListening, type ListeningSettings, type SettingsInfo } from "./settings";
 import type { PlaybackStatus } from "./status";
 import { clampUnit } from "./tubeCharacter";
@@ -130,6 +131,7 @@ export class AbxView {
     onLangChange(() => {
       if (!e.dialog.open) return;
       this.labelSides();
+      if (this.startError !== null && !e.error.hidden) e.error.textContent = this.startErrorText();
       this.renderSetupNotes();
       if (this.status) this.render(this.status);
     });
@@ -315,10 +317,17 @@ export class AbxView {
     this.preparing = false;
     e.preparing.hidden = true;
     e.startBtn.disabled = false;
+    this.startError = r.ok ? null : (r.message ?? "");
     if (!r.ok) {
       e.error.hidden = false;
-      e.error.textContent = r.message ?? t("controls.abx.startFailed");
+      e.error.textContent = this.startErrorText();
     }
+  }
+
+  // Why the app did not start the test (task 11-3: its code), kept for a change of language.
+  private startError: NativeText | null = null;
+  private startErrorText(): string {
+    return nativeText(this.startError) || t("controls.abx.startFailed");
   }
 
   // --- running ------------------------------------------------------------------------
