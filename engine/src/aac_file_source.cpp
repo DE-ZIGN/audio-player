@@ -1,4 +1,5 @@
 #include <ap/engine/aac_file_source.h>
+#include <ap/engine/path_text.h>
 
 #include <windows.h>
 #include <mfapi.h>
@@ -320,7 +321,7 @@ AacFileSource::AacFileSource(const std::filesystem::path& path) : track_(readMp4
 
     file_.open(path, std::ios::binary);
     if (!file_)
-        fail("cannot open file: " + path.string());
+        fail("cannot open file: " + pathUtf8(path));
     seek(0);
 }
 

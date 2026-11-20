@@ -168,6 +168,7 @@ if(TARGET ap_signalgen_lib)
         unit/signal_path_test.cpp
         unit/flac_file_source_test.cpp
         unit/audio_file_test.cpp
+        unit/path_text_test.cpp
         unit/alac_file_source_test.cpp
         unit/mp3_file_source_test.cpp
         unit/aac_file_source_test.cpp

@@ -1,4 +1,5 @@
 #include <ap/engine/sha256.h>
+#include <ap/engine/path_text.h>
 
 #include <windows.h>
 #include <bcrypt.h>
@@ -78,7 +79,7 @@ Sha256Digest sha256File(const std::filesystem::path& path, std::uint64_t offset,
 {
     std::ifstream in(path, std::ios::binary);
     if (!in)
-        throw std::runtime_error("SHA-256: cannot open " + path.string());
+        throw std::runtime_error("SHA-256: cannot open " + pathUtf8(path));
     in.seekg(static_cast<std::streamoff>(offset));
 
     Sha256 h;

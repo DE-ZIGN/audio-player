@@ -1,4 +1,5 @@
 #include <ap/engine/dsp/eq.h>
+#include <ap/engine/path_text.h>
 
 #include <algorithm>
 #include <cctype>
@@ -303,7 +304,7 @@ EqPreset loadEqPreset(const std::filesystem::path& path)
 {
     std::ifstream in(path, std::ios::binary);
     if (!in)
-        throw std::runtime_error("cannot open " + path.string());
+        throw std::runtime_error("cannot open " + pathUtf8(path));
     std::stringstream ss;
     ss << in.rdbuf();
     return parseEqPreset(ss.str());

@@ -3,6 +3,7 @@
 #include <ap/engine/output/deadline_tracker.h>
 #include <ap/engine/output/delivery_check.h>
 #include <ap/engine/output/format_probe.h>
+#include <ap/engine/path_text.h>
 
 #include <algorithm>
 #include <chrono>
@@ -19,7 +20,7 @@ DummyOutput::DummyOutput(Options options) : options_(std::move(options))
 
 std::string DummyOutput::deviceName() const
 {
-    return "ダミー出力（ファイル）: " + options_.path.string();
+    return "ダミー出力（ファイル）: " + pathUtf8(options_.path);
 }
 
 FormatCheck DummyOutput::checkFormat(const PcmFormat& format)
@@ -66,7 +67,7 @@ RunStats DummyOutput::run(const RenderCallback& render)
     firstRun_ = false;
     std::ofstream out(options_.path, mode);
     if (!out)
-        throw OutputException(OutputError::DeviceError, "cannot create " + options_.path.string());
+        throw OutputException(OutputError::DeviceError, "cannot create " + pathUtf8(options_.path));
     if (options_.sessionLog)
         options_.sessionLog->push_back(format_);
 
@@ -95,7 +96,7 @@ RunStats DummyOutput::run(const RenderCallback& render)
             deliveryCheck_->deliveredInterleaved(std::span(buffer).first(frames * bpf), format_, frames);
         out.write(reinterpret_cast<const char*>(buffer.data()), static_cast<std::streamsize>(frames * bpf));
         if (!out)
-            throw OutputException(OutputError::DeviceError, "write failed: " + options_.path.string());
+            throw OutputException(OutputError::DeviceError, "write failed: " + pathUtf8(options_.path));
         stats.framesRendered += frames;
         if (frames < period)
             break;

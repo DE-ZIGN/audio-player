@@ -536,7 +536,7 @@ void SettingsBridge::importEqAsync(juce::WebBrowserComponent::NativeFunctionComp
                               catch (const std::exception& e)
                               {
                                   done(result(false, juce::String::fromUTF8("このファイルは読めません: ")
-                                                         + file.getFileName() + " (" + e.what() + ")"));
+                                                         + file.getFileName() + " (" + juce::String::fromUTF8(e.what()) + ")"));
                               }
                           });
 }

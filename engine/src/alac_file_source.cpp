@@ -1,4 +1,5 @@
 #include <ap/engine/alac_file_source.h>
+#include <ap/engine/path_text.h>
 
 #include <ALACBitUtilities.h>
 #include <ALACDecoder.h>
@@ -94,7 +95,7 @@ AlacFileSource::AlacFileSource(const std::filesystem::path& path) : track_(readM
 
     file_.open(path, std::ios::binary);
     if (!file_)
-        fail("cannot open file: " + path.string());
+        fail("cannot open file: " + pathUtf8(path));
 
     // The last packet may hold fewer frames than the table says (some encoders
     // record every packet as full length); its own header has the real count.

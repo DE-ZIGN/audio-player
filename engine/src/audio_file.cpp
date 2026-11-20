@@ -9,6 +9,7 @@
 #include <ap/engine/dsd_source.h>
 #include <ap/engine/flac_file_source.h>
 #include <ap/engine/wav_file_source.h>
+#include <ap/engine/path_text.h>
 
 #include <array>
 #include <cstring>
@@ -66,7 +67,7 @@ AudioFileKind detectAudioFile(const std::filesystem::path& path)
 {
     std::ifstream f(path, std::ios::binary);
     if (!f)
-        throw UnsupportedAudioFileError("cannot open file: " + path.string());
+        throw UnsupportedAudioFileError("cannot open file: " + pathUtf8(path));
     std::array<char, 16> head{};
     f.read(head.data(), head.size());
     const auto got = f.gcount();
@@ -88,7 +89,7 @@ AudioFileKind detectAudioFile(const std::filesystem::path& path)
         return AudioFileKind::Flac;
     if (looksLikeMpegAudio(f))
         return AudioFileKind::Mp3;
-    throw UnsupportedAudioFileError("unsupported file type: " + path.string());
+    throw UnsupportedAudioFileError("unsupported file type: " + pathUtf8(path));
 }
 
 std::unique_ptr<PcmSource> openAudioFile(const std::filesystem::path& path)
@@ -106,12 +107,12 @@ std::unique_ptr<PcmSource> openAudioFile(const std::filesystem::path& path)
                 return std::make_unique<AlacFileSource>(path);
             if (codec == "mp4a")
                 return std::make_unique<AacFileSource>(path);
-            throw UnsupportedAudioFileError("unsupported codec '" + codec + "' in " + path.string());
+            throw UnsupportedAudioFileError("unsupported codec '" + codec + "' in " + pathUtf8(path));
         }
         case AudioFileKind::Dsf:
         case AudioFileKind::Dff:  return std::make_unique<DopSource>(openDsdFile(path));
     }
-    throw UnsupportedAudioFileError("unsupported file type: " + path.string());
+    throw UnsupportedAudioFileError("unsupported file type: " + pathUtf8(path));
 }
 
 const char* supportedAudioFilePattern() noexcept

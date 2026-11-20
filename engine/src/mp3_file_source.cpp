@@ -1,4 +1,5 @@
 #include <ap/engine/mp3_file_source.h>
+#include <ap/engine/path_text.h>
 
 #include <mpg123.h>
 
@@ -13,12 +14,6 @@ namespace {
 [[noreturn]] void fail(const std::string& what)
 {
     throw Mp3FormatError(what);
-}
-
-std::string utf8(const std::filesystem::path& p)
-{
-    const auto s = p.u8string();
-    return {reinterpret_cast<const char*>(s.data()), s.size()};
 }
 
 } // namespace
@@ -41,7 +36,7 @@ Mp3FileSource::Mp3FileSource(const std::filesystem::path& path)
         mpg123_format(h_, rates[i], MPG123_MONO | MPG123_STEREO, MPG123_ENC_FLOAT_32);
 
     // On Windows, libmpg123 takes UTF-8 paths and opens them as wide paths.
-    if (mpg123_open64(h_, utf8(path).c_str()) != MPG123_OK)
+    if (mpg123_open64(h_, pathUtf8(path).c_str()) != MPG123_OK)
         fail(std::string("cannot open MP3: ") + mpg123_strerror(h_));
 
     long rate = 0;

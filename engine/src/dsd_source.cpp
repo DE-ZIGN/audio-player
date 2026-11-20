@@ -1,4 +1,5 @@
 #include <ap/engine/dsd_source.h>
+#include <ap/engine/path_text.h>
 
 #include <algorithm>
 #include <array>
@@ -95,10 +96,10 @@ DsfFileSource::DsfFileSource(const std::filesystem::path& path)
     std::error_code ec;
     const auto fileSize = std::filesystem::file_size(path, ec);
     if (ec)
-        fail("cannot open file: " + path.string());
+        fail("cannot open file: " + pathUtf8(path));
     file_.open(path, std::ios::binary);
     if (!file_)
-        fail("cannot open file: " + path.string());
+        fail("cannot open file: " + pathUtf8(path));
 
     std::array<std::uint8_t, 28> dsd{};
     readExact(file_, 0, dsd.data(), dsd.size(), "DSD chunk");
@@ -182,10 +183,10 @@ DffFileSource::DffFileSource(const std::filesystem::path& path)
     std::error_code ec;
     const auto fileSize = std::filesystem::file_size(path, ec);
     if (ec)
-        fail("cannot open file: " + path.string());
+        fail("cannot open file: " + pathUtf8(path));
     file_.open(path, std::ios::binary);
     if (!file_)
-        fail("cannot open file: " + path.string());
+        fail("cannot open file: " + pathUtf8(path));
 
     std::array<std::uint8_t, 16> head{};
     readExact(file_, 0, head.data(), head.size(), "FRM8");
@@ -294,12 +295,12 @@ std::unique_ptr<DsdSource> openDsdFile(const std::filesystem::path& path)
     std::ifstream f(path, std::ios::binary);
     std::array<char, 4> magic{};
     if (!f.read(magic.data(), 4))
-        fail("not a DSD file: " + path.string());
+        fail("not a DSD file: " + pathUtf8(path));
     if (std::memcmp(magic.data(), "DSD ", 4) == 0)
         return std::make_unique<DsfFileSource>(path);
     if (std::memcmp(magic.data(), "FRM8", 4) == 0)
         return std::make_unique<DffFileSource>(path);
-    fail("not a DSD file: " + path.string());
+    fail("not a DSD file: " + pathUtf8(path));
 }
 
 } // namespace ap::engine

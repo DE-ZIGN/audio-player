@@ -409,8 +409,9 @@ juce::String PlayerBridge::loadFiles(juce::Array<juce::File> files)
         }
         catch (const std::exception& e)
         {
+            // The engine's texts are UTF-8 (the file's name may be in them).
             return juce::String::fromUTF8("このファイルは読めません（WAV、FLAC、AIFF、ALAC・AAC（.m4a）、MP3、DSF、DFF に対応）: ") + file.getFileName() + " ("
-                 + e.what() + ")";
+                 + juce::String::fromUTF8(e.what()) + ")";
         }
         // Read ahead on a separate thread so the playback thread never waits
         // for the disk (dropout prevention only). The next track is opened

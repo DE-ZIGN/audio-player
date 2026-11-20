@@ -1,4 +1,5 @@
 #include <ap/engine/flac_file_source.h>
+#include <ap/engine/path_text.h>
 
 #include <FLAC/stream_decoder.h>
 
@@ -140,7 +141,7 @@ FlacFileSource::FlacFileSource(const std::filesystem::path& path) : d_(std::make
 
     FILE* file = nullptr;
     if (_wfopen_s(&file, path.c_str(), L"rb") != 0 || !file)
-        fail("cannot open file: " + path.string());
+        fail("cannot open file: " + pathUtf8(path));
     // The decoder owns the FILE from here on.
     if (FLAC__stream_decoder_init_FILE(d_->decoder, file, &Decoder::onWrite, &Decoder::onMetadata, &Decoder::onError,
                                        d_.get())

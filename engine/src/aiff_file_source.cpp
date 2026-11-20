@@ -1,4 +1,5 @@
 #include <ap/engine/aiff_file_source.h>
+#include <ap/engine/path_text.h>
 
 #include <algorithm>
 #include <array>
@@ -67,10 +68,10 @@ AiffFileSource::AiffFileSource(const std::filesystem::path& path)
     std::error_code ec;
     const auto fileSize = std::filesystem::file_size(path, ec);
     if (ec)
-        fail("cannot open file: " + path.string());
+        fail("cannot open file: " + pathUtf8(path));
     file_.open(path, std::ios::binary);
     if (!file_)
-        fail("cannot open file: " + path.string());
+        fail("cannot open file: " + pathUtf8(path));
 
     std::array<std::uint8_t, 12> header{};
     if (!file_.read(reinterpret_cast<char*>(header.data()), header.size()) || std::memcmp(header.data(), "FORM", 4) != 0)

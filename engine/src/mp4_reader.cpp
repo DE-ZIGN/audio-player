@@ -1,4 +1,5 @@
 #include <ap/engine/mp4_reader.h>
+#include <ap/engine/path_text.h>
 
 #include <array>
 #include <cstring>
@@ -54,10 +55,10 @@ public:
         std::error_code ec;
         fileSize_ = std::filesystem::file_size(path, ec);
         if (ec)
-            fail("cannot open file: " + path.string());
+            fail("cannot open file: " + pathUtf8(path));
         in_.open(path, std::ios::binary);
         if (!in_)
-            fail("cannot open file: " + path.string());
+            fail("cannot open file: " + pathUtf8(path));
     }
 
     std::uint64_t fileSize() const { return fileSize_; }
