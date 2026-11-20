@@ -4,7 +4,7 @@
 // nativeText.test.ts checks that every code has its key here, with exactly the
 // code's value names, and that there is no key without a code.
 //
-// English: copied from the Japanese until task 11-4 writes it.
+// English: written in task 11-4, with the glossary (docs/i18n-glossary.md).
 
 export const ja = {
   // ABX (PlayerBridge::abxStartAsync).
@@ -61,4 +61,49 @@ export const ja = {
   "native.space.irSilent": "IR のファイルに音が入っていません",
 } as const;
 
-export const en: Record<keyof typeof ja, string> = { ...ja };
+export const en: Record<keyof typeof ja, string> = {
+  "native.abx.alreadyRunning": "ABX is already running",
+  "native.abx.notPlaying": "Play the track to compare with ABX first",
+  "native.abx.dop": "DSD (DoP) tracks cannot be compared with ABX (DoP data is never processed)",
+  "native.abx.choosePair": "Choose the two settings to compare",
+  "native.abx.analysisFailed": "Could not analyze the segment: {detail}",
+
+  "native.article.webViewMissing": "The Microsoft Edge WebView2 Runtime, needed to show articles, was not found.",
+  "native.article.pageMissing": "The article page's file was not found: {path}",
+
+  "native.asio.loadFailed": "This ASIO driver cannot be used. It failed to initialize ({detail})",
+  "native.asio.crashed":
+    "This ASIO driver cannot be used. It crashes when loaded (this happened in a separate process used for the check, so this app is unaffected)",
+  "native.asio.timedOut": "This ASIO driver cannot be used. It did not respond",
+  "native.asio.unusable": "This ASIO driver cannot be used",
+  "native.asio.notRegistered": "This ASIO driver is not registered",
+  "native.asio.driverMissing": "The chosen ASIO driver ({name}) was not found. Choose the output again in Settings",
+
+  "native.eq.preampUnreadable": "Line {line}: cannot read the Preamp value",
+  "native.eq.lineSkipped": "Line {line}: unreadable, skipped",
+  "native.eq.filterUnreadable": "Line {line}: cannot read the filter definition",
+  "native.eq.typeUnsupported": "Line {line}: unsupported type ({type}), skipped",
+  "native.eq.valuesUnreadable": "Line {line}: cannot read the frequency or gain value",
+  "native.eq.fileUnreadable": "Cannot read this file: {file} ({detail})",
+
+  "native.library.newerDatabase":
+    "The library database was made by a newer version of this app. Use the newer version: {path}",
+  "native.library.openFailed": "Could not open the library database: {path} ({detail})",
+  "native.library.noPlayableTracks": "No playable tracks (files not found)",
+  "native.library.addFolderFailed": "Could not add the folder: {detail}",
+
+  "native.output.fallbackDefault": "The chosen output ({name}) was not found, so playback is on the Windows default device",
+  "native.output.listFailed": "Could not read the list of output devices",
+
+  "native.player.unreadable":
+    "Cannot read this file (supported: WAV, FLAC, AIFF, ALAC and AAC (.m4a), MP3, DSF, DFF): {file} ({detail})",
+  "native.player.openFailed": "Could not open the file: {detail}",
+  "native.player.nothingToPlay": "Nothing to play",
+
+  "native.space.irMissing": "File not found (it may have been moved or deleted)",
+  "native.space.irNotAudio": "This file cannot be read as an IR (choose a PCM file such as WAV, FLAC, or AIFF)",
+  "native.space.irDsd": "DSD files cannot be used as an IR (choose a PCM file)",
+  "native.space.irUnreadable": "This file cannot be read as an IR",
+  "native.space.irTooLong": "The IR file is too long (60 s at most)",
+  "native.space.irSilent": "The IR file contains no sound",
+};

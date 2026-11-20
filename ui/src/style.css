@@ -3480,6 +3480,12 @@ html[data-look="real"] {
   margin-left: 0;
   letter-spacing: 0;
   color: #fff;
+  min-width: 0; /* the note gives way (it wraps), not the heading's name */
+}
+/* The heading's name stays on one line (English "Output rate" was broken in two by the note). */
+#settings h2 > span:first-child {
+  flex: none;
+  white-space: nowrap;
 }
 #settings h3 {
   font-size: calc(17 * var(--spx));
@@ -3491,7 +3497,7 @@ html[data-look="real"] {
 /* In 原音モード the 音作りモード sections stay as they are (white); the
    heading says they do not play now. */
 .settings.original-mode .for-mode::after {
-  content: "（今は原音モードなので、かかりません）";
+  content: var(--i18n-for-mode-off); /* the words: i18n.ts CSS_TEXTS */
 }
 /* The sliders start at one place: one width for every label (トーン, 真空管, 空間). */
 #settings .slider-row {

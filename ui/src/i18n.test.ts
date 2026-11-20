@@ -83,8 +83,25 @@ describe("the tables", () => {
     expect([...known].filter((k) => !k.startsWith("native.") && !inUse(k))).toEqual([]);
   });
   it("the English never says the sound gets better (CLAUDE.md chapter 1)", () => {
-    const claims = /\b(improves?|improved|improving|better sound|sounds? better|enhances?|enhanced|superior|purer|cleaner sound)\b/i;
+    const claims =
+      /\b(improves?|improved|improving|improvement|better sound|sounds? better|enhances?|enhanced|enhancement|superior|purer|cleaner sound|warmer|richer|high[- ]fidelity|audiophile[- ]grade|accurate sound|true sound)\b/i;
     for (const [k, v] of Object.entries(en)) expect(v, k).not.toMatch(claims);
+  });
+  it("the English is English: no Japanese in it (task 11-4), but for the words the same in both", () => {
+    const japanese = /[぀-ヿ㐀-鿿！-｠]/;
+    const same = new Set(["settings.look.language", "lang.ja"]); // "言語 / Language", "日本語"
+    const left = Object.entries(en)
+      .filter(([k, v]) => !same.has(k) && japanese.test(v))
+      .map(([k, v]) => `${k}: ${v.slice(0, 40)}`);
+    expect(left).toEqual([]);
+  });
+  it("the parts' English is written, not the Japanese copied (task 11-4)", () => {
+    for (const [name, p] of Object.entries(PARTS)) {
+      const copied = Object.keys(p.ja).filter((k) => (p.en as Record<string, string>)[k] === (p.ja as Record<string, string>)[k]);
+      // A text with no Japanese in it may read the same ("BIT-PERFECT", "{n} / {m}").
+      const realCopies = copied.filter((k) => /[぀-ヿ㐀-鿿]/.test((p.ja as Record<string, string>)[k]));
+      expect(realCopies, name).toEqual([]);
+    }
   });
   it("the language setting's own words read the same in either language", () => {
     for (const k of ["settings.look.language", "lang.ja", "lang.en"] as const) expect(en[k]).toBe(ja[k]);

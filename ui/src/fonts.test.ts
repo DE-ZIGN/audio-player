@@ -66,7 +66,8 @@ describe("the settings screen's look (task 6-10, 2026-11-15)", () => {
   const body = (sel: string) => all.find((r) => r.selector === sel)?.body ?? "";
   it("does not dim the 音作りモード sections in 原音モード (the text stays white); the heading says so", () => {
     expect(all.filter((r) => /\.original-mode .*-controls/.test(r.selector) && /opacity/.test(r.body))).toEqual([]);
-    expect(body(".settings.original-mode .for-mode::after")).toMatch(/content:\s*"/);
+    // The words come from the tables (task 11-4): a CSS variable the page sets (i18n.ts CSS_TEXTS).
+    expect(body(".settings.original-mode .for-mode::after")).toMatch(/content:\s*var\(--i18n-for-mode-off\)/);
   });
   it("has headings that read as headings, room before each, and looser lines", () => {
     // 18 px and wide-set since 2026-11-19 (the look the user chose; 20 px before).

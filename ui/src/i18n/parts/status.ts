@@ -1,8 +1,7 @@
 // The page's texts, part "status" (task 11-2): merged into the tables by
 // ../ja.ts and ../en.ts. Keys start with "status." so the parts never clash.
 //
-// English: copied from the Japanese until task 11-4 writes it (with the
-// glossary the user decides). The type still asks for every key.
+// English: written in task 11-4, with the glossary (docs/i18n-glossary.md).
 
 export const ja = {
   // The player's state (messages.ts stateLabel).
@@ -13,7 +12,11 @@ export const ja = {
   "status.state.error": "再生できません",
 
   // A format's bits ("24bit 浮動小数点", "24bit（32bit コンテナ）").
+  "status.format.bits": "{bits}bit",
   "status.format.float": "{bits}bit 浮動小数点",
+  // The top bar's short tags of the format ("24 bit", "32bit float").
+  "status.tag.bits": "{bits} bit",
+  "status.tag.float": "32bit float",
   "status.format.padded": "{valid}bit（{container}bit コンテナ）",
   // A format's line: the rate, the bits, the channels. After a closing bracket, no space.
   "status.format.line": "{rate} / {bits} / {channels}ch",
@@ -362,4 +365,334 @@ export const ja = {
   "status.output.missing": "{name}（今は見つかりません）",
 } as const;
 
-export const en: Record<keyof typeof ja, string> = { ...ja };
+export const en: Record<keyof typeof ja, string> = {
+  "status.state.empty": "Open a file",
+  "status.state.stopped": "Stopped",
+  "status.state.playing": "Playing",
+  "status.state.ended": "Played to the end",
+  "status.state.error": "Cannot play",
+
+  "status.format.bits": "{bits}-bit",
+  "status.format.float": "{bits}-bit float",
+  "status.tag.bits": "{bits}-bit",
+  "status.tag.float": "32-bit float",
+  "status.format.padded": "{valid}-bit ({container}-bit container)",
+  "status.format.line": "{rate} / {bits} / {channels}ch",
+  "status.format.linePadded": "{rate} / {bits} / {channels}ch",
+  "status.queue.position": "Track {index} of {count}",
+
+  "status.transition.gapless": "Tracks {from} → {to}: gapless (same format, so the output was not reopened)",
+  "status.transition.processingChanged":
+    "Track {track}: switched between the processing path and the direct path (the volume or another setting changed, so the output was reopened at the current position; about {ms} ms)",
+  "status.transition.format":
+    "Tracks {from} → {to}: format change {fromFormat} → {toFormat} (the output was reopened; about {ms} ms from the end of the previous track's data to the start of the next track's)",
+
+  "status.dsd.rate48": "DSD{multiple} (48 kHz family)",
+  "status.input.container": "{format} ({container})",
+  "status.input.dsd": "{dsd} ({mhz} MHz) / {channels}ch ({container})",
+
+  "status.stage.volume": "Digital volume",
+  "status.stage.eq": "Parametric EQ",
+  "status.stage.tone": "Tone",
+  "status.stage.tube": "Tube",
+  "status.stage.space": "Space",
+  "status.stage.crossfeed": "Crossfeed",
+  "status.stage.ispSafe": "ISP-safe",
+  "status.stage.limiter": "Safety limiter",
+  "status.stage.resampler": "Resampler",
+  "status.stage.comparison": "Blind comparison",
+  "status.stage.dither": "TPDF dither",
+  "status.stage.quantize": "Float track converted to integer",
+  "status.stage.detail": "{name} ({detail})",
+  "status.stage.preamp": "{name} (preamp {db})",
+
+  "status.bitPerfect.yes": "BIT-PERFECT (values unchanged from the app to the driver)",
+  "status.bitPerfect.yesNotes": "BIT-PERFECT (values unchanged from the app to the driver; {notes})",
+  "status.bitPerfect.no": "Not BIT-PERFECT: {reasons}",
+  "status.bitPerfect.deviceVolume":
+    "{text}. Device volume {volume}: the signal changes after it reaches the DAC (this check covers up to the driver)",
+  "status.bitPerfect.deviceMuted": "muted",
+  "status.bitPerfect.dop": "DSD unchanged via DoP",
+  "status.bitPerfect.repacked": "container repacked with the same values",
+  "status.bitPerfect.floatSource": "values as decoded from a lossy track",
+  "status.bitPerfect.dummyOutput": "dummy output (file)",
+  "status.bitPerfect.comparison":
+    "Blind comparison in progress (the original side keeps the same values but goes through the processing path)",
+  "status.bitPerfect.mismatch": "Self-check mismatch ({frames} frames)",
+
+  "status.processing.dop": "None (no processing can be applied on the DoP path)",
+  "status.processing.direct": "None (direct path: no volume, conversion, or dither)",
+  "status.processing.toInteger": "Float track converted to integer (this device does not accept float)",
+  "status.processing.on": "On (64-bit float processing path: {stages})",
+  "status.dop.notice":
+    "Sending DSD as DoP (wrapped in PCM {rate} / 24-bit). On a DAC that does not support DoP, this comes out as loud noise. Check that the DAC's display shows DSD.",
+
+  "status.outputMode.period": "{frames} frames ({ms} ms)",
+  "status.outputMode.wasapi": "WASAPI exclusive, {period} per buffer",
+  "status.outputMode.wasapiEvent": "WASAPI exclusive (event-driven), {period} per buffer",
+  "status.outputMode.asio": "ASIO {driver}{type}{aligned}, buffer {period}",
+  "status.outputMode.asioDriver": "{name} (version {version})",
+  "status.outputMode.asioType": ", driver format {type}",
+  "status.outputMode.asioRightAligned": " (sent right-aligned in the low bits of 32-bit words; values unchanged)",
+  "status.outputMode.dummy": "Dummy output (writes to a file only), {period} per buffer",
+  "status.rateChange.asio": "Switched the driver's rate {from} → {to} for this track",
+
+  "status.volume.software": "{percent}% (this device uses software volume, which does not apply in exclusive mode)",
+  "status.volume.softwareMuted": "{percent}%, muted (this device uses software volume, which does not apply in exclusive mode)",
+  "status.volume.muted": "Muted (this device applies its volume inside the device, so there is no sound)",
+  "status.volume.max": "100% (this device applies its volume inside the device; it is at maximum now)",
+  "status.volume.lowered":
+    "{percent}%: this device applies its volume inside the device, so the signal changes after it reaches the DAC. Set it to 100% to output the values unchanged (from the app to the driver, the values are unchanged)",
+
+  "status.duration.minutes": "{minutes} min {seconds} s",
+  "status.duration.seconds": "{seconds} s",
+  "status.amount.time": "{duration}",
+  "status.amount.frames": "{frames} frames",
+
+  "status.selfCheck.processing":
+    "Not done on the processing path (it changes the values). On the direct path, the values passed to the driver are compared with the values read from the file",
+  "status.selfCheck.mismatch":
+    "Since this output opened, {frames} frames of the values passed to the driver (1 frame = one value for every channel) differed from the values read from the file. This points to a bug in the app",
+  "status.selfCheck.checking": "Checking (the result appears once the first data is passed)",
+  "status.selfCheck.matched":
+    "Since this output opened, all values passed to the driver for {amount} matched the values read from the file. This checks only from the app to the driver; it cannot check inside the driver, the transfer (USB or other), or inside the DAC",
+
+  "status.meter.notPcm": "Not measured on the DoP path (it carries DSD data, not PCM sample values)",
+  "status.meter.over": "{values} dBTP (above 0 dBTP)",
+  "status.meter.loudness": "Momentary {momentary} LUFS / Short-term {shortTerm} LUFS",
+  "status.meter.span": " (over {duration} of this track)",
+  "status.meter.integratedWaiting": "Measuring (shown once the signal is louder than -70 LUFS){span}",
+  "status.meter.note":
+    "Measures the values passed to the output (on the processing path, the values after processing). It only measures and does not change the sound",
+  "status.meter.noteDropped":
+    "Measures the values passed to the output (on the processing path, the values after processing). It only measures and does not change the sound. The meter calculation fell behind, and {amount} could not be measured (the sound is not affected)",
+
+  "status.integrity.passed": "MD5 match (the decoded audio data matches the value stored in the file)",
+  "status.integrity.pending": "Checking (the result appears once the whole file is read)",
+  "status.integrity.skipped": "Cannot check (there was a seek; play from the start to check)",
+  "status.integrity.decodeErrors": "The decoder found data errors at {count} places in the file. The file may be damaged",
+  "status.integrity.failed": "MD5 does not match. The file may be damaged",
+  "status.integrity.notAvailable":
+    "This file stores no MD5 to check against (WAV, AIFF, ALAC, MP3, AAC, DSD, and FLAC without an MD5)",
+  "status.integrity.failures": "Tracks with an MD5 mismatch: {tracks} (the file may be damaged)",
+
+  "status.dropout.count": "{count}",
+  "status.dropout.detail": "{count} ({parts})",
+  "status.dropout.late": "late device delivery {count}",
+  "status.dropout.read": "late file reads {count}",
+  "status.dropout.timeout": "device timeouts {count}",
+
+  "status.priority.realtime": "Priority raised with MMCSS (Pro Audio) to prevent dropouts",
+  "status.priority.normal": "Normal priority (MMCSS was not available)",
+
+  "status.repack.none": "None (the file's bytes are sent as they are)",
+  "status.repack.wider": "{from}-bit → {to}-bit container ({valid}-bit valid, low bits 0; values unchanged)",
+  "status.repack.widerUnknown": "Container repacking (values unchanged)",
+  "status.repack.zeroPadded": "{from}-bit → {to}-bit (low {pad} bits are 0; values unchanged)",
+  "status.repack.zeroPaddedUnknown": "Zero padding (values unchanged)",
+
+  "status.error.unknownRate": "this rate",
+  "status.error.sampleRate":
+    "This device does not support {rate} in exclusive mode. The rate is not converted. {accepted}Setting the device's rate to {rate} (in the audio interface's control panel, for example) may let it play.",
+  "status.error.acceptedRates": "It currently accepts {rates}. ",
+  "status.error.bitDepth": "This device supports {rate} but not this format ({format}).",
+  "status.error.channels": "This device does not support {channels} channels.",
+  "status.error.floatOnly":
+    "This device does not support integer formats (float only). The direct path does not convert, so this track cannot play.",
+  "status.error.sampleType": "This device does not support this sample type (integer / float).",
+  "status.error.format": "This device does not support this format.",
+  "status.error.deviceNotFound": "Output device not found. Reconnect it, or choose it again in the Output tab of the settings.",
+  "status.error.deviceInUse": "Another app is using this device in exclusive mode. Stop that app and try again.",
+  "status.error.exclusiveModeNotAllowed":
+    "This device does not allow exclusive mode. In Sound settings → this device's Properties → Advanced, turn on \"Allow applications to take exclusive control of this device\".",
+  "status.error.formatRejected": "The device did not accept this format.",
+  "status.error.deviceInvalidated": "The device was removed or its settings changed.",
+  "status.error.timeout": "The device stopped requesting data.",
+  "status.error.device": "Device error ({detail}).",
+  "status.error.load": "Cannot open the file of track {track}: {detail}",
+  "status.error.dopNotAllowed":
+    "Track {track} is DSD. Sending DSD as DoP is turned off, so it is not played. On a DAC that does not support DoP this comes out as loud noise; turn it on in the Output tab of the settings only for a DAC that supports DoP.",
+  "status.error.other": "Error: {detail}",
+
+  "status.tag.comparison": "Comparing (ABX)",
+  "status.tag.mismatch": "Self-check mismatch",
+  "status.tag.resample": "Rate conversion",
+  "status.tag.processing": "Processing",
+
+  "status.path.file": "File",
+  "status.path.decoder": "Decoder",
+  "status.path.processing": "Processing",
+  "status.path.output": "Output",
+  "status.path.decoderOwn": "Built-in",
+  "status.path.muted": "Muted",
+  "status.path.md5Passed": "MD5 match",
+  "status.path.md5Failed": "MD5 mismatch",
+  "status.path.md5Pending": "Checking MD5",
+  "status.path.dsdRate": "{dsd} ({mhz} MHz)",
+  "status.path.format": "{bits} / {rate}",
+  "status.path.formatPadded": "{bits} / {rate}",
+  "status.path.tubeValue": "{type} · DRIVE {drive}",
+  "status.path.dopWrap": "Wrapped in DoP (values unchanged)",
+  "status.path.integer": "Integer, unchanged",
+  "status.path.preamp": "Preamp {db}",
+  "status.path.byAlbum": "Chosen by per-album choice",
+  "status.path.byGenre": "Chosen by genre ({genre})",
+  "status.path.limiterEvents": "{count}× · max {db}",
+  "status.path.limiterZero": "0×",
+  "status.path.badgeDop": "DoP: no processing possible",
+  "status.path.badgeFloat": "64-bit float",
+  "status.path.badgeBypass": "BYPASS (direct path)",
+  "status.path.toInteger": "Float track converted to integer (this device does not accept float)",
+  "status.path.wasapi": "WASAPI exclusive",
+  "status.path.wasapiEvent": "WASAPI exclusive (event-driven)",
+  "status.path.asioDriver": "ASIO ({name})",
+  "status.path.dummy": "Dummy output (file)",
+  "status.path.dopFrame": "DoP (carried as PCM {rate})",
+  "status.path.repacked": "Repacked (same values)",
+  "status.path.deviceVolume": "Device volume {volume}",
+  "status.pathRow.tone": "Tone",
+  "status.pathRow.tube": "Tube",
+  "status.pathRow.space": "Space",
+  "status.pathRow.crossfeed": "Crossfeed",
+  "status.pathRow.volume": "Digital volume",
+  "status.pathRow.ispSafe": "ISP-safe",
+  "status.pathRow.limiter": "Safety limiter",
+  "status.pathRow.resampler": "Resampler",
+  "status.pathRow.dither": "Dither",
+  "status.pathRow.comparison": "Blind comparison",
+
+  "status.verdict.notBitPerfect": "Not BIT-PERFECT",
+  "status.verdict.volume": "Volume 100%",
+  "status.verdict.volumeDop": "No volume is applied to DoP",
+  "status.verdict.processing": "No processing",
+  "status.verdict.direct": "Direct path (does not go through the processing code)",
+  "status.verdict.processingPath": "Processing path",
+  "status.verdict.format": "Format matches the file",
+  "status.verdict.formatProcessed": "Sent in the processing path's format ({format})",
+  "status.verdict.formatProcessedNone": "Sent in the processing path's format",
+  "status.verdict.formatDop": "DoP (DSD bits unchanged)",
+  "status.verdict.formatWider": "Repacked into a {bits}-bit container (same values)",
+  "status.verdict.formatZeroPadded": "Padded to {bits}-bit with zeros in the low bits (same values)",
+  "status.verdict.formatFloat": "Decoded float values, unchanged",
+  "status.verdict.formatSame": "Same as the file's format",
+  "status.verdict.exclusive": "Exclusive mode",
+  "status.verdict.exclusiveWasapi": "WASAPI exclusive (no other app's sound is mixed in)",
+  "status.verdict.exclusiveAsio": "ASIO (does not go through the Windows mixer)",
+  "status.verdict.exclusiveDummy": "Dummy output (writes to a file only)",
+  "status.verdict.windowsVolume": "Windows volume",
+  "status.verdict.windowsVolumeSoftware": "Software volume, so it does not apply in exclusive mode",
+  "status.verdict.windowsVolumeMuted": "Muted (applied inside the DAC)",
+  "status.verdict.windowsVolumeLowered":
+    "{percent}% (the signal changes after it reaches the DAC; this check covers up to the driver)",
+  "status.verdict.selfCheck": "Self-check",
+  "status.verdict.selfCheckProcessing": "Not done on the processing path (it changes the values)",
+  "status.verdict.selfCheckMismatch": "{frames} frames differed from the file's values",
+  "status.verdict.selfCheckMatched": "Values passed to the driver matched the file for {amount}",
+  "status.verdict.selfCheckChecking": "Checking (the result appears once data is passed)",
+  "status.verdict.scope":
+    "The check and the self-check cover the app up to the driver. They cannot check inside the driver, the transfer (USB or other), or inside the DAC.",
+  "status.isp.warning":
+    "This track's True Peak is {truePeak}, above 0 dBTP (measured on import). When the DAC oversamples, peaks between samples can clip. Turning on ISP-safe lowers the volume with a linear gain so the output stays at or below −0.5 dBTP (this uses the processing path, so the output is no longer BIT-PERFECT).",
+
+  "status.view.verdictEmpty": "Once playback starts, the check is made from the path used when the output opened.",
+  "status.view.max": "Max {value}",
+  "status.view.partSeparator": " · ",
+
+  "status.rateMode.track": "As the track",
+  "status.rateMode.fixed": "Fixed",
+  "status.rateMode.atleast": "At least",
+  "status.rateMode.multiple": "Integer multiple",
+  "status.rateNote.fixed": "Every track is output at {rate} (tracks at a higher rate are converted down).",
+  "status.rateNote.atleast": "Tracks below {rate} are converted up to {rate}. Tracks at {rate} or above stay as they are.",
+  "status.rateNote.multiple":
+    "Outputs at {multiple}× the track's rate (44.1 → {from44} kHz, 48 → {from48} kHz). If the DAC does not accept it, the largest multiple it accepts is used.",
+  "status.rateNote.track":
+    "Outputs at the track's rate (only tracks at a rate the DAC does not accept are converted to a rate it accepts).",
+  "status.rateSummary.fixed": "output rate (fixed {rate})",
+  "status.rateSummary.atleast": "output rate ({rate} or higher)",
+  "status.rateSummary.multiple": "output rate ({multiple}× the track)",
+  "status.resample.setting": "{from} → {to} (setting)",
+  "status.resample.unsupported": "{from} → {to} (the DAC does not accept {from})",
+
+  "status.tube.unitTube": "emission {emission}, μ {mu}",
+  "status.tube.unitPair": "{first} and {second}",
+  "status.tube.unitChannels": "Left: {left}; right: {right}",
+  "status.tube.unit": "Tube No. {number}",
+  "status.tube.warm": "Warmed up (more than {minutes} min since launch)",
+  "status.tube.warmingUp": "Warming up: {minutes} min since launch (about {left} min until fully warm)",
+  "status.tube.warmShort": "Warmed up",
+  "status.tube.warmingUpShort": "Warming up ({minutes} min since launch)",
+  "status.tube.noteSe300b":
+    "One 300B, single-ended (cathode bias). Adds mainly the 2nd harmonic (measured example: 2nd −37 dB, 3rd −53 dB).",
+  "status.tube.notePpel34":
+    "Two EL34s, push-pull (class AB, fixed bias). Even orders cancel; adds mainly the 3rd harmonic (measured example: 3rd −26 dB).",
+  "status.tube.notePpclassa": "Two EL34s, push-pull (class A). At the same DRIVE, lower harmonics (measured example: 3rd −40 dB).",
+
+  "status.space.text": "{room}{tag} · MIX {mix}%",
+  "status.space.roomNumbers": "{size}, reverb {seconds} s",
+  "status.space.reverb": "reverb {seconds} s",
+  "status.space.hallPlace": "St Paul's Hall (a concert hall at the University of Huddersfield, UK)",
+  "status.space.hallCredit":
+    "St Paul's Hall IR: MAIR (Microphone Array Impulse Response Library; Hyunkook Lee, Connor Millns, University of Huddersfield Applied Psychoacoustics Lab), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). The two AB recordings (a pair of omnidirectional microphones) of a source at the front center of the stage are combined into one stereo IR, used from 1 ms before the direct sound.",
+  "status.space.measuredTag": " (measured)",
+  "status.space.userTag": " (your IR)",
+  "status.space.lowCutNone": "None",
+  "status.space.builtInMeasured": "Measured: {place}, {numbers}",
+  "status.space.builtInSynth": "Synthetic: {numbers}",
+  "status.space.fallbackMeasured": "the built-in measured IR",
+  "status.space.fallbackSynth": "the built-in synthetic IR",
+  "status.space.noFile": "No file of your own chosen yet. Using {fallback}",
+  "status.space.unreadable": "Could not read {name} ({error}). Using {fallback}",
+  "status.space.unknownError": "unknown reason",
+  "status.space.mono": "mono",
+  "status.space.stereo": "stereo",
+  "status.space.firstTwo": "first 2 of {channels} channels",
+  "status.space.truncated": "cut at 5 s",
+  "status.space.userIr": "{name} ({seconds} s, {channels}, {rate} kHz)",
+  "status.space.userIrExtra": "{name} ({seconds} s, {channels}, {rate} kHz, {extra})",
+  "status.space.extraSeparator": ", ",
+
+  "status.crossfeed.numbers": "{hz} Hz · {db} dB",
+  "status.crossfeed.default": "Standard ({numbers})",
+  "status.crossfeed.cmoy": "Slightly weaker ({numbers})",
+  "status.crossfeed.jmeier": "Weaker ({numbers})",
+
+  "status.filter.peak": "Peak",
+  "status.filter.lowShelf": "Low shelf",
+  "status.filter.highShelf": "High shelf",
+  "status.filter.lowPass": "Low-pass",
+  "status.filter.highPass": "High-pass",
+  "status.filter.bandPass": "Band-pass",
+  "status.filter.notch": "Notch",
+
+  "status.isp.off": "Off",
+  "status.isp.measured": "Lower by the measured value",
+  "status.isp.fixed": "Fixed −3 dB",
+  "status.replayGain.off": "Off",
+  "status.replayGain.track": "Track (per track)",
+  "status.replayGain.album": "Album (keeps the level differences within the album)",
+
+  "status.mode.original":
+    "Pure mode: at 100% volume, nothing is processed. ReplayGain, EQ, tone, tube, space, and crossfeed are not applied (their settings are kept).",
+  "status.mode.originalIsp":
+    "Pure mode: at 100% volume, nothing is processed except ISP-safe ({isp}). ReplayGain, EQ, tone, tube, space, and crossfeed are not applied (their settings are kept).",
+  "status.mode.replayGainTrack": "ReplayGain (track)",
+  "status.mode.replayGainAlbum": "ReplayGain (album)",
+  "status.mode.eq": "EQ ({bands}-band)",
+  "status.mode.tone": "tone ({parts})",
+  "status.mode.tube": "tube ({type}, {details})",
+  "status.mode.tubeAuto": "tube (auto by genre; {type} when the genre is not in the table; {details})",
+  "status.mode.warmUp": "warm-up simulation",
+  "status.mode.space": "space ({space})",
+  "status.mode.crossfeed": "crossfeed ({numbers})",
+  "status.mode.ispSafe": "ISP-safe ({isp})",
+  "status.mode.none": "Processing mode: nothing to apply. At 100% volume, the output is the same as in Pure mode.",
+  "status.mode.processed": "Processing mode: applies {parts} in 64-bit float.",
+
+  "status.output.asio": "ASIO: {name}",
+  "status.output.wasapiDefault": "WASAPI exclusive: Windows default device",
+  "status.output.wasapi": "WASAPI exclusive: {name}",
+  "status.output.default": "Windows default device",
+  "status.output.defaultNow": "Windows default device (currently {name})",
+  "status.output.missing": "{name} (not found now)",
+};

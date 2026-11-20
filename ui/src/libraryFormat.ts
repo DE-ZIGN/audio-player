@@ -27,7 +27,7 @@ export function rateText(r: Pick<TrackRow, "sampleRate" | "dsdRate">): string {
 export function formatText(r: Pick<TrackRow, "container" | "bits" | "dsdRate">): string {
   if (!r.container) return "—";
   if (r.dsdRate || !r.bits || r.bits <= 1) return r.container;
-  return `${r.container} ${r.bits}bit`;
+  return t("controls.library.formatBits", { container: r.container, bits: r.bits });
 }
 
 export interface PeakCell {

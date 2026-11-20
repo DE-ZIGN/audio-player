@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import html from "../index.html?raw";
+import css from "./style.css?raw";
+import { CSS_TEXTS } from "./i18n";
 
 // Task 11-2 (M11): no Japanese is left in the page or its scripts outside the
 // tables (i18n/), so the English table (11-4) covers everything shown. Comments
@@ -75,6 +77,15 @@ describe("no Japanese outside the tables", () => {
       }
     }
     expect(left).toEqual([]);
+  });
+
+  it("in the stylesheet (comments aside): words come in through CSS variables the page sets", () => {
+    const code = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const left = code.split(/\r?\n/).filter((line) => JAPANESE.test(line));
+    expect(left).toEqual([]);
+    // Every variable the stylesheet reads for words is one the page sets, and the other way round.
+    const used = new Set([...code.matchAll(/var\((--i18n-[a-z0-9-]+)\)/g)].map((m) => m[1]));
+    expect([...used].sort()).toEqual(Object.keys(CSS_TEXTS).sort());
   });
 
   it("what is left out is named, with its reason", () => {

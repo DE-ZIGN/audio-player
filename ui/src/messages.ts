@@ -27,7 +27,7 @@ function rateText(rate: number): string {
 // (padded: the valid bits in a wider container).
 export function bitsText(f: FormatInfo): { text: string; padded: boolean } {
   if (f.sampleType === "float") return { text: t("status.format.float", { bits: f.containerBits }), padded: false };
-  if (f.validBits === f.containerBits) return { text: `${f.validBits}bit`, padded: false };
+  if (f.validBits === f.containerBits) return { text: t("status.format.bits", { bits: f.validBits }), padded: false };
   return { text: t("status.format.padded", { valid: f.validBits, container: f.containerBits }), padded: true };
 }
 
@@ -452,7 +452,7 @@ export function outputTags(s: PlaybackStatus): OutputTag[] {
     tags.push({ text: "DoP", kind: "plain" });
   } else {
     tags.push({ text: `${Number((f.sampleRate / 1000).toFixed(1))} kHz`, kind: "plain" });
-    tags.push({ text: f.sampleType === "float" ? "32bit float" : `${f.validBits} bit`, kind: "plain" });
+    tags.push({ text: f.sampleType === "float" ? t("status.tag.float") : t("status.tag.bits", { bits: f.validBits }), kind: "plain" });
   }
   const v = s.bitPerfect;
   if (!v) return tags;

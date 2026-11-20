@@ -75,9 +75,21 @@ export function saveLang(storage: StorageLike | null, l: Lang) {
   }
 }
 
+// Words the stylesheet shows (content: in ::before / ::after), handed to it as
+// CSS variables on the page's root: style.css reads var(--i18n-...). A CSS
+// string, so the text is quoted for CSS.
+export const CSS_TEXTS: Record<string, MessageKey> = {
+  "--i18n-for-mode-off": "page.settings.forModeOff",
+};
+
+function cssString(text: string): string {
+  return `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\A ")}"`;
+}
+
 function applyToPage() {
   if (typeof document === "undefined") return; // (the tests)
   document.documentElement.lang = lang;
+  for (const [name, key] of Object.entries(CSS_TEXTS)) document.documentElement.style.setProperty(name, cssString(t(key)));
   translateTree(document);
 }
 

@@ -1,8 +1,7 @@
 // The page's texts, part "page" (task 11-2): merged into the tables by
 // ../ja.ts and ../en.ts. Keys start with "page." so the parts never clash.
 //
-// English: copied from the Japanese until task 11-4 writes it (with the
-// glossary the user decides). The type still asks for every key.
+// English: written in task 11-4, with the glossary (docs/i18n-glossary.md).
 
 export const ja = {
   // --- the top bar (index.html, main.ts) ---
@@ -83,6 +82,8 @@ export const ja = {
   "page.settings.tabsLabel": "設定の項目",
   "page.details": "詳細", // every <summary> of an explanation
   "page.settings.forMode": "音作りモードでかけます", // beside the headings
+  // After it, while the Pure mode is on (style.css, through i18n.ts CSS_TEXTS).
+  "page.settings.forModeOff": "（今は原音モードなので、かかりません）",
   "page.settings.readFailed": "設定を読めませんでした: {error}",
   "page.settings.applyFailed": "設定を反映できませんでした",
   // 出力
@@ -347,4 +348,339 @@ export const ja = {
   "page.chooser.eq": "EQ の設定を読み込む（AutoEQ の ParametricEQ.txt、Equalizer APO）",
 } as const;
 
-export const en: Record<keyof typeof ja, string> = { ...ja };
+export const en: Record<keyof typeof ja, string> = {
+  // --- the top bar (index.html, main.ts) ---
+  "page.amp.label": "Amp",
+  "page.now.choose": "Choose a track",
+  "page.transport.shuffle": "Shuffle",
+  "page.transport.prev": "Previous track",
+  "page.transport.prevTitle": "Previous track (after 3 s, back to the start of the track)",
+  "page.transport.play": "Play",
+  "page.transport.pause": "Pause",
+  "page.transport.playPauseTitle": "Play / pause (Space)",
+  "page.transport.playTitle": "Play (Space)",
+  "page.transport.pauseTitle": "Pause (Space)",
+  "page.transport.stop": "Stop",
+  "page.transport.stopTitle": "Stop (back to the start of the track)",
+  "page.transport.next": "Next track",
+  "page.transport.repeat": "Repeat",
+  "page.transport.seek": "Playback position",
+  "page.shuffle.off": "Shuffle: off",
+  "page.shuffle.on": "Shuffle: on",
+  "page.shuffle.title": "{state} (shuffles the order of the upcoming tracks)",
+  "page.repeat.off": "Repeat: off",
+  "page.repeat.all": "Repeat: all",
+  "page.repeat.one": "Repeat: one",
+  "page.repeat.title": "{state} (each press: off → all → one)",
+  "page.volume.boxTitle": "Digital volume. At 100%, nothing is processed (direct path; can be BIT-PERFECT). Below 100%, the signal goes through the 64-bit processing path",
+  "page.volume.mute": "Mute",
+  "page.volume.slider": "Volume",
+  "page.volume.muted": "Muted",
+  "page.levels.title": "True Peak of the values sent to the output (last 0.1 s). Exact values are in Signal path",
+  "page.vu.title": "VU meter (values sent to the output; 0 VU = a −18 dBFS sine wave, about 300 ms averaging). Exact values are in Signal path, as True Peak and LUFS",
+  "page.vu.label": "VU meter {channel}",
+  "page.topbar.outputTitle": "Signal path (path and meters)",
+  "page.topbar.output": "Output",
+
+  // --- the side bar ---
+  "page.nav.now": "Now playing",
+  "page.nav.tracks": "Tracks",
+  "page.nav.albums": "Albums",
+  "page.nav.settings": "Settings",
+  "page.nav.openFile": "Open files",
+  "page.folders.title": "Watched folders",
+  "page.folders.add": "Add folder",
+  "page.folders.addButton": "+",
+  "page.view.standard": "Standard view",
+  "page.view.library": "Library view",
+  "page.view.amp": "Amp view",
+  "page.view.toStandard": "Standard view",
+  "page.view.toLibrary": "Library view",
+  "page.view.toAmp": "Amp view",
+  "page.view.toggleTitle": "Switch view (only the look and layout change)",
+
+  // --- the library's head ---
+  "page.library.title": "Library",
+  "page.library.search": "Search the library",
+  "page.library.searchLabel": "Search",
+  "page.library.sort": "Sort",
+  "page.library.display": "Display",
+  "page.library.list": "List",
+  "page.library.tiles": "Tiles",
+  "page.album.back": "← All albums",
+
+  // --- the play queue and the status bar (main.ts) ---
+  "page.queue.heading": "Queue",
+  "page.queue.clear": "Clear upcoming",
+  "page.queue.clearTitle": "Remove the tracks after the current one",
+  "page.queue.count": "Tracks: {total}, left: {left}",
+  "page.queue.countFromFiles": "Tracks: {total} (playing opened files), left: {left}",
+  "page.queue.remove": "Remove from queue",
+  "page.queue.cannotAdd": "Library tracks cannot be added to a queue of opened files (play from the library again)",
+  "page.state.paused": "Paused",
+  "page.backend.mock": "Mock engine (running in a browser only)",
+
+  // --- the settings screen (index.html, settingsView.ts) ---
+  "page.settings.tabsLabel": "Settings sections",
+  "page.details": "Details",
+  "page.settings.forMode": "Applied in Processing mode",
+  "page.settings.forModeOff": " (not now: Pure mode is on)",
+  "page.settings.readFailed": "Could not read the settings: {error}",
+  "page.settings.applyFailed": "Could not apply the settings",
+  // Output
+  "page.settings.output.heading": "Output",
+  "page.settings.output.device": "Output device",
+  "page.settings.output.deviceNote":
+    "WASAPI plays in exclusive mode (sound from other apps is not mixed in). An ASIO driver is loaded and checked in a separate process when you choose it.",
+  "page.settings.output.dop": "Send DSD as DoP",
+  "page.settings.output.dopNote":
+    "Turn this on only with a DAC that supports DoP. On a DAC that does not, it plays as loud noise (whether the DAC supports it cannot be detected automatically). Choosing the output again turns this off.",
+  "page.settings.output.wasapiGroup": "WASAPI exclusive",
+  "page.settings.output.missing":
+    "The selected output is not found right now. It can be used once it is connected (while it is missing, WASAPI plays through the Windows default device).",
+  "page.settings.output.asioChecking": "Loading and checking the ASIO driver in a separate process…",
+  "page.settings.output.chooseFailed": "This output could not be selected",
+  "page.settings.output.dopFailed": "Could not apply the setting",
+  // Mode
+  "page.settings.mode.heading": "Mode",
+  "page.settings.mode.group": "Mode",
+  "page.settings.mode.original": "Pure mode",
+  "page.settings.mode.originalNote": "No ReplayGain or EQ. At 100% volume with no processing, the output goes through the bit-perfect path.",
+  "page.settings.mode.processed": "Processing mode",
+  "page.settings.mode.processedNote": "Applies ReplayGain, EQ and ISP-safe below in 64-bit floating point.",
+  "page.settings.mode.abx": "Compare blind with ABX…",
+  "page.settings.mode.abxNote": "A blind test with the current track: can you tell Pure and Processing apart?",
+  // ISP-safe
+  "page.settings.isp.heading": "ISP-safe",
+  "page.settings.isp.original": "In Pure mode",
+  "page.settings.isp.processed": "In Processing mode",
+  "page.settings.isp.note":
+    "Lowers the volume linearly so that the track's True Peak (the peak between samples) stays at or below −0.5 dBTP. The measured setting uses the True Peak measured at import for the track (for the album, with album ReplayGain); tracks not yet measured get −3 dB. Both go through the safety limiter (−0.3 dBTP).",
+  // ReplayGain
+  "page.settings.replayGain.note":
+    "Sets the track's (or album's) integrated loudness to −18 LUFS, with values from the analysis at import. A boost goes only as far as keeps the True Peak at or below 0 dBTP. Tracks not yet analyzed are left as they are.",
+  // EQ
+  "page.settings.eq.enabled": "Use EQ",
+  "page.settings.eq.import": "Load from file…",
+  "page.settings.eq.open": "Open EQ",
+  "page.settings.eq.curve": "EQ frequency response (click to open EQ)",
+  "page.settings.eq.note":
+    "Minimum-phase IIR (biquads) in 64-bit floating point. With the preamp on auto, it is lowered by the largest boost, so the EQ itself goes above 0 dB at no frequency. You can also set the preamp by hand; then anything above 0 dB is handled by the safety limiter (how often and how much it acts is shown). Files in AutoEQ's ParametricEQ.txt and the Equalizer APO format can be loaded (the file's preamp value is not used).",
+  "page.settings.eq.presetSaveFailed": "Could not save the preset",
+  "page.settings.eq.importFailed": "Could not load the file",
+  "page.settings.eq.tooManyBands": "Bands: up to {max}. The rest were not loaded.",
+  "page.settings.eq.filePreamp": "The file's preamp ({db}) is not used (the preamp is auto or set by hand).",
+  "page.settings.eq.none": "No EQ is applied.",
+  "page.settings.eq.preampAuto": "Bands: {bands}, preamp: {db} (auto). Solid line: EQ; dotted line: output including the preamp.",
+  "page.settings.eq.preampManual": "Bands: {bands}, preamp: {db} (manual). Solid line: EQ; dotted line: output including the preamp.",
+  "page.settings.eq.originalNotApplied": "Not applied now, because Pure mode is on.",
+  // Tone
+  "page.settings.tone.heading": "Tone",
+  "page.settings.tone.reset": "Reset to 0",
+  "page.settings.tone.note":
+    "BASS (centered at 150 Hz) and TREBLE (centered at 4.5 kHz) raise or lower with a gentle slope (±10 dB). Any boost is offset by the preamp, so nothing is raised above 0 dB. Applied after the parametric EQ.",
+  // Tube
+  "page.settings.tube.heading": "Tube",
+  "page.settings.tube.enabled": "Use tube",
+  "page.settings.tube.types": "Tube type",
+  "page.settings.tube.driveReset": "Reset to default (-12 dB)",
+  "page.settings.tube.switchNote": "Turning it on or off changes the processing latency, so playback drops out for a moment.",
+  "page.settings.tube.note":
+    "Adds harmonics with a transfer curve derived from a tube model (Koren's equations) and a load line (waveshaping). Bias shift with signal level and power-supply sag are modeled in a simplified way, based on the circuit's time constants. The level of quiet signals is unchanged; DRIVE changes the curvature (the amount of harmonics). At DRIVE 0 dB, a 0 dBFS peak swings the grid to 0 V.",
+  "page.settings.tube.warmUpWaiting": "Follows the time since launch.",
+  "page.settings.tube.unitNow": "{unit} ({type}): {channels}",
+  // Simulation (the tube's show)
+  "page.settings.tubeShow.heading": "Simulation",
+  "page.settings.tubeShow.romance": "Just for fun: no effect verified",
+  "page.settings.tubeShow.warmUp": "Warm-up",
+  "page.settings.tubeShow.units": "Tube-to-tube variation",
+  "page.settings.tubeShow.unit": "Tube number",
+  "page.settings.tubeShow.unitNext": "Use the next tube number",
+  "page.settings.tubeShow.note":
+    "A simulation that computes the warm-up and tube-to-tube variation of real tubes with the tube model. Try what enthusiasts enjoy, such as swapping tubes and comparing them. The output data do differ, but can you actually hear the difference? Try it with ABX (\"Settings A vs. settings B\").",
+  "page.settings.tubeShow.warmUpNote":
+    "Warm-up: with the time since the app started, the characteristic moves from a \"cold tube\" to a \"warm tube\". The cold tube's characteristic is computed for the same circuit with the cathode emission (the amount of electrons emitted) at 50%. The share of the cold characteristic decays with a time constant of 4 minutes; 20 minutes after launch, only the warm characteristic remains.",
+  "page.settings.tubeShow.unitsNote":
+    "Tube-to-tube variation: the spread between individual tubes of the same type. Each tube's emission is offset within ±10% and its amplification factor μ within ±5%, and the characteristic is computed again for that tube. The values are set by the number: the same number is always the same tube. Left and right are different tubes; in PP, the difference between the two tubes leaves part of the even-order harmonics that would otherwise cancel.",
+  "page.settings.tubeShow.bothNote": "Neither changes the level of quiet signals; they change the curvature (the amount of harmonics).",
+  // Tube type by genre. The album's name and the counts are filled in by
+  // tubeAutoView.ts between the pieces.
+  "page.settings.tubeAuto.heading": "Choose type by genre",
+  "page.settings.tubeAuto.enabled": "Choose the type automatically from the track's genre",
+  "page.settings.tubeAuto.albumBefore": "This album (",
+  "page.settings.tubeAuto.albumSelect": "Tube type for this album",
+  "page.settings.tubeAuto.rulesBefore": "Genre table (",
+  "page.settings.tubeAuto.albumsBefore": "Per-album choices (",
+  "page.settings.tubeAuto.after": ")",
+  "page.settings.tubeAuto.genre": "Genre",
+  "page.settings.tubeAuto.type": "Type",
+  "page.settings.tubeAuto.addRow": "Add row",
+  "page.settings.tubeAuto.reset": "Reset to defaults",
+  "page.settings.tubeAuto.startNote": "The table's defaults are only a starting point; they do not indicate which type suits a genre.",
+  "page.settings.tubeAuto.note":
+    "For each track, the type comes from the per-album choice, then the genre table, then the type chosen by hand above. Genre tags are split at \";\", \"/\" and \",\" and compared ignoring case and full-/half-width. Rows that match exactly are searched first, then rows contained in part of the genre (\"Jazz\" in \"Vocal Jazz\"), from the top of the table. The type changes at track boundaries (smoothly, over 20 ms). All types have matched levels for quiet signals; with a music-like signal (DRIVE −12 dB) they differ by 0.03 dB or less. Not used when comparing with ABX.",
+  // Space
+  "page.settings.space.heading": "Space",
+  "page.settings.space.rooms": "Space (room)",
+  "page.settings.space.preDelay": "Pre-delay",
+  "page.settings.space.lowCut": "Low cut",
+  "page.settings.space.reset": "Reset to defaults (MIX 20%, 10 ms, 120 Hz)",
+  "page.settings.space.irs": "IR for each room (measured, synthetic, your own file)",
+  "page.settings.space.irsNote":
+    "Your own file can be a mono or stereo IR in WAV, FLAC or AIFF. Silence before the first sound is removed, and anything longer than 5 s is cut. If its rate differs from the output rate, it is converted. If a file cannot be read, the room's built-in IR is used.",
+  "page.settings.space.note":
+    "Convolves the track with a room's response (impulse response, IR) and mixes it in (partitioned FFT convolution, 64-bit floating point). MIX is the share of the reverb: 0% is the original only, 100% the reverb only. The IRs are normalized to unit energy, so with broadband sound the reverb is about as loud as the original. Pre-delay is the time from the original sound to the start of the reverb (at least about 3 ms, because of the processing blocks); the original is not delayed. Low cut is a second-order high-pass on the reverb only; the original's low end is unchanged. HALL's default is an IR measured in a real hall (St Paul's Hall, UK). The defaults for CLUB and ARENA, and \"Synthetic\", are IRs synthesized from image-method early reflections and noise that decays per band; they are not measurements of real places (the numbers are the room size and the mid-band reverb time). Switching rooms crossfades over about 40 ms, without interrupting playback. At OFF or MIX 0%, the processing is removed, and with no other processing the output is the same as the direct path. Applied after the tube and before crossfeed.",
+  "page.settings.space.preDelayBelowMin": "{value} (minimum about 3 ms)",
+  "page.settings.space.off": "OFF: no space is applied.",
+  "page.settings.space.roomNote": "{room}: {ir}",
+  "page.settings.space.irGroup": "IR for {room}",
+  "page.settings.space.irMeasured": "Measured (St Paul's Hall)",
+  "page.settings.space.irSynth": "Synthetic",
+  "page.settings.space.irFile": "Your own file",
+  "page.settings.space.irFileNamed": "Your own file ({file})",
+  "page.settings.space.chooseFile": "Choose file…",
+  // Crossfeed
+  "page.settings.crossfeed.heading": "Crossfeed",
+  "page.settings.crossfeed.enabled": "Use crossfeed (for headphones)",
+  "page.settings.crossfeed.levels": "Crossfeed level",
+  "page.settings.crossfeed.note":
+    "Mixes the low frequencies of each channel into the opposite side, slightly delayed in phase (the bs2b method). The numbers are the low-pass frequency of the mixed-in signal and how many dB the opposite side is below the direct sound at low frequencies. Center sounds stay at 0 dB in the low range and drop slightly in the high range (−1.75 dB at 15 kHz at the standard level). Applied to stereo tracks only, after the tube.",
+  // Output rate
+  "page.settings.rate.heading": "Output rate",
+  "page.settings.rate.modes": "Output rate",
+  "page.settings.rate.rate": "Rate",
+  "page.settings.rate.multiple": "Multiple",
+  "page.settings.rate.multipleOption": "{k}×",
+  "page.settings.rate.keepNote": "Raising the rate adds no sound (information) that is not in the original recording. Converting means the output is no longer BIT-PERFECT.",
+  "page.settings.rate.note":
+    "A resampler (r8brain-free-src, linear phase) converts the rate at the end of processing (after the safety limiter, before dither). EQ, tube, space and the rest are computed at the track's rate. Design stopband attenuation: 180 dB. As measured in the automated tests, aliasing and imaging are more than 200 dB down, and the level difference up to 20 kHz is less than 0.01 dB.",
+  "page.settings.rate.modesNote":
+    "Fixed: every track plays at that rate, so the DAC's rate no longer changes from track to track (where it does, the output is reopened at the boundary between tracks, and playback drops out for a moment). At least: only tracks below that rate are raised. Integer multiple: plays at 2, 4 or 8 times the track's rate (88.2, 176.4 or 352.8 kHz for a 44.1 kHz track). If the DAC does not accept it, the largest multiple the DAC accepts is used, or, if none, the track's own rate.",
+  "page.settings.rate.unsupportedNote":
+    "In Processing mode, if the DAC does not accept the track's rate, the track is converted to a rate the DAC accepts (preferring the same family, such as 2× or half) and played. In Pure mode, nothing is converted, and the reason it cannot play is shown.",
+  // Appearance
+  "page.settings.look.heading": "Appearance",
+  "page.settings.look.views": "View (only the look and layout change; the functions and the information shown stay the same)",
+  "page.settings.look.standard": "Standard view",
+  "page.settings.look.standardSub": "Realistic media player",
+  "page.settings.look.amp": "Amp view",
+  "page.settings.look.ampSub": "Tube amp style, smaller info panel",
+  "page.settings.look.library": "Library view",
+  "page.settings.look.librarySub": "Library-style media player",
+  "page.settings.look.themes": "Library view theme (only the colors change)",
+  "page.settings.look.amber": "Amber",
+  "page.settings.look.bluegray": "Blue-gray",
+  // Articles
+  "page.settings.articles.heading": "Articles",
+  "page.settings.articles.open": "Open articles…",
+  "page.settings.articles.note": "Opens articles on this player's approach, bit-perfect playback, ABX and more in a separate window (the articles are in preparation).",
+
+  // --- the dialogs ---
+  "page.dialog.close": "Close",
+  // The EQ editor
+  "page.eqDialog.toProcessed": "Switch to Processing mode",
+  "page.eqDialog.enabled": "Use EQ",
+  "page.eqDialog.range": "Vertical range",
+  "page.eqDialog.import": "Load from file…",
+  "page.eqDialog.clear": "Clear all",
+  "page.eqDialog.graph": "EQ graph. Double-click to add a band",
+  "page.eqDialog.hint":
+    "Double-click empty space: add a band · Drag a node: left/right for frequency, up/down for gain (Q for types without gain) · Wheel over a node: Q · Shift: fine · Double-click a node or Delete: remove · Right-click: menu",
+  "page.eqDialog.bands": "Bands",
+  "page.eqDialog.preamp": "Preamp",
+  "page.eqDialog.autoPreamp": "Auto (lower by the largest boost)",
+  // ABX
+  "page.abx.kinds": "Compare",
+  "page.abx.kindProcessed": "Pure vs. processed (current settings)",
+  "page.abx.kind16bit": "Pure vs. 16-bit (TPDF dither)",
+  "page.abx.kindPresets": "Settings A vs. settings B (EQ, tone, tube)",
+  "page.abx.tone": "Tone",
+  "page.abx.tube": "Tube",
+  "page.abx.warmUp": "Warm-up",
+  "page.abx.unit": "Tube number",
+  "page.abx.aEq": "A: EQ",
+  "page.abx.aTone": "A: tone",
+  "page.abx.aTube": "A: tube",
+  "page.abx.aDrive": "A: DRIVE",
+  "page.abx.aWarmUp": "A: warm-up",
+  "page.abx.aUnit": "A: tube number (0 = no variation)",
+  "page.abx.bEq": "B: EQ",
+  "page.abx.bTone": "B: tone",
+  "page.abx.bTube": "B: tube",
+  "page.abx.bDrive": "B: DRIVE",
+  "page.abx.bWarmUp": "B: warm-up",
+  "page.abx.bUnit": "B: tube number (0 = no variation)",
+  "page.abx.toneCurrent": "Current tone",
+  "page.abx.none": "None",
+  "page.abx.warmUpNow": "Current state",
+  "page.abx.warmUpCold": "Cold, as at launch",
+  "page.abx.presetsNote":
+    "Both sides use Processing mode with the current ReplayGain, ISP-safe and volume, and the EQ, tone and tube chosen for A and B. B's level is matched to A. The tube's DRIVE and the simulation (warm-up, tube number; 0 = no variation) affect only a side with a tube chosen. \"Cold, as at launch\" compares with the characteristic of a cold tube just after launch.",
+  "page.abx.regionStart": "Segment start",
+  "page.abx.here": "From the current position",
+  "page.abx.length": "Segment length",
+  "page.abx.length10": "10 s",
+  "page.abx.length20": "20 s",
+  "page.abx.length30": "30 s",
+  "page.abx.length60": "60 s",
+  "page.abx.trials": "Trials",
+  "page.abx.trials8": "8 trials",
+  "page.abx.trials12": "12 trials",
+  "page.abx.trials16": "16 trials",
+  "page.abx.trials20": "20 trials",
+  "page.abx.trials24": "24 trials",
+  "page.abx.howItWorks":
+    "The segment plays in a loop (5 ms crossfade at the joins). B's level is analyzed over this segment and matched to A. You can switch between A and B as often as you like. In each trial, X is either A or B, chosen by the OS's random number generator. The number correct is not shown until the end (looking midway biases you toward stopping while ahead, which breaks the meaning of p). If p < 0.05, the result is \"likely distinguished\". It does not judge which of the two is preferable.",
+  "page.abx.trialPlaceholder": "Trial 1 of 16",
+  "page.abx.aPlaceholder": "Pure",
+  "page.abx.bPlaceholder": "Processed",
+  "page.abx.start": "Start",
+  "page.abx.preparing": "Analyzing the segment…",
+  "page.abx.choices": "Listen",
+  "page.abx.xIs": "A or B",
+  "page.abx.answers": "Answer",
+  "page.abx.answerA": "X is A",
+  "page.abx.answerB": "X is B",
+  "page.abx.abort": "Stop (Esc)",
+  "page.abx.again": "Again",
+  "page.abx.close": "Close",
+  // The output check
+  "page.output.heading": "Signal path",
+  "page.output.pathLabel": "Path",
+  "page.output.path": "Path",
+  "page.output.ispOn": "Turn on ISP-safe (lower by the measured value)",
+  "page.output.verdict": "BIT-PERFECT check",
+  "page.output.abx": "Compare blind with ABX…",
+  "page.output.abxNote": "With the current track, checks whether you can tell pure from processed (or 16-bit).",
+  "page.output.input": "Input",
+  "page.output.integrity": "File verification",
+  "page.output.device": "Output device",
+  "page.output.mode": "Output method",
+  "page.output.windowsVolume": "Windows volume",
+  "page.output.format": "Format sent",
+  "page.output.formatRateChange": "{format} ({change})",
+  "page.output.repack": "Repacking",
+  "page.output.processing": "Processing",
+  "page.output.processingPlaceholder": "None (direct path: no volume, conversion or dither)",
+  "page.output.bitPerfect": "Bit-perfect",
+  "page.output.selfCheck": "Self-check",
+  "page.output.transitions": "Track changes",
+  "page.output.dropouts": "Dropouts",
+  "page.output.priority": "Playback thread",
+  "page.output.meters": "Meters",
+  "page.output.loudness": "Loudness",
+  "page.output.momentary": "Momentary (0.4 s)",
+  "page.output.shortTerm": "Short-term (3 s)",
+  "page.output.integrated": "Integrated (this track)",
+
+  // --- a knob (knob.ts) ---
+  "page.knob.title": "{label}: drag up/down (Shift for fine), wheel, double-click for default",
+  "page.knob.typeValue": "Click to type a value",
+  "page.knob.valueLabel": "{label} value",
+
+  // --- the file dialogs' titles (task 11-3) ---
+  "page.chooser.openFiles": "Open audio files (you can select several)",
+  "page.chooser.addFolder": "Choose a music folder (its subfolders are watched too)",
+  "page.chooser.ir": "Choose an IR file for the space (WAV, FLAC, AIFF; mono or stereo)",
+  "page.chooser.eq": "Load EQ settings (AutoEQ ParametricEQ.txt, Equalizer APO)",
+};

@@ -1,11 +1,12 @@
 // The page's texts, part "controls" (task 11-2): merged into the tables by
 // ../ja.ts and ../en.ts. Keys start with "controls." so the parts never clash.
 //
-// English: copied from the Japanese until task 11-4 writes it (with the
-// glossary the user decides). The type still asks for every key.
+// English: written in task 11-4, with the glossary (docs/i18n-glossary.md).
 
 export const ja = {
   // --- the library (libraryView.ts, libraryFormat.ts) ---
+  // The format column ("FLAC 24bit").
+  "controls.library.formatBits": "{container} {bits}bit",
   "controls.library.title.settings": "設定",
   "controls.library.title.albums": "アルバム",
   "controls.library.title.library": "ライブラリ",
@@ -230,4 +231,225 @@ export const ja = {
   "controls.amp.badgeTitle": "出力の確認（経路と BIT-PERFECT の判定）",
 } as const;
 
-export const en: Record<keyof typeof ja, string> = { ...ja };
+export const en: Record<keyof typeof ja, string> = {
+  // --- the library ---
+  "controls.library.formatBits": "{container} {bits}-bit",
+  "controls.library.title.settings": "Settings",
+  "controls.library.title.albums": "Albums",
+  "controls.library.title.library": "Library",
+  "controls.library.sort.artist": "By artist",
+  "controls.library.sort.album": "By album",
+  "controls.library.sort.title": "By title",
+  "controls.library.sort.added": "By date added (newest first)",
+  "controls.library.sort.length": "By length",
+  "controls.library.sort.format": "By format",
+  "controls.library.sort.rate": "By rate",
+  "controls.library.sort.truePeak": "By True Peak (highest first)",
+  "controls.library.sort.plays": "By play count (most first)",
+  "controls.library.sort.albumName": "By album name",
+  "controls.library.sort.year": "By year (newest first)",
+  "controls.library.column.title": "Title",
+  "controls.library.column.artist": "Artist",
+  "controls.library.column.album": "Album",
+  "controls.library.column.length": "Length",
+  "controls.library.column.format": "Format",
+  "controls.library.column.rate": "Rate",
+  "controls.library.column.plays": "Plays",
+  "controls.library.peak.pending": "Waiting to be measured",
+  "controls.library.peak.pendingTitle": "Measuring True Peak and loudness in the background",
+  "controls.library.peak.notPcmTitle": "DSD is not PCM, so it is not measured",
+  "controls.library.peak.failed": "Can't measure",
+  "controls.library.peak.failedTitle": "Could not decode (the file may be damaged)",
+  "controls.library.peak.overTitle":
+    "True Peak is above 0 dBTP. On the direct path it may clip inside the DAC (ISP-safe can lower it)",
+  "controls.library.separator": " · ",
+  "controls.library.counts.noFolders": "Add folders to watch (“+” on the left)",
+  "controls.library.counts.tracks": "Tracks: {n}",
+  "controls.library.counts.albums": "Albums: {n}",
+  "controls.library.counts.folders": "Watched folders: {n}",
+  "controls.library.counts.scanning": "Checking folders",
+  "controls.library.counts.toMeasure": "Waiting to be measured: {n}",
+  "controls.library.counts.missing": "Missing: {n}",
+  "controls.library.album.tracks": "Tracks: {n}",
+  "controls.library.album.truePeak": "Album True Peak {db}",
+  "controls.library.readFailed": "Could not read the library: {error}",
+  "controls.library.missingRow": "File not found (the drive is not connected, the file was moved, etc.)",
+  "controls.library.menu.playFrom": "Play from here",
+  "controls.library.menu.playNext": "Play next",
+  "controls.library.menu.enqueue": "Add to end of queue",
+  "controls.library.menu.playAlbum": "Play album",
+  "controls.library.menu.playAlbumNext": "Play album next",
+  "controls.library.menu.enqueueAlbum": "Add album to end of queue",
+  "controls.library.tileTitle": "{album} — {artist} (tracks: {n})",
+  "controls.library.empty.search":
+    "Nothing found. Hiragana and katakana, full- and half-width, and upper and lower case are treated alike. Kanji cannot be found by their reading.",
+  "controls.library.empty.albums": "No albums (tracks with an album tag are listed here)",
+  "controls.library.empty.tracks": "No tracks. Add your music folders with “+” under “Watched folders” on the left.",
+  "controls.library.noPlayable": "No playable tracks (files not found)",
+  "controls.library.folder.title": "{path}\nTracks: {n}",
+  "controls.library.folder.titleMissing": "{path}\nTracks: {n} (missing: {missing})",
+  "controls.library.folder.removeTitle": "Remove this folder from the library",
+  "controls.library.folder.removeConfirm":
+    "Remove “{path}” from the library?\nThe play counts, ratings, and edits of its tracks are deleted too (the music files are not deleted).",
+
+  // --- the ABX ---
+  "controls.abx.kind.processed": "Pure vs. processed (current settings)",
+  "controls.abx.kind.sixteenBit": "Pure vs. 16-bit (TPDF dither)",
+  "controls.abx.kind.presets": "Settings A vs. settings B (EQ, tone, tube)",
+  "controls.abx.side.original": "Pure",
+  "controls.abx.side.processed": "Processed",
+  "controls.abx.side.a": "Settings A",
+  "controls.abx.side.b": "Settings B",
+  "controls.abx.presetsTitle": "Settings A “{a}” vs. settings B “{b}”",
+  "controls.abx.eq.currentName": "Current EQ",
+  "controls.abx.eq.none": "No EQ",
+  "controls.abx.side.tone": "Tone ({tone})",
+  "controls.abx.side.warmUpNow": "Warm-up: as now",
+  "controls.abx.side.warmUpCold": "Warm-up: just started",
+  "controls.abx.side.tube": "{tube} (DRIVE {drive}{extras})",
+  "controls.abx.side.noTube": "No tube",
+  "controls.abx.side.separator": ", ",
+  "controls.abx.eq.current": "Current EQ ({bands}-band)",
+  "controls.abx.eq.currentOff": "Current EQ (not applied)",
+  "controls.abx.tone.current": "Current tone ({tone} dB)",
+  "controls.abx.tone.currentNone": "Current tone (none)",
+  "controls.abx.problem.samePair": "Choose different settings for A and B.",
+  "controls.abx.problem.notPlaying": "Play the track to compare with ABX first.",
+  "controls.abx.problem.dop": "DSD (DoP) tracks cannot be compared with ABX (DoP data is never processed).",
+  "controls.abx.note.originalMode":
+    "You are in Pure mode, so B is the same as Pure (you can use it as a control). To compare with processing settings, switch to Processing mode in Settings before you start.",
+  "controls.abx.note.already16bit":
+    "This track is already 16-bit, so the only difference in B is the dither noise (about −101 dBFS).",
+  "controls.abx.startFailed": "Could not start",
+  "controls.abx.region": "Looping {from}–{to} ({seconds} s)",
+  "controls.abx.trial": "Trial {trial} of {trials}",
+  "controls.abx.match":
+    "Comparing: {title}. B is set to {gain} dB to match A's level (analyzed over this segment). Each answer reassigns X at random (what you are hearing does not change).",
+  "controls.abx.result.levelUnmeasured":
+    "Level difference: could not be measured (played too briefly; the first 3 s of the comparison are not measured)",
+  "controls.abx.result.level": "Level difference {db} dB (limit: within 0.1 dB)",
+  "controls.abx.result.levelOver":
+    "Level difference {db} dB (limit: within 0.1 dB): over the limit, so the result is for reference only (the level difference may have given it away)",
+  "controls.abx.result.aborted": "Stopped",
+  "controls.abx.result.abortedVerdict":
+    "Stopped partway, so no result is given (judging by a partial result would break the meaning of p).",
+  "controls.abx.result.distinguished":
+    "p < 0.05: a result this good is unlikely to be chance. It is likely that you could tell A and B apart.",
+  "controls.abx.result.notDistinguished":
+    "p ≥ 0.05: a result like this can easily happen by chance. It does not show that you could tell them apart (nor that there is no difference).",
+  "controls.abx.result.tooFew":
+    "Too few correct (the chance of this many or fewer by guessing is {percent}%). You may hear the difference between A and B but be mixing them up. This test only asks whether there are many correct answers, so this does not count as telling them apart. Trying again will show which it is.",
+  "controls.abx.result.headline": "{correct} of {trials} correct",
+  "controls.abx.result.p": "p = {p} (the chance of this many or more correct by guessing)",
+
+  // --- the EQ editor ---
+  "controls.eqEditor.preamp": "Preamp",
+  "controls.eqEditor.originalMode": "In Pure mode the EQ is not applied (the settings you make here are kept).",
+  "controls.eqEditor.eqOff": "“Use EQ” is off, so the EQ is not applied.",
+  "controls.eqEditor.bandCount": "{n} / {max} bands",
+  "controls.eqEditor.preampAuto":
+    "Auto: {db} (calculated at {khz} kHz; varies slightly with the track's rate). The EQ itself never goes above 0 dB.",
+  "controls.eqEditor.preampManualShort":
+    "Manual: lowered {db} dB less than the largest boost. On tracks near 0 dBFS, the safety limiter holds down the excess.",
+  "controls.eqEditor.preampManualOk":
+    "Manual: lowered by at least the largest boost, so the EQ itself never goes above 0 dB.",
+  "controls.eqEditor.limiterIdle": "Safety limiter: not engaged (since the settings changed or playback started).",
+  "controls.eqEditor.limiterActive":
+    "Safety limiter: engaged {events}×, max {db} (since the settings changed or playback started).",
+  "controls.eqEditor.noBands": "No bands. Double-click the graph to add one.",
+  "controls.eqEditor.chooseBand": "Select a band to change its frequency, gain, and Q with the knobs here.",
+  "controls.eqEditor.bandTitle": "Band {n}",
+  "controls.eqEditor.use": "Enable",
+  "controls.eqEditor.dontUse": "Disable",
+  "controls.eqEditor.type": "Type",
+  "controls.eqEditor.soloTitle": "Listen only around this band's frequency (band-pass; not saved)",
+  "controls.eqEditor.removeBand": "Remove this band",
+  "controls.eqEditor.frequency": "Frequency",
+  "controls.eqEditor.gain": "Gain",
+  "controls.eqEditor.soloOn": "Solo on",
+  "controls.eqEditor.soloStop": "Stop solo",
+  "controls.eqEditor.remove": "Remove",
+  "controls.eqEditor.nodeTitle": "Band {n}: {band} Q {q}",
+
+  // --- the EQ presets ---
+  "controls.eqPresets.flat": "No EQ (flat)",
+  "controls.eqPresets.noName": "Enter a name",
+  "controls.eqPresets.tooMany": "Up to {max} presets. Delete the ones you don't use",
+  "controls.eqPresets.notFound": "That preset was not found",
+  "controls.eqPresets.taken": "“{name}” already exists",
+  "controls.eqPresets.label": "Preset",
+  "controls.eqPresets.selectLabel": "EQ preset",
+  "controls.eqPresets.name": "Preset name",
+  "controls.eqPresets.save": "Save…",
+  "controls.eqPresets.saveTitle": "Save the current EQ as a preset (one with the same name is replaced)",
+  "controls.eqPresets.rename": "Rename…",
+  "controls.eqPresets.renameTitle": "Rename the selected preset",
+  "controls.eqPresets.delete": "Delete",
+  "controls.eqPresets.deleteTitle": "Delete the selected preset",
+  "controls.eqPresets.cancel": "Cancel",
+  "controls.eqPresets.none": "(No presets yet)",
+  "controls.eqPresets.unsaved": "(Current EQ: not saved)",
+  "controls.eqPresets.saveOk": "Save",
+  "controls.eqPresets.renameOk": "Rename",
+  "controls.eqPresets.willReplace": "This replaces “{name}” with the current EQ",
+  "controls.eqPresets.renamed": "Renamed to “{name}”",
+  "controls.eqPresets.saved": "Saved “{name}”",
+  "controls.eqPresets.confirmDelete": "Press again to delete",
+  "controls.eqPresets.deleted": "Deleted “{name}” (the current EQ is unchanged)",
+
+  // --- the tube type by genre ---
+  "controls.tubeAuto.problem.tooManyRules": "The table can have up to {max} rows",
+  "controls.tubeAuto.problem.emptyGenre": "A row has an empty genre",
+  "controls.tubeAuto.problem.genreTooLong": "A genre can be up to {max} characters",
+  "controls.tubeAuto.problem.sameGenre": "“{first}” and “{second}” count as the same genre",
+  "controls.tubeAuto.problemNotSaved": "{problem}. Not saved until this is fixed.",
+  "controls.tubeAuto.saveFailed": "Could not save",
+  "controls.tubeAuto.choice.off": "Not chosen automatically. Always the type chosen by hand ({manual}).",
+  "controls.tubeAuto.choice.notPlaying":
+    "Not playing. For each track, the type comes from the per-album choice, then the genre table, then the type chosen by hand ({manual}).",
+  "controls.tubeAuto.choice.album": "Current track: {type}, chosen for the album “{album}”.",
+  "controls.tubeAuto.choice.genre": "Current track: {type}, because the genre “{genre}” is in the table.",
+  "controls.tubeAuto.choice.noGenre": "Current track: no genre tag, so the type chosen by hand ({manual}).",
+  "controls.tubeAuto.choice.unknownGenre":
+    "Current track: the genre “{genres}” is not in the table, so the type chosen by hand ({manual}).",
+  "controls.tubeAuto.genreSeparator": ", ",
+  "controls.tubeAuto.albumAuto": "Auto (by genre)",
+  "controls.tubeAuto.ruleCount": "rows: {n}",
+  "controls.tubeAuto.rowGenre": "Row {n} genre",
+  "controls.tubeAuto.rowType": "Row {n} type",
+  "controls.tubeAuto.remove": "Delete",
+  "controls.tubeAuto.rowRemove": "Delete row {n}",
+  "controls.tubeAuto.albumChoice": "{album}: {type}",
+  "controls.tubeAuto.noAlbumName": "(No name)",
+  "controls.tubeAuto.stopChoice": "Clear choice",
+  "controls.tubeAuto.noAlbums": "No albums chosen. Choose a type for the playing album above, and it is listed here.",
+  "controls.tubeAuto.albumCount": "albums: {n}",
+
+  // --- the amp view ---
+  "controls.amp.knob.volume": "VOLUME (digital volume; at 100% no processing is done)",
+  "controls.amp.knob.mix": "MIX (share of the space's reverb; at 0% only the dry signal)",
+  "controls.amp.knob.disabled": "{label}: {why}",
+  "controls.amp.knob.unusable": "Unavailable",
+  "controls.amp.knob.title": "{label}: {value} (drag up or down, Shift for fine steps; wheel; double-click for the default)",
+  "controls.amp.vu": "VU meter {ch}",
+  "controls.amp.lamp.pure": "PURE: Pure mode (no processing; can be BIT-PERFECT at 100% volume)",
+  "controls.amp.lamp.tube": "TUBE: Processing mode with the tube",
+  "controls.amp.lamp.off": "SPACE OFF: no space (room convolution)",
+  "controls.amp.lamp.club":
+    "SPACE CLUB: convolves a small room's reverb and mixes it in (IR: synthetic or your own file; set it with MIX and pre-delay in Settings)",
+  "controls.amp.lamp.hall":
+    "SPACE HALL: convolves a hall's reverb and mixes it in (IR: measured St Paul's Hall, synthetic, or your own file; set it with MIX and pre-delay in Settings)",
+  "controls.amp.lamp.arena":
+    "SPACE ARENA: convolves a large indoor space's reverb and mixes it in (IR: synthetic or your own file; set it with MIX and pre-delay in Settings)",
+  "controls.amp.lamp.tubeType": "TUBE TYPE: {type}",
+  "controls.amp.lamp.crossfeed": "CROSSFEED: crossfeed for headphones (strength in Settings)",
+  "controls.amp.lamp.auto": "AUTO: the tube type is chosen by the track's genre (“Choose type by genre” in Settings)",
+  "controls.amp.mode.tube": "MODE: TUBE (Processing mode) → press for PURE (Pure mode)",
+  "controls.amp.mode.pure": "MODE: PURE (Pure mode) → press for TUBE (Processing mode with the tube)",
+  "controls.amp.crossfeed.on":
+    "CROSSFEED: on (crossfeed for headphones; strength in Settings; applied in Processing mode)",
+  "controls.amp.crossfeed.off":
+    "CROSSFEED: off (crossfeed for headphones; strength in Settings; applied in Processing mode)",
+  "controls.amp.processingOnly": "Applied in Processing mode (TUBE)",
+  "controls.amp.badgeTitle": "Signal path (the path and the BIT-PERFECT check)",
+};
