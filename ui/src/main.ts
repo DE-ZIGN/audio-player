@@ -1,3 +1,4 @@
+import { currentLang, onLangChange, saveLang, setLang, startLang, type Lang } from "./i18n";
 import "./style.css";
 import { createBackend, type Backend, type QueueInfo } from "./backend";
 import { afterInsert, afterMove, afterRemove, dbToSlider, sliderToDb, volumeLabel, type Db } from "./queueOps";
@@ -496,7 +497,30 @@ function setUpViews() {
   applyUiView(storage ? loadUiView(storage) : "standard");
 }
 
+// The language (task 11-1): chosen in the settings, else the Windows display
+// language. The app's self test checks Japanese texts, so it runs in Japanese
+// on any machine (the CI runner is an English Windows), without saving it.
+function setUpLanguage() {
+  const storage = storageOrNull();
+  const selfTest = new URLSearchParams(location.search).has("selftest");
+  startLang(storage, navigator.languages ?? [navigator.language], selfTest ? "ja" : undefined);
+  const radios = document.querySelectorAll<HTMLInputElement>('input[name="language"]');
+  const show = () => {
+    for (const r of radios) r.checked = r.value === currentLang();
+  };
+  for (const r of radios)
+    r.addEventListener("change", () => {
+      if (!r.checked) return;
+      const l = r.value as Lang;
+      saveLang(storage, l);
+      setLang(l);
+    });
+  onLangChange(show);
+  show();
+}
+
 async function main() {
+  setUpLanguage(); // first: everything drawn after it is in that language
   loadTheme();
   setUpViews();
   // The concept image over the page (task 6-8). Dev server only: the app's

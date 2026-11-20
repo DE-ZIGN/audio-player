@@ -7,20 +7,22 @@
 // tab, or add a tab, and the page follows (settingsTabs.test.ts checks that
 // every section is in exactly one tab, or set aside below).
 
+import type { MessageKey } from "./i18n";
+
 export interface SettingsTab {
   id: string;
-  label: string;
+  labelKey: MessageKey; // the tab's name, in the tables (i18n/ja.ts)
   sections: readonly string[]; // data-group names, shown in the page's order
 }
 
 export const SETTINGS_TABS: readonly SettingsTab[] = [
-  { id: "output", label: "出力", sections: ["output", "output-rate"] },
-  { id: "mode", label: "モード", sections: ["mode"] },
-  { id: "level", label: "レベル", sections: ["isp-safe", "replaygain"] },
-  { id: "eq", label: "EQ・トーン", sections: ["eq", "tone"] },
-  { id: "tube", label: "真空管", sections: ["tube"] },
-  { id: "space", label: "空間", sections: ["space", "crossfeed"] },
-  { id: "look", label: "見た目", sections: ["look"] },
+  { id: "output", labelKey: "settings.tab.output", sections: ["output", "output-rate"] },
+  { id: "mode", labelKey: "settings.tab.mode", sections: ["mode"] },
+  { id: "level", labelKey: "settings.tab.level", sections: ["isp-safe", "replaygain"] },
+  { id: "eq", labelKey: "settings.tab.eq", sections: ["eq", "tone"] },
+  { id: "tube", labelKey: "settings.tab.tube", sections: ["tube"] },
+  { id: "space", labelKey: "settings.tab.space", sections: ["space", "crossfeed"] },
+  { id: "look", labelKey: "settings.tab.look", sections: ["look"] },
 ];
 
 // Sections that stay in the page but are in no tab, so they are never shown

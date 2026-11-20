@@ -392,6 +392,16 @@
 
             <div class="settings-group" data-group="look">
               <h2 data-section="look">見た目</h2>
+              <!-- The language (task 11-1): its heading reads in both languages. -->
+              <fieldset class="themes" id="language-set">
+                <legend data-i18n="settings.look.language">言語 / Language</legend>
+                <label><input type="radio" name="language" value="ja" /> <span data-i18n="lang.ja">日本語</span></label>
+                <label><input type="radio" name="language" value="en" /> <span data-i18n="lang.en">English</span></label>
+                <details class="explain">
+                  <summary>詳細</summary>
+                  <p class="note" data-i18n="settings.look.languageNote">画面の言語です。初めは Windows の表示言語に合わせます（日本語のとき日本語、それ以外は英語）。</p>
+                </details>
+              </fieldset>
               <fieldset class="themes">
                 <legend>ビュー（見た目と配置だけが変わり、機能と表示する情報は同じです）</legend>
                 <label><input type="radio" name="ui-view" value="standard" /> <span><b>標準ビュー</b><small>写実的メディアプレイヤー</small></span></label>

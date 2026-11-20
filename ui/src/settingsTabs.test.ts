@@ -38,7 +38,7 @@ describe("the settings screen's tabs", () => {
   it("the tabs have their own names, and there are few enough to see at once", () => {
     const ids = SETTINGS_TABS.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(SETTINGS_TABS.every((t) => t.label.length > 0 && t.sections.length > 0)).toBe(true);
+    expect(SETTINGS_TABS.every((t) => t.labelKey.startsWith("settings.tab.") && t.sections.length > 0)).toBe(true);
     expect(SETTINGS_TABS.length).toBeLessThanOrEqual(8);
   });
   it("a section's tab can be found (an article's link opens the right tab)", () => {

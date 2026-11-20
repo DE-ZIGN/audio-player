@@ -1,4 +1,5 @@
 import { savedSettingsTab, SETTINGS_TAB_KEY, SETTINGS_TABS, tabByKey, tabOfSection } from "./settingsTabs";
+import { onLangChange, t } from "./i18n";
 import { currentUiView, onUiViewChange } from "./uiView";
 
 // The settings screen's tabs on the page (settingsTabs.ts has what is in
@@ -29,9 +30,6 @@ export class SettingsTabsView {
       b.setAttribute("role", "tab");
       b.setAttribute("aria-controls", this.panel.id);
       b.dataset.tab = tab.id;
-      b.textContent = tab.label;
-      // What is inside, for a pointer resting on the tab.
-      b.title = tab.sections.map((s) => this.headingOf(s)).filter(Boolean).join("、");
       b.addEventListener("click", () => this.show(tab.id));
       this.buttons.set(tab.id, b);
       this.list.append(b);
@@ -43,11 +41,23 @@ export class SettingsTabsView {
       this.show(to);
       this.buttons.get(to)?.focus();
     });
+    this.name();
+    onLangChange(() => this.name()); // the names, and the headings inside, in the language chosen
     this.show(savedSettingsTab(storage()?.getItem(SETTINGS_TAB_KEY) ?? null), false);
     // Down the left, or along the top in the amp view's short panel (style.css).
     const orient = () => this.list.setAttribute("aria-orientation", currentUiView() === "amp" ? "horizontal" : "vertical");
     onUiViewChange(orient);
     orient();
+  }
+
+  private name() {
+    for (const tab of SETTINGS_TABS) {
+      const b = this.buttons.get(tab.id);
+      if (!b) continue;
+      b.textContent = t(tab.labelKey);
+      // What is inside, for a pointer resting on the tab.
+      b.title = tab.sections.map((s) => this.headingOf(s)).filter(Boolean).join(t("list.separator"));
+    }
   }
 
   get tab(): string {
