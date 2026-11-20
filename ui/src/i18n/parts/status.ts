@@ -342,7 +342,7 @@ export const ja = {
   "status.mode.original":
     "原音モード：音量 100% なら何も処理しません。ReplayGain・EQ・トーン・真空管・空間・クロスフィードはかけません（設定は残ります）。",
   "status.mode.originalIsp":
-    "原音モード：音量 100% なら何も処理しません、ISP セーフ（{isp}）。ReplayGain・EQ・トーン・真空管・空間・クロスフィードはかけません（設定は残ります）。",
+    "原音モード：音量 100% なら、ISP セーフ（{isp}）のほかは何も処理しません。ReplayGain・EQ・トーン・真空管・空間・クロスフィードはかけません（設定は残ります）。",
   "status.mode.replayGainTrack": "ReplayGain（トラック）",
   "status.mode.replayGainAlbum": "ReplayGain（アルバム）",
   "status.mode.eq": "EQ（{bands} バンド）",

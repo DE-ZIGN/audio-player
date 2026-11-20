@@ -142,7 +142,7 @@ export const ja = {
   "page.settings.tube.heading": "真空管",
   "page.settings.tube.enabled": "真空管を使う",
   "page.settings.tube.types": "真空管の種類",
-  "page.settings.tube.driveReset": "既定（-12 dB）に戻す",
+  "page.settings.tube.driveReset": "既定（−12 dB）に戻す",
   "page.settings.tube.switchNote": "オン・オフを切り替えると、処理の遅れが変わるため、再生中は一瞬途切れます。",
   "page.settings.tube.note":
     "真空管のモデル（Koren の式）と負荷線から求めた伝達特性で、倍音を加えます（波形整形方式）。信号の大きさに応じたバイアスの変化と電源の沈み込みを、回路の時定数にもとづいて簡易に再現しています。 小さな音の音量は変えず、DRIVE で曲がり方（倍音の量）が変わります。DRIVE 0 dB で、0 dBFS の山がグリッドを 0 V まで振ります。",
@@ -214,7 +214,7 @@ export const ja = {
   "page.settings.rate.note":
     "リサンプラー（r8brain-free-src、直線位相）で、処理の最後（保険のリミッターの後、ディザの前）にレートを変換します。EQ・真空管・空間などの計算は、曲のレートのままです。設計値は阻止域の減衰 180 dB。自動テストでの測定では、折り返し（エイリアス）とイメージは 200 dB 以上小さく、20 kHz までの音量の差は 0.01 dB 未満です。",
   "page.settings.rate.modesNote":
-    "固定：どの曲もそのレートで出します。曲ごとに DAC のレートが切り替わらなくなります（レートの違う曲の境目では出力を開き直すので、一瞬途切れます）。下限：そのレート未満の曲だけを上げます。整数倍：曲の 2・4・8 倍で出します（44.1 kHz の曲は 88.2・176.4・352.8 kHz）。DAC が受け付けないときは、受け付けるいちばん大きい倍数、それもなければ曲のレートのままです。",
+    "固定：どの曲もそのレートで出します。曲ごとに DAC のレートが切り替わらなくなります（ただし、元のレートの違う曲の境目では出力を開き直すので、固定でも一瞬途切れます）。下限：そのレート未満の曲だけを上げます。整数倍：曲の 2・4・8 倍で出します（44.1 kHz の曲は 88.2・176.4・352.8 kHz）。DAC が受け付けないときは、受け付けるいちばん大きい倍数、それもなければ曲のレートのままです。",
   "page.settings.rate.unsupportedNote":
     "音作りモードで、DAC が曲のレートを受け付けないときは、受け付けるレート（同じ系列の 2 倍・半分などを優先）へ変換して鳴らします。原音モードでは変換せず、再生できない理由を表示します。",
   // 見た目
@@ -483,7 +483,7 @@ export const en: Record<keyof typeof ja, string> = {
   "page.settings.tube.heading": "Tube",
   "page.settings.tube.enabled": "Use tube",
   "page.settings.tube.types": "Tube type",
-  "page.settings.tube.driveReset": "Reset to default (-12 dB)",
+  "page.settings.tube.driveReset": "Reset to default (−12 dB)",
   "page.settings.tube.switchNote": "Turning it on or off changes the processing latency, so playback drops out for a moment.",
   "page.settings.tube.note":
     "Adds harmonics with a transfer curve derived from a tube model (Koren's equations) and a load line (waveshaping). Bias shift with signal level and power-supply sag are modeled in a simplified way, based on the circuit's time constants. The level of quiet signals is unchanged; DRIVE changes the curvature (the amount of harmonics). At DRIVE 0 dB, a 0 dBFS peak swings the grid to 0 V.",
@@ -555,7 +555,7 @@ export const en: Record<keyof typeof ja, string> = {
   "page.settings.rate.note":
     "A resampler (r8brain-free-src, linear phase) converts the rate at the end of processing (after the safety limiter, before dither). EQ, tube, space and the rest are computed at the track's rate. Design stopband attenuation: 180 dB. As measured in the automated tests, aliasing and imaging are more than 200 dB down, and the level difference up to 20 kHz is less than 0.01 dB.",
   "page.settings.rate.modesNote":
-    "Fixed: every track plays at that rate, so the DAC's rate no longer changes from track to track (where it does, the output is reopened at the boundary between tracks, and playback drops out for a moment). At least: only tracks below that rate are raised. Integer multiple: plays at 2, 4 or 8 times the track's rate (88.2, 176.4 or 352.8 kHz for a 44.1 kHz track). If the DAC does not accept it, the largest multiple the DAC accepts is used, or, if none, the track's own rate.",
+    "Fixed: every track plays at that rate, so the DAC's rate no longer changes from track to track (the output is still reopened between tracks whose own rates differ, so even with Fixed, playback drops out for a moment there). At least: only tracks below that rate are raised. Integer multiple: plays at 2, 4 or 8 times the track's rate (88.2, 176.4 or 352.8 kHz for a 44.1 kHz track). If the DAC does not accept it, the largest multiple the DAC accepts is used, or, if none, the track's own rate.",
   "page.settings.rate.unsupportedNote":
     "In Processing mode, if the DAC does not accept the track's rate, the track is converted to a rate the DAC accepts (preferring the same family, such as 2× or half) and played. In Pure mode, nothing is converted, and the reason it cannot play is shown.",
   // Appearance

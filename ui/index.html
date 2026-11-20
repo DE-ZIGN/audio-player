@@ -229,7 +229,7 @@
                   <input type="range" id="tube-drive" min="-30" max="6" step="0.5" />
                   <output id="tube-drive-value" for="tube-drive">-12.0 dB</output>
                 </label>
-                <button type="button" id="tube-drive-reset" class="link" data-i18n="page.settings.tube.driveReset">既定（-12 dB）に戻す</button>
+                <button type="button" id="tube-drive-reset" class="link" data-i18n="page.settings.tube.driveReset">既定（−12 dB）に戻す</button>
                 <p class="note keep" data-i18n="page.settings.tube.switchNote">オン・オフを切り替えると、処理の遅れが変わるため、再生中は一瞬途切れます。</p>
                 <details class="explain">
                   <summary data-i18n="page.details">詳細</summary>
@@ -345,7 +345,7 @@
                 <details class="explain">
                   <summary data-i18n="page.details">詳細</summary>
                   <p class="note" data-i18n="page.settings.rate.note">リサンプラー（r8brain-free-src、直線位相）で、処理の最後（保険のリミッターの後、ディザの前）にレートを変換します。EQ・真空管・空間などの計算は、曲のレートのままです。設計値は阻止域の減衰 180 dB。自動テストでの測定では、折り返し（エイリアス）とイメージは 200 dB 以上小さく、20 kHz までの音量の差は 0.01 dB 未満です。</p>
-                  <p class="note" data-i18n="page.settings.rate.modesNote">固定：どの曲もそのレートで出します。曲ごとに DAC のレートが切り替わらなくなります（レートの違う曲の境目では出力を開き直すので、一瞬途切れます）。下限：そのレート未満の曲だけを上げます。整数倍：曲の 2・4・8 倍で出します（44.1 kHz の曲は 88.2・176.4・352.8 kHz）。DAC が受け付けないときは、受け付けるいちばん大きい倍数、それもなければ曲のレートのままです。</p>
+                  <p class="note" data-i18n="page.settings.rate.modesNote">固定：どの曲もそのレートで出します。曲ごとに DAC のレートが切り替わらなくなります（ただし、元のレートの違う曲の境目では出力を開き直すので、固定でも一瞬途切れます）。下限：そのレート未満の曲だけを上げます。整数倍：曲の 2・4・8 倍で出します（44.1 kHz の曲は 88.2・176.4・352.8 kHz）。DAC が受け付けないときは、受け付けるいちばん大きい倍数、それもなければ曲のレートのままです。</p>
                   <p class="note" data-i18n="page.settings.rate.unsupportedNote">音作りモードで、DAC が曲のレートを受け付けないときは、受け付けるレート（同じ系列の 2 倍・半分などを優先）へ変換して鳴らします。原音モードでは変換せず、再生できない理由を表示します。</p>
                 </details>
               </div>
