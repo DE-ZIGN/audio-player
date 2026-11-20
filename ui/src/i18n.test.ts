@@ -17,6 +17,7 @@ import {
 import { BASE_JA, ja, PARTS } from "./i18n/ja";
 import { en } from "./i18n/en";
 import html from "../index.html?raw";
+import readerHtml from "../reader.html?raw";
 import { SETTINGS_TABS } from "./settingsTabs";
 
 // Task 11-1 (M11, 2026-11-20): every text the page shows comes from the
@@ -31,6 +32,9 @@ const sources = import.meta.glob(["./**/*.ts", "!./**/*.test.ts", "!./i18n/**/*.
   eager: true,
 }) as Record<string, string>;
 
+// The pages: the main screen and the article reader (task 11-5).
+const PAGES = [html, readerHtml];
+
 // The keys the page names: data-i18n="key" (and data-i18n-title etc.) in the
 // page, t("key", ...) in the scripts. (TypeScript checks the scripts' keys too.)
 function keysNamed(): Set<string> {
@@ -38,16 +42,16 @@ function keysNamed(): Set<string> {
   const add = (text: string, re: RegExp) => {
     for (const m of text.matchAll(re)) used.add(m[1]);
   };
-  add(html, /data-i18n(?:-[a-z-]+)?="([^"]+)"/g);
+  for (const page of PAGES) add(page, /data-i18n(?:-[a-z-]+)?="([^"]+)"/g);
   for (const text of Object.values(sources)) add(text, /\bt\(\s*"([^"]+)"/g);
   return used;
 }
 
-// A key is in use when the page or a script has it written out as "key" (a
+// A key is in use when a page or a script has it written out as "key" (a
 // table of keys, as the settings tabs have, counts).
 function inUse(key: string): boolean {
   const quoted = `"${key}"`;
-  return html.includes(quoted) || Object.values(sources).some((text) => text.includes(quoted));
+  return PAGES.some((page) => page.includes(quoted)) || Object.values(sources).some((text) => text.includes(quoted));
 }
 
 class MemoryStorage {
@@ -205,11 +209,31 @@ describe("the page", () => {
     translateTree(root);
     expect(span.textContent).toBe(ja["settings.tab.output"]);
   });
-  it("the page starts in Japanese (lang=ja) and its Japanese texts are the tables' own", () => {
-    expect(html).toMatch(/<html lang="ja"/);
-    for (const m of html.matchAll(/<(\w+)[^>]*data-i18n="([^"]+)"[^>]*>([^<]*)</g)) {
+  it.each([
+    ["index.html", html],
+    ["reader.html", readerHtml],
+  ])("the page %s starts in Japanese (lang=ja) and its Japanese texts are the tables' own", (_name, page) => {
+    expect(page).toMatch(/<html lang="ja"/);
+    for (const m of page.matchAll(/<(\w+)[^>]*data-i18n="([^"]+)"[^>]*>([^<]*)</g)) {
       expect(m[3], m[2]).toBe(ja[m[2] as keyof typeof ja]);
     }
+  });
+  it("the article reader's own words are in the tables, in both languages (task 11-5)", () => {
+    const keys = ["reader.title", "reader.toList", "reader.list.heading", "reader.list.empty", "reader.missing"] as const;
+    for (const k of keys) {
+      expect(ja[k], k).toBeTruthy();
+      expect(en[k], k).toBeTruthy();
+    }
+    // The Japanese as it was.
+    expect(ja["reader.title"]).toBe("記事");
+    expect(ja["reader.toList"]).toBe("記事の一覧");
+    expect(ja["reader.list.heading"]).toBe("記事の一覧");
+    expect(ja["reader.list.empty"]).toBe("記事がまだありません。");
+    expect(ja["reader.missing"]).toBe("この記事は見つかりません。");
+    expect(format(ja["reader.articleTitle"], { title: "ABX" })).toBe("ABX — 記事");
+    // The reader's window title (StartupTexts.cpp) says the same.
+    expect(en["reader.title"]).toBe("Articles");
+    expect(readerHtml).toMatch(/<title data-i18n="reader\.title">記事<\/title>/);
   });
   it("the settings screen offers the two languages, under a heading that reads in both", () => {
     const look = html.slice(html.indexOf('data-group="look"'), html.indexOf('data-group="articles"'));

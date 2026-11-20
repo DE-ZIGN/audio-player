@@ -82,4 +82,5 @@ BIT-PERFECT、True Peak、dBTP、LUFS、ABX、ReplayGain、EQ、DoP、DSD、WASA
 | 〜順（並べ替え）・新しい順 | By artist など / (newest first) |
 | 数（曲数、行数など） | 名札の形（"Tracks: {n}"、括弧の中では小文字 "rows: {n}"）。`t()` に複数形の仕組みがなく、"1 tracks" とならないように |
 | どちらの音がよいかは判定しません | It does not judge which of the two is preferable. |
+| 記事・記事の一覧（記事の窓。11-5） | Articles（窓の題）、All articles（一覧のボタンと見出し） |
 

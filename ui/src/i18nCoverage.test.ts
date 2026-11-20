@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import html from "../index.html?raw";
+import readerHtml from "../reader.html?raw";
 import css from "./style.css?raw";
+import readerCss from "./reader/reader.css?raw";
 import { CSS_TEXTS } from "./i18n";
 
 // Task 11-2 (M11): no Japanese is left in the page or its scripts outside the
@@ -16,8 +18,9 @@ const OUT_OF_SCOPE: [RegExp, string][] = [
   [/\/dev\//, "development tools, not in the app"],
   [/\/mock[A-Z][^/]*\.ts$/, "the mock engine's data (track names, devices, genres); its messages are the app's codes (11-3)"],
   [/\/backend\.ts$/, "the mock engine's data (track names, its output's name, genres); its messages are the app's codes (11-3)"],
-  [/\/reader\//, "the article reader: task 11-5"],
 ];
+// (The article reader, ui/src/reader/, is covered since task 11-5; the articles
+// themselves are content, in ui/public/articles/, not scripts.)
 
 // Japanese that is data, not words of the screen, in files otherwise covered.
 const DATA: Record<string, RegExp[]> = {
@@ -59,8 +62,11 @@ describe("no Japanese outside the tables", () => {
     expect(left).toEqual([]);
   });
 
-  it("in the page: each Japanese text is marked with its key, and so is each Japanese attribute", () => {
-    const page = html.replace(/<!--[\s\S]*?-->/g, "");
+  it.each([
+    ["index.html", html],
+    ["reader.html", readerHtml],
+  ])("in the page %s: each Japanese text is marked with its key, and so is each Japanese attribute", (_name, source) => {
+    const page = source.replace(/<!--[\s\S]*?-->/g, "");
     const left: string[] = [];
     // A text run: what follows an opening tag up to the next tag.
     for (const m of page.matchAll(/<([a-z][a-z0-9]*)((?:\s[^>]*)?)>([^<]*)/gi)) {
@@ -86,6 +92,11 @@ describe("no Japanese outside the tables", () => {
     // Every variable the stylesheet reads for words is one the page sets, and the other way round.
     const used = new Set([...code.matchAll(/var\((--i18n-[a-z0-9-]+)\)/g)].map((m) => m[1]));
     expect([...used].sort()).toEqual(Object.keys(CSS_TEXTS).sort());
+  });
+
+  it("in the reader's stylesheet (comments aside): no words at all", () => {
+    const code = readerCss.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(code.split(/\r?\n/).filter((line) => JAPANESE.test(line))).toEqual([]);
   });
 
   it("what is left out is named, with its reason", () => {

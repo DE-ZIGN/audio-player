@@ -1,5 +1,6 @@
 import "./reader.css";
-import { isArticleId, isSection, linkKind, linkTarget } from "./links";
+import { startLang, t } from "../i18n";
+import { isArticleId, isSection, linkKind, linkTarget, readerAddress, readerLang } from "./links";
 import { parseArticle, type Block, type Inline } from "./markdown";
 
 // The article reader's page (task 7-1). It runs in a WebView of its own with
@@ -8,15 +9,26 @@ import { parseArticle, type Block, type Inline } from "./markdown";
 //
 // Articles are text. Elements are made one by one from the parsed blocks;
 // nothing from an article is ever set as HTML.
+//
+// Its own words are in the page's tables (i18n/parts/reader.ts), in the main
+// page's language, which comes in the address (?lang=en, task 11-5): the reader
+// has its own storage, so it cannot read the main page's choice. Without one,
+// the main page's default rule (Japanese for a Japanese Windows, else English).
+// The articles stay as they are: an English article would be its own file next
+// to the Japanese one in ui/public/articles/ (task 7-3), which this page would
+// then pick by `lang` (not built yet).
 
 interface Entry {
   id: string;
   title: string;
 }
 
+// The language first, before anything is drawn (no storage: the main page's is not ours).
+const lang = readerLang(location.search);
+startLang(null, navigator.languages ?? [navigator.language], lang);
+
 const article = document.getElementById("article") as HTMLElement;
 const toList = document.getElementById("to-list") as HTMLButtonElement;
-const BASE_TITLE = "記事";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -91,8 +103,8 @@ function current(): { id: string; section: string } {
 
 async function showList() {
   const entries = await loadIndex();
-  const nodes: Node[] = [el("h1", "", "記事の一覧")];
-  if (entries.length === 0) nodes.push(el("p", "missing", "記事がまだありません。"));
+  const nodes: Node[] = [el("h1", "", t("reader.list.heading"))];
+  if (entries.length === 0) nodes.push(el("p", "missing", t("reader.list.empty")));
   const ul = el("ul", "article-list");
   for (const e of entries) {
     const li = el("li");
@@ -101,7 +113,7 @@ async function showList() {
   }
   nodes.push(ul);
   article.replaceChildren(...nodes);
-  document.title = BASE_TITLE;
+  document.title = t("reader.title");
   toList.hidden = true;
   scrollTo(0, 0);
 }
@@ -110,14 +122,17 @@ async function showArticle(id: string, section: string) {
   const text = await fetchText(`articles/${id}.md`);
   toList.hidden = false;
   if (text === null) {
-    article.replaceChildren(el("p", "missing", "この記事は見つかりません。"));
-    document.title = BASE_TITLE;
+    article.replaceChildren(el("p", "missing", t("reader.missing")));
+    document.title = t("reader.title");
     return;
   }
   const blocks = parseArticle(text);
   article.replaceChildren(render(blocks));
   const title = blocks.find((b) => b.kind === "heading" && b.level === 1);
-  document.title = title && title.kind === "heading" ? `${title.inlines.map((i) => i.text).join("")} — ${BASE_TITLE}` : BASE_TITLE;
+  document.title =
+    title && title.kind === "heading"
+      ? t("reader.articleTitle", { title: title.inlines.map((i) => i.text).join("") })
+      : t("reader.title");
   const target = section ? document.getElementById(section) : null;
   if (target && article.contains(target)) target.scrollIntoView();
   else scrollTo(0, 0);
@@ -141,7 +156,7 @@ async function showCurrent() {
 function go(id: string, section: string) {
   const here = current();
   const to = id || here.id;
-  history.pushState(null, "", `reader.html${to ? `?id=${to}` : ""}${section ? `#${section}` : ""}`);
+  history.pushState(null, "", readerAddress(to, section, lang)); // the language kept
   void showCurrent();
 }
 
@@ -160,7 +175,7 @@ document.addEventListener("auxclick", (e) => {
   if ((e.target as Element | null)?.closest?.("a")) e.preventDefault();
 });
 toList.addEventListener("click", () => {
-  history.pushState(null, "", "reader.html");
+  history.pushState(null, "", readerAddress("", "", lang)); // the list, in the same language
   void showCurrent();
 });
 addEventListener("popstate", () => void showCurrent());

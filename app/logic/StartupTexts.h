@@ -5,7 +5,8 @@
 // that WebView2 or the page's files are missing, and the article window's
 // title. In Japanese or English, by the Windows display language: Japanese
 // when its primary language is Japanese, else English (the page's rule for its
-// default, ui/src/i18n.ts).
+// default, ui/src/i18n.ts). The article window opens from the page, so its
+// title follows the language the page passes (pageStartupLanguage, task 11-5).
 //
 // No JUCE here, so the tests link it without the application.
 
@@ -25,6 +26,9 @@ enum class StartupLanguage
 StartupLanguage startupLanguageFor(unsigned short windowsLanguageId) noexcept;
 // The Windows display language of this user (GetUserDefaultUILanguage).
 StartupLanguage windowsStartupLanguage() noexcept;
+// The language a page says it shows ("ja" or "en", as ui/src/i18n.ts names
+// them; task 11-5); `otherwise` when it gives none or another.
+StartupLanguage pageStartupLanguage(std::string_view pageLang, StartupLanguage otherwise) noexcept;
 
 enum class StartupText
 {

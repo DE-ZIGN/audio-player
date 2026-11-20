@@ -6,7 +6,9 @@
 // tries addresses the reader must not open, and checks what the policy
 // decided for each. Web links are recorded, not opened. Also checks that the
 // reader has no native functions, that its page loads nothing from outside,
-// and that a command reaches the main screen.
+// and that a command reaches the main screen. And that the reader's words and
+// its window's title follow the language the page passes (task 11-5), in both
+// languages, whatever the machine's own (the CI runner is an English Windows).
 
 #include "ArticleWindow.h"
 
@@ -35,6 +37,8 @@ private:
         decision,    // the script makes the reader ask for `url`; the policy must answer `action`
         readerValue, // the script's value in the reader must become `value`
         mainValue,   // the script's value in the main screen must become `value`
+        open,        // the app opens the article `url` in the language `lang`, as the page asks it to
+        windowTitle, // the reader window's title must become `value`
     };
 
     struct Step
@@ -42,7 +46,8 @@ private:
         juce::String name;
         Kind kind = Kind::decision;
         juce::String script;
-        juce::String url; // decision: the address asked for (its end is enough)
+        juce::String url;  // decision: the address asked for (its end is enough); open: the article's id
+        juce::String lang; // open: "ja" or "en"
         ArticleAction action = ArticleAction::refuse;
         juce::String command, argument;
         juce::String value;

@@ -50,7 +50,8 @@ public:
 private:
     // The article reader (task 7-1): a window of its own, made when first asked for.
     // Returns what is wrong (for the page, task 11-3), or an empty message.
-    NativeMessage openArticle(const juce::String& id, const juce::String& section);
+    // lang: the page's language, for the reader's words and the window's title (task 11-5).
+    NativeMessage openArticle(const juce::String& id, const juce::String& section, const juce::String& lang);
     ArticleWindow& articleWindow();
     // A listed command from an article: the main screen opens that screen.
     void sendArticleCommand(const ArticleDecision& command);

@@ -8,7 +8,7 @@
 // dialogs' titles are the page's, in its language.
 
 import type { EqPreset } from "./eqPresets";
-import { t } from "./i18n";
+import { currentLang, t } from "./i18n";
 import type { NativeText } from "./nativeText";
 import { chooseTubeType, type TubeAutoSettings } from "./tubeAuto";
 import type { RepeatMode } from "./playModes";
@@ -25,6 +25,7 @@ import type {
 } from "./library";
 import { MockLibrary } from "./mockLibrary";
 import { MOCK_IR_STATUS, mockIrReadable, MockSettings } from "./mockSettings";
+import { readerAddress } from "./reader/links";
 import { playingSpaceSource } from "./settings";
 import { upperTailP, type AbxChoice, type AbxRequest, type AbxStatus } from "./abx";
 import type {
@@ -214,7 +215,8 @@ class AppSettings implements SettingsApi {
   }
 }
 
-class AppBackend implements Backend {
+// (Exported for its tests: backend.test.ts gives it native functions of its own.)
+export class AppBackend implements Backend {
   readonly kind = "app" as const;
   readonly library: LibraryApi;
   readonly settings: SettingsApi;
@@ -270,8 +272,9 @@ class AppBackend implements Backend {
   onStatus(listener: (status: PlaybackStatus) => void) {
     window.__JUCE__!.backend.addEventListener(STATUS_EVENT, (p) => listener(p as PlaybackStatus));
   }
+  // The language in use goes along: the reader shows its words in it (task 11-5).
   async openArticle(id = "", section = "") {
-    return ((await this.fn("openArticle")(id, section)) as { ok: boolean; message?: NativeText } | null) ?? { ok: false };
+    return ((await this.fn("openArticle")(id, section, currentLang())) as { ok: boolean; message?: NativeText } | null) ?? { ok: false };
   }
   onArticleCommand(listener: (payload: unknown) => void) {
     window.__JUCE__!.backend.addEventListener(ARTICLE_COMMAND_EVENT, listener);
@@ -779,7 +782,7 @@ export class MockBackend implements Backend {
   }
   // In a plain browser the reader is just another tab; its "app:" links have nowhere to go.
   async openArticle(id = "", section = "") {
-    window.open(`reader.html${id ? `?id=${encodeURIComponent(id)}` : ""}${section ? `#${encodeURIComponent(section)}` : ""}`, "ap-articles");
+    window.open(readerAddress(id, section, currentLang()), "ap-articles");
     return { ok: true };
   }
   onArticleCommand() {}

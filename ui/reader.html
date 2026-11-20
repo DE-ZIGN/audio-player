@@ -8,11 +8,13 @@
          The development server loosens this for its own scripts (vite.config.ts). -->
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'" />
-    <title>記事</title>
+    <!-- Its words in the page's language (task 11-5): reader.ts fills the
+         data-i18n texts and the page's lang from ?lang= in the address. -->
+    <title data-i18n="reader.title">記事</title>
   </head>
   <body>
     <header class="reader-head">
-      <button id="to-list" type="button">記事の一覧</button>
+      <button id="to-list" type="button" data-i18n="reader.toList">記事の一覧</button>
     </header>
     <main class="reader">
       <article id="article" aria-live="polite"></article>

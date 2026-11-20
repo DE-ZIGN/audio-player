@@ -1,6 +1,44 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MockBackend } from "./backend";
+import { AppBackend, MockBackend } from "./backend";
+import { setLang } from "./i18n";
 import type { PlaybackStatus } from "./status";
+
+// Task 11-5: the article reader shows its words in the page's language, which
+// it gets in its address (it has no storage of the main page's).
+describe("opening the article reader", () => {
+  afterEach(() => {
+    setLang("ja");
+    vi.unstubAllGlobals();
+  });
+
+  it("tells the app the language in use", async () => {
+    const calls: unknown[][] = [];
+    const fn = (name: string) => async (...args: unknown[]) => {
+      if (name === "openArticle") calls.push(args);
+      return { ok: true };
+    };
+    const b = new AppBackend(fn, "/art/track/");
+    setLang("en");
+    expect(await b.openArticle("abx", "level-matching")).toEqual({ ok: true });
+    setLang("ja");
+    await b.openArticle();
+    expect(calls).toEqual([
+      ["abx", "level-matching", "en"],
+      ["", "", "ja"],
+    ]);
+  });
+
+  it("the mock opens the reader's page with the language in its address", async () => {
+    const b = new MockBackend();
+    const open = vi.fn();
+    vi.stubGlobal("window", { open });
+    setLang("en");
+    await b.openArticle("abx", "level-matching");
+    setLang("ja");
+    await b.openArticle();
+    expect(open.mock.calls.map((c) => c[0])).toEqual(["reader.html?lang=en&id=abx#level-matching", "reader.html?lang=ja"]);
+  });
+});
 
 describe("MockBackend", () => {
   beforeEach(() => vi.useFakeTimers());

@@ -56,8 +56,14 @@ bool isArticleId(std::string_view id);
 // A section inside an article (a heading's id): letters, digits and hyphens, 1 to 64.
 bool isArticleSection(std::string_view section);
 
-// The reader's address for an article (empty id: the list of articles).
-// An id or a section that is not valid is left out.
-std::string articleReaderUrl(std::string_view articleId, std::string_view section);
+// The reader's languages (task 11-5): the main page's, "ja" or "en".
+bool isArticleReaderLanguage(std::string_view lang);
+
+// The reader's address for an article (empty id: the list of articles), in
+// the main page's language: reader.html?lang=<lang>&id=<id>#<section>. The
+// reader has its own storage, so the language travels in the address. An id,
+// a section or a language that is not valid is left out (without a language
+// the reader uses its default: Japanese for a Japanese Windows, else English).
+std::string articleReaderUrl(std::string_view articleId, std::string_view section, std::string_view lang);
 
 } // namespace ap::app

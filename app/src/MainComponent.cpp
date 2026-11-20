@@ -110,11 +110,13 @@ MainComponent::MainComponent(MainOptions options)
     browserOptions = bridge_.registerFunctions(browserOptions);
     browserOptions = library_.registerFunctions(browserOptions);
     browserOptions = settings_.registerFunctions(browserOptions);
-    // openArticle(id, section): the article reader (task 7-1). Empty id: the list of articles.
+    // openArticle(id, section, lang): the article reader (task 7-1). Empty id:
+    // the list of articles. lang: the page's language, "ja" or "en" (task 11-5).
     browserOptions = browserOptions.withNativeFunction(
         "openArticle", [this](const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion done) {
             const auto message = openArticle(args.size() > 0 ? args[0].toString() : juce::String(),
-                                             args.size() > 1 ? args[1].toString() : juce::String());
+                                             args.size() > 1 ? args[1].toString() : juce::String(),
+                                             args.size() > 2 ? args[2].toString() : juce::String());
             auto* result = new juce::DynamicObject();
             result->setProperty("ok", message.empty());
             if (!message.empty())
@@ -173,14 +175,14 @@ ArticleWindow& MainComponent::articleWindow()
     return *articles_;
 }
 
-NativeMessage MainComponent::openArticle(const juce::String& id, const juce::String& section)
+NativeMessage MainComponent::openArticle(const juce::String& id, const juce::String& section, const juce::String& lang)
 {
-    // The page's own values are checked like any other: what is not an id
-    // or a section is left out (articleReaderUrl).
+    // The page's own values are checked like any other: what is not an id,
+    // a section or a language is left out (articleReaderUrl).
     auto& window = articleWindow();
     if (!window.problem().empty())
         return window.problem();
-    window.showArticle(id, section);
+    window.showArticle(id, section, lang);
     return {};
 }
 

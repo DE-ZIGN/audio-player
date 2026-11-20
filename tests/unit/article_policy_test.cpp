@@ -197,12 +197,61 @@ TEST_CASE("Article ids and the reader's address", "[article]")
     CHECK_FALSE(isArticleId(std::string(65, 'a')));
 
     using ap::app::articleReaderUrl;
-    CHECK(articleReaderUrl("", "") == "https://juce.backend/reader.html");
-    CHECK(articleReaderUrl("abx", "") == "https://juce.backend/reader.html?id=abx");
-    CHECK(articleReaderUrl("abx", "level-matching") == "https://juce.backend/reader.html?id=abx#level-matching");
+    CHECK(articleReaderUrl("", "", "") == "https://juce.backend/reader.html");
+    CHECK(articleReaderUrl("abx", "", "") == "https://juce.backend/reader.html?id=abx");
+    CHECK(articleReaderUrl("abx", "level-matching", "") == "https://juce.backend/reader.html?id=abx#level-matching");
     // What cannot be an id or a section is left out rather than passed on.
-    CHECK(articleReaderUrl("../index", "") == "https://juce.backend/reader.html");
-    CHECK(articleReaderUrl("abx", "a b") == "https://juce.backend/reader.html?id=abx");
+    CHECK(articleReaderUrl("../index", "", "") == "https://juce.backend/reader.html");
+    CHECK(articleReaderUrl("abx", "a b", "") == "https://juce.backend/reader.html?id=abx");
     // Whatever it returns, the reader is allowed to show.
-    CHECK(actionOf(articleReaderUrl("abx", "level-matching")) == ArticleAction::show);
+    CHECK(actionOf(articleReaderUrl("abx", "level-matching", "")) == ArticleAction::show);
+}
+
+TEST_CASE("The reader's address carries the page's language (task 11-5)", "[article]")
+{
+    // The reader has a storage of its own, so the main page's language comes in its address.
+    using ap::app::articleReaderUrl;
+    CHECK(articleReaderUrl("", "", "en") == "https://juce.backend/reader.html?lang=en");
+    CHECK(articleReaderUrl("", "", "ja") == "https://juce.backend/reader.html?lang=ja");
+    CHECK(articleReaderUrl("abx", "", "en") == "https://juce.backend/reader.html?lang=en&id=abx");
+    CHECK(articleReaderUrl("abx", "level-matching", "ja")
+          == "https://juce.backend/reader.html?lang=ja&id=abx#level-matching");
+    // Only Japanese or English; anything else is left out (the reader then uses its default).
+    for (const char* lang : {"fr", "EN", "en-US", "e n", "en&id=x", "<x>", "jaa"})
+    {
+        INFO(lang);
+        CHECK(articleReaderUrl("abx", "", lang) == "https://juce.backend/reader.html?id=abx");
+    }
+    // An id that is not valid is left out, the language kept.
+    CHECK(articleReaderUrl("../index", "", "en") == "https://juce.backend/reader.html?lang=en");
+
+    for (const char* lang : {"", "ja", "en", "fr"})
+    {
+        INFO(lang);
+        CHECK(actionOf(articleReaderUrl("", "", lang)) == ArticleAction::show);
+        CHECK(actionOf(articleReaderUrl("abx", "level-matching", lang)) == ArticleAction::show);
+    }
+}
+
+TEST_CASE("The reader's page with a language is shown; a strange one still is not", "[article]")
+{
+    for (const char* url : {"https://juce.backend/reader.html?lang=en",
+                            "https://juce.backend/reader.html?lang=ja&id=bit-perfect",
+                            "https://juce.backend/reader.html?lang=en&id=abx#level-matching",
+                            "https://juce.backend/reader.html?id=abx&lang=en", // the reader's own order may differ
+                            "https://juce.backend/reader.html?lang=fr&id=abx"}) // the reader falls back to its default
+    {
+        INFO(url);
+        CHECK(actionOf(url) == ArticleAction::show);
+    }
+    for (const char* url : {"https://juce.backend/reader.html?lang=e n", "https://juce.backend/reader.html?lang=<en>",
+                            "https://juce.backend/reader.html?lang=\"en\"", "https://juce.backend/reader.html?lang=en%22",
+                            "https://juce.backend/reader.html?lang=en#a\"b", "https://juce.backend/reader.htmlx?lang=en",
+                            "https://juce.backend/index.html?lang=en", "http://juce.backend/reader.html?lang=en",
+                            "https://juce.backend/reader.html?lang=en/../index.html"})
+    {
+        INFO(url);
+        CHECK(actionOf(url) == ArticleAction::refuse);
+    }
+    CHECK(actionOf("https://juce.backend/reader.html?lang=" + std::string(300, 'e')) == ArticleAction::refuse);
 }

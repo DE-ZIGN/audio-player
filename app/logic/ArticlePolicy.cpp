@@ -107,6 +107,8 @@ ArticleDecision decideReaderOrigin(std::string_view afterOrigin)
             return refuse("only the reader's page may be shown");
         query = rest.substr(1);
     }
+    // The query ("lang=en&id=abx", task 11-5) is the page's to read, and the
+    // page checks each value (reader/links.ts); here only its characters.
     if (query.size() > 200 || !all(query, isQueryChar) || fragment.size() > kMaxNameLength || !all(fragment, isSectionChar))
         return refuse("unexpected characters after the reader's page");
 
@@ -159,13 +161,24 @@ bool isArticleSection(std::string_view section)
     return !section.empty() && section.size() <= kMaxNameLength && all(section, isSectionChar);
 }
 
-std::string articleReaderUrl(std::string_view articleId, std::string_view section)
+bool isArticleReaderLanguage(std::string_view lang)
+{
+    return lang == "ja" || lang == "en";
+}
+
+std::string articleReaderUrl(std::string_view articleId, std::string_view section, std::string_view lang)
 {
     std::string url(kArticleReaderOrigin);
     url += kArticleReaderPage;
+    const bool hasLang = isArticleReaderLanguage(lang);
+    if (hasLang)
+    {
+        url += "?lang=";
+        url += lang;
+    }
     if (!isArticleId(articleId))
         return url;
-    url += "?id=";
+    url += hasLang ? "&id=" : "?id=";
     url += articleId;
     if (isArticleSection(section))
     {

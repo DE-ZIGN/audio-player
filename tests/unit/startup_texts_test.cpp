@@ -24,6 +24,24 @@ TEST_CASE("Japanese for a Japanese Windows display language, English for any oth
     CHECK(startupLanguageFor(0) == StartupLanguage::English);
 }
 
+TEST_CASE("The page's language, when it gives one, comes before the Windows display language (task 11-5)", "[startup]")
+{
+    // The article window opens from the page, which says its language ("ja" or "en").
+    CHECK(pageStartupLanguage("ja", StartupLanguage::English) == StartupLanguage::Japanese);
+    CHECK(pageStartupLanguage("en", StartupLanguage::Japanese) == StartupLanguage::English);
+    // None, or not one of the page's: the language given as the fallback.
+    for (const auto fallback : {StartupLanguage::Japanese, StartupLanguage::English})
+    {
+        for (const char* lang : {"", "fr", "JA", "EN", "ja-JP", "en ", "jaa"})
+        {
+            INFO(lang);
+            CHECK(pageStartupLanguage(lang, fallback) == fallback);
+        }
+    }
+    CHECK(startupText(StartupText::ArticleWindowTitle, pageStartupLanguage("en", StartupLanguage::Japanese)) == "Articles");
+    CHECK(startupText(StartupText::ArticleWindowTitle, pageStartupLanguage("ja", StartupLanguage::English)) == "記事");
+}
+
 TEST_CASE("Both languages have every text, and they differ", "[startup]")
 {
     std::set<std::string> seen;

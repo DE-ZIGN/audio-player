@@ -41,6 +41,15 @@ StartupLanguage windowsStartupLanguage() noexcept
     return startupLanguageFor(GetUserDefaultUILanguage());
 }
 
+StartupLanguage pageStartupLanguage(std::string_view pageLang, StartupLanguage otherwise) noexcept
+{
+    if (pageLang == "ja")
+        return StartupLanguage::Japanese;
+    if (pageLang == "en")
+        return StartupLanguage::English;
+    return otherwise;
+}
+
 std::span<const StartupText> allStartupTexts() noexcept
 {
     return kAll;

@@ -104,13 +104,16 @@ ArticleWindow::ArticleWindow(const juce::File& uiRoot, Hooks hooks)
 
 ArticleWindow::~ArticleWindow() = default;
 
-void ArticleWindow::showArticle(const juce::String& id, const juce::String& section)
+void ArticleWindow::showArticle(const juce::String& id, const juce::String& section, const juce::String& lang)
 {
     if (browser_ == nullptr)
         return;
+    const auto language = pageStartupLanguage(lang.toStdString(), windowsStartupLanguage());
+    setName(juce::String::fromUTF8(startupText(StartupText::ArticleWindowTitle, language).c_str()));
     setVisible(true);
     toFront(true);
-    browser_->goToURL(juce::String(articleReaderUrl(id.toStdString(), section.toStdString())));
+    // The reader's words follow the language too (it is left out when not "ja" or "en").
+    browser_->goToURL(juce::String(articleReaderUrl(id.toStdString(), section.toStdString(), lang.toStdString())));
 }
 
 void ArticleWindow::closeButtonPressed()

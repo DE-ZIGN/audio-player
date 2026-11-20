@@ -37,8 +37,10 @@ public:
     // Empty when the reader can be shown; else what is missing (for the main page, task 11-3).
     const NativeMessage& problem() const { return problem_; }
 
-    // Shows the window with that article (empty id: the list of articles).
-    void showArticle(const juce::String& id, const juce::String& section);
+    // Shows the window with that article (empty id: the list of articles), in
+    // the page's language ("ja" or "en"; task 11-5): the reader's words and the
+    // window's title. Another value or none: the Windows display language.
+    void showArticle(const juce::String& id, const juce::String& section, const juce::String& lang);
 
     juce::WebBrowserComponent* browser() { return browser_; }
 

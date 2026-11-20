@@ -63,6 +63,22 @@ ArticleSelfTest::ArticleSelfTest(ArticleWindow& window, juce::WebBrowserComponen
         s.argument = std::move(argument);
         steps_.push_back(std::move(s));
     };
+    const auto open = [this](juce::String name, juce::String articleId, juce::String lang) {
+        Step s;
+        s.name = std::move(name);
+        s.kind = Kind::open;
+        s.url = std::move(articleId);
+        s.lang = std::move(lang);
+        steps_.push_back(std::move(s));
+    };
+    const auto title = [this](juce::String name, juce::String expected) {
+        Step s;
+        s.name = std::move(name);
+        s.kind = Kind::windowTitle;
+        s.value = std::move(expected);
+        steps_.push_back(std::move(s));
+    };
+    const auto utf8 = [](const char* text) { return juce::String::fromUTF8(text); };
 
     value("the bundled article is shown, with its command links", Kind::readerValue,
           "String(document.querySelectorAll('#article a[href^=\"app:\"]').length >= 3)", "true");
@@ -104,11 +120,31 @@ ArticleSelfTest::ArticleSelfTest(ArticleWindow& window, juce::WebBrowserComponen
           "");
     value("both were stopped by the page's policy", Kind::readerValue, "String(window.__v >= 2)", "true");
 
-    // Another article: the reader's own page.
-    decision("another article", go("reader.html?id=no-such-article"), "/reader.html?id=no-such-article",
+    // Another article: the reader's own page (its address as the reader builds it, task 11-5).
+    decision("another article", go("reader.html?lang=ja&id=no-such-article"), "/reader.html?lang=ja&id=no-such-article",
              ArticleAction::show);
     value("an article that does not exist says so", Kind::readerValue,
-          "String(document.querySelector('#article .missing') !== null)", "true");
+          "(document.querySelector('#article .missing') || {}).textContent || ''", utf8("この記事は見つかりません。"));
+
+    // Task 11-5: the reader's words and its window's title in the language the
+    // page passes, both ways, never the machine's own (the CI runner is an
+    // English Windows; a Japanese one must pass as well).
+    const juce::String words =
+        "document.getElementById('to-list').textContent + ' | ' + document.documentElement.lang + ' | ' + location.search";
+    open("the page opens the reader in English", "about-articles", "en");
+    value("the reader's button reads in English", Kind::readerValue, words, "All articles | en | ?lang=en&id=about-articles");
+    title("the reader window's title is in English", "Articles");
+    value("back to the list with the button", Kind::readerValue, "document.getElementById('to-list').click(); ''", "");
+    value("the list keeps the language", Kind::readerValue,
+          "location.search + ' | ' + (((document.querySelector('#article h1') || {}).textContent) || '')",
+          "?lang=en | All articles");
+    value("an article from the list", Kind::readerValue, click("about-articles.md"), "");
+    value("the article keeps the language", Kind::readerValue,
+          "location.search + ' | ' + String(document.getElementById('to-list').hidden)", "?lang=en&id=about-articles | false");
+    open("the page opens the reader in Japanese", "about-articles", "ja");
+    value("the reader's button reads in Japanese", Kind::readerValue, words,
+          utf8("記事の一覧 | ja | ?lang=ja&id=about-articles"));
+    title("the reader window's title is in Japanese", utf8("記事"));
 }
 
 ArticleSelfTest::~ArticleSelfTest()
@@ -124,7 +160,7 @@ void ArticleSelfTest::start()
         return;
     }
     window_.setTopLeftPosition(-20000, -20000); // out of the way, like the main window in a test
-    window_.showArticle("about-articles", {});
+    window_.showArticle("about-articles", {}, "ja"); // as the page asks for it (MainComponent::openArticle)
     stepStartMs_ = juce::Time::getMillisecondCounter();
     startTimer(50);
 }
@@ -157,6 +193,8 @@ void ArticleSelfTest::begin(const Step& step)
     seen_.clear();
     if (step.kind == Kind::decision)
         evaluate(*window_.browser(), step.script, false);
+    if (step.kind == Kind::open)
+        window_.showArticle(step.url, {}, step.lang);
 }
 
 void ArticleSelfTest::pass(const Step& step, const juce::String& detail)
@@ -213,6 +251,18 @@ void ArticleSelfTest::timerCallback()
         return;
     }
 
+    // Asked for in begin(); the steps after it wait for the page it loads.
+    if (step.kind == Kind::open)
+    {
+        pass(step, step.lang);
+        return;
+    }
+    if (step.kind == Kind::windowTitle)
+    {
+        hasValue_ = true;
+        lastValue_ = window_.getName();
+    }
+
     // A value: asked again until it is the expected one (pages load and dialogs open in their own time).
     if (hasValue_ && lastValue_ == step.value)
     {
@@ -225,7 +275,7 @@ void ArticleSelfTest::timerCallback()
                           + (hasValue_ ? lastValue_ : juce::String("(nothing)")) + "\"");
         return;
     }
-    if (!evaluating_)
+    if (!evaluating_ && step.kind != Kind::windowTitle)
         evaluate(step.kind == Kind::mainValue ? mainBrowser_ : *window_.browser(), step.script, true);
 }
 

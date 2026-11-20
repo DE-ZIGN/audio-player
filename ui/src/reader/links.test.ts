@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isArticleId, isSection, linkKind, linkTarget } from "./links";
+import { isArticleId, isSection, linkKind, linkTarget, readerAddress, readerLang } from "./links";
 import html from "../../reader.html?raw";
 
 // Task 7-1: the reader's page follows a link to another article itself;
@@ -48,6 +48,35 @@ describe("where a link in an article goes", () => {
     expect(linkKind("https://example.com/")).toBe("web");
     expect(linkKind("http://example.com/")).toBe("web");
     expect(linkKind("javascript:alert(1)")).toBe("other");
+  });
+});
+
+describe("the reader's address keeps the page's language (task 11-5)", () => {
+  // As articleReaderUrl in ArticlePolicy.cpp builds it: reader.html?lang=en&id=<article>#<section>.
+  it("is built with the language first, then the article and the section", () => {
+    expect(readerAddress("", "", "en")).toBe("reader.html?lang=en");
+    expect(readerAddress("abx", "", "ja")).toBe("reader.html?lang=ja&id=abx");
+    expect(readerAddress("abx", "level-matching", "en")).toBe("reader.html?lang=en&id=abx#level-matching");
+    expect(readerAddress("abx", "level-matching")).toBe("reader.html?id=abx#level-matching");
+    expect(readerAddress("", "")).toBe("reader.html");
+  });
+  it("leaves out what is not an id, a section or one of the languages", () => {
+    expect(readerAddress("../index", "", "en")).toBe("reader.html?lang=en");
+    expect(readerAddress("abx", "a b", "en")).toBe("reader.html?lang=en&id=abx");
+    expect(readerAddress("abx", "", "fr" as never)).toBe("reader.html?id=abx");
+  });
+  it("reads the language from the address: ja or en, else none (the default rule)", () => {
+    expect(readerLang("?lang=en&id=abx")).toBe("en");
+    expect(readerLang("?id=abx&lang=ja")).toBe("ja");
+    for (const bad of ["", "?id=abx", "?lang=fr", "?lang=EN", "?lang=en-US", "?lang="]) expect(readerLang(bad), bad).toBeUndefined();
+  });
+  it("what it builds, it reads back", () => {
+    for (const lang of ["ja", "en"] as const) {
+      const url = new URL(readerAddress("abx", "s1", lang), "https://juce.backend/");
+      expect(readerLang(url.search)).toBe(lang);
+      expect(url.searchParams.get("id")).toBe("abx");
+      expect(url.hash).toBe("#s1");
+    }
   });
 });
 
