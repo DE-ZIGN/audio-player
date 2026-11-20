@@ -41,6 +41,12 @@ describe("the settings screen's tabs", () => {
     expect(SETTINGS_TABS.every((t) => t.labelKey.startsWith("settings.tab.") && t.sections.length > 0)).toBe(true);
     expect(SETTINGS_TABS.length).toBeLessThanOrEqual(8);
   });
+  it("the last tab is 情報 / About (task 8-2): the app, its trademarks and the components' licenses", () => {
+    const about = SETTINGS_TABS.at(-1)!;
+    expect(about.id).toBe("about");
+    expect(about.labelKey).toBe("settings.tab.about");
+    expect(about.sections).toEqual(["about", "components"]);
+  });
   it("a section's tab can be found (an article's link opens the right tab)", () => {
     expect(tabOfSection("eq")).toBe("eq");
     expect(tabOfSection("tone")).toBe("eq");

@@ -22,6 +22,7 @@ import {
 } from "./playModes";
 import { SettingsView } from "./settingsView";
 import { SettingsTabsView } from "./settingsTabsView";
+import { AboutView } from "./aboutView";
 import { VuMeter } from "./vuMeter";
 import { paintRange } from "./rangeFill";
 import { OutputView } from "./outputView";
@@ -594,6 +595,7 @@ async function main() {
   );
   const settings = new SettingsView(backend.settings);
   const settingsTabs = new SettingsTabsView(); // the tabs down the left of the settings screen
+  new AboutView(backend.kind); // the settings' About tab: the app and the components' licenses (task 8-2)
   document
     .querySelector<HTMLButtonElement>('.nav[data-view="settings"]')
     ?.addEventListener("click", () => void settings.refresh());

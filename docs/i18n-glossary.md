@@ -84,3 +84,18 @@ BIT-PERFECT、True Peak、dBTP、LUFS、ABX、ReplayGain、EQ、DoP、DSD、WASA
 | どちらの音がよいかは判定しません | It does not judge which of the two is preferable. |
 | 記事・記事の一覧（記事の窓。11-5） | Articles（窓の題）、All articles（一覧のボタンと見出し） |
 
+## 「情報」タブで足した語（8-2、2026-11-20）
+
+| 日本語 | 英語 |
+|---|---|
+| 情報（設定のタブ） | About |
+| このアプリ | This app |
+| 使っている部品 | Components |
+| ライセンス・ライセンス本文 | license / license text |
+| 著作権表示 | Copyright（項目の名前） |
+| 入手先 | Website |
+| ソースコード | Source code |
+| 〜に同梱 | Bundled in … |
+| 商標 | Trademarks |
+| 変更あり | Modified |
+

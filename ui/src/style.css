@@ -822,7 +822,7 @@ button.icon.plain {
   margin-bottom: 8px;
 }
 [data-ui-view="amp"] #settings-tabs button {
-  padding: 2px 16px 2px 32px;
+  padding: 2px 11px 2px 26px; /* eight tabs in one row, in English too (task 8-2) */
   border-bottom: 0;
   border-right: 1px solid rgba(0, 0, 0, 0.45);
   box-shadow: 1px 0 0 rgba(255, 255, 255, 0.04);
@@ -832,7 +832,7 @@ button.icon.plain {
   box-shadow: none;
 }
 [data-ui-view="amp"] #settings-tabs button::before {
-  left: 12px;
+  left: 10px;
 }
 [data-ui-view="amp"] .settings-panes {
   grid-row: 3;
@@ -884,6 +884,56 @@ button.icon.plain {
 }
 .settings .notice {
   white-space: pre-line;
+}
+/* The About tab (task 8-2): the app, then each component with the parts
+   bundled in it set in under it; a license text opens in a box of its own. */
+.settings .about-name {
+  margin: 0 0 4px;
+}
+.settings .about-row {
+  display: grid;
+  grid-template-columns: 8em minmax(0, 1fr);
+  gap: 12px;
+  margin: 0;
+}
+.settings .about-label {
+  opacity: 0.7;
+}
+.settings .about-value {
+  white-space: pre-line; /* the copyright lines, one to a line */
+  overflow-wrap: anywhere; /* a long address or commit hash */
+  user-select: text;
+}
+.settings .about-component {
+  margin: 0 0 22px;
+}
+.settings .about-component.bundled {
+  margin-left: 18px;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+.settings .about-component h3 {
+  margin: 0 0 4px;
+}
+.settings .about-license {
+  margin: 6px 0 0;
+}
+.settings .about-text {
+  max-height: 360px;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+#settings .about-text {
+  font-size: calc(13 * var(--spx));
+  line-height: 1.5;
 }
 label.check {
   display: inline-flex;

@@ -13,6 +13,7 @@ import type { EqBand } from "./settings";
 import type { PlaybackStatus } from "./status";
 import { rateText } from "./outputRate";
 import { nativeText } from "./nativeText";
+import { loadAboutData, loadLicenseText } from "./about";
 
 export interface SelfTestResult {
   ok: boolean;
@@ -514,6 +515,21 @@ export async function runSelfTest(
     const counts = await backend.library.counts();
     if (counts.folders !== 1 || counts.tracks < 1) throw new Error(`library counts ${JSON.stringify(counts)}`);
     log.push(`library: ${name} is in the track list (${counts.tracks} tracks, ${counts.folders} folder)`);
+
+    // The About tab (task 8-2): the build's list of the components, read as the
+    // tab reads it (ui/about/about.json), and every license text it names
+    // loads and is not empty.
+    const about = await loadAboutData(backend.kind);
+    if (about.state !== "ok") throw new Error(`about: ${about.state === "error" ? about.detail : "no data"}`);
+    const { app, components } = about.data;
+    if (app.name !== document.title || !/^\d+\.\d+\.\d+$/.test(app.version))
+      throw new Error(`about: the app is ${JSON.stringify(app.name)} ${app.version} (page title ${JSON.stringify(document.title)})`);
+    if (components.length < 15 || !components.some((c) => c.id === "juce") || !components.some((c) => c.parent === "juce"))
+      throw new Error(`about: components ${components.map((c) => c.id).join(", ")}`);
+    const licenseFiles = [...app.texts, ...components.flatMap((c) => c.texts)];
+    let licenseChars = 0;
+    for (const f of licenseFiles) licenseChars += (await loadLicenseText(f.file)).length; // throws when missing or empty
+    log.push(`about: ${app.name} ${app.version}, ${components.length} components, ${licenseFiles.length} license texts (${licenseChars} characters)`);
 
     // The views (tasks 6-7, 9-9) show the same information: the output field
     // and the True Peak column are in view in each. Shown only, not saved:

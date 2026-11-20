@@ -1,7 +1,9 @@
 # Third-party dependencies.
 #
 # Each dependency is pinned to a commit and verified with SHA-256. Every entry
-# here must also be listed in THIRD_PARTY_NOTICES.md.
+# here must also be listed in THIRD_PARTY_NOTICES.md and, when it is
+# distributed, in third_party/components.json (the licenses screen; the
+# test ui/src/about.test.ts checks every FetchContent_Declare against it).
 #
 # To use a local checkout instead of downloading, set e.g.
 #   -DFETCHCONTENT_SOURCE_DIR_JUCE=C:/src/JUCE

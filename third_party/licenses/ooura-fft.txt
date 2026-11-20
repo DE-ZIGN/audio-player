@@ -1,0 +1,12 @@
+Ooura FFT (General Purpose FFT Package), as used by r8brain-free-src 7.6
+(fft/fft4g.h: Takuya Ooura's fft4g.c wrapped into a class, its arrays
+initialised once; see that file's header).
+
+Copyright Takuya OOURA, 1996-2001
+http://www.kurims.kyoto-u.ac.jp/~ooura/fft.html
+
+The terms of use, from the author's page:
+
+You may use, copy, modify and distribute this code for any purpose (include
+commercial use) and without fee. Please refer to this package when you modify
+this code.

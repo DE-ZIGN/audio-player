@@ -376,6 +376,19 @@
               </fieldset>
             </div>
 
+            <div class="settings-group" data-group="about">
+              <!-- The app and its trademarks (task 8-2): filled by aboutView.ts. -->
+              <h2 data-i18n="about.heading">このアプリ</h2>
+              <div class="about-app" id="about-app"></div>
+            </div>
+
+            <div class="settings-group" data-group="components">
+              <!-- The components' licenses (task 8-2): the build's data (ui/about/about.json), filled by aboutView.ts. -->
+              <h2 data-i18n="about.components.heading">使っている部品</h2>
+              <p class="note first" data-i18n="about.components.note">アプリに組み込んで配っている部品です。それぞれの著作権表示とライセンスの本文を載せています。ビルドとテストにだけ使うもの（配布物に含まないもの）は載せていません。</p>
+              <div class="about-components" id="about-components"></div>
+            </div>
+
             <div class="settings-group" data-group="articles">
               <!-- The article reader (task 7-1): a window of its own, apart from this page. -->
               <h2 data-i18n="page.settings.articles.heading">記事</h2>

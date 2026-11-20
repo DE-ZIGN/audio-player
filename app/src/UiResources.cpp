@@ -9,6 +9,7 @@ juce::String mimeTypeFor(const juce::String& extension)
     if (ext == ".js" || ext == ".mjs")   return "text/javascript";
     if (ext == ".css")                   return "text/css";
     if (ext == ".json")                  return "application/json";
+    if (ext == ".txt")                   return "text/plain; charset=utf-8"; // the license texts (task 8-2)
     if (ext == ".svg")                   return "image/svg+xml";
     if (ext == ".png")                   return "image/png";
     if (ext == ".jpg" || ext == ".jpeg") return "image/jpeg";

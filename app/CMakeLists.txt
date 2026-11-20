@@ -61,12 +61,20 @@ ap_apply_juce_target_settings(ap_app)
 ap_copy_engine_dlls(ap_app) # mpg123.dll next to the program
 set_target_properties(ap_app PROPERTIES FOLDER "app")
 
-# The built UI is served from <exe dir>/ui by the resource provider.
+# The licenses screen's data (task 8-2): the components' list and license
+# texts, made from third_party/components.json (cmake/AboutData.cmake).
+include(AboutData)
+set(AP_ABOUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/about")
+ap_make_about_data("${AP_ABOUT_DIR}")
+
+# The built UI is served from <exe dir>/ui by the resource provider; the
+# licenses screen's data goes beside the page, in ui/about.
 if(TARGET ap_ui)
     add_dependencies(ap_app ap_ui)
     add_custom_command(TARGET ap_app POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E rm -rf "$<TARGET_FILE_DIR:ap_app>/ui"
         COMMAND "${CMAKE_COMMAND}" -E copy_directory "${AP_UI_DIST_DIR}" "$<TARGET_FILE_DIR:ap_app>/ui"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${AP_ABOUT_DIR}" "$<TARGET_FILE_DIR:ap_app>/ui/about"
         COMMENT "Copying the UI next to the app"
         VERBATIM)
 endif()

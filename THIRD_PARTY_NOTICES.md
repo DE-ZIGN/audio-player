@@ -6,9 +6,12 @@
 ## 書き方のルール
 
 - 依存を追加したら、同じコミットでここに追記する。`cmake/Dependencies.cmake` の固定バージョンと一致させる。
-- 1部品1節。項目は下の順にそろえる（フェーズ1の 8-2 で、アプリ内のライセンス画面をここから自動生成する予定）。
+- 1部品1節。項目は下の順にそろえる。ほかの部品に同梱されている部品は、その部品の節の下に `###` の節で書く。
 - 「配布物」：アプリに組み込まれて利用者に配られるなら「含む」、ビルドやテストにしか使わないなら「含まない」。
-- ライセンス本文は各部品のソースに含まれるファイルを正とする。アプリ内のライセンス画面には本文を全文載せる（8-2）。
+- 「バージョン」と「ライセンス」の行は、`third_party/components.json` と同じ値（ライセンスは SPDX の書き方）で始める。補足はその後ろの括弧に書く。
+- ライセンス本文は各部品のソースに含まれるファイルを正とする。ソースに本文のファイルがないもの（GPLv3 の全文、CC BY 4.0 の全文、SQLite の祝福の文、Ooura FFT の利用条件）は `third_party/licenses/` に置く。
+- **アプリ内のライセンス画面**（設定の「情報」タブ、8-2）は、ここではなく、機械が読む一覧 `third_party/components.json` から作る。配布物に「含む」部品ごとに、名前（この文書の節の見出しの括弧の前）、バージョン、ライセンス（SPDX）、入手先、著作権表示、同梱先、注記（表のキー）、ライセンス本文のファイル（取得したソースの中か、このリポジトリの中）を持つ。ビルド（`cmake/AboutData.cmake`）が本文をアプリの `ui/about/` に写し、画面には本文を全文載せる。一覧にあるファイルがなければ、ビルド（構成の段階）が止まる。
+- この文書と `third_party/components.json` は**同じコミットで一緒に変える**。自動テスト（`ui/src/about.test.ts`）が、「含む」の節と一覧の項目（名前・バージョン・ライセンス・同梱先）が双方向にそろうこと、`FetchContent_Declare` の部品がすべて一覧にあるか、ビルドとテスト専用（Catch2、LAME）であることを確かめる。
 
 ---
 
@@ -19,7 +22,7 @@
 - 配布物：含む
 - 入手先：https://github.com/juce-framework/JUCE
 - 著作権表示：Copyright (c) Raw Material Software Limited
-- ライセンス本文：JUCE の `LICENSE.md`、https://www.gnu.org/licenses/agpl-3.0.html
+- ライセンス本文：JUCE の `LICENSE.md`、AGPLv3 の全文（このリポジトリの `LICENSE`）、https://www.gnu.org/licenses/agpl-3.0.html
 - 使っているモジュール：`juce_core`、`juce_events`、`juce_graphics`、`juce_gui_basics`、`juce_gui_extra`（WebView）
 
 以下は、上記のモジュールに同梱されていてアプリに組み込まれる部品です（JUCE の `LICENSE.md` の一覧による）。
@@ -70,7 +73,7 @@
 
 ### SheenBidi（`juce_graphics` に同梱）
 
-- バージョン：JUCE 8.0.17 同梱版
+- バージョン：2.9.0（JUCE 8.0.17 に同梱の版。`Headers/SheenBidi/SBVersion.h`）
 - ライセンス：Apache-2.0
 - 配布物：含む
 - 入手先：https://github.com/Tehreer/SheenBidi
@@ -86,7 +89,7 @@
 - 配布物：含む（`third_party/asiosdk/` のヘッダー3つ。ASIO 出力の実装に使う）
 - 入手先：https://www.steinberg.net/developers/asiosdk-open/
 - 著作権表示：(c) 2025, Steinberg Media Technologies GmbH, All Rights Reserved
-- ライセンス本文：`third_party/asiosdk/LICENSE.txt`、https://www.gnu.org/licenses/gpl-3.0.html
+- ライセンス本文：`third_party/asiosdk/LICENSE.txt`、GPLv3 の全文（`third_party/licenses/GPL-3.0.txt`）、https://www.gnu.org/licenses/gpl-3.0.html
 - 商標：ASIO は Steinberg Media Technologies GmbH の商標です。本製品は ASIO のロゴを使っていません。
 - 同梱の詳細：`third_party/asiosdk/VENDORED.md`
 
@@ -108,7 +111,7 @@
 
 ## Apple Lossless Audio Codec（ALAC）
 
-- バージョン：macosforge/alac のコミット `c38887c5c5e64a4b31108733bd79ca9b2496d987`（2016-05-11。リポジトリは保管扱いで、コーデックのコードは 2011 年のもの）
+- バージョン：`c38887c5c5e64a4b31108733bd79ca9b2496d987`（macosforge/alac のコミット、2016-05-11。リポジトリは保管扱いで、コーデックのコードは 2011 年のもの）
 - ライセンス：Apache-2.0
 - 配布物：含む（デコーダーだけ。`third_party/alac/codec/` の ALACDecoder ほか）。エンコーダー（ALACEncoder ほか）はテスト用のファイルを作るためだけに使い、配布物には含まない
 - 入手先：https://github.com/macosforge/alac
@@ -122,7 +125,7 @@
 ## mpg123（libmpg123）
 
 - バージョン：1.33.7（公式のソース配布 `mpg123-1.33.7.tar.bz2`、SHA-256 `31d0e35a4ca567ec9b5ebda6c3062bb4435d6d3eacd6ef0d95cadd7854dc03ee`）
-- ライセンス：LGPL-2.1（`COPYING`）
+- ライセンス：LGPL-2.1-only（`COPYING`。「LGPL v2.1」とある）
 - 配布物：含む（`mpg123.dll` として、アプリの exe の隣に置く。MP3 のデコードに使う。動的リンクなので、利用者が同じ API の別のビルドに差し替えられる）
 - 入手先：https://www.mpg123.de/ （ソースは上の公式配布物。変更なし）
 - 著作権表示：Copyright (c) 1995-2020 by Michael Hipp and others, free software under the terms of the LGPL v2.1（`COPYING` に指定された表示。著者の一覧は `AUTHORS`）
@@ -134,7 +137,7 @@
 ## libebur128
 
 - バージョン：1.2.6（リリースのタグ `v1.2.6` のソースの配布 `libebur128-1.2.6.tar.gz`、SHA-256 `baa7fc293a3d4651e244d8022ad03ab797ca3c2ad8442c43199afe8059faa613`）
-- ライセンス：MIT（`COPYING`）。同梱の `queue.h`（`ebur128/queue/sys/queue.h`）は BSD-3-Clause（`doc/license/queue.txt`）。R128Scan 由来の部分は MIT（`doc/license/R128Scan.txt`）
+- ライセンス：MIT AND BSD-3-Clause（本体は MIT（`COPYING`）。同梱の `queue.h`（`ebur128/queue/sys/queue.h`）は BSD-3-Clause（`doc/license/queue.txt`）。R128Scan 由来の部分は MIT（`doc/license/R128Scan.txt`））
 - 配布物：含む（ラウドネスの測定に使う。ReplayGain 2.0。`ebur128/ebur128.c` の1ファイルだけを静的ライブラリとして組み込む。ピークの関数は使わない）
 - 入手先：https://github.com/jiixyj/libebur128 （ソースは上の配布物。変更なし）
 - 著作権表示：
@@ -152,16 +155,20 @@
 - 著作権表示：Copyright (c) 2013-2026 Aleksey Vaneev
 - ライセンス本文：r8brain-free-src の `LICENSE`
 
-### r8brain-free-src に含まれる Ooura FFT
+### Ooura FFT（r8brain-free-src に同梱）
 
-- 内容：r8brain-free-src の `fft/fft4g.h`（Takuya Ooura の FFT を、r8brain の作者が係数の前計算のために手直ししたもの）
-- 著作権表示：Copyright Takuya OOURA, 1996-2001（http://www.kurims.kyoto-u.ac.jp/~ooura/fft.html ）
+- バージョン：r8brain-free-src 7.6 に入っているもの（`fft/fft4g.h`。Takuya Ooura の FFT を、r8brain の作者が係数の前計算のために手直ししたもの）
+- ライセンス：LicenseRef-Ooura-FFT（SPDX に名前のない、作者独自の利用条件）
+- 配布物：含む（r8brain-free-src の既定の FFT として、エンジンに組み込む）
+- 入手先：http://www.kurims.kyoto-u.ac.jp/~ooura/fft.html
+- 著作権表示：Copyright Takuya OOURA, 1996-2001
 - 利用条件（作者のページより）：You may use, copy, modify and distribute this code for any purpose (include commercial use) and without fee. Please refer to this package when you modify this code.
+- ライセンス本文：`third_party/licenses/ooura-fft.txt`（上の利用条件。r8brain のソースには本文のファイルがない）
 
 ## TagLib
 
 - バージョン：2.1.1（リリースの配布 `taglib-2.1.1.tar.gz`、SHA-256 `3716d31f7c83cbf17b67c8cf44dd82b2a2f17e6780472287a16823e70305ddba`）
-- ライセンス：LGPL-2.1 または MPL-1.1 の選択（本プロジェクトは LGPL-2.1 で利用。ソースを公開しているので、利用者が TagLib を差し替えてリンクし直せる）
+- ライセンス：LGPL-2.1-only OR MPL-1.1（2 つからの選択。本プロジェクトは LGPL-2.1 で利用。ソースを公開しているので、利用者が TagLib を差し替えてリンクし直せる）
 - 配布物：含む（音楽ファイルのタグを読む。書き込みには使わない。静的ライブラリとして組み込む。ASF・トラッカー形式・Shorten・TrueAudio は外し、zlib は使わない）
 - 入手先：https://taglib.org/ 、https://github.com/taglib/taglib （ソースは上の配布物。変更なし）
 - 著作権表示：Copyright (C) 2002 - 2008 by Scott Wheeler ほか（各ソースの冒頭と `AUTHORS`）
@@ -169,7 +176,7 @@
 
 ### utfcpp（TagLib に同梱）
 
-- バージョン：TagLib 2.1.1 の `3rdparty/utfcpp` に入っているもの
+- バージョン：3.2.2（TagLib 2.1.1 の `3rdparty/utfcpp` に入っているもの。その `CMakeLists.txt` の版）
 - ライセンス：BSL-1.0（Boost Software License 1.0）
 - 配布物：含む（TagLib の中で UTF-8 の変換に使われる。ヘッダーだけ）
 - 入手先：https://github.com/nemtrif/utfcpp
@@ -179,11 +186,11 @@
 ## SQLite
 
 - バージョン：3.50.4（amalgamation `sqlite-amalgamation-3500400.zip`、SHA-256 `1d3049dd0f830a025a53105fc79fd2ab9431aea99e137809d064d8ee8356b032`）
-- ライセンス：パブリックドメイン（著作権を放棄している。AGPLv3 と両立する）
+- ライセンス：blessing（パブリックドメイン。著作権を放棄している。SPDX では `blessing`。AGPLv3 と両立する）
 - 配布物：含む（ライブラリのデータベース。`sqlite3.c` を FTS5 つきで静的ライブラリとして組み込む。`shell.c` は使わない）
 - 入手先：https://sqlite.org/ （ソースは上の配布物。変更なし）
 - 著作権表示：なし（ソースの冒頭に「The author disclaims copyright to this source code.」とある）
-- ライセンス本文：https://sqlite.org/copyright.html
+- ライセンス本文：`third_party/licenses/sqlite-blessing.txt`（`sqlite3.c` の冒頭の文）、https://sqlite.org/copyright.html
 
 ---
 
@@ -210,14 +217,14 @@
 
 ## MAIR（Microphone Array Impulse Response Library）の IR 1 本
 
-- バージョン：GitHub の `APL-Huddersfield/MAIR-Library-and-Renderer`（master、2026-11-06 に取得）のうち、`MainArrays/2ch_AB/Main_AB_M01_S01_FL.wav` と `Main_AB_M02_S01_FR.wav` だけ
+- バージョン：master 2026-11-06（GitHub の `APL-Huddersfield/MAIR-Library-and-Renderer` の master を、この日に取得）のうち、`MainArrays/2ch_AB/Main_AB_M01_S01_FL.wav` と `Main_AB_M02_S01_FR.wav` だけ
 - ライセンス：CC-BY-4.0（Creative Commons Attribution 4.0 International）
 - 配布物：含む（空間の段の HALL の「内蔵（実測）」。エンジンに埋め込む。`engine/resources/ir/mair_st_pauls_ab_s01.wav`）
 - 入手先：https://github.com/APL-Huddersfield/MAIR-Library-and-Renderer
 - 著作権表示：Hyunkook Lee and Connor Millns, Applied Psychoacoustics Lab, University of Huddersfield. "Microphone Array Impulse Response (MAIR) Library for Spatial Audio Research," 143rd AES Convention, 2017.
-- ライセンス本文：ライブラリの `licence.txt`、https://creativecommons.org/licenses/by/4.0/legalcode
+- ライセンス本文：ライブラリの `licence.txt`、CC BY 4.0 の全文（`third_party/licenses/CC-BY-4.0.txt`）、https://creativecommons.org/licenses/by/4.0/legalcode
 - 変更：2 本のモノラルを 1 本のステレオにまとめ、直接音の 1 ms 前より前を切った（値はそのまま）。詳しくは `engine/resources/ir/README.md`。
-- アプリの中の表示：設定画面の「空間」に、作者・出典・ライセンス・変更を書いている。
+- アプリの中の表示：設定画面の「空間」に、作者・出典・ライセンス・変更を書いている。「情報」タブにも載る（8-2）。
 
 ---
 

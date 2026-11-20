@@ -5,6 +5,7 @@
 // Values: {name} is put in by t() (i18n.ts). Describe what the player does;
 // never claim that something sounds better (CLAUDE.md chapter 1).
 
+import * as about from "./parts/about";
 import * as controls from "./parts/controls";
 import * as native from "./parts/native";
 import * as page from "./parts/page";
@@ -13,8 +14,8 @@ import * as status from "./parts/status";
 
 // The parts each part of the page moves its texts into (task 11-2), the
 // engine's and the app's messages (task 11-3), and the article reader's
-// words (task 11-5).
-export const PARTS = { page, status, controls, native, reader };
+// words (task 11-5), and the settings' About tab (task 8-2).
+export const PARTS = { page, status, controls, native, reader, about };
 
 const base = {
   // The settings screen's tabs (settingsTabs.ts).
@@ -25,6 +26,7 @@ const base = {
   "settings.tab.tube": "真空管",
   "settings.tab.space": "空間",
   "settings.tab.look": "見た目",
+  "settings.tab.about": "情報",
 
   // The language (settings, 見た目). Its heading reads in both languages, so
   // that someone who cannot read the one shown still finds it.
@@ -40,7 +42,7 @@ const base = {
 
 export const BASE_JA = base;
 
-export const ja = { ...base, ...page.ja, ...status.ja, ...controls.ja, ...native.ja, ...reader.ja } as const;
+export const ja = { ...base, ...page.ja, ...status.ja, ...controls.ja, ...native.ja, ...reader.ja, ...about.ja } as const;
 
 export type MessageKey = keyof typeof ja;
 export type Messages = Record<MessageKey, string>;

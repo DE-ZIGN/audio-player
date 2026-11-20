@@ -4,6 +4,7 @@
 // for such words).
 
 import type { BASE_JA, Messages } from "./ja";
+import * as about from "./parts/about";
 import * as controls from "./parts/controls";
 import * as native from "./parts/native";
 import * as page from "./parts/page";
@@ -18,6 +19,7 @@ const base: Record<keyof typeof BASE_JA, string> = {
   "settings.tab.tube": "Tubes",
   "settings.tab.space": "Space",
   "settings.tab.look": "Look",
+  "settings.tab.about": "About",
 
   "settings.look.language": "言語 / Language",
   "settings.look.languageNote":
@@ -28,4 +30,4 @@ const base: Record<keyof typeof BASE_JA, string> = {
   "list.separator": ", ",
 };
 
-export const en: Messages = { ...base, ...page.en, ...status.en, ...controls.en, ...native.en, ...reader.en };
+export const en: Messages = { ...base, ...page.en, ...status.en, ...controls.en, ...native.en, ...reader.en, ...about.en };

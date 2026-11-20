@@ -23,6 +23,8 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   { id: "tube", labelKey: "settings.tab.tube", sections: ["tube"] },
   { id: "space", labelKey: "settings.tab.space", sections: ["space", "crossfeed"] },
   { id: "look", labelKey: "settings.tab.look", sections: ["look"] },
+  // The app, its trademarks and the components' licenses (task 8-2; the user, 2026-11-20).
+  { id: "about", labelKey: "settings.tab.about", sections: ["about", "components"] },
 ];
 
 // Sections that stay in the page but are in no tab, so they are never shown
