@@ -4,6 +4,7 @@
 
 import { ispWarning, meterModel, pathModel, verdictModel, type PathBox, type ProcessingBox } from "./outputCheck";
 import type { PlaybackStatus } from "./status";
+import { onLangChange, t } from "./i18n";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -42,6 +43,12 @@ export class OutputView {
       this.els.ispOn.disabled = true;
       await enableIspSafe(this.last.mode);
       this.els.ispOn.disabled = false;
+    });
+    // The texts in the language chosen: everything drawn again.
+    onLangChange(() => {
+      this.drawnKey = "";
+      this.verdictKey = "";
+      if (this.last) this.render(this.last);
     });
   }
 
@@ -88,8 +95,9 @@ export class OutputView {
         const main = el("div", "oc-stage-main");
         // The value breaks only between its parts (at "・"), never inside one.
         const state = el("span", r.warn ? "oc-state warn" : "oc-state");
-        (r.warn ? `⚠ ${r.value}` : r.value).split("・").forEach((part, i, all) => {
-          state.append(el("span", "oc-part", i < all.length - 1 ? `${part}・` : part));
+        const separator = t("status.view.partSeparator");
+        (r.warn ? `⚠ ${r.value}` : r.value).split(separator).forEach((part, i, all) => {
+          state.append(el("span", "oc-part", i < all.length - 1 ? `${part}${separator}` : part));
         });
         main.append(el("span", "oc-stage-name", r.name), state);
         li.append(main);
@@ -122,7 +130,7 @@ export class OutputView {
     if (key === this.verdictKey) return;
     this.verdictKey = key;
     if (!v) {
-      this.els.verdict.replaceChildren(el("p", "note", "再生を始めると、出力を開いたときの経路から判定します。"));
+      this.els.verdict.replaceChildren(el("p", "note", t("status.view.verdictEmpty")));
       return;
     }
     const head = el("div", `oc-verdict-head ${v.bitPerfect ? "ok" : "ng"}`);
@@ -160,7 +168,7 @@ export class OutputView {
       ...m.peaks.map((p) => {
         const d = el("div", `oc-value${p.over ? " over" : ""}`);
         d.append(el("span", "oc-value-label", p.label), el("span", "oc-value-now", p.now));
-        d.append(el("span", "oc-value-max", `最大 ${p.over ? "⚠ " : ""}${p.max}`));
+        d.append(el("span", "oc-value-max", t("status.view.max", { value: `${p.over ? "⚠ " : ""}${p.max}` })));
         return d;
       }),
     );

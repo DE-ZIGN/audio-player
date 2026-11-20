@@ -6,6 +6,8 @@
 // one in the play queue (replaceUpcoming), so the queue shows the order they
 // will play in; turning it off puts what is left back in the order it had.
 
+import { t, type MessageKey } from "./i18n";
+
 export type RepeatMode = "off" | "all" | "one";
 
 export interface PlayModes {
@@ -21,12 +23,18 @@ export function nextRepeat(m: RepeatMode): RepeatMode {
   return REPEAT_ORDER[(REPEAT_ORDER.indexOf(m) + 1) % REPEAT_ORDER.length];
 }
 
+const REPEAT_LABELS: Record<RepeatMode, MessageKey> = {
+  off: "page.repeat.off",
+  all: "page.repeat.all",
+  one: "page.repeat.one",
+};
+
 export function repeatLabel(m: RepeatMode): string {
-  return `リピート：${m === "off" ? "オフ" : m === "all" ? "全曲" : "1 曲"}`;
+  return t(REPEAT_LABELS[m]);
 }
 
 export function shuffleLabel(on: boolean): string {
-  return `シャッフル：${on ? "オン" : "オフ"}`;
+  return t(on ? "page.shuffle.on" : "page.shuffle.off");
 }
 
 // The next and previous buttons: past either end they go round when repeat is

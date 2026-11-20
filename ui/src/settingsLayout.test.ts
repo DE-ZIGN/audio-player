@@ -39,9 +39,9 @@ describe("the settings screen's explanations (task 6-10)", () => {
   it("folds every explanation behind a 詳細 button", () => {
     const unfolded = notes().filter((n) => plainNote(n) && !n.inDetails);
     expect(unfolded.map((n) => n.text.slice(0, 30))).toEqual([]);
-    const explains = settings.match(/<details class="explain">\s*<summary>([^<]*)<\/summary>/g) ?? [];
+    const explains = settings.match(/<details class="explain">\s*<summary[^>]*>([^<]*)<\/summary>/g) ?? [];
     expect(explains.length).toBeGreaterThanOrEqual(10);
-    for (const d of explains) expect(d).toMatch(/<summary>詳細<\/summary>/);
+    for (const d of explains) expect(d).toMatch(/<summary[^>]*>詳細<\/summary>/);
   });
 
   it("keeps the current state in sight (the notes the screen fills in)", () => {
@@ -61,13 +61,13 @@ describe("the settings screen's explanations (task 6-10)", () => {
     expect(visible).toContain("対応していない DAC では大きな雑音になります"); // DoP
     expect(visible).toContain("再生中は一瞬途切れます"); // the tube on or off
     expect(visible).toContain("ジャンルに合う種類を示すものではありません"); // the tube by genre
-    expect(settings).toMatch(/<h3>演出 <small>ロマン枠：効果は確かめていません<\/small><\/h3>/);
+    expect(settings).toMatch(/<h3>(?:<span[^>]*>)?演出(?:<\/span>)? <small[^>]*>ロマン枠：効果は確かめていません<\/small><\/h3>/);
   });
 });
 
 describe("the settings screen's words and layout (task 6-10, 2026-11-15)", () => {
   it("calls the space's low cut ローカット", () => {
-    expect(settings).toMatch(/<label class="slider-row" for="space-lowcut">ローカット/);
+    expect(settings).toMatch(/<label class="slider-row" for="space-lowcut">(?:<span[^>]*>)?ローカット/);
     expect(settings).not.toContain("響きの低域カット");
   });
   it("names the views on two lines, side by side as before", () => {
@@ -78,7 +78,7 @@ describe("the settings screen's words and layout (task 6-10, 2026-11-15)", () =>
       ["library", "ライブラリビュー", "ライブラリ型メディアプレイヤー風"],
     ])
       expect(themes).toMatch(
-        new RegExp(`<input type="radio" name="ui-view" value="${value}" />\\s*<span><b>${name}</b><small>${sub}</small></span>`),
+        new RegExp(`<input type="radio" name="ui-view" value="${value}" />\\s*<span><b[^>]*>${name}</b><small[^>]*>${sub}</small></span>`),
       );
   });
 });

@@ -4,6 +4,7 @@
 // the whole of it to the app (settingsSetTubeAuto), which applies and saves it.
 
 import type { SettingsApi } from "./backend";
+import { onLangChange, t } from "./i18n";
 import { TUBE_LABELS, type TubeType } from "./settings";
 import type { PlaybackStatus } from "./status";
 import {
@@ -25,6 +26,7 @@ export class TubeAutoView {
   private status: TubeAutoStatus | null = null;
   private sendTimer: ReturnType<typeof setTimeout> | undefined;
   private shownNow = "";
+  private saveFailed: { message?: string } | null = null; // the app's answer to the last send, when it failed
 
   private readonly els = {
     enabled: $<HTMLInputElement>("tube-auto-enabled"),
@@ -46,8 +48,15 @@ export class TubeAutoView {
     private readonly manualType: () => TubeType,
   ) {
     const e = this.els;
-    e.album.add(new Option("自動（ジャンルで選ぶ）", ""));
-    for (const [value, label] of Object.entries(TUBE_LABELS)) e.album.add(new Option(label, value));
+    e.album.add(new Option("", ""));
+    for (const value of Object.keys(TUBE_LABELS)) e.album.add(new Option("", value));
+    this.nameAlbumChoices();
+    // The words drawn here, again in the language chosen.
+    onLangChange(() => {
+      this.nameAlbumChoices();
+      this.render(true);
+      this.showProblem();
+    });
     e.enabled.addEventListener("change", () => this.change({ enabled: e.enabled.checked }));
     e.album.addEventListener("change", () => {
       const album = this.status?.album;
@@ -58,6 +67,12 @@ export class TubeAutoView {
       (e.rules.querySelector("tr:last-child input") as HTMLInputElement | null)?.focus();
     });
     e.reset.addEventListener("click", () => this.change({ rules: structuredClone(this.defaults) }, 0, true));
+  }
+
+  // The album's choices: automatic, then each type.
+  private nameAlbumChoices() {
+    const labels = TUBE_LABELS as Record<string, string>;
+    for (const o of this.els.album.options) o.textContent = o.value === "" ? t("controls.tubeAuto.albumAuto") : labels[o.value];
   }
 
   load(s: TubeAutoSettings, defaults: TubeGenreRule[]) {
@@ -94,24 +109,36 @@ export class TubeAutoView {
     this.settings = { ...this.settings, ...part };
     this.render(rows);
     clearTimeout(this.sendTimer);
-    const problem = rulesProblem(this.settings.rules);
-    this.els.problem.hidden = problem === null;
-    this.els.problem.textContent = problem ? `⚠ ${problem}。直すまで保存しません。` : "";
-    if (problem) return;
+    this.saveFailed = null;
+    if (this.showProblem()) return;
     this.sendTimer = setTimeout(async () => {
       const r = await this.api.setTubeAuto(this.settings);
       if (!r.ok) {
-        this.els.problem.hidden = false;
-        this.els.problem.textContent = `⚠ ${r.message ?? "保存できませんでした"}`;
+        this.saveFailed = { message: r.message };
+        this.showProblem();
       }
     }, delayMs);
+  }
+
+  // What stops the table from being saved, else the app's refusal of the
+  // last send, else nothing. True when the table has a problem.
+  private showProblem(): boolean {
+    const problem = rulesProblem(this.settings.rules);
+    const text = problem
+      ? `⚠ ${t("controls.tubeAuto.problemNotSaved", { problem })}`
+      : this.saveFailed
+        ? `⚠ ${this.saveFailed.message ?? t("controls.tubeAuto.saveFailed")}`
+        : "";
+    this.els.problem.hidden = text === "";
+    this.els.problem.textContent = text;
+    return problem !== null;
   }
 
   private render(rows: boolean) {
     const e = this.els;
     e.enabled.checked = this.settings.enabled;
     if (rows) this.renderRules();
-    e.ruleCount.textContent = `${this.settings.rules.length} 行`;
+    e.ruleCount.textContent = t("controls.tubeAuto.ruleCount", { n: this.settings.rules.length });
     this.renderAlbums();
     this.shownNow = "";
     this.renderNow();
@@ -124,13 +151,13 @@ export class TubeAutoView {
       genre.type = "text";
       genre.value = r.genre;
       genre.maxLength = MAX_GENRE_LENGTH;
-      genre.setAttribute("aria-label", `${i + 1} 行目のジャンル`);
+      genre.setAttribute("aria-label", t("controls.tubeAuto.rowGenre", { n: i + 1 }));
       genre.addEventListener("input", () => {
         const rules = this.settings.rules.map((x, j) => (j === i ? { ...x, genre: genre.value } : x));
         this.change({ rules }, TEXT_SEND_MS);
       });
       const type = document.createElement("select");
-      type.setAttribute("aria-label", `${i + 1} 行目の種類`);
+      type.setAttribute("aria-label", t("controls.tubeAuto.rowType", { n: i + 1 }));
       for (const [value, label] of Object.entries(TUBE_LABELS)) type.add(new Option(label, value));
       type.value = r.type;
       type.addEventListener("change", () => {
@@ -140,8 +167,8 @@ export class TubeAutoView {
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "link";
-      remove.textContent = "削除";
-      remove.setAttribute("aria-label", `${i + 1} 行目を削除`);
+      remove.textContent = t("controls.tubeAuto.remove");
+      remove.setAttribute("aria-label", t("controls.tubeAuto.rowRemove", { n: i + 1 }));
       remove.addEventListener("click", () => this.change({ rules: this.settings.rules.filter((_, j) => j !== i) }, 0, true));
       const cells = [genre, type, remove].map((c) => {
         const td = document.createElement("td");
@@ -158,11 +185,14 @@ export class TubeAutoView {
     const list = this.settings.albums.map((a) => {
       const li = document.createElement("li");
       const name = document.createElement("span");
-      name.textContent = `${a.album || "（名前なし）"}：${TUBE_LABELS[a.type]}`;
+      name.textContent = t("controls.tubeAuto.albumChoice", {
+        album: a.album || t("controls.tubeAuto.noAlbumName"),
+        type: TUBE_LABELS[a.type],
+      });
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "link";
-      remove.textContent = "指定をやめる";
+      remove.textContent = t("controls.tubeAuto.stopChoice");
       remove.addEventListener("click", () =>
         this.change({ albums: this.settings.albums.filter((x) => x.albumKey !== a.albumKey) }),
       );
@@ -172,10 +202,10 @@ export class TubeAutoView {
     if (list.length === 0) {
       const li = document.createElement("li");
       li.className = "note";
-      li.textContent = "指定したアルバムはありません。再生中のアルバムの種類を上で選ぶと、ここに並びます。";
+      li.textContent = t("controls.tubeAuto.noAlbums");
       list.push(li);
     }
     this.els.albums.replaceChildren(...list);
-    this.els.albumCount.textContent = `${this.settings.albums.length} 枚`;
+    this.els.albumCount.textContent = t("controls.tubeAuto.albumCount", { n: this.settings.albums.length });
   }
 }

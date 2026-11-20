@@ -1,5 +1,7 @@
-// User-facing text for the library screen (task 6-1). Japanese first.
+// User-facing text for the library screen (task 6-1). The words are in the
+// tables (i18n/parts/controls.ts).
 
+import { t } from "./i18n";
 import type { LibraryCounts, TrackRow } from "./library";
 
 export function lengthText(seconds: number | null): string {
@@ -40,11 +42,11 @@ export function dbtpText(db: number): string {
 export function truePeakCell(r: Pick<TrackRow, "analysis" | "truePeakDb">): PeakCell {
   switch (r.analysis) {
     case "pending":
-      return { text: "測定待ち", over: false, title: "True Peak とラウドネスを裏で測っています" };
+      return { text: t("controls.library.peak.pending"), over: false, title: t("controls.library.peak.pendingTitle") };
     case "not_pcm":
-      return { text: "DSD", over: false, title: "DSD は PCM ではないので測りません" };
+      return { text: "DSD", over: false, title: t("controls.library.peak.notPcmTitle") };
     case "failed":
-      return { text: "測れません", over: false, title: "デコードできませんでした（ファイルが壊れている可能性があります）" };
+      return { text: t("controls.library.peak.failed"), over: false, title: t("controls.library.peak.failedTitle") };
     case "ok":
       break;
   }
@@ -53,9 +55,7 @@ export function truePeakCell(r: Pick<TrackRow, "analysis" | "truePeakDb">): Peak
   return {
     text: dbtpText(r.truePeakDb),
     over,
-    title: over
-      ? "True Peak が 0 dBTP を超えています。原音経路のままだと、DAC の中でクリップする可能性があります（ISP セーフで下げられます）"
-      : "",
+    title: over ? t("controls.library.peak.overTitle") : "",
   };
 }
 
@@ -63,12 +63,12 @@ const n = (x: number) => x.toLocaleString("en-US");
 
 export function countsText(c: LibraryCounts): string {
   if (c.problem) return c.problem;
-  if (c.folders === 0) return "監視するフォルダーを加えてください（左の「＋」）";
-  const parts = [`${n(c.tracks)} 曲`];
-  if (c.albums > 0) parts.push(`アルバム ${n(c.albums)}`);
-  parts.push(`監視中のフォルダー ${c.folders}`);
-  if (c.scanning) parts.push("フォルダーを確認中");
-  if (c.toMeasure > 0) parts.push(`測定待ち ${n(c.toMeasure)} 曲`);
-  if (c.missing > 0) parts.push(`見つからない ${n(c.missing)} 曲`);
-  return parts.join(" ・ ");
+  if (c.folders === 0) return t("controls.library.counts.noFolders");
+  const parts = [t("controls.library.counts.tracks", { n: n(c.tracks) })];
+  if (c.albums > 0) parts.push(t("controls.library.counts.albums", { n: n(c.albums) }));
+  parts.push(t("controls.library.counts.folders", { n: c.folders }));
+  if (c.scanning) parts.push(t("controls.library.counts.scanning"));
+  if (c.toMeasure > 0) parts.push(t("controls.library.counts.toMeasure", { n: n(c.toMeasure) }));
+  if (c.missing > 0) parts.push(t("controls.library.counts.missing", { n: n(c.missing) }));
+  return parts.join(t("controls.library.separator"));
 }

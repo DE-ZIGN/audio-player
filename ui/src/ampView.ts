@@ -39,6 +39,7 @@ import {
   type TransportName,
   type VuPlace,
 } from "./amp";
+import { onLangChange, t, type MessageKey } from "./i18n";
 import { sliderToDb, volumeLabel } from "./queueOps";
 import { TUBE_LABELS, type ListeningSettings, type SpaceRoom, type TubeType } from "./settings";
 import type { Level, PlaybackStatus } from "./status";
@@ -109,7 +110,7 @@ class AmpKnob {
   constructor(
     layout: AmpLayout,
     private readonly name: KnobName,
-    private readonly label: string,
+    private readonly label: () => string, // read when drawn: the language in use
     private readonly onChange: (v: number) => void,
   ) {
     const k = layout.knobs[name];
@@ -123,7 +124,6 @@ class AmpKnob {
     });
     this.el.tabIndex = 0;
     this.el.setAttribute("role", "slider");
-    this.el.setAttribute("aria-label", label);
     const s = svg("svg", { viewBox: `${-k.r} ${-k.r} ${2 * k.r} ${2 * k.r}`, "aria-hidden": "true" });
     this.pointer = svg("g", { class: "amp-pointer" });
     if (name === "volume") {
@@ -218,16 +218,19 @@ class AmpKnob {
     });
   }
 
-  private render() {
+  // Drawn again when the language changes (the panel's relabel).
+  render() {
     const spec = KNOB_SPECS[this.name];
     this.pointer.setAttribute("transform", `rotate(${knobAngle(spec, this.value).toFixed(2)})`);
     const text = this.name === "volume" ? volumePercent(this.value) : knobText(this.name, this.value);
+    const label = this.label();
+    this.el.setAttribute("aria-label", label);
     this.el.setAttribute("aria-valuenow", String(this.value));
     this.el.setAttribute("aria-valuetext", text);
     const why = this.el.dataset.why;
     this.el.title = this.disabled
-      ? `${this.label}：${why || "使えません"}`
-      : `${this.label}：${text}（上下にドラッグ、Shift で細かく。ホイール、ダブルクリックで既定値）`;
+      ? t("controls.amp.knob.disabled", { label, why: why || t("controls.amp.knob.unusable") })
+      : t("controls.amp.knob.title", { label, value: text });
   }
 }
 
@@ -242,7 +245,15 @@ class AmpVu {
   readonly el: SVGSVGElement;
   private readonly needle: SVGLineElement;
 
-  constructor(ch: "L" | "R", place: VuPlace) {
+  // Its name, in the language in use.
+  relabel() {
+    this.el.setAttribute("aria-label", t("controls.amp.vu", { ch: this.ch }));
+  }
+
+  constructor(
+    private readonly ch: "L" | "R",
+    place: VuPlace,
+  ) {
     const { paper, hump, pivotY: cy, radius: R, labelY } = place;
     const w = paper.x1 - paper.x0;
     const h = paper.y1 - paper.y0;
@@ -257,8 +268,8 @@ class AmpVu {
       class: "amp-vu",
       viewBox: `${paper.x0} ${paper.y0} ${w} ${h}`,
       role: "img",
-      "aria-label": `VU メーター ${ch}`,
     }) as SVGSVGElement;
+    this.relabel();
     Object.assign(this.el.style, { left: px(paper.x0), top: px(top(paper.y0)), width: px(w), height: px(h) });
     const a0 = point(needleAngle(0), R - 4);
     const a3 = point(needleAngle(3), R - 4);
@@ -297,18 +308,36 @@ class AmpVu {
 
 // --- one amp: its picture and controls -------------------------------------------------------
 
-const LAMP_TITLES: Record<LampName, string> = {
-  pure: "PURE：原音モード（処理をかけません。音量 100% で BIT-PERFECT になりえます）",
-  tube: "TUBE：音作りモードで真空管をかけます",
-  off: "SPACE OFF：空間（部屋の響きの畳み込み）をかけません",
-  club: "SPACE CLUB：小さな部屋の響きを畳み込んで混ぜます（IR は合成か自分のファイル。MIX・プリディレイとあわせて設定画面で）",
-  hall: "SPACE HALL：ホールの響きを畳み込んで混ぜます（IR は実測の St Paul's Hall・合成・自分のファイル。MIX・プリディレイとあわせて設定画面で）",
-  arena: "SPACE ARENA：大きな屋内空間の響きを畳み込んで混ぜます（IR は合成か自分のファイル。MIX・プリディレイとあわせて設定画面で）",
-  se300b: `TUBE TYPE：${TUBE_LABELS.se300b}`,
-  ppel34: `TUBE TYPE：${TUBE_LABELS.ppel34}`,
-  ppclassa: `TUBE TYPE：${TUBE_LABELS.ppclassa}`,
-  crossfeed: "CROSSFEED：ヘッドホン向けのクロスフィード（強さは設定画面で）",
-  auto: "AUTO：曲のジャンルで真空管の種類を選んでいます（設定画面の「ジャンルで種類を選ぶ」）",
+// What each lamp and key does (its title), in the language in use.
+const LAMP_TITLES: Record<Exclude<LampName, TubeType>, MessageKey> = {
+  pure: "controls.amp.lamp.pure",
+  tube: "controls.amp.lamp.tube",
+  off: "controls.amp.lamp.off",
+  club: "controls.amp.lamp.club",
+  hall: "controls.amp.lamp.hall",
+  arena: "controls.amp.lamp.arena",
+  crossfeed: "controls.amp.lamp.crossfeed",
+  auto: "controls.amp.lamp.auto",
+};
+
+function lampTitle(name: LampName): string {
+  if (TUBE_TYPES.includes(name as TubeType)) return t("controls.amp.lamp.tubeType", { type: TUBE_LABELS[name as TubeType] });
+  return t(LAMP_TITLES[name as Exclude<LampName, TubeType>]);
+}
+
+// A lamp's name, as its title starts (the same in every language).
+const LAMP_NAMES: Record<LampName, string> = {
+  pure: "PURE",
+  tube: "TUBE",
+  off: "SPACE OFF",
+  club: "SPACE CLUB",
+  hall: "SPACE HALL",
+  arena: "SPACE ARENA",
+  se300b: "TUBE TYPE",
+  ppel34: "TUBE TYPE",
+  ppclassa: "TUBE TYPE",
+  crossfeed: "CROSSFEED",
+  auto: "AUTO",
 };
 
 const KEY_LABELS: Record<KeyName, string> = {
@@ -393,8 +422,7 @@ class AmpPanel {
         height: px(2 * l.r),
       }) as HTMLButtonElement;
       b.type = "button";
-      b.title = LAMP_TITLES[name];
-      b.setAttribute("aria-label", LAMP_TITLES[name].split("：")[0]);
+      b.setAttribute("aria-label", LAMP_NAMES[name]);
       this.lamps.set(name, b);
       this.stage.append(b);
     }
@@ -402,7 +430,6 @@ class AmpPanel {
       const b = html("button", `amp-key amp-key-${name}`, boxStyle(k)) as HTMLButtonElement;
       b.type = "button";
       b.textContent = KEY_LABELS[name];
-      b.title = LAMP_TITLES[name];
       this.keys.set(name, b);
       this.stage.append(b);
     }
@@ -418,13 +445,13 @@ class AmpPanel {
     // The knobs.
     const send = (part: Partial<ListeningSettings>) => this.host.change(part, 150);
     this.knobs = {
-      drive: new AmpKnob(layout, "drive", "DRIVE", (v) => send({ tubeDriveDb: v })),
-      bass: new AmpKnob(layout, "bass", "BASS", (v) => send({ toneBassDb: v })),
-      treble: new AmpKnob(layout, "treble", "TREBLE", (v) => send({ toneTrebleDb: v })),
-      volume: new AmpKnob(layout, "volume", "VOLUME（デジタル音量。100% なら処理をしません）", (v) =>
+      drive: new AmpKnob(layout, "drive", () => "DRIVE", (v) => send({ tubeDriveDb: v })),
+      bass: new AmpKnob(layout, "bass", () => "BASS", (v) => send({ toneBassDb: v })),
+      treble: new AmpKnob(layout, "treble", () => "TREBLE", (v) => send({ toneTrebleDb: v })),
+      volume: new AmpKnob(layout, "volume", () => t("controls.amp.knob.volume"), (v) =>
         this.setVolume(v, this.knobs.volume.turning),
       ),
-      mix: new AmpKnob(layout, "mix", "MIX（空間の響きの割合。0% で元の音だけ）", (v) => send({ spaceMixPercent: v })),
+      mix: new AmpKnob(layout, "mix", () => t("controls.amp.knob.mix"), (v) => send({ spaceMixPercent: v })),
     };
     for (const k of Object.values(this.knobs)) this.stage.append(k.el);
 
@@ -444,7 +471,6 @@ class AmpPanel {
       height: px(bd.height),
     }) as HTMLButtonElement;
     this.badge.type = "button";
-    this.badge.title = "出力の確認（経路と BIT-PERFECT の判定）";
     this.badge.addEventListener("click", () => this.host.openOutputCheck());
     this.badgeText = html("span", "amp-badge-text");
     this.badge.append(this.badgeText);
@@ -454,6 +480,17 @@ class AmpPanel {
     this.transportSlot = html("div", "amp-transport-slot");
     this.volumeSlot = html("div", "amp-volume-slot", { left: px(layout.readout.x), top: px(top(layout.readout.y)) });
     this.stage.append(this.transportSlot, this.volumeSlot);
+    this.relabel();
+  }
+
+  // The words set once on this amp, in the language in use (the ones that
+  // follow the state are drawn by render).
+  relabel() {
+    for (const [name, b] of this.lamps) b.title = lampTitle(name);
+    for (const [name, b] of this.keys) b.title = lampTitle(name);
+    for (const k of Object.values(this.knobs)) k.render();
+    for (const v of this.vus) v.relabel();
+    this.badge.title = t("controls.amp.badgeTitle");
   }
 
   private toggle(b: Box, up: string, down: string): HTMLButtonElement {
@@ -495,18 +532,18 @@ class AmpPanel {
     st.dataset.lit = a.tubesLit ? "1" : "0";
     st.style.setProperty("--tube-glow", a.glow.toFixed(3));
     if (this.modeToggle) {
-      const t = this.modeToggle;
-      t.classList.toggle("down", a.mode === "tube");
-      t.title = a.mode === "tube" ? "MODE：TUBE（音作りモード）→ 押すと PURE（原音モード）" : "MODE：PURE（原音モード）→ 押すと TUBE（音作りモードで真空管）";
-      t.setAttribute("aria-label", t.title);
+      const sw = this.modeToggle;
+      sw.classList.toggle("down", a.mode === "tube");
+      sw.title = a.mode === "tube" ? t("controls.amp.mode.tube") : t("controls.amp.mode.pure");
+      sw.setAttribute("aria-label", sw.title);
     }
     if (this.crossfeedToggle) {
-      const t = this.crossfeedToggle;
-      t.classList.toggle("down", !a.crossfeed);
-      t.disabled = !a.processingControls;
-      t.classList.toggle("dim", !a.processingControls);
-      t.title = `CROSSFEED：${a.crossfeed ? "オン" : "オフ"}（ヘッドホン向けのクロスフィード。強さは設定画面で。音作りモードでかかります）`;
-      t.setAttribute("aria-label", t.title);
+      const sw = this.crossfeedToggle;
+      sw.classList.toggle("down", !a.crossfeed);
+      sw.disabled = !a.processingControls;
+      sw.classList.toggle("dim", !a.processingControls);
+      sw.title = a.crossfeed ? t("controls.amp.crossfeed.on") : t("controls.amp.crossfeed.off");
+      sw.setAttribute("aria-label", sw.title);
     }
     const on = new Map<LampName | KeyName, boolean>([
       ["pure", a.mode === "pure"],
@@ -524,7 +561,7 @@ class AmpPanel {
         c.disabled = !a.processingControls;
       if (this.keys.has(name as KeyName)) c.setAttribute("aria-pressed", String(on.get(name) ?? false));
     }
-    const why = "音作りモード（TUBE）でかかります";
+    const why = t("controls.amp.processingOnly");
     this.knobs.drive.setDisabled(!a.processingControls, why);
     this.knobs.bass.setDisabled(!a.processingControls, why);
     this.knobs.treble.setDisabled(!a.processingControls, why);
@@ -596,6 +633,12 @@ export class AmpView {
     this.panels.se.show(true);
     this.panels.pp.show(false);
     host.onListening(() => this.render());
+    // The words, again in the language chosen.
+    onLangChange(() => {
+      for (const p of Object.values(this.panels)) p.relabel();
+      this.shownState = "";
+      this.render();
+    });
     onUiViewChange((v) => this.place(v === "amp"));
     this.place(currentUiView() === "amp");
   }

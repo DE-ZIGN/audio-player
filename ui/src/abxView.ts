@@ -19,6 +19,7 @@ import {
   type SideTube,
 } from "./abx";
 import type { EqPreset } from "./eqPresets";
+import { onLangChange, t } from "./i18n";
 import { activeBands, defaultListening, type ListeningSettings, type SettingsInfo } from "./settings";
 import type { PlaybackStatus } from "./status";
 import { clampUnit } from "./tubeCharacter";
@@ -111,8 +112,8 @@ export class AbxView {
     // button it was on is hidden once the test runs).
     document.addEventListener("keydown", (ev) => {
       if (!e.dialog.open || !this.status?.abx?.running) return;
-      const t = ev.target as HTMLElement;
-      if (["INPUT", "SELECT", "TEXTAREA"].includes(t.tagName)) return;
+      const target = ev.target as HTMLElement;
+      if (["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName)) return;
       const action = keyAction(ev.key);
       if (!action) return;
       ev.preventDefault();
@@ -123,6 +124,14 @@ export class AbxView {
     });
     e.dialog.addEventListener("cancel", (ev) => {
       if (this.status?.abx?.running) ev.preventDefault(); // Esc stops the test (above), the dialog stays
+    });
+    // The words drawn here, again in the language chosen (the sides' names
+    // sent with a test already started keep the language they were made in).
+    onLangChange(() => {
+      if (!e.dialog.open) return;
+      this.labelSides();
+      this.renderSetupNotes();
+      if (this.status) this.render(this.status);
     });
   }
 
@@ -217,18 +226,7 @@ export class AbxView {
       this.presets = [];
     }
     const l = this.listening;
-    const bands = activeBands(l);
-    const tone = [l.toneBassDb !== 0 ? `BASS ${l.toneBassDb > 0 ? "+" : ""}${l.toneBassDb.toFixed(1)}` : "", l.toneTrebleDb !== 0 ? `TREBLE ${l.toneTrebleDb > 0 ? "+" : ""}${l.toneTrebleDb.toFixed(1)}` : ""].filter((t) => t);
-    for (const side of [this.sideA, this.sideB]) {
-      const before = side.eq.value;
-      side.eq.replaceChildren(
-        new Option(`今の EQ（${bands > 0 ? `${bands} バンド` : "かかりません"}）`, "current"),
-        new Option("EQ なし", "flat"),
-        ...this.presets.map((p) => new Option(p.name, `p:${p.name}`)),
-      );
-      if ([...side.eq.options].some((o) => o.value === before)) side.eq.value = before;
-      side.tone.options[0].textContent = `今のトーン（${tone.length > 0 ? tone.join("、") + " dB" : "なし"}）`;
-    }
+    this.labelSides();
     if (!this.sidesSet) {
       const d = defaultSides(l);
       this.setChoice(this.sideA, d.a);
@@ -236,6 +234,24 @@ export class AbxView {
       this.sidesSet = true;
     }
     this.renderSetupNotes();
+  }
+
+  // The EQ choices (the current one, none, the saved presets) and the current tone's name.
+  private labelSides() {
+    const l = this.listening;
+    const bands = activeBands(l);
+    const tone = [l.toneBassDb !== 0 ? `BASS ${l.toneBassDb > 0 ? "+" : ""}${l.toneBassDb.toFixed(1)}` : "", l.toneTrebleDb !== 0 ? `TREBLE ${l.toneTrebleDb > 0 ? "+" : ""}${l.toneTrebleDb.toFixed(1)}` : ""].filter((x) => x);
+    for (const side of [this.sideA, this.sideB]) {
+      const before = side.eq.value;
+      side.eq.replaceChildren(
+        new Option(bands > 0 ? t("controls.abx.eq.current", { bands }) : t("controls.abx.eq.currentOff"), "current"),
+        new Option(t("controls.abx.eq.none"), "flat"),
+        ...this.presets.map((p) => new Option(p.name, `p:${p.name}`)),
+      );
+      if ([...side.eq.options].some((o) => o.value === before)) side.eq.value = before;
+      side.tone.options[0].textContent =
+        tone.length > 0 ? t("controls.abx.tone.current", { tone: tone.join(t("list.separator")) }) : t("controls.abx.tone.currentNone");
+    }
   }
 
   private fillRegion(fromPosition: boolean) {
@@ -255,8 +271,8 @@ export class AbxView {
     const s = this.status;
     const e = this.els;
     let problem = "";
-    if (!s || s.state === "empty" || !s.sourceFormat) problem = "ABX で聴く曲を、先に再生してください。";
-    else if (s.dop) problem = "DSD（DoP）の曲は ABX で比べられません（DoP のデータには処理をかけないため）。";
+    if (!s || s.state === "empty" || !s.sourceFormat) problem = t("controls.abx.problem.notPlaying");
+    else if (s.dop) problem = t("controls.abx.problem.dop");
     const presets = this.kind() === "presets";
     e.presetBox.hidden = !presets;
     for (const side of [this.sideA, this.sideB])
@@ -270,11 +286,9 @@ export class AbxView {
     let note = pairProblem;
     if (note) {
       // (the pair's problem, above)
-    } else if (this.kind() === "processed" && s?.mode === "original")
-      note =
-        "今は原音モードなので、B も原音と同じ音です（確かめ用の対照として使えます）。音作りの設定と比べるには、設定画面で音作りモードにしてから始めてください。";
+    } else if (this.kind() === "processed" && s?.mode === "original") note = t("controls.abx.note.originalMode");
     else if (this.kind() === "16bit" && s?.sourceFormat?.sampleType === "int" && s.sourceFormat.validBits <= 16)
-      note = "この曲はもともと 16bit なので、B との違いはディザの雑音（−101 dBFS 程度）だけです。";
+      note = t("controls.abx.note.already16bit");
     e.kindNote.hidden = note === "";
     e.kindNote.textContent = note ? `⚠ ${note}` : "";
   }
@@ -303,7 +317,7 @@ export class AbxView {
     e.startBtn.disabled = false;
     if (!r.ok) {
       e.error.hidden = false;
-      e.error.textContent = r.message ?? "始められませんでした";
+      e.error.textContent = r.message ?? t("controls.abx.startFailed");
     }
   }
 
@@ -315,7 +329,7 @@ export class AbxView {
     e.setup.hidden = true;
     e.result.hidden = true;
     e.run.hidden = false;
-    e.trial.textContent = `${a.trial} / ${a.trials} 回目`;
+    e.trial.textContent = t("controls.abx.trial", { trial: a.trial, trials: a.trials });
     e.region.textContent = regionText(a.startFrames, a.lengthFrames, a.rate);
     const labels = sideLabels(a);
     e.aLabel.textContent = labels.a;
@@ -326,28 +340,26 @@ export class AbxView {
       b.setAttribute("aria-pressed", String(on));
     }
     const sign = a.matchDb > 0 ? "+" : a.matchDb < 0 ? "−" : "±";
-    e.match.textContent =
-      `比べるもの：${labels.title}。B を ${sign}${Math.abs(a.matchDb).toFixed(2)} dB にして、A と同じ音量に合わせています（この区間で解析）。` +
-      "答えると X が入れ替わります（聴いている音はそのまま）。";
+    e.match.textContent = t("controls.abx.match", { title: labels.title, gain: `${sign}${Math.abs(a.matchDb).toFixed(2)}` });
   }
 
   // --- result ---------------------------------------------------------------------------
 
   private renderResult(s: PlaybackStatus) {
     const r = s.abx!.result!;
-    const t = resultText(r);
+    const text = resultText(r);
     const e = this.els;
     e.setup.hidden = true;
     e.run.hidden = true;
     e.result.hidden = false;
-    e.headline.textContent = t.headline;
+    e.headline.textContent = text.headline;
     e.headline.classList.toggle("distinguished", r.distinguished);
-    e.p.textContent = t.p;
-    e.p.hidden = t.p === "";
-    e.verdict.textContent = t.verdict;
-    e.low.hidden = t.low === "";
-    e.low.textContent = t.low ? `⚠ ${t.low}` : "";
-    e.level.textContent = t.level;
-    e.level.hidden = t.level === "";
+    e.p.textContent = text.p;
+    e.p.hidden = text.p === "";
+    e.verdict.textContent = text.verdict;
+    e.low.hidden = text.low === "";
+    e.low.textContent = text.low ? `⚠ ${text.low}` : "";
+    e.level.textContent = text.level;
+    e.level.hidden = text.level === "";
   }
 }

@@ -14,7 +14,7 @@ import {
   translateTree,
   type Lang,
 } from "./i18n";
-import { ja } from "./i18n/ja";
+import { BASE_JA, ja, PARTS } from "./i18n/ja";
 import { en } from "./i18n/en";
 import html from "../index.html?raw";
 import { SETTINGS_TABS } from "./settingsTabs";
@@ -25,7 +25,7 @@ import { SETTINGS_TABS } from "./settingsTabs";
 const TABLES: Record<Lang, Record<string, string>> = { ja, en };
 
 // Every source file of the page (tests aside), as text.
-const sources = import.meta.glob(["./**/*.ts", "!./**/*.test.ts", "!./i18n/*.ts"], {
+const sources = import.meta.glob(["./**/*.ts", "!./**/*.test.ts", "!./i18n/**/*.ts"], {
   query: "?raw",
   import: "default",
   eager: true,
@@ -61,6 +61,12 @@ class MemoryStorage {
 }
 
 describe("the tables", () => {
+  it("the parts never share a key, and each part's keys start with its name", () => {
+    const sizes = Object.keys(BASE_JA).length + Object.values(PARTS).reduce((n, p) => n + Object.keys(p.ja).length, 0);
+    expect(Object.keys(ja).length).toBe(sizes);
+    for (const [name, p] of Object.entries(PARTS))
+      for (const k of Object.keys(p.ja)) expect(k.startsWith(`${name}.`), k).toBe(true);
+  });
   it("both languages have the same keys, none empty", () => {
     expect(Object.keys(en).sort()).toEqual(Object.keys(ja).sort());
     for (const lang of LANGS)

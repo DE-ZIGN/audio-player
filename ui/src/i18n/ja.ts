@@ -5,7 +5,14 @@
 // Values: {name} is put in by t() (i18n.ts). Describe what the player does;
 // never claim that something sounds better (CLAUDE.md chapter 1).
 
-export const ja = {
+import * as controls from "./parts/controls";
+import * as page from "./parts/page";
+import * as status from "./parts/status";
+
+// The parts each part of the page moves its texts into (task 11-2).
+export const PARTS = { page, status, controls };
+
+const base = {
   // The settings screen's tabs (settingsTabs.ts).
   "settings.tab.output": "出力",
   "settings.tab.mode": "モード",
@@ -26,6 +33,10 @@ export const ja = {
   // Between the items of a list in one line ("出力、出力レート").
   "list.separator": "、",
 } as const;
+
+export const BASE_JA = base;
+
+export const ja = { ...base, ...page.ja, ...status.ja, ...controls.ja } as const;
 
 export type MessageKey = keyof typeof ja;
 export type Messages = Record<MessageKey, string>;

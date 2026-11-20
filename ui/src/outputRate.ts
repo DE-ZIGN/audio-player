@@ -3,14 +3,24 @@
 // is said, never that a higher rate sounds better (CLAUDE.md chapter 6).
 
 import type { ListeningSettings } from "./settings";
+import { t } from "./i18n";
 
 export type OutputRateMode = "track" | "fixed" | "atleast" | "multiple";
 
+// Each read gives the name in the language in use.
 export const OUTPUT_RATE_MODES: Record<OutputRateMode, string> = {
-  track: "曲のまま",
-  fixed: "固定",
-  atleast: "下限",
-  multiple: "整数倍",
+  get track() {
+    return t("status.rateMode.track");
+  },
+  get fixed() {
+    return t("status.rateMode.fixed");
+  },
+  get atleast() {
+    return t("status.rateMode.atleast");
+  },
+  get multiple() {
+    return t("status.rateMode.multiple");
+  },
 };
 
 // The rates offered for 固定 and 下限 (kOutputRateChoiceRates), and the multiples.
@@ -27,15 +37,16 @@ export function outputRateNote(l: ListeningSettings): string {
   const r = rateText(l.outputRateHz);
   switch (l.outputRateMode) {
     case "fixed":
-      return `どの曲も ${r} にして出します（それより高い曲は下げます）。`;
+      return t("status.rateNote.fixed", { rate: r });
     case "atleast":
-      return `${r} 未満の曲を ${r} に上げます。${r} 以上の曲はそのままです。`;
+      return t("status.rateNote.atleast", { rate: r });
     case "multiple": {
       const k = l.outputRateMultiple;
-      return `曲のレートの ${k} 倍で出します（44.1 → ${rateText(44100 * k).replace(" kHz", "")} kHz、48 → ${rateText(48000 * k)}）。DAC が受け付けないときは、受け付けるいちばん大きい倍数です。`;
+      const number = (hz: number) => rateText(hz).replace(" kHz", "");
+      return t("status.rateNote.multiple", { multiple: k, from44: number(44100 * k), from48: number(48000 * k) });
     }
     default:
-      return "曲のレートのまま出します（DAC が受け付けないレートの曲だけ、受け付けるレートへ変換します）。";
+      return t("status.rateNote.track");
   }
 }
 
@@ -43,11 +54,11 @@ export function outputRateNote(l: ListeningSettings): string {
 export function outputRateSummary(l: ListeningSettings): string {
   switch (l.outputRateMode) {
     case "fixed":
-      return `出力レート（固定 ${rateText(l.outputRateHz)}）`;
+      return t("status.rateSummary.fixed", { rate: rateText(l.outputRateHz) });
     case "atleast":
-      return `出力レート（${rateText(l.outputRateHz)} 以上）`;
+      return t("status.rateSummary.atleast", { rate: rateText(l.outputRateHz) });
     case "multiple":
-      return `出力レート（曲の ${l.outputRateMultiple} 倍）`;
+      return t("status.rateSummary.multiple", { multiple: l.outputRateMultiple });
     default:
       return "";
   }
@@ -73,6 +84,6 @@ export function parseResampleDetail(detail: string | undefined): ResampleDetail 
 export function resampleText(detail: string | undefined): string {
   const d = parseResampleDetail(detail);
   if (!d) return "ON";
-  const why = d.reason === "setting" ? "設定" : `DAC が ${rateText(d.from)} を受け付けないため`;
-  return `${rateText(d.from)} → ${rateText(d.to)}（${why}）`;
+  const rates = { from: rateText(d.from), to: rateText(d.to) };
+  return d.reason === "setting" ? t("status.resample.setting", rates) : t("status.resample.unsupported", rates);
 }

@@ -7,15 +7,24 @@
 // variables they set. The first start is the standard view; then the view
 // last used.
 
+import { t } from "./i18n";
+
 export type UiView = "standard" | "library" | "amp";
 export const UI_VIEWS: UiView[] = ["standard", "amp", "library"];
 
 export const UI_VIEW_KEY = "uiView";
 
+// Each read gives the name in the language in use (i18n.ts).
 export const VIEW_LABELS: Record<UiView, string> = {
-  standard: "標準ビュー",
-  library: "ライブラリビュー",
-  amp: "アンプビュー",
+  get standard() {
+    return t("page.view.standard");
+  },
+  get library() {
+    return t("page.view.library");
+  },
+  get amp() {
+    return t("page.view.amp");
+  },
 };
 
 // The realistic look (wood, metal, amber light) is shared by the standard

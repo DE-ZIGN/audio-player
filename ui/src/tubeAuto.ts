@@ -2,6 +2,7 @@
 // page's copy of the engine's choice (engine/src/dsp/tube_auto.cpp), used by
 // the mock backend only; in the app the engine chooses and reports it.
 
+import { t } from "./i18n";
 import { TUBE_LABELS, type TubeType } from "./settings";
 
 export interface TubeGenreRule {
@@ -41,8 +42,8 @@ export const MAX_GENRE_LENGTH = 100;
 // half-width, runs of spaces as one, no spaces at the ends.
 export function normalizedGenre(g: string): string {
   return g
-    .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
-    .replace(/[　\t ]+/g, " ")
+    .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)) // full-width ！ to ～
+    .replace(/[　\t ]+/g, " ") // the full-width space too
     .trim()
     .replace(/[A-Z]/g, (c) => c.toLowerCase());
 }
@@ -84,14 +85,14 @@ export function withAlbumChoice(
 
 // What would stop the table from being saved as the user has it, or null.
 export function rulesProblem(rules: TubeGenreRule[]): string | null {
-  if (rules.length > MAX_GENRE_RULES) return `対応表は ${MAX_GENRE_RULES} 行までです`;
+  if (rules.length > MAX_GENRE_RULES) return t("controls.tubeAuto.problem.tooManyRules", { max: MAX_GENRE_RULES });
   const seen = new Map<string, string>();
   for (const r of rules) {
     const k = normalizedGenre(r.genre);
-    if (k === "") return "ジャンルが空の行があります";
-    if (r.genre.length > MAX_GENRE_LENGTH) return `ジャンルは ${MAX_GENRE_LENGTH} 文字までです`;
+    if (k === "") return t("controls.tubeAuto.problem.emptyGenre");
+    if (r.genre.length > MAX_GENRE_LENGTH) return t("controls.tubeAuto.problem.genreTooLong", { max: MAX_GENRE_LENGTH });
     const before = seen.get(k);
-    if (before !== undefined) return `「${before}」と「${r.genre.trim()}」は同じジャンルとして扱われます`;
+    if (before !== undefined) return t("controls.tubeAuto.problem.sameGenre", { first: before, second: r.genre.trim() });
     seen.set(k, r.genre.trim());
   }
   return null;
@@ -99,12 +100,12 @@ export function rulesProblem(rules: TubeGenreRule[]): string | null {
 
 // The line that says which type plays for the current track and why.
 export function choiceText(s: TubeAutoSettings, st: TubeAutoStatus | null | undefined, manual: TubeType): string {
-  const manualText = `手動で選んだ種類（${TUBE_LABELS[manual]}）`;
-  if (!s.enabled) return `自動で選びません。いつも${manualText}です。`;
-  if (!st) return `再生していません。曲ごとに、アルバムの指定 → ジャンルの対応表 → ${manualText}の順で決めます。`;
+  const m = { manual: TUBE_LABELS[manual] };
+  if (!s.enabled) return t("controls.tubeAuto.choice.off", m);
+  if (!st) return t("controls.tubeAuto.choice.notPlaying", m);
   const c = st.choice;
-  if (c?.reason === "album") return `今の曲：アルバム「${c.matched}」の指定で ${TUBE_LABELS[c.type]}。`;
-  if (c) return `今の曲：ジャンル「${c.matched}」が対応表にあるので ${TUBE_LABELS[c.type]}。`;
-  if (st.genres.length === 0) return `今の曲：ジャンルのタグがないので、${manualText}。`;
-  return `今の曲：ジャンル「${st.genres.join("・")}」は対応表にないので、${manualText}。`;
+  if (c?.reason === "album") return t("controls.tubeAuto.choice.album", { album: c.matched, type: TUBE_LABELS[c.type] });
+  if (c) return t("controls.tubeAuto.choice.genre", { genre: c.matched, type: TUBE_LABELS[c.type] });
+  if (st.genres.length === 0) return t("controls.tubeAuto.choice.noGenre", m);
+  return t("controls.tubeAuto.choice.unknownGenre", { ...m, genres: st.genres.join(t("controls.tubeAuto.genreSeparator")) });
 }

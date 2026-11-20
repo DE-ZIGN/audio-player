@@ -3,6 +3,7 @@
 // figures and the unit numbers are the engine's (engine/include/ap/engine/dsp/tube.h).
 
 import type { TubeType } from "./settings";
+import { t } from "./i18n";
 
 export const TUBE_COLD_EMISSION = 0.5; // TubeStage::kColdEmission
 export const WARMUP_TAU_SECONDS = 240; // TubeStage::kWarmUpTauSeconds
@@ -54,28 +55,24 @@ const pct = (x: number) => {
 
 // "左：エミッション +8.4%・μ −3.3%、右：…" (push-pull: the channel's two tubes joined by と).
 export function unitChannelsText(n: number, type: TubeType): string {
-  const tubes = type === "se300b" ? 1 : 2;
-  return ["左", "右"]
-    .map((side, ch) => {
-      const parts: string[] = [];
-      for (let t = 0; t < tubes; t++) {
-        const u = tubeUnitFor(n, type, ch, t);
-        parts.push(`エミッション ${pct(u.emission)}・μ ${pct(u.mu)}`);
-      }
-      return `${side}：${parts.join(" と ")}`;
-    })
-    .join("、");
+  const tube = (ch: number, i: number) => {
+    const u = tubeUnitFor(n, type, ch, i);
+    return t("status.tube.unitTube", { emission: pct(u.emission), mu: pct(u.mu) });
+  };
+  const channel = (ch: number) =>
+    type === "se300b" ? tube(ch, 0) : t("status.tube.unitPair", { first: tube(ch, 0), second: tube(ch, 1) });
+  return t("status.tube.unitChannels", { left: channel(0), right: channel(1) });
 }
 
-export const unitLabel = (n: number) => `球 No.${n}`;
+export const unitLabel = (n: number) => t("status.tube.unit", { number: n });
 
 // --- the warm-up texts ---------------------------------------------------------------
 
 export function warmUpText(seconds: number): string {
   const s = Math.max(0, seconds);
-  if (s >= WARMUP_SECONDS) return `暖まった状態（起動から ${WARMUP_SECONDS / 60} 分を過ぎました）`;
+  if (s >= WARMUP_SECONDS) return t("status.tube.warm", { minutes: WARMUP_SECONDS / 60 });
   const left = Math.max(1, Math.ceil((WARMUP_SECONDS - s) / 60));
-  return `ウォームアップ中：起動から ${Math.floor(s / 60)} 分（暖まりきるまで、あと約 ${left} 分）`;
+  return t("status.tube.warmingUp", { minutes: Math.floor(s / 60), left });
 }
 
 // The amp view's tube glow (opacity): dimmer while cold.
@@ -113,7 +110,11 @@ export function parseTubeDetail(detail: string | undefined): TubeDetail {
 export function characterParts(warmUpSeconds: number | null, unit: number | null): string[] {
   const parts: string[] = [];
   if (warmUpSeconds !== null)
-    parts.push(warmUpSeconds >= WARMUP_SECONDS ? "暖まった状態" : `ウォームアップ中（起動から ${Math.floor(Math.max(0, warmUpSeconds) / 60)} 分）`);
+    parts.push(
+      warmUpSeconds >= WARMUP_SECONDS
+        ? t("status.tube.warmShort")
+        : t("status.tube.warmingUpShort", { minutes: Math.floor(Math.max(0, warmUpSeconds) / 60) }),
+    );
   if (unit !== null) parts.push(unitLabel(unit));
   return parts;
 }

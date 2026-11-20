@@ -5,6 +5,7 @@
 
 import { cssPixels, onUiViewChange } from "./uiView";
 import type { Backend } from "./backend";
+import { onLangChange, t, type MessageKey } from "./i18n";
 import type { AlbumRow, AlbumSort, Folder, LibraryCounts, TrackRow, TrackSort } from "./library";
 import { dbtpText, formatText, lengthText, rateText, truePeakCell } from "./libraryFormat";
 import { gridLayout, pagesFor, visibleRange } from "./virtual";
@@ -30,22 +31,22 @@ const tileGap = () => cssPixels("--tile-gap", 18);
 const tileRowGap = () => cssPixels("--tile-row-gap", 18);
 const PLAY_LIMIT = 1000; // tracks put in the queue from a long list
 
-const TRACK_SORTS: [TrackSort, string][] = [
-  ["artist", "アーティスト順"],
-  ["album", "アルバム順"],
-  ["title", "曲名順"],
-  ["added", "追加した順（新しい順）"],
-  ["length", "長さ順"],
-  ["format", "形式順"],
-  ["rate", "レート順"],
-  ["truePeak", "True Peak 順（高い順）"],
-  ["plays", "再生回数順（多い順）"],
+const TRACK_SORTS: [TrackSort, MessageKey][] = [
+  ["artist", "controls.library.sort.artist"],
+  ["album", "controls.library.sort.album"],
+  ["title", "controls.library.sort.title"],
+  ["added", "controls.library.sort.added"],
+  ["length", "controls.library.sort.length"],
+  ["format", "controls.library.sort.format"],
+  ["rate", "controls.library.sort.rate"],
+  ["truePeak", "controls.library.sort.truePeak"],
+  ["plays", "controls.library.sort.plays"],
 ];
-const ALBUM_SORTS: [AlbumSort, string][] = [
-  ["artist", "アーティスト順"],
-  ["album", "アルバム名順"],
-  ["year", "年順（新しい順）"],
-  ["added", "追加した順（新しい順）"],
+const ALBUM_SORTS: [AlbumSort, MessageKey][] = [
+  ["artist", "controls.library.sort.artist"],
+  ["album", "controls.library.sort.albumName"],
+  ["year", "controls.library.sort.year"],
+  ["added", "controls.library.sort.added"],
 ];
 // Sorts that read best from the top down.
 const DESCENDING_FIRST = new Set<string>(["added", "truePeak", "plays", "year"]);
@@ -154,6 +155,26 @@ export class LibraryView {
       b.addEventListener("click", () => this.show(b.dataset.view as View)),
     );
     this.backend.library.onChanged((c) => this.onCounts(c));
+    // The words drawn here, again in the language chosen.
+    onLangChange(() => {
+      this.els.title.textContent = this.titleText();
+      if (this.view !== "settings" && this.view !== "now") {
+        this.fillSort();
+        if (this.view === "album" && this.album) this.fillAlbumHead(this.album);
+        this.renderHead();
+        this.schedule();
+      }
+      void this.refreshFolders();
+    });
+  }
+
+  private titleText(): string {
+    const v = this.view;
+    return v === "settings"
+      ? t("controls.library.title.settings")
+      : v === "albums" || v === "album"
+        ? t("controls.library.title.albums")
+        : t("controls.library.title.library");
   }
 
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -184,8 +205,7 @@ export class LibraryView {
     this.els.grid.hidden = view !== "albums";
     this.els.settings.hidden = view !== "settings";
     this.els.albumHead.hidden = view !== "album";
-    this.els.title.textContent =
-      view === "settings" ? "設定" : view === "albums" ? "アルバム" : view === "album" ? "アルバム" : "ライブラリ";
+    this.els.title.textContent = this.titleText();
     if (view === "now") {
       this.els.empty.hidden = true;
       return;
@@ -209,7 +229,7 @@ export class LibraryView {
       ...options.map(([value, label]) => {
         const o = document.createElement("option");
         o.value = value;
-        o.textContent = label;
+        o.textContent = t(label);
         o.selected = value === current;
         return o;
       }),
@@ -223,11 +243,13 @@ export class LibraryView {
     this.els.albumArtist.textContent = a.artist;
     const meta = [
       a.year,
-      `${a.tracks} 曲`,
+      t("controls.library.album.tracks", { n: a.tracks }),
       a.seconds !== null ? lengthText(a.seconds) : null,
       a.container || null,
       a.sampleRate ? rateText({ sampleRate: a.sampleRate, dsdRate: null }) : null,
-      a.truePeakDb !== null ? `アルバムの True Peak ${dbtpText(a.truePeakDb)}${a.truePeakDb > 0 ? " ⚠" : ""}` : null,
+      a.truePeakDb !== null
+        ? `${t("controls.library.album.truePeak", { db: dbtpText(a.truePeakDb) })}${a.truePeakDb > 0 ? " ⚠" : ""}`
+        : null,
     ].filter((x): x is string => !!x);
     this.els.albumMeta.replaceChildren(
       ...meta.map((m) => {
@@ -282,7 +304,7 @@ export class LibraryView {
       this.total = result.total;
     } catch (e) {
       if (gen === this.generation) this.pages.delete(page);
-      this.showError(`ライブラリを読めませんでした: ${String(e)}`);
+      this.showError(t("controls.library.readFailed", { error: String(e) }));
     }
     this.schedule();
   }
@@ -317,12 +339,12 @@ export class LibraryView {
           el.textContent = r.id === this.playingId ? "▶" : this.view === "album" ? String(r.trackNo ?? "") : "";
         },
       },
-      { key: "title", label: "曲名", cell: text((r) => r.title) },
-      { key: "artist", label: "アーティスト", cell: text((r) => r.artist || "—") },
-      { key: "album", label: "アルバム", cell: text((r) => r.album || "—") },
-      { key: "length", label: "長さ", num: true, cell: text((r) => lengthText(r.seconds)) },
-      { key: "format", label: "形式", cell: text((r) => formatText(r)) },
-      { key: "rate", label: "レート", cell: text((r) => rateText(r)) },
+      { key: "title", label: t("controls.library.column.title"), cell: text((r) => r.title) },
+      { key: "artist", label: t("controls.library.column.artist"), cell: text((r) => r.artist || "—") },
+      { key: "album", label: t("controls.library.column.album"), cell: text((r) => r.album || "—") },
+      { key: "length", label: t("controls.library.column.length"), num: true, cell: text((r) => lengthText(r.seconds)) },
+      { key: "format", label: t("controls.library.column.format"), cell: text((r) => formatText(r)) },
+      { key: "rate", label: t("controls.library.column.rate"), cell: text((r) => rateText(r)) },
       {
         key: "truePeak",
         label: "True Peak",
@@ -334,7 +356,7 @@ export class LibraryView {
           el.className = `num peak${c.over ? " over" : ""}${r.analysis !== "ok" ? " dim" : ""}`;
         },
       },
-      { key: "plays", label: "再生", num: true, cell: text((r) => String(r.plays)) },
+      { key: "plays", label: t("controls.library.column.plays"), num: true, cell: text((r) => String(r.plays)) },
     ];
   }
 
@@ -396,7 +418,7 @@ export class LibraryView {
         }
         if (!r.present) {
           row.classList.add("missing");
-          row.title = "ファイルが見つかりません（ドライブがつながっていない、移動した、など）";
+          row.title = t("controls.library.missingRow");
         }
         if (r.id === this.playingId) row.classList.add("playing");
         if (i === this.selected) row.classList.add("selected");
@@ -406,9 +428,9 @@ export class LibraryView {
           e.preventDefault();
           this.select(i);
           this.showMenu(e, [
-            ["ここから再生", () => void this.playFrom(i)],
-            ["次に再生", () => this.onEnqueue([r.id], "next")],
-            ["キューの最後に追加", () => this.onEnqueue([r.id], "end")],
+            [t("controls.library.menu.playFrom"), () => void this.playFrom(i)],
+            [t("controls.library.menu.playNext"), () => this.onEnqueue([r.id], "next")],
+            [t("controls.library.menu.enqueue"), () => this.onEnqueue([r.id], "end")],
           ]);
         });
       }
@@ -455,16 +477,16 @@ export class LibraryView {
         title.title = a.album;
         const sub = document.createElement("div");
         sub.className = "tile-sub";
-        sub.textContent = [a.artist, a.year].filter(Boolean).join(" ・ ");
+        sub.textContent = [a.artist, a.year].filter(Boolean).join(t("controls.library.separator"));
         el.append(img, title, sub);
-        el.title = `${a.album} — ${a.artist}（${a.tracks} 曲）`;
+        el.title = t("controls.library.tileTitle", { album: a.album, artist: a.artist, n: a.tracks });
         el.addEventListener("click", () => this.show("album", a));
         el.addEventListener("contextmenu", (e) => {
           e.preventDefault();
           this.showMenu(e, [
-            ["アルバムを再生", async () => this.onPlay({ ids: await this.albumIds(a), start: 0 })],
-            ["アルバムを次に再生", async () => this.onEnqueue(await this.albumIds(a), "next")],
-            ["アルバムをキューの最後に追加", async () => this.onEnqueue(await this.albumIds(a), "end")],
+            [t("controls.library.menu.playAlbum"), async () => this.onPlay({ ids: await this.albumIds(a), start: 0 })],
+            [t("controls.library.menu.playAlbumNext"), async () => this.onEnqueue(await this.albumIds(a), "next")],
+            [t("controls.library.menu.enqueueAlbum"), async () => this.onEnqueue(await this.albumIds(a), "end")],
           ]);
         });
       }
@@ -478,10 +500,10 @@ export class LibraryView {
     this.els.empty.hidden = !empty;
     if (empty)
       this.els.empty.textContent = this.search
-        ? "見つかりませんでした。かな・全角半角・大文字小文字は区別しません。漢字の読みでは探せません。"
+        ? t("controls.library.empty.search")
         : this.view === "albums"
-          ? "アルバムがありません（アルバム名のタグがある曲が、ここに並びます）"
-          : "曲がありません。左の「監視フォルダー」の「＋」で、音楽のフォルダーを加えてください。";
+          ? t("controls.library.empty.albums")
+          : t("controls.library.empty.tracks");
   }
 
   // --- choosing and playing -------------------------------------------------
@@ -550,7 +572,7 @@ export class LibraryView {
       limit: album ? 2000 : PLAY_LIMIT,
     });
     const rows = page.rows.filter((r) => r.present);
-    if (rows.length === 0) return this.showError("再生できる曲がありません（ファイルが見つかりません）");
+    if (rows.length === 0) return this.showError(t("controls.library.noPlayable"));
     const clicked = album ? page.rows[i] : page.rows[0];
     const start = Math.max(0, rows.findIndex((r) => r.id === clicked?.id));
     this.onPlay({ ids: rows.map((r) => r.id), start });
@@ -577,7 +599,9 @@ export class LibraryView {
     const path = document.createElement("span");
     path.className = "folder-path";
     path.textContent = f.path;
-    path.title = `${f.path}\n${f.tracks} 曲${f.missing ? `（見つからない ${f.missing} 曲）` : ""}`;
+    path.title = f.missing
+      ? t("controls.library.folder.titleMissing", { path: f.path, n: f.tracks, missing: f.missing })
+      : t("controls.library.folder.title", { path: f.path, n: f.tracks });
     const count = document.createElement("span");
     count.className = "folder-count";
     count.textContent = String(f.tracks);
@@ -585,11 +609,9 @@ export class LibraryView {
     remove.type = "button";
     remove.className = "icon small";
     remove.textContent = "×";
-    remove.title = "このフォルダーをライブラリから外す";
+    remove.title = t("controls.library.folder.removeTitle");
     remove.addEventListener("click", async () => {
-      const ok = window.confirm(
-        `「${f.path}」をライブラリから外します。\n中の曲の再生回数・評価・修正も消えます（音楽ファイルは消しません）。よろしいですか？`,
-      );
+      const ok = window.confirm(t("controls.library.folder.removeConfirm", { path: f.path }));
       if (!ok) return;
       await this.backend.library.removeFolder(f.id);
       await this.refreshFolders();

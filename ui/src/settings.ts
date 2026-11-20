@@ -5,6 +5,7 @@ import type { EqPreset } from "./eqPresets";
 import type { TubeAutoSettings, TubeGenreRule } from "./tubeAuto";
 import { unitLabel } from "./tubeCharacter";
 import { outputRateSummary, type OutputRateMode } from "./outputRate";
+import { t, type MessageKey } from "./i18n";
 
 export type ListeningMode = "original" | "processed";
 export type ReplayGainMode = "off" | "track" | "album";
@@ -177,19 +178,32 @@ export const defaultListening: ListeningSettings = {
 // image-source early reflections, decaying noise in 4 bands; their numbers
 // are the design's (the room's size and the RT60 at mid frequencies, 250 Hz -
 // 2 kHz; measured in the tests: CLUB 0.72 s, HALL 1.93 s, ARENA 2.99 s).
+// `numbers` is read in the language in use.
+const room = (label: string, size: string, seconds: string, index: number) => ({
+  label,
+  get numbers() {
+    return t("status.space.roomNumbers", { size, seconds });
+  },
+  index,
+});
 export const SPACE_ROOMS: Record<Exclude<SpaceRoom, "off">, { label: string; numbers: string; index: number }> = {
-  club: { label: "CLUB", numbers: "9 × 14 × 3.5 m・残響 0.75 秒", index: 0 },
-  hall: { label: "HALL", numbers: "25 × 40 × 16 m・残響 2.0 秒", index: 1 },
-  arena: { label: "ARENA", numbers: "80 × 110 × 30 m・残響 3.0 秒", index: 2 },
+  club: room("CLUB", "9 × 14 × 3.5 m", "0.75", 0),
+  hall: room("HALL", "25 × 40 × 16 m", "2.0", 1),
+  arena: room("ARENA", "80 × 110 × 30 m", "3.0", 2),
 };
 // The bundled measured IRs (task 9-6, chosen by listening): HALL only.
 // St Paul's Hall: published RT60 2.1 s; its 250 Hz - 2 kHz T20 measured 2.13 s.
 export const SPACE_MEASURED: Partial<Record<Exclude<SpaceRoom, "off">, { place: string; numbers: string; credit: string }>> = {
   hall: {
-    place: "St Paul's Hall（英国、ハダースフィールド大学のコンサートホール）",
-    numbers: "残響 2.1 秒",
-    credit:
-      "St Paul's Hall の IR：MAIR（Microphone Array Impulse Response Library。Hyunkook Lee、Connor Millns、University of Huddersfield Applied Psychoacoustics Lab）、CC BY 4.0（https://creativecommons.org/licenses/by/4.0/）。ステージ正面中央の音源を AB（無指向性マイク 2 本）で録った 2 本を 1 本のステレオにまとめ、直接音の 1 ms 前から使っています。",
+    get place() {
+      return t("status.space.hallPlace");
+    },
+    get numbers() {
+      return t("status.space.reverb", { seconds: "2.1" });
+    },
+    get credit() {
+      return t("status.space.hallCredit");
+    },
   },
 };
 
@@ -221,12 +235,13 @@ export const SPACE_LIMITS = {
 // the shortest pre-delay, about 2.7-2.9 ms.
 export const SPACE_MIN_PRE_DELAY_MS = 2.9;
 
-const SOURCE_TAGS = { synth: "", measured: "（実測）", user: "（自分の IR）" } as const;
+const SOURCE_TAGS: Record<"measured" | "user", MessageKey> = { measured: "status.space.measuredTag", user: "status.space.userTag" };
 
 // "HALL（実測）・MIX 20%", "CLUB・MIX 20%" (synthesized), "ARENA（自分の IR）・MIX 20%".
 export function spaceText(room: SpaceRoom, mixPercent: number, source: "measured" | "synth" | "user" = "synth"): string {
   if (room === "off") return "OFF";
-  return `${SPACE_ROOMS[room].label}${SOURCE_TAGS[source]}・MIX ${Math.round(mixPercent)}%`;
+  const tag = source === "synth" ? "" : t(SOURCE_TAGS[source]);
+  return t("status.space.text", { room: SPACE_ROOMS[room].label, tag, mix: Math.round(mixPercent) });
 }
 
 // The stage's detail from the app: "hall;20" (synthesized), "hall;20;measured" or "hall;20;user".
@@ -245,13 +260,15 @@ export function parseSpaceDetail(
 
 // The low cut's text: "120 Hz" or "なし".
 export function lowCutText(hz: number): string {
-  return hz <= 0 ? "なし" : `${Math.round(hz)} Hz`;
+  return hz <= 0 ? t("status.space.lowCutNone") : `${Math.round(hz)} Hz`;
 }
 
 // What a built-in IR is: "実測：St Paul's Hall（…）・残響 2.1 秒" or "合成：25 × 40 × 16 m・残響 2.0 秒".
 export function builtInIrText(room: Exclude<SpaceRoom, "off">, source: "measured" | "synth"): string {
   const m = SPACE_MEASURED[room];
-  return source === "measured" && m ? `実測：${m.place}・${m.numbers}` : `合成：${SPACE_ROOMS[room].numbers}`;
+  return source === "measured" && m
+    ? t("status.space.builtInMeasured", { place: m.place, numbers: m.numbers })
+    : t("status.space.builtInSynth", { numbers: SPACE_ROOMS[room].numbers });
 }
 
 // What the settings screen says about the IR a room plays.
@@ -259,31 +276,49 @@ export function spaceIrText(l: ListeningSettings, room: Exclude<SpaceRoom, "off"
   const i = SPACE_ROOMS[room].index;
   const playing = playingSpaceSource(l, room, st);
   if (playing !== "user") {
-    const fallback = defaultSpaceSource(room) === "measured" ? "内蔵（実測）" : "内蔵（合成）";
-    if (l.spaceSource?.[i] === "file" && l.spaceIr[i] === "")
-      return `自分のファイルはまだ選んでいません。${fallback}を使っています`;
+    const fallback = t(defaultSpaceSource(room) === "measured" ? "status.space.fallbackMeasured" : "status.space.fallbackSynth");
+    if (l.spaceSource?.[i] === "file" && l.spaceIr[i] === "") return t("status.space.noFile", { fallback });
     if (l.spaceSource?.[i] === "file" && st && !st.loaded) {
       const name = st.path.split(/[\\/]/).pop() ?? st.path;
-      return `⚠ ${name} を読めませんでした（${st.error ?? "理由不明"}）。${fallback}を使っています`;
+      return `⚠ ${t("status.space.unreadable", { name, error: st.error ?? t("status.space.unknownError"), fallback })}`;
     }
     return builtInIrText(room, playing);
   }
   if (!st) return l.spaceIr[i].split(/[\\/]/).pop() ?? l.spaceIr[i];
   const name = st.path.split(/[\\/]/).pop() ?? st.path;
-  const ch = st.channels === 1 ? "モノラル" : "ステレオ";
+  const values = {
+    name,
+    seconds: st.seconds.toFixed(2),
+    channels: t(st.channels === 1 ? "status.space.mono" : "status.space.stereo"),
+    rate: (st.sampleRate / 1000).toFixed(1),
+  };
   const extra = [
-    st.fileChannels > 2 ? `${st.fileChannels}ch のうち最初の 2ch` : "",
-    st.truncated ? "5 秒で切りました" : "",
-  ].filter((t) => t !== "");
-  return `${name}（${st.seconds.toFixed(2)} 秒・${ch}・${(st.sampleRate / 1000).toFixed(1)} kHz${extra.length ? "・" + extra.join("・") : ""}）`;
+    st.fileChannels > 2 ? t("status.space.firstTwo", { channels: st.fileChannels }) : "",
+    st.truncated ? t("status.space.truncated") : "",
+  ].filter((x) => x !== "");
+  return extra.length
+    ? t("status.space.userIrExtra", { ...values, extra: extra.join(t("status.space.extraSeparator")) })
+    : t("status.space.userIr", values);
 }
 
 // The crossfeed's levels (engine: CrossfeedStage, the bs2b method): the
 // low-pass's cutoff, and how much lower the other side's low frequencies come.
+// "700 Hz・4.5 dB", and the label with it; read in the language in use.
+const crossfeed = (hz: number, db: string, key: MessageKey) => {
+  const numbers = () => t("status.crossfeed.numbers", { hz, db });
+  return {
+    get numbers() {
+      return numbers();
+    },
+    get label() {
+      return t(key, { numbers: numbers() });
+    },
+  };
+};
 export const CROSSFEED_LEVELS: Record<CrossfeedLevel, { numbers: string; label: string }> = {
-  default: { numbers: "700 Hz・4.5 dB", label: "標準（700 Hz・4.5 dB）" },
-  cmoy: { numbers: "700 Hz・6.0 dB", label: "やや弱め（700 Hz・6.0 dB）" },
-  jmeier: { numbers: "650 Hz・9.5 dB", label: "弱め（650 Hz・9.5 dB）" },
+  default: crossfeed(700, "4.5", "status.crossfeed.default"),
+  cmoy: crossfeed(700, "6.0", "status.crossfeed.cmoy"),
+  jmeier: crossfeed(650, "9.5", "status.crossfeed.jmeier"),
 };
 
 // The tone controls and the tube's limits (engine: ToneStage, TubeStage).
@@ -301,37 +336,44 @@ export const TUBE_LABELS: Record<TubeType, string> = {
 };
 
 // What each type is (task 9-1), with what it measured: 1 kHz at -6 dBFS, DRIVE 0 dB.
-export const TUBE_NOTES: Record<TubeType, string> = {
-  se300b: "300B 1 本のシングルエンド（カソードバイアス）。主に 2 次の倍音を加えます（測定例：2 次 −37 dB、3 次 −53 dB）。",
-  ppel34: "EL34 2 本のプッシュプル（AB 級、固定バイアス）。偶数次が打ち消し合い、主に 3 次の倍音を加えます（測定例：3 次 −26 dB）。",
-  ppclassa: "EL34 2 本のプッシュプル（A 級）。同じ DRIVE なら倍音は少なめです（測定例：3 次 −40 dB）。",
-};
+// A table of texts: each read gives the text in the language in use.
+function texts<K extends string>(keys: Record<K, MessageKey>): Record<K, string> {
+  const out = {} as Record<K, string>;
+  for (const k of Object.keys(keys) as K[]) Object.defineProperty(out, k, { get: () => t(keys[k]), enumerable: true });
+  return out;
+}
+
+export const TUBE_NOTES: Record<TubeType, string> = texts({
+  se300b: "status.tube.noteSe300b",
+  ppel34: "status.tube.notePpel34",
+  ppclassa: "status.tube.notePpclassa",
+});
 
 export const defaultOutput: OutputChoice = { kind: "wasapi", id: "", name: "", allowDop: false };
 
 // --- texts -----------------------------------------------------------------
 
-export const FILTER_LABELS: Record<EqFilterType, string> = {
-  peak: "ピーク",
-  lowShelf: "ローシェルフ",
-  highShelf: "ハイシェルフ",
-  lowPass: "ローパス",
-  highPass: "ハイパス",
-  bandPass: "バンドパス",
-  notch: "ノッチ",
-};
+export const FILTER_LABELS: Record<EqFilterType, string> = texts({
+  peak: "status.filter.peak",
+  lowShelf: "status.filter.lowShelf",
+  highShelf: "status.filter.highShelf",
+  lowPass: "status.filter.lowPass",
+  highPass: "status.filter.highPass",
+  bandPass: "status.filter.bandPass",
+  notch: "status.filter.notch",
+});
 
-export const ISP_LABELS: Record<IspSafeMode, string> = {
-  off: "オフ",
-  measured: "計測した値で下げる",
-  fixed: "固定で −3 dB",
-};
+export const ISP_LABELS: Record<IspSafeMode, string> = texts({
+  off: "status.isp.off",
+  measured: "status.isp.measured",
+  fixed: "status.isp.fixed",
+});
 
-export const REPLAY_GAIN_LABELS: Record<ReplayGainMode, string> = {
-  off: "オフ",
-  track: "トラック（曲ごと）",
-  album: "アルバム（アルバムの中の音量差を保つ）",
-};
+export const REPLAY_GAIN_LABELS: Record<ReplayGainMode, string> = texts({
+  off: "status.replayGain.off",
+  track: "status.replayGain.track",
+  album: "status.replayGain.album",
+});
 
 export function hasGain(type: EqFilterType): boolean {
   return type === "peak" || type === "lowShelf" || type === "highShelf";
@@ -352,37 +394,38 @@ export function frequencyText(hz: number): string {
 
 // What the chosen mode does, in one line, for the screen.
 export function modeSummary(l: ListeningSettings, tubeAuto = false): string {
+  const list = (items: string[]) => items.join(t("list.separator"));
   if (l.mode === "original") {
-    const isp = l.ispSafeOriginal === "off" ? "" : `、ISP セーフ（${ISP_LABELS[l.ispSafeOriginal]}）`;
-    return `原音モード：音量 100% なら何も処理しません${isp}。ReplayGain・EQ・トーン・真空管・空間・クロスフィードはかけません（設定は残ります）。`;
+    return l.ispSafeOriginal === "off"
+      ? t("status.mode.original")
+      : t("status.mode.originalIsp", { isp: ISP_LABELS[l.ispSafeOriginal] });
   }
   const parts: string[] = [];
-  if (l.replayGain !== "off") parts.push(`ReplayGain（${l.replayGain === "track" ? "トラック" : "アルバム"}）`);
+  if (l.replayGain !== "off") parts.push(t(l.replayGain === "track" ? "status.mode.replayGainTrack" : "status.mode.replayGainAlbum"));
   const bands = activeBands(l);
-  if (bands > 0) parts.push(`EQ（${bands} バンド）`);
+  if (bands > 0) parts.push(t("status.mode.eq", { bands }));
   const tone = [
     l.toneBassDb !== 0 ? `BASS ${signedDb(l.toneBassDb)}` : "",
     l.toneTrebleDb !== 0 ? `TREBLE ${signedDb(l.toneTrebleDb)}` : "",
-  ].filter((t) => t !== "");
-  if (tone.length > 0) parts.push(`トーン（${tone.join("、")}）`);
+  ].filter((x) => x !== "");
+  if (tone.length > 0) parts.push(t("status.mode.tone", { parts: list(tone) }));
   if (l.tubeEnabled) {
     // The show (task 9-8), after DRIVE.
-    const show = [l.tubeWarmUp ? "、ウォームアップの演出" : "", l.tubeUnits ? `、${unitLabel(l.tubeUnit)}` : ""].join("");
-    parts.push(
-      tubeAuto
-        ? `真空管（ジャンルで自動・対応表にないときは ${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}${show}）`
-        : `真空管（${TUBE_LABELS[l.tubeType]}、DRIVE ${signedDb(l.tubeDriveDb, false)}${show}）`,
-    );
+    const details = [
+      `DRIVE ${signedDb(l.tubeDriveDb, false)}`,
+      ...(l.tubeWarmUp ? [t("status.mode.warmUp")] : []),
+      ...(l.tubeUnits ? [unitLabel(l.tubeUnit)] : []),
+    ];
+    const values = { type: TUBE_LABELS[l.tubeType], details: list(details) };
+    parts.push(tubeAuto ? t("status.mode.tubeAuto", values) : t("status.mode.tube", values));
   }
   if (l.spaceRoom !== "off" && l.spaceMixPercent > 0)
-    parts.push(`空間（${spaceText(l.spaceRoom, l.spaceMixPercent, playingSpaceSource(l, l.spaceRoom))}）`);
-  if (l.crossfeedEnabled) parts.push(`クロスフィード（${CROSSFEED_LEVELS[l.crossfeedLevel].numbers}）`);
-  if (l.ispSafeProcessed !== "off") parts.push(`ISP セーフ（${ISP_LABELS[l.ispSafeProcessed]}）`);
+    parts.push(t("status.mode.space", { space: spaceText(l.spaceRoom, l.spaceMixPercent, playingSpaceSource(l, l.spaceRoom)) }));
+  if (l.crossfeedEnabled) parts.push(t("status.mode.crossfeed", { numbers: CROSSFEED_LEVELS[l.crossfeedLevel].numbers }));
+  if (l.ispSafeProcessed !== "off") parts.push(t("status.mode.ispSafe", { isp: ISP_LABELS[l.ispSafeProcessed] }));
   const rate = outputRateSummary(l); // task 10-4: only when not the track's rate
   if (rate) parts.push(rate);
-  return parts.length === 0
-    ? "音作りモード：かける処理がありません。音量 100% なら原音モードと同じ出力です。"
-    : `音作りモード：${parts.join("、")}を 64bit 浮動小数点でかけます。`;
+  return parts.length === 0 ? t("status.mode.none") : t("status.mode.processed", { parts: list(parts) });
 }
 
 // "+3.0 dB", "-6.0 dB" ("0.0 dB" without a sign when `plus` is false and it is not above 0).
@@ -397,8 +440,8 @@ export function activeBands(l: ListeningSettings): number {
 }
 
 export function outputLabel(o: OutputChoice): string {
-  if (o.kind === "asio") return `ASIO：${o.name}`;
-  return o.id === "" ? "WASAPI 排他：Windows の既定のデバイス" : `WASAPI 排他：${o.name}`;
+  if (o.kind === "asio") return t("status.output.asio", { name: o.name });
+  return o.id === "" ? t("status.output.wasapiDefault") : t("status.output.wasapi", { name: o.name });
 }
 
 // --- the output list ---------------------------------------------------------
@@ -420,7 +463,7 @@ export function outputOptions(info: OutputsInfo, current: OutputChoice): OutputO
   const options: OutputOption[] = [
     {
       value: "wasapi:",
-      label: `Windows の既定のデバイス${def ? `（今は ${def.name}）` : ""}`,
+      label: def ? t("status.output.defaultNow", { name: def.name }) : t("status.output.default"),
       group: "wasapi",
       choice: { kind: "wasapi", id: "", name: "", allowDop: false },
     },
@@ -443,7 +486,7 @@ export function outputOptions(info: OutputsInfo, current: OutputChoice): OutputO
   if (!here && !sameName) {
     options.push({
       value: outputValue(current),
-      label: `${current.name}（今は見つかりません）`,
+      label: t("status.output.missing", { name: current.name }),
       group: current.kind,
       choice: { ...current },
       missing: true,
@@ -474,7 +517,7 @@ const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x
 
 // A number typed into a band's field: within the limits, or null when it is not a number.
 export function parseField(field: keyof typeof LIMITS, text: string): number | null {
-  const x = Number(text.trim().replace(/[，,]/g, ".").replace(/[−–]/g, "-"));
+  const x = Number(text.trim().replace(/[\uFF0C,]/g, ".").replace(/[−–]/g, "-")); // a full-width comma too
   if (text.trim() === "" || !Number.isFinite(x)) return null;
   const { min, max } = LIMITS[field];
   return clamp(x, min, max);

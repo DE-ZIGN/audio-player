@@ -3,9 +3,12 @@
 // what the player does, never that the sound gets better (i18n.test.ts looks
 // for such words).
 
-import type { Messages } from "./ja";
+import type { BASE_JA, Messages } from "./ja";
+import * as controls from "./parts/controls";
+import * as page from "./parts/page";
+import * as status from "./parts/status";
 
-export const en: Messages = {
+const base: Record<keyof typeof BASE_JA, string> = {
   "settings.tab.output": "Output",
   "settings.tab.mode": "Mode",
   "settings.tab.level": "Level",
@@ -22,3 +25,5 @@ export const en: Messages = {
 
   "list.separator": ", ",
 };
+
+export const en: Messages = { ...base, ...page.en, ...status.en, ...controls.en };

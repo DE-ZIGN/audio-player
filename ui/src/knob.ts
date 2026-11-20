@@ -4,6 +4,7 @@
 // arc in the theme's colours.
 
 import { dragKnob, formatParam, toNorm, wheelKnob, type Param } from "./eqEdit";
+import { onLangChange, t } from "./i18n";
 
 const SVG = "http://www.w3.org/2000/svg";
 const SWEEP = 270; // degrees of travel
@@ -20,7 +21,8 @@ function arc(fromDeg: number, toDeg: number): string {
 
 export interface KnobOptions {
   param: Param;
-  label: string;
+  // The knob's name; a function is read again when the language changes.
+  label: string | (() => string);
   value: number;
   defaultValue: () => number;
   // A typed value: the number to use, or null when it is not one.
@@ -39,6 +41,7 @@ export class Knob {
   private readonly pointer: SVGLineElement;
   private readonly text: HTMLButtonElement;
   private readonly dial: HTMLDivElement;
+  private readonly labelEl: HTMLDivElement;
 
   constructor(private readonly o: KnobOptions) {
     this.value = o.value;
@@ -49,8 +52,6 @@ export class Knob {
     this.dial.className = "knob-dial";
     this.dial.tabIndex = 0;
     this.dial.setAttribute("role", "slider");
-    this.dial.setAttribute("aria-label", o.label);
-    this.dial.title = `${o.label}：上下にドラッグ（Shift で細かく）、ホイール、ダブルクリックで既定値`;
     const svg = document.createElementNS(SVG, "svg");
     svg.setAttribute("viewBox", "0 0 56 56");
     this.track = document.createElementNS(SVG, "path");
@@ -68,19 +69,36 @@ export class Knob {
     svg.append(this.track, this.fill, cap, this.pointer);
     this.dial.append(svg);
 
-    const label = document.createElement("div");
-    label.className = "knob-label";
-    label.textContent = o.label;
+    this.labelEl = document.createElement("div");
+    this.labelEl.className = "knob-label";
 
     this.text = document.createElement("button");
     this.text.type = "button";
     this.text.className = "knob-value";
-    this.text.title = "クリックして数値を入力";
     this.text.addEventListener("click", () => this.edit());
 
-    this.el.append(label, this.dial, this.text);
+    this.el.append(this.labelEl, this.dial, this.text);
     this.bind();
     this.render();
+    this.name();
+    // Named again in the language chosen; a knob taken off the page (a band's
+    // knobs are made anew for each band) stops listening.
+    const stop = onLangChange(() => {
+      if (this.el.isConnected) this.name();
+      else stop();
+    });
+  }
+
+  private label(): string {
+    return typeof this.o.label === "function" ? this.o.label() : this.o.label;
+  }
+
+  private name() {
+    const label = this.label();
+    this.dial.setAttribute("aria-label", label);
+    this.dial.title = t("page.knob.title", { label });
+    this.labelEl.textContent = label;
+    this.text.title = t("page.knob.typeValue");
   }
 
   set(value: number) {
@@ -159,7 +177,7 @@ export class Knob {
     input.inputMode = "decimal";
     input.className = "knob-input";
     input.value = String(this.value);
-    input.setAttribute("aria-label", `${this.o.label}の値`);
+    input.setAttribute("aria-label", t("page.knob.valueLabel", { label: this.label() }));
     let done = false;
     const finish = (apply: boolean) => {
       if (done) return;

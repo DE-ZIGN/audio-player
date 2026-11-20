@@ -15,79 +15,79 @@
       <!-- The amp view's amp (task 9-9): built by ampView.ts; the transport,
            the title, the seek bar and the output field move into it and the
            panel under it while the amp view is shown. -->
-      <section class="amp" id="amp" aria-label="アンプ"></section>
+      <section class="amp" id="amp" aria-label="アンプ" data-i18n-aria-label="page.amp.label"></section>
       <header class="topbar">
         <img id="now-cover" class="now-cover" alt="" hidden />
         <div class="now-cover now-cover-empty" id="now-cover-empty"></div>
         <div class="now">
-          <div class="now-title" id="file-name">曲を選んでください</div>
+          <div class="now-title" id="file-name" data-i18n="page.now.choose">曲を選んでください</div>
           <div class="now-sub"><span id="now-artist"></span><span class="queue" id="queue"></span></div>
         </div>
         <!-- The symbols are drawn by icons.ts (in the shapes of the concept image). -->
         <div class="transport">
-          <button id="shuffle" type="button" class="icon mode" aria-pressed="false" title="シャッフル：オフ" aria-label="シャッフル"></button>
-          <button id="prev" type="button" class="icon" title="前の曲（3 秒より先なら曲の頭へ）" aria-label="前の曲" disabled></button>
-          <button id="play" type="button" class="icon primary play" title="再生 / 一時停止（スペース）" aria-label="再生" disabled></button>
-          <button id="stop" type="button" class="icon" title="停止（曲の頭へ戻る）" aria-label="停止" disabled></button>
-          <button id="next" type="button" class="icon" title="次の曲" aria-label="次の曲" disabled></button>
-          <button id="repeat" type="button" class="icon mode" aria-pressed="false" data-repeat="off" title="リピート：オフ" aria-label="リピート"></button>
+          <button id="shuffle" type="button" class="icon mode" aria-pressed="false" title="シャッフル：オフ" aria-label="シャッフル" data-i18n-title="page.shuffle.off" data-i18n-aria-label="page.transport.shuffle"></button>
+          <button id="prev" type="button" class="icon" title="前の曲（3 秒より先なら曲の頭へ）" aria-label="前の曲" data-i18n-title="page.transport.prevTitle" data-i18n-aria-label="page.transport.prev" disabled></button>
+          <button id="play" type="button" class="icon primary play" title="再生 / 一時停止（スペース）" aria-label="再生" data-i18n-title="page.transport.playPauseTitle" data-i18n-aria-label="page.transport.play" disabled></button>
+          <button id="stop" type="button" class="icon" title="停止（曲の頭へ戻る）" aria-label="停止" data-i18n-title="page.transport.stopTitle" data-i18n-aria-label="page.transport.stop" disabled></button>
+          <button id="next" type="button" class="icon" title="次の曲" aria-label="次の曲" data-i18n-title="page.transport.next" data-i18n-aria-label="page.transport.next" disabled></button>
+          <button id="repeat" type="button" class="icon mode" aria-pressed="false" data-repeat="off" title="リピート：オフ" aria-label="リピート" data-i18n-title="page.repeat.off" data-i18n-aria-label="page.transport.repeat"></button>
         </div>
         <div class="seek">
           <span class="time" id="position">0:00</span>
-          <input id="seek" type="range" min="0" max="1000" value="0" step="1" disabled aria-label="再生位置" />
+          <input id="seek" type="range" min="0" max="1000" value="0" step="1" disabled aria-label="再生位置" data-i18n-aria-label="page.transport.seek" />
           <span class="time" id="duration">0:00</span>
         </div>
-        <div class="volume-box" title="デジタル音量。100% なら処理をしない（原音経路、BIT-PERFECT になりうる）。下げると 64bit の処理経路を通ります">
-          <button id="mute" type="button" class="icon small plain" aria-label="ミュート"></button>
-          <input id="vol-slider" type="range" min="0" max="1000" value="1000" step="1" aria-label="音量" />
+        <div class="volume-box" title="デジタル音量。100% なら処理をしない（原音経路、BIT-PERFECT になりうる）。下げると 64bit の処理経路を通ります" data-i18n-title="page.volume.boxTitle">
+          <button id="mute" type="button" class="icon small plain" aria-label="ミュート" data-i18n-aria-label="page.volume.mute"></button>
+          <input id="vol-slider" type="range" min="0" max="1000" value="1000" step="1" aria-label="音量" data-i18n-aria-label="page.volume.slider" />
           <span id="vol-label" class="vol-label">100%</span>
         </div>
-        <div class="levels" title="出力に渡す値の True Peak（直近 0.1 秒）。正確な値は「出力の確認」で">
+        <div class="levels" title="出力に渡す値の True Peak（直近 0.1 秒）。正確な値は「出力の確認」で" data-i18n-title="page.levels.title">
           <div class="level"><span>L</span><div class="bar"><div class="fill" id="level-l"></div></div></div>
           <div class="level"><span>R</span><div class="bar"><div class="fill" id="level-r"></div></div></div>
           <div class="scale"><span>-60</span><span>-40</span><span>-20</span><span>-6</span><span>0 dB</span></div>
         </div>
         <!-- The standard view's VU meters (task 6-8); the library view shows the bars above. -->
-        <div class="vu-meters" id="vu-meters" title="VU メーター（出力に渡す値。0 VU = −18 dBFS のサイン波、約 300 ms の平均。正確な値は「出力の確認」の True Peak と LUFS で）"></div>
-        <button id="output" type="button" class="output-field" title="出力の確認（経路とメーター）">
-          <span class="output-label">出力</span>
+        <div class="vu-meters" id="vu-meters" title="VU メーター（出力に渡す値。0 VU = −18 dBFS のサイン波、約 300 ms の平均。正確な値は「出力の確認」の True Peak と LUFS で）" data-i18n-title="page.vu.title"></div>
+        <button id="output" type="button" class="output-field" title="出力の確認（経路とメーター）" data-i18n-title="page.topbar.outputTitle">
+          <span class="output-label" data-i18n="page.topbar.output">出力</span>
           <span class="output-tags" id="output-tags"><span class="tag">—</span></span>
         </button>
       </header>
 
       <nav class="sidebar">
-        <button type="button" class="nav amp-only" data-view="now"><span class="nav-icon">♫</span>再生中</button>
-        <button type="button" class="nav active" data-view="tracks"><span class="nav-icon">♪</span>曲</button>
-        <button type="button" class="nav" data-view="albums"><span class="nav-icon">◎</span>アルバム</button>
-        <button type="button" class="nav" data-view="settings"><span class="nav-icon">⚙</span>設定</button>
+        <button type="button" class="nav amp-only" data-view="now"><span class="nav-icon">♫</span><span data-i18n="page.nav.now">再生中</span></button>
+        <button type="button" class="nav active" data-view="tracks"><span class="nav-icon">♪</span><span data-i18n="page.nav.tracks">曲</span></button>
+        <button type="button" class="nav" data-view="albums"><span class="nav-icon">◎</span><span data-i18n="page.nav.albums">アルバム</span></button>
+        <button type="button" class="nav" data-view="settings"><span class="nav-icon">⚙</span><span data-i18n="page.nav.settings">設定</span></button>
         <div class="folders">
           <div class="folders-head">
-            <span>監視フォルダー</span>
-            <button id="add-folder" type="button" class="icon small" title="フォルダーを加える" aria-label="フォルダーを加える">＋</button>
+            <span data-i18n="page.folders.title">監視フォルダー</span>
+            <button id="add-folder" type="button" class="icon small" title="フォルダーを加える" aria-label="フォルダーを加える" data-i18n-title="page.folders.add" data-i18n-aria-label="page.folders.add" data-i18n="page.folders.addButton">＋</button>
           </div>
           <ul id="folder-list" class="folder-list"></ul>
         </div>
-        <button id="open" type="button" class="open-file">ファイルを開く</button>
+        <button id="open" type="button" class="open-file" data-i18n="page.nav.openFile">ファイルを開く</button>
         <div class="view-switches">
-          <button id="ui-view-toggle" type="button" class="view-switch" title="ビューを切り替える（見た目と配置だけが変わります）">アンプビューにする</button>
-          <button id="ui-view-toggle-2" type="button" class="view-switch" title="ビューを切り替える（見た目と配置だけが変わります）">ライブラリビューにする</button>
+          <button id="ui-view-toggle" type="button" class="view-switch" title="ビューを切り替える（見た目と配置だけが変わります）" data-i18n-title="page.view.toggleTitle" data-i18n="page.view.toAmp">アンプビューにする</button>
+          <button id="ui-view-toggle-2" type="button" class="view-switch" title="ビューを切り替える（見た目と配置だけが変わります）" data-i18n-title="page.view.toggleTitle" data-i18n="page.view.toLibrary">ライブラリビューにする</button>
         </div>
       </nav>
 
       <main class="content">
         <div class="content-head">
-          <h1 id="content-title">ライブラリ</h1>
-          <input id="search" type="search" placeholder="ライブラリを検索（かな・全角半角を問わず）" aria-label="検索" />
-          <select id="sort" aria-label="並べ替え"></select>
-          <div class="view-toggle" role="group" aria-label="表示">
-            <button id="view-list" type="button" class="icon active" title="一覧" aria-label="一覧">☰</button>
-            <button id="view-grid" type="button" class="icon" title="タイル" aria-label="タイル">▦</button>
+          <h1 id="content-title" data-i18n="page.library.title">ライブラリ</h1>
+          <input id="search" type="search" placeholder="ライブラリを検索（かな・全角半角を問わず）" aria-label="検索" data-i18n-placeholder="page.library.search" data-i18n-aria-label="page.library.searchLabel" />
+          <select id="sort" aria-label="並べ替え" data-i18n-aria-label="page.library.sort"></select>
+          <div class="view-toggle" role="group" aria-label="表示" data-i18n-aria-label="page.library.display">
+            <button id="view-list" type="button" class="icon active" title="一覧" aria-label="一覧" data-i18n-title="page.library.list" data-i18n-aria-label="page.library.list">☰</button>
+            <button id="view-grid" type="button" class="icon" title="タイル" aria-label="タイル" data-i18n-title="page.library.tiles" data-i18n-aria-label="page.library.tiles">▦</button>
           </div>
         </div>
         <p class="error banner" id="error" hidden></p>
 
         <div class="album-head" id="album-head" hidden>
-          <button id="album-back" type="button" class="link">← アルバム一覧へ</button>
+          <button id="album-back" type="button" class="link" data-i18n="page.album.back">← アルバム一覧へ</button>
           <img id="album-cover" class="album-cover" alt="" />
           <div class="album-info">
             <h2 id="album-title"></h2>
@@ -117,101 +117,91 @@
 
           <!-- The tabs (2026-11-18): settingsTabs.ts says which sections each one shows;
                settingsTabsView.ts makes the buttons. One group per heading. -->
-          <div class="settings-tabs" id="settings-tabs" role="tablist" aria-orientation="vertical" aria-label="設定の項目"></div>
+          <div class="settings-tabs" id="settings-tabs" role="tablist" aria-orientation="vertical" aria-label="設定の項目" data-i18n-aria-label="page.settings.tabsLabel"></div>
           <div class="settings-panes" id="settings-panes" role="tabpanel">
             <div class="settings-group" data-group="output">
-              <h2 data-section="output">出力</h2>
+              <h2 data-section="output" data-i18n="page.settings.output.heading">出力</h2>
               <div class="setting">
-                <label for="output-device">出力デバイス</label>
+                <label for="output-device" data-i18n="page.settings.output.device">出力デバイス</label>
                 <select id="output-device"></select>
                 <p class="notice" id="output-device-status" hidden></p>
                 <details class="explain">
-                  <summary>詳細</summary>
-                  <p class="note">
-                    WASAPI は排他モードで出します（ほかのアプリの音は混ざりません）。ASIO ドライバーは、選んだときに別のプロセスで読み込んで確かめます。
-                  </p>
+                  <summary data-i18n="page.details">詳細</summary>
+                  <p class="note" data-i18n="page.settings.output.deviceNote">WASAPI は排他モードで出します（ほかのアプリの音は混ざりません）。ASIO ドライバーは、選んだときに別のプロセスで読み込んで確かめます。</p>
                 </details>
               </div>
               <div class="setting">
-                <label class="check"><input type="checkbox" id="output-dop" /> DSD を DoP で送る</label>
-                <p class="note keep">
-                  DoP に対応した DAC だけでオンにしてください。対応していない DAC では大きな雑音になります（DAC が対応しているかは自動では分かりません）。出力を選び直すとオフに戻ります。
-                </p>
+                <label class="check"><input type="checkbox" id="output-dop" /> <span data-i18n="page.settings.output.dop">DSD を DoP で送る</span></label>
+                <p class="note keep" data-i18n="page.settings.output.dopNote">DoP に対応した DAC だけでオンにしてください。対応していない DAC では大きな雑音になります（DAC が対応しているかは自動では分かりません）。出力を選び直すとオフに戻ります。</p>
               </div>
             </div>
 
             <div class="settings-group" data-group="mode">
-              <h2 data-section="mode">モード</h2>
-              <div class="setting modes" role="radiogroup" aria-label="モード">
+              <h2 data-section="mode" data-i18n="page.settings.mode.heading">モード</h2>
+              <div class="setting modes" role="radiogroup" aria-label="モード" data-i18n-aria-label="page.settings.mode.group">
                 <label class="mode-card"><input type="radio" name="mode" value="original" />
-                  <span><b>原音モード</b><small>ReplayGain・EQ をかけません。音量 100% で処理がなければ、ビットパーフェクトの経路で出します。</small></span>
+                  <span><b data-i18n="page.settings.mode.original">原音モード</b><small data-i18n="page.settings.mode.originalNote">ReplayGain・EQ をかけません。音量 100% で処理がなければ、ビットパーフェクトの経路で出します。</small></span>
                 </label>
                 <label class="mode-card"><input type="radio" name="mode" value="processed" />
-                  <span><b>音作りモード</b><small>下の ReplayGain・EQ・ISP セーフを 64bit 浮動小数点でかけます。</small></span>
+                  <span><b data-i18n="page.settings.mode.processed">音作りモード</b><small data-i18n="page.settings.mode.processedNote">下の ReplayGain・EQ・ISP セーフを 64bit 浮動小数点でかけます。</small></span>
                 </label>
               </div>
               <p class="note" id="mode-summary"></p>
               <div class="setting">
-                <button type="button" id="settings-abx">ABX で聴き比べる…</button>
-                <span class="note">今の曲で、原音と音作りの違いを聞き分けられるかを、ブラインドテストで確かめます。</span>
+                <button type="button" id="settings-abx" data-i18n="page.settings.mode.abx">ABX で聴き比べる…</button>
+                <span class="note" data-i18n="page.settings.mode.abxNote">今の曲で、原音と音作りの違いを聞き分けられるかを、ブラインドテストで確かめます。</span>
               </div>
             </div>
 
             <div class="settings-group" data-group="isp-safe">
-              <h2 data-section="isp-safe">ISP セーフ</h2>
+              <h2 data-section="isp-safe" data-i18n="page.settings.isp.heading">ISP セーフ</h2>
               <div class="setting">
                 <div class="pair">
-                  <label for="isp-original">原音モードでは</label>
+                  <label for="isp-original" data-i18n="page.settings.isp.original">原音モードでは</label>
                   <select id="isp-original"></select>
-                  <label for="isp-processed">音作りモードでは</label>
+                  <label for="isp-processed" data-i18n="page.settings.isp.processed">音作りモードでは</label>
                   <select id="isp-processed"></select>
                 </div>
                 <details class="explain">
-                  <summary>詳細</summary>
-                  <p class="note">
-                    曲の True Peak（サンプルの間のピーク）が −0.5 dBTP 以下になるように、音量を線形に下げます。「計測した値」は取り込み時に測った曲（アルバムの ReplayGain ではアルバム）の True Peak から、測っていない曲は −3 dB。どちらも保険のリミッター（−0.3 dBTP）を通します。
-                  </p>
+                  <summary data-i18n="page.details">詳細</summary>
+                  <p class="note" data-i18n="page.settings.isp.note">曲の True Peak（サンプルの間のピーク）が −0.5 dBTP 以下になるように、音量を線形に下げます。「計測した値」は取り込み時に測った曲（アルバムの ReplayGain ではアルバム）の True Peak から、測っていない曲は −3 dB。どちらも保険のリミッター（−0.3 dBTP）を通します。</p>
                 </details>
               </div>
             </div>
 
             <div class="settings-group" data-group="replaygain">
-              <h2 data-section="replaygain">ReplayGain <small class="for-mode">音作りモードでかけます</small></h2>
+              <h2 data-section="replaygain">ReplayGain <small class="for-mode" data-i18n="page.settings.forMode">音作りモードでかけます</small></h2>
               <div class="setting">
                 <div class="radios" id="replaygain"></div>
                 <details class="explain">
-                  <summary>詳細</summary>
-                  <p class="note">
-                    曲（またはアルバム）の統合ラウドネスを −18 LUFS に合わせます。値は取り込み時の解析から。上げるときは True Peak が 0 dBTP を超えない分までにします。解析していない曲にはかけません。
-                  </p>
+                  <summary data-i18n="page.details">詳細</summary>
+                  <p class="note" data-i18n="page.settings.replayGain.note">曲（またはアルバム）の統合ラウドネスを −18 LUFS に合わせます。値は取り込み時の解析から。上げるときは True Peak が 0 dBTP を超えない分までにします。解析していない曲にはかけません。</p>
                 </details>
               </div>
             </div>
 
             <div class="settings-group" data-group="eq">
-              <h2 data-section="eq">EQ <small class="for-mode">音作りモードでかけます</small></h2>
+              <h2 data-section="eq">EQ <small class="for-mode" data-i18n="page.settings.forMode">音作りモードでかけます</small></h2>
               <div class="setting">
                 <div class="eq-tools">
-                  <label class="check"><input type="checkbox" id="eq-enabled" /> EQ を使う</label>
+                  <label class="check"><input type="checkbox" id="eq-enabled" /> <span data-i18n="page.settings.eq.enabled">EQ を使う</span></label>
                   <span class="spacer-flex"></span>
-                  <button type="button" id="eq-import">ファイルから読み込む…</button>
-                  <button type="button" id="eq-open" class="primary">EQ を開く</button>
+                  <button type="button" id="eq-import" data-i18n="page.settings.eq.import">ファイルから読み込む…</button>
+                  <button type="button" id="eq-open" class="primary" data-i18n="page.settings.eq.open">EQ を開く</button>
                 </div>
                 <div id="eq-presets"></div>
-                <svg class="eq-curve" id="eq-curve" viewBox="0 0 560 160" preserveAspectRatio="none" role="button" tabindex="0" aria-label="EQ の周波数特性（クリックで EQ を開く）"></svg>
+                <svg class="eq-curve" id="eq-curve" viewBox="0 0 560 160" preserveAspectRatio="none" role="button" tabindex="0" aria-label="EQ の周波数特性（クリックで EQ を開く）" data-i18n-aria-label="page.settings.eq.curve"></svg>
                 <p class="note" id="eq-preamp"></p>
                 <p class="notice" id="eq-warnings" hidden></p>
                 <details class="explain">
-                  <summary>詳細</summary>
-                  <p class="note">
-                    最小位相の IIR（バイクアッド）で 64bit 浮動小数点。プリアンプは、自動なら最大のブーストの分だけ下げ、EQ そのものではどの周波数も 0 dB を超えないようにします。手で決めることもでき、そのとき超えた分は保険のリミッターが受け持ちます（働いた回数と量を表示します）。読み込めるのは AutoEQ の ParametricEQ.txt と Equalizer APO の書き方です（ファイルのプリアンプの値は使いません）。
-                  </p>
+                  <summary data-i18n="page.details">詳細</summary>
+                  <p class="note" data-i18n="page.settings.eq.note">最小位相の IIR（バイクアッド）で 64bit 浮動小数点。プリアンプは、自動なら最大のブーストの分だけ下げ、EQ そのものではどの周波数も 0 dB を超えないようにします。手で決めることもでき、そのとき超えた分は保険のリミッターが受け持ちます（働いた回数と量を表示します）。読み込めるのは AutoEQ の ParametricEQ.txt と Equalizer APO の書き方です（ファイルのプリアンプの値は使いません）。</p>
                 </details>
               </div>
             </div>
 
             <div class="settings-group" data-group="tone">
-              <h2 data-section="tone">トーン <small class="for-mode">音作りモードでかけます</small></h2>
+              <h2 data-section="tone"><span data-i18n="page.settings.tone.heading">トーン</span> <small class="for-mode" data-i18n="page.settings.forMode">音作りモードでかけます</small></h2>
               <div class="setting tone-controls">
                 <label class="slider-row" for="tone-bass">BASS
                   <input type="range" id="tone-bass" min="-10" max="10" step="0.5" />
@@ -221,208 +211,179 @@
                   <input type="range" id="tone-treble" min="-10" max="10" step="0.5" />
                   <output id="tone-treble-value" for="tone-treble">0.0 dB</output>
                 </label>
-                <button type="button" id="tone-reset" class="link">0 に戻す</button>
+                <button type="button" id="tone-reset" class="link" data-i18n="page.settings.tone.reset">0 に戻す</button>
                 <details class="explain">
-                  <summary>詳細</summary>
-                  <p class="note">
-                    BASS は 150 Hz、TREBLE は 4.5 kHz を中心に、なだらかに上げ下げします（±10 dB）。上げた分はプリアンプで下げ、0 dB を超えて持ち上げません。パラメトリック EQ の後にかかります。
-                  </p>
+                  <summary data-i18n="page.details">詳細</summary>
+                  <p class="note" data-i18n="page.settings.tone.note">BASS は 150 Hz、TREBLE は 4.5 kHz を中心に、なだらかに上げ下げします（±10 dB）。上げた分はプリアンプで下げ、0 dB を超えて持ち上げません。パラメトリック EQ の後にかかります。</p>
                 </details>
               </div>
             </div>
 
             <div class="settings-group" data-group="tube">
-              <h2 data-section="tube">真空管 <small class="for-mode">音作りモードでかけます</small></h2>
+              <h2 data-section="tube"><span data-i18n="page.settings.tube.heading">真空管</span> <small class="for-mode" data-i18n="page.settings.forMode">音作りモードでかけます</small></h2>
               <div class="setting tube-controls">
-                <label class="check"><input type="checkbox" id="tube-enabled" /> 真空管を使う</label>
-                <div class="radios" id="tube-type" role="radiogroup" aria-label="真空管の種類"></div>
+                <label class="check"><input type="checkbox" id="tube-enabled" /> <span data-i18n="page.settings.tube.enabled">真空管を使う</span></label>
+                <div class="radios" id="tube-type" role="radiogroup" aria-label="真空管の種類" data-i18n-aria-label="page.settings.tube.types"></div>
                 <p class="note" id="tube-type-note"></p>
                 <label class="slider-row" for="tube-drive">DRIVE
                   <input type="range" id="tube-drive" min="-30" max="6" step="0.5" />
                   <output id="tube-drive-value" for="tube-drive">-12.0 dB</output>
                 </label>
-                <button type="button" id="tube-drive-reset" class="link">既定（-12 dB）に戻す</button>
-                <p class="note keep">オン・オフを切り替えると、処理の遅れが変わるため、再生中は一瞬途切れます。</p>
+                <button type="button" id="tube-drive-reset" class="link" data-i18n="page.settings.tube.driveReset">既定（-12 dB）に戻す</button>
+                <p class="note keep" data-i18n="page.settings.tube.switchNote">オン・オフを切り替えると、処理の遅れが変わるため、再生中は一瞬途切れます。</p>
                 <details class="explain">
-                  <summary>詳細</summary>
-                  <p class="note">
-                    真空管のモデル（Koren の式）と負荷線から求めた伝達特性で、倍音を加えます（波形整形方式）。信号の大きさに応じたバイアスの変化と電源の沈み込みを、回路の時定数にもとづいて簡易に再現しています。
-                    小さな音の音量は変えず、DRIVE で曲がり方（倍音の量）が変わります。DRIVE 0 dB で、0 dBFS の山がグリッドを 0 V まで振ります。
-                  </p>
+                  <summary data-i18n="page.details">詳細</summary>
+                  <p class="note" data-i18n="page.settings.tube.note">真空管のモデル（Koren の式）と負荷線から求めた伝達特性で、倍音を加えます（波形整形方式）。信号の大きさに応じたバイアスの変化と電源の沈み込みを、回路の時定数にもとづいて簡易に再現しています。 小さな音の音量は変えず、DRIVE で曲がり方（倍音の量）が変わります。DRIVE 0 dB で、0 dBFS の山がグリッドを 0 V まで振ります。</p>
                 </details>
 
                 <div class="tube-character">
-                  <h3>演出 <small>ロマン枠：効果は確かめていません</small></h3>
-                  <label class="check"><input type="checkbox" id="tube-warmup" /> ウォームアップ</label>
+                  <h3><span data-i18n="page.settings.tubeShow.heading">演出</span> <small data-i18n="page.settings.tubeShow.romance">ロマン枠：効果は確かめていません</small></h3>
+                  <label class="check"><input type="checkbox" id="tube-warmup" /> <span data-i18n="page.settings.tubeShow.warmUp">ウォームアップ</span></label>
                   <p class="note" id="tube-warmup-now" aria-live="polite"></p>
-                  <label class="check"><input type="checkbox" id="tube-units" /> 個体差</label>
+                  <label class="check"><input type="checkbox" id="tube-units" /> <span data-i18n="page.settings.tubeShow.units">個体差</span></label>
                   <div class="tube-unit-row">
-                    <label for="tube-unit">球の番号</label>
+                    <label for="tube-unit" data-i18n="page.settings.tubeShow.unit">球の番号</label>
                     <input type="number" id="tube-unit" min="1" max="99" step="1" />
-                    <button type="button" id="tube-unit-next">次の番号の球にする</button>
+                    <button type="button" id="tube-unit-next" data-i18n="page.settings.tubeShow.unitNext">次の番号の球にする</button>
                   </div>
                   <p class="note" id="tube-unit-now"></p>
                   <details class="explain">
-                    <summary>詳細</summary>
-                    <p class="note">
-                      実機の真空管のウォームアップや個体差を、真空管のモデルで計算して再現する演出です。球を変えて聴き比べるといった、マニアならではの楽しみを体験してください。データ上、音の違いは出ていますが、実際に聴いて違いが感じ取れるか？ ぜひ ABX（「設定 A と 設定 B」）で試してみてください。
-                    </p>
-                    <p class="note">
-                      ウォームアップ：アプリを起動してからの時間で、特性を「冷えた球」から「暖まった球」へ移します。冷えた球は、同じ回路でカソードのエミッション（電子を出す量）を 50% にして求めた特性です。冷えた特性の割合は時定数 4 分で減り、起動から 20 分で暖まった特性だけになります。
-                    </p>
-                    <p class="note">
-                      個体差：同じ型番の球の、1 本ごとのばらつきです。球ごとにエミッションを ±10%、増幅率 μ を ±5% の範囲でずらし、その球で特性を求め直します。値は番号で決まり、同じ番号ならいつも同じ球です。左右は別の球で、PP では 2 本の差のぶん、打ち消し合っていた偶数次の倍音が残ります。
-                    </p>
-                    <p class="note">どちらも小さな音の音量は変えず、曲がり方（倍音の量）が変わります。</p>
+                    <summary data-i18n="page.details">詳細</summary>
+                    <p class="note" data-i18n="page.settings.tubeShow.note">実機の真空管のウォームアップや個体差を、真空管のモデルで計算して再現する演出です。球を変えて聴き比べるといった、マニアならではの楽しみを体験してください。データ上、音の違いは出ていますが、実際に聴いて違いが感じ取れるか？ ぜひ ABX（「設定 A と 設定 B」）で試してみてください。</p>
+                    <p class="note" data-i18n="page.settings.tubeShow.warmUpNote">ウォームアップ：アプリを起動してからの時間で、特性を「冷えた球」から「暖まった球」へ移します。冷えた球は、同じ回路でカソードのエミッション（電子を出す量）を 50% にして求めた特性です。冷えた特性の割合は時定数 4 分で減り、起動から 20 分で暖まった特性だけになります。</p>
+                    <p class="note" data-i18n="page.settings.tubeShow.unitsNote">個体差：同じ型番の球の、1 本ごとのばらつきです。球ごとにエミッションを ±10%、増幅率 μ を ±5% の範囲でずらし、その球で特性を求め直します。値は番号で決まり、同じ番号ならいつも同じ球です。左右は別の球で、PP では 2 本の差のぶん、打ち消し合っていた偶数次の倍音が残ります。</p>
+                    <p class="note" data-i18n="page.settings.tubeShow.bothNote">どちらも小さな音の音量は変えず、曲がり方（倍音の量）が変わります。</p>
                   </details>
                 </div>
 
                 <div class="tube-auto">
-                  <h3>ジャンルで種類を選ぶ</h3>
-                  <label class="check"><input type="checkbox" id="tube-auto-enabled" /> 曲のジャンルで種類を自動で選ぶ</label>
+                  <h3 data-i18n="page.settings.tubeAuto.heading">ジャンルで種類を選ぶ</h3>
+                  <label class="check"><input type="checkbox" id="tube-auto-enabled" /> <span data-i18n="page.settings.tubeAuto.enabled">曲のジャンルで種類を自動で選ぶ</span></label>
                   <p class="note" id="tube-auto-now" aria-live="polite"></p>
                   <label class="tube-auto-album" id="tube-auto-album-row" hidden>
-                    このアルバム（<span id="tube-auto-album-name"></span>）
-                    <select id="tube-auto-album" aria-label="このアルバムの真空管の種類"></select>
+                    <span data-i18n="page.settings.tubeAuto.albumBefore">このアルバム（</span><span id="tube-auto-album-name"></span><span data-i18n="page.settings.tubeAuto.after">）</span>
+                    <select id="tube-auto-album" aria-label="このアルバムの真空管の種類" data-i18n-aria-label="page.settings.tubeAuto.albumSelect"></select>
                   </label>
                   <details>
-                    <summary>ジャンルの対応表（<span id="tube-auto-rule-count"></span>）</summary>
+                    <summary><span data-i18n="page.settings.tubeAuto.rulesBefore">ジャンルの対応表（</span><span id="tube-auto-rule-count"></span><span data-i18n="page.settings.tubeAuto.after">）</span></summary>
                     <table class="tube-rules">
-                      <thead><tr><th>ジャンル</th><th>種類</th><th></th></tr></thead>
+                      <thead><tr><th data-i18n="page.settings.tubeAuto.genre">ジャンル</th><th data-i18n="page.settings.tubeAuto.type">種類</th><th></th></tr></thead>
                       <tbody id="tube-auto-rules"></tbody>
                     </table>
-                    <button type="button" id="tube-auto-add">行を足す</button>
-                    <button type="button" id="tube-auto-reset" class="link">初期値に戻す</button>
+                    <button type="button" id="tube-auto-add" data-i18n="page.settings.tubeAuto.addRow">行を足す</button>
+                    <button type="button" id="tube-auto-reset" class="link" data-i18n="page.settings.tubeAuto.reset">初期値に戻す</button>
                   </details>
                   <p class="notice" id="tube-auto-problem" hidden></p>
                   <details>
-                    <summary>アルバムごとの指定（<span id="tube-auto-album-count"></span>）</summary>
+                    <summary><span data-i18n="page.settings.tubeAuto.albumsBefore">アルバムごとの指定（</span><span id="tube-auto-album-count"></span><span data-i18n="page.settings.tubeAuto.after">）</span></summary>
                     <ul class="tube-albums" id="tube-auto-albums"></ul>
                   </details>
-                  <p class="note keep">対応表の初期値は出発点で、ジャンルに合う種類を示すものではありません。</p>
+                  <p class="note keep" data-i18n="page.settings.tubeAuto.startNote">対応表の初期値は出発点で、ジャンルに合う種類を示すものではありません。</p>
                   <details class="explain">
-                    <summary>詳細</summary>
-                    <p class="note">
-                      曲ごとに、アルバムの指定 → ジャンルの対応表 → 上で手動で選んだ種類、の順で決めます。ジャンルのタグは「;」「/」「,」で区切り、大文字・小文字と全角・半角を区別せずに比べます。完全に一致する行を先に、なければジャンルの一部に含まれる行（「Vocal Jazz」の「Jazz」）を、表の上から探します。
-                      種類は曲の境目で切り替わります（20 ms でなめらかに）。どの種類も小さな音の音量はそろえてあり、音楽に近い信号（DRIVE −12 dB）で差は 0.03 dB 以内です。ABX で比べるときは使いません。
-                    </p>
+                    <summary data-i18n="page.details">詳細</summary>
+                    <p class="note" data-i18n="page.settings.tubeAuto.note">曲ごとに、アルバムの指定 → ジャンルの対応表 → 上で手動で選んだ種類、の順で決めます。ジャンルのタグは「;」「/」「,」で区切り、大文字・小文字と全角・半角を区別せずに比べます。完全に一致する行を先に、なければジャンルの一部に含まれる行（「Vocal Jazz」の「Jazz」）を、表の上から探します。 種類は曲の境目で切り替わります（20 ms でなめらかに）。どの種類も小さな音の音量はそろえてあり、音楽に近い信号（DRIVE −12 dB）で差は 0.03 dB 以内です。ABX で比べるときは使いません。</p>
                   </details>
                 </div>
               </div>
             </div>
 
             <div class="settings-group" data-group="space">
-              <h2 data-section="space">空間 <small class="for-mode">音作りモードでかけます</small></h2>
+              <h2 data-section="space"><span data-i18n="page.settings.space.heading">空間</span> <small class="for-mode" data-i18n="page.settings.forMode">音作りモードでかけます</small></h2>
               <div class="setting space-controls">
-                <div class="radios" id="space-room" role="radiogroup" aria-label="空間（部屋）"></div>
+                <div class="radios" id="space-room" role="radiogroup" aria-label="空間（部屋）" data-i18n-aria-label="page.settings.space.rooms"></div>
                 <p class="note" id="space-room-note"></p>
                 <label class="slider-row" for="space-mix">MIX
                   <input type="range" id="space-mix" min="0" max="100" step="1" />
                   <output id="space-mix-value" for="space-mix">20%</output>
                 </label>
-                <label class="slider-row" for="space-predelay">プリディレイ
+                <label class="slider-row" for="space-predelay"><span data-i18n="page.settings.space.preDelay">プリディレイ</span>
                   <input type="range" id="space-predelay" min="0" max="100" step="1" />
                   <output id="space-predelay-value" for="space-predelay">10 ms</output>
                 </label>
-                <label class="slider-row" for="space-lowcut">ローカット
+                <label class="slider-row" for="space-lowcut"><span data-i18n="page.settings.space.lowCut">ローカット</span>
                   <input type="range" id="space-lowcut" min="10" max="500" step="10" />
                   <output id="space-lowcut-value" for="space-lowcut">120 Hz</output>
                 </label>
-                <button type="button" id="space-reset" class="link">既定に戻す（MIX 20%・10 ms・120 Hz）</button>
+                <button type="button" id="space-reset" class="link" data-i18n="page.settings.space.reset">既定に戻す（MIX 20%・10 ms・120 Hz）</button>
                 <details class="space-irs">
-                  <summary>部屋ごとの IR（実測・合成・自分のファイル）</summary>
+                  <summary data-i18n="page.settings.space.irs">部屋ごとの IR（実測・合成・自分のファイル）</summary>
                   <ul id="space-irs"></ul>
-                  <p class="note">
-                    自分のファイルは、WAV・FLAC・AIFF の、モノラルかステレオの IR を読めます。最初の音より前の無音は除き、5 秒より長い分は切ります。出力のレートと違えば、変換して使います。読めないファイルのときは、その部屋の内蔵の IR を使います。
-                  </p>
+                  <p class="note" data-i18n="page.settings.space.irsNote">自分のファイルは、WAV・FLAC・AIFF の、モノラルかステレオの IR を読めます。最初の音より前の無音は除き、5 秒より長い分は切ります。出力のレートと違えば、変換して使います。読めないファイルのときは、その部屋の内蔵の IR を使います。</p>
                   <p class="note" id="space-credit"></p>
                 </details>
                 <details class="explain">
-                  <summary>詳細</summary>
-                  <p class="note">
-                    部屋の響き（インパルス応答、IR）を、曲に畳み込んで混ぜます（区切った FFT による畳み込み、64bit 浮動小数点）。MIX は響きの割合で、0% は元の音だけ、100% は響きだけです。IR はエネルギーを 1 にそろえてあり、広い帯域の音では、響きが元の音とほぼ同じ大きさになります。
-                    プリディレイは、元の音から響きが始まるまでの時間です（計算の区切りのため、最小 約 3 ms）。元の音は遅らせません。ローカットは響きの側だけにかける 2 次のハイパスで、元の音の低域は変えません。
-                    HALL の既定は、実在のホール（St Paul's Hall、英国）で測った IR です。CLUB と ARENA の既定、および「合成」は、鏡像法の初期反射と、帯域ごとに減衰する雑音から合成した IR で、実在の場所を測ったものではありません（数字は部屋の大きさと、中域の残響時間）。
-                    部屋の切り替えは約 40 ms のクロスフェードで、再生は途切れません。OFF か MIX 0% なら処理を外し、ほかに処理がなければ原音経路と同じ出力です。真空管の後、クロスフィードの前にかかります。
-                  </p>
+                  <summary data-i18n="page.details">詳細</summary>
+                  <p class="note" data-i18n="page.settings.space.note">部屋の響き（インパルス応答、IR）を、曲に畳み込んで混ぜます（区切った FFT による畳み込み、64bit 浮動小数点）。MIX は響きの割合で、0% は元の音だけ、100% は響きだけです。IR はエネルギーを 1 にそろえてあり、広い帯域の音では、響きが元の音とほぼ同じ大きさになります。 プリディレイは、元の音から響きが始まるまでの時間です（計算の区切りのため、最小 約 3 ms）。元の音は遅らせません。ローカットは響きの側だけにかける 2 次のハイパスで、元の音の低域は変えません。 HALL の既定は、実在のホール（St Paul's Hall、英国）で測った IR です。CLUB と ARENA の既定、および「合成」は、鏡像法の初期反射と、帯域ごとに減衰する雑音から合成した IR で、実在の場所を測ったものではありません（数字は部屋の大きさと、中域の残響時間）。 部屋の切り替えは約 40 ms のクロスフェードで、再生は途切れません。OFF か MIX 0% なら処理を外し、ほかに処理がなければ原音経路と同じ出力です。真空管の後、クロスフィードの前にかかります。</p>
                 </details>
               </div>
             </div>
 
             <div class="settings-group" data-group="crossfeed">
-              <h2 data-section="crossfeed">クロスフィード <small class="for-mode">音作りモードでかけます</small></h2>
+              <h2 data-section="crossfeed"><span data-i18n="page.settings.crossfeed.heading">クロスフィード</span> <small class="for-mode" data-i18n="page.settings.forMode">音作りモードでかけます</small></h2>
               <div class="setting crossfeed-controls">
-                <label class="check"><input type="checkbox" id="crossfeed-enabled" /> クロスフィードを使う（ヘッドホン向け）</label>
-                <div class="radios" id="crossfeed-level" role="radiogroup" aria-label="クロスフィードの強さ"></div>
+                <label class="check"><input type="checkbox" id="crossfeed-enabled" /> <span data-i18n="page.settings.crossfeed.enabled">クロスフィードを使う（ヘッドホン向け）</span></label>
+                <div class="radios" id="crossfeed-level" role="radiogroup" aria-label="クロスフィードの強さ" data-i18n-aria-label="page.settings.crossfeed.levels"></div>
                 <details class="explain">
-                  <summary>詳細</summary>
-                  <p class="note">
-                    左右それぞれの低い音を、反対側にも少し遅れた位相で混ぜます（bs2b の方式）。数字は、混ぜる音のローパスの周波数と、低い音で反対側がまっすぐの音より何 dB 小さいか。中央の音は、低域で 0 dB、高域でやや下がります（標準で 15 kHz に −1.75 dB）。ステレオの曲だけにかけます。真空管の後にかかります。
-                  </p>
+                  <summary data-i18n="page.details">詳細</summary>
+                  <p class="note" data-i18n="page.settings.crossfeed.note">左右それぞれの低い音を、反対側にも少し遅れた位相で混ぜます（bs2b の方式）。数字は、混ぜる音のローパスの周波数と、低い音で反対側がまっすぐの音より何 dB 小さいか。中央の音は、低域で 0 dB、高域でやや下がります（標準で 15 kHz に −1.75 dB）。ステレオの曲だけにかけます。真空管の後にかかります。</p>
                 </details>
               </div>
             </div>
 
             <div class="settings-group" data-group="output-rate">
-              <h2 data-section="output-rate">出力レート <small class="for-mode">音作りモードでかけます</small></h2>
+              <h2 data-section="output-rate"><span data-i18n="page.settings.rate.heading">出力レート</span> <small class="for-mode" data-i18n="page.settings.forMode">音作りモードでかけます</small></h2>
               <div class="setting rate-controls">
-                <div class="radios" id="rate-mode" role="radiogroup" aria-label="出力レート"></div>
+                <div class="radios" id="rate-mode" role="radiogroup" aria-label="出力レート" data-i18n-aria-label="page.settings.rate.modes"></div>
                 <div class="rate-row">
-                  <label for="rate-hz">レート</label>
+                  <label for="rate-hz" data-i18n="page.settings.rate.rate">レート</label>
                   <select id="rate-hz"></select>
-                  <label for="rate-multiple">倍数</label>
+                  <label for="rate-multiple" data-i18n="page.settings.rate.multiple">倍数</label>
                   <select id="rate-multiple"></select>
                 </div>
                 <p class="note" id="rate-note"></p>
-                <p class="note keep">レートを上げても、元の録音にない音（情報）は増えません。変換すると BIT-PERFECT ではなくなります。</p>
+                <p class="note keep" data-i18n="page.settings.rate.keepNote">レートを上げても、元の録音にない音（情報）は増えません。変換すると BIT-PERFECT ではなくなります。</p>
                 <details class="explain">
-                  <summary>詳細</summary>
-                  <p class="note">
-                    リサンプラー（r8brain-free-src、直線位相）で、処理の最後（保険のリミッターの後、ディザの前）にレートを変換します。EQ・真空管・空間などの計算は、曲のレートのままです。設計値は阻止域の減衰 180 dB。自動テストでの測定では、折り返し（エイリアス）とイメージは 200 dB 以上小さく、20 kHz までの音量の差は 0.01 dB 未満です。
-                  </p>
-                  <p class="note">
-                    固定：どの曲もそのレートで出します。曲ごとに DAC のレートが切り替わらなくなります（レートの違う曲の境目では出力を開き直すので、一瞬途切れます）。下限：そのレート未満の曲だけを上げます。整数倍：曲の 2・4・8 倍で出します（44.1 kHz の曲は 88.2・176.4・352.8 kHz）。DAC が受け付けないときは、受け付けるいちばん大きい倍数、それもなければ曲のレートのままです。
-                  </p>
-                  <p class="note">
-                    音作りモードで、DAC が曲のレートを受け付けないときは、受け付けるレート（同じ系列の 2 倍・半分などを優先）へ変換して鳴らします。原音モードでは変換せず、再生できない理由を表示します。
-                  </p>
+                  <summary data-i18n="page.details">詳細</summary>
+                  <p class="note" data-i18n="page.settings.rate.note">リサンプラー（r8brain-free-src、直線位相）で、処理の最後（保険のリミッターの後、ディザの前）にレートを変換します。EQ・真空管・空間などの計算は、曲のレートのままです。設計値は阻止域の減衰 180 dB。自動テストでの測定では、折り返し（エイリアス）とイメージは 200 dB 以上小さく、20 kHz までの音量の差は 0.01 dB 未満です。</p>
+                  <p class="note" data-i18n="page.settings.rate.modesNote">固定：どの曲もそのレートで出します。曲ごとに DAC のレートが切り替わらなくなります（レートの違う曲の境目では出力を開き直すので、一瞬途切れます）。下限：そのレート未満の曲だけを上げます。整数倍：曲の 2・4・8 倍で出します（44.1 kHz の曲は 88.2・176.4・352.8 kHz）。DAC が受け付けないときは、受け付けるいちばん大きい倍数、それもなければ曲のレートのままです。</p>
+                  <p class="note" data-i18n="page.settings.rate.unsupportedNote">音作りモードで、DAC が曲のレートを受け付けないときは、受け付けるレート（同じ系列の 2 倍・半分などを優先）へ変換して鳴らします。原音モードでは変換せず、再生できない理由を表示します。</p>
                 </details>
               </div>
             </div>
 
             <div class="settings-group" data-group="look">
-              <h2 data-section="look">見た目</h2>
+              <h2 data-section="look" data-i18n="page.settings.look.heading">見た目</h2>
               <!-- The language (task 11-1): its heading reads in both languages. -->
               <fieldset class="themes" id="language-set">
                 <legend data-i18n="settings.look.language">言語 / Language</legend>
                 <label><input type="radio" name="language" value="ja" /> <span data-i18n="lang.ja">日本語</span></label>
                 <label><input type="radio" name="language" value="en" /> <span data-i18n="lang.en">English</span></label>
                 <details class="explain">
-                  <summary>詳細</summary>
+                  <summary data-i18n="page.details">詳細</summary>
                   <p class="note" data-i18n="settings.look.languageNote">画面の言語です。初めは Windows の表示言語に合わせます（日本語のとき日本語、それ以外は英語）。</p>
                 </details>
               </fieldset>
               <fieldset class="themes">
-                <legend>ビュー（見た目と配置だけが変わり、機能と表示する情報は同じです）</legend>
-                <label><input type="radio" name="ui-view" value="standard" /> <span><b>標準ビュー</b><small>写実的メディアプレイヤー</small></span></label>
-                <label><input type="radio" name="ui-view" value="amp" /> <span><b>アンプビュー</b><small>真空管アンプ風。情報欄は小さめ</small></span></label>
-                <label><input type="radio" name="ui-view" value="library" /> <span><b>ライブラリビュー</b><small>ライブラリ型メディアプレイヤー風</small></span></label>
+                <legend data-i18n="page.settings.look.views">ビュー（見た目と配置だけが変わり、機能と表示する情報は同じです）</legend>
+                <label><input type="radio" name="ui-view" value="standard" /> <span><b data-i18n="page.settings.look.standard">標準ビュー</b><small data-i18n="page.settings.look.standardSub">写実的メディアプレイヤー</small></span></label>
+                <label><input type="radio" name="ui-view" value="amp" /> <span><b data-i18n="page.settings.look.amp">アンプビュー</b><small data-i18n="page.settings.look.ampSub">真空管アンプ風。情報欄は小さめ</small></span></label>
+                <label><input type="radio" name="ui-view" value="library" /> <span><b data-i18n="page.settings.look.library">ライブラリビュー</b><small data-i18n="page.settings.look.librarySub">ライブラリ型メディアプレイヤー風</small></span></label>
               </fieldset>
               <fieldset class="themes" id="theme-set">
-                <legend>ライブラリビューのテーマ（色だけが変わります）</legend>
-                <label><input type="radio" name="theme" value="amber" /> アンバー</label>
-                <label><input type="radio" name="theme" value="bluegray" /> ブルーグレー</label>
+                <legend data-i18n="page.settings.look.themes">ライブラリビューのテーマ（色だけが変わります）</legend>
+                <label><input type="radio" name="theme" value="amber" /> <span data-i18n="page.settings.look.amber">アンバー</span></label>
+                <label><input type="radio" name="theme" value="bluegray" /> <span data-i18n="page.settings.look.bluegray">ブルーグレー</span></label>
               </fieldset>
             </div>
 
             <div class="settings-group" data-group="articles">
               <!-- The article reader (task 7-1): a window of its own, apart from this page. -->
-              <h2>記事</h2>
+              <h2 data-i18n="page.settings.articles.heading">記事</h2>
               <div class="setting">
-                <button type="button" id="open-articles">記事を開く…</button>
-                <span class="note">このプレイヤーの考え方や、ビットパーフェクト・ABX などの解説を、別の窓で開きます（記事は準備中です）。</span>
+                <button type="button" id="open-articles" data-i18n="page.settings.articles.open">記事を開く…</button>
+                <span class="note" data-i18n="page.settings.articles.note">このプレイヤーの考え方や、ビットパーフェクト・ABX などの解説を、別の窓で開きます（記事は準備中です）。</span>
               </div>
-        
+
             </div>
           </div>
         </section>
@@ -430,8 +391,8 @@
 
       <aside class="queue-panel">
         <div class="queue-head">
-          <h2>再生キュー</h2>
-          <button id="queue-clear" type="button" class="link" title="今の曲より後を消す">この先を消す</button>
+          <h2 data-i18n="page.queue.heading">再生キュー</h2>
+          <button id="queue-clear" type="button" class="link" title="今の曲より後を消す" data-i18n-title="page.queue.clearTitle" data-i18n="page.queue.clear">この先を消す</button>
         </div>
         <div class="queue-count" id="queue-count">—</div>
         <ol class="queue-list" id="queue-list"></ol>
@@ -452,15 +413,15 @@
         <h2>EQ</h2>
         <span class="eq-state" id="eqd-state"></span>
         <span class="spacer-flex"></span>
-        <button id="eqd-close" type="button" class="icon" aria-label="閉じる">✕</button>
+        <button id="eqd-close" type="button" class="icon" aria-label="閉じる" data-i18n-aria-label="page.dialog.close">✕</button>
       </div>
       <p class="notice eq-mode-note" id="eqd-mode-note" hidden>
         <span id="eqd-mode-text"></span>
-        <button type="button" id="eqd-to-processed" class="link">音作りモードにする</button>
+        <button type="button" id="eqd-to-processed" class="link" data-i18n="page.eqDialog.toProcessed">音作りモードにする</button>
       </p>
       <div class="eq-toolbar">
-        <label class="check"><input type="checkbox" id="eqd-enabled" /> EQ を使う</label>
-        <label class="eq-range">縦の範囲
+        <label class="check"><input type="checkbox" id="eqd-enabled" /> <span data-i18n="page.eqDialog.enabled">EQ を使う</span></label>
+        <label class="eq-range"><span data-i18n="page.eqDialog.range">縦の範囲</span>
           <select id="eqd-range">
             <option value="6">±6 dB</option>
             <option value="12" selected>±12 dB</option>
@@ -468,25 +429,23 @@
           </select>
         </label>
         <span class="spacer-flex"></span>
-        <button type="button" id="eqd-import">ファイルから読み込む…</button>
-        <button type="button" id="eqd-clear" class="link">すべて消す</button>
+        <button type="button" id="eqd-import" data-i18n="page.eqDialog.import">ファイルから読み込む…</button>
+        <button type="button" id="eqd-clear" class="link" data-i18n="page.eqDialog.clear">すべて消す</button>
       </div>
       <div id="eqd-presets"></div>
       <div class="eq-graph-wrap">
-        <svg id="eqd-graph" class="eq-graph" role="application" aria-label="EQ のグラフ。ダブルクリックでバンドを足す"></svg>
+        <svg id="eqd-graph" class="eq-graph" role="application" aria-label="EQ のグラフ。ダブルクリックでバンドを足す" data-i18n-aria-label="page.eqDialog.graph"></svg>
       </div>
-      <p class="note eq-hint">
-        何もないところをダブルクリック：バンドを足す ・ ノードをドラッグ：左右で周波数、上下でゲイン（ゲインのない種類は Q） ・ ノードの上でホイール：Q ・ Shift：細かく ・ ノードをダブルクリックか Delete：消す ・ 右クリック：メニュー
-      </p>
+      <p class="note eq-hint" data-i18n="page.eqDialog.hint">何もないところをダブルクリック：バンドを足す ・ ノードをドラッグ：左右で周波数、上下でゲイン（ゲインのない種類は Q） ・ ノードの上でホイール：Q ・ Shift：細かく ・ ノードをダブルクリックか Delete：消す ・ 右クリック：メニュー</p>
       <p class="notice" id="eqd-warnings" hidden></p>
       <div class="eq-bottom">
         <section class="eq-band-panel">
-          <div class="eq-chips" id="eqd-chips" role="tablist" aria-label="バンド"></div>
+          <div class="eq-chips" id="eqd-chips" role="tablist" aria-label="バンド" data-i18n-aria-label="page.eqDialog.bands"></div>
           <div class="eq-controls" id="eqd-controls"></div>
         </section>
         <section class="eq-preamp-panel">
-          <h3>プリアンプ</h3>
-          <label class="check"><input type="checkbox" id="eqd-auto-preamp" /> 自動（最大のブーストの分だけ下げる）</label>
+          <h3 data-i18n="page.eqDialog.preamp">プリアンプ</h3>
+          <label class="check"><input type="checkbox" id="eqd-auto-preamp" /> <span data-i18n="page.eqDialog.autoPreamp">自動（最大のブーストの分だけ下げる）</span></label>
           <div id="eqd-preamp-knob"></div>
           <p class="note" id="eqd-preamp-note"></p>
           <p class="note" id="eqd-limiter"></p>
@@ -501,92 +460,90 @@
         <h2>ABX</h2>
         <span class="oc-file" id="abx-track"></span>
         <span class="spacer-flex"></span>
-        <button id="abx-close" type="button" class="icon" aria-label="閉じる">✕</button>
+        <button id="abx-close" type="button" class="icon" aria-label="閉じる" data-i18n-aria-label="page.dialog.close">✕</button>
       </div>
 
       <section id="abx-setup" class="abx-setup">
         <fieldset>
-          <legend>比べるもの</legend>
-          <label class="check"><input type="radio" name="abx-kind" value="processed" checked /> 原音 と 音作り（今の設定）</label>
-          <label class="check"><input type="radio" name="abx-kind" value="16bit" /> 原音 と 16bit（TPDF ディザ）</label>
-          <label class="check"><input type="radio" name="abx-kind" value="presets" /> 設定 A と 設定 B（EQ・トーン・真空管）</label>
+          <legend data-i18n="page.abx.kinds">比べるもの</legend>
+          <label class="check"><input type="radio" name="abx-kind" value="processed" checked /> <span data-i18n="page.abx.kindProcessed">原音 と 音作り（今の設定）</span></label>
+          <label class="check"><input type="radio" name="abx-kind" value="16bit" /> <span data-i18n="page.abx.kind16bit">原音 と 16bit（TPDF ディザ）</span></label>
+          <label class="check"><input type="radio" name="abx-kind" value="presets" /> <span data-i18n="page.abx.kindPresets">設定 A と 設定 B（EQ・トーン・真空管）</span></label>
           <div class="abx-presets" id="abx-presets" hidden>
             <div class="abx-side">
               <b>A</b>
-              <label>EQ <select id="abx-a-eq" aria-label="A の EQ"></select></label>
-              <label>トーン <select id="abx-a-tone" aria-label="A のトーン"><option value="current">今のトーン</option><option value="flat">なし</option></select></label>
-              <label>真空管 <select id="abx-a-tube" aria-label="A の真空管"><option value="none">なし</option><option value="se300b">SE 300B</option><option value="ppel34">PP EL34</option><option value="ppclassa">PP CLASS A</option></select></label>
-              <label>DRIVE <input type="number" id="abx-a-drive" min="-30" max="6" step="0.5" aria-label="A の DRIVE" /> dB</label>
-              <label>ウォームアップ <select id="abx-a-warmup" aria-label="A のウォームアップ"><option value="off">なし</option><option value="now">今の状態</option><option value="cold">起動直後に固定</option></select></label>
-              <label>球の番号 <input type="number" id="abx-a-unit" min="0" max="99" step="1" aria-label="A の球の番号（0 は個体差なし）" /></label>
+              <label>EQ <select id="abx-a-eq" aria-label="A の EQ" data-i18n-aria-label="page.abx.aEq"></select></label>
+              <label><span data-i18n="page.abx.tone">トーン</span> <select id="abx-a-tone" aria-label="A のトーン" data-i18n-aria-label="page.abx.aTone"><option value="current" data-i18n="page.abx.toneCurrent">今のトーン</option><option value="flat" data-i18n="page.abx.none">なし</option></select></label>
+              <label><span data-i18n="page.abx.tube">真空管</span> <select id="abx-a-tube" aria-label="A の真空管" data-i18n-aria-label="page.abx.aTube"><option value="none" data-i18n="page.abx.none">なし</option><option value="se300b">SE 300B</option><option value="ppel34">PP EL34</option><option value="ppclassa">PP CLASS A</option></select></label>
+              <label>DRIVE <input type="number" id="abx-a-drive" min="-30" max="6" step="0.5" aria-label="A の DRIVE" data-i18n-aria-label="page.abx.aDrive" /> dB</label>
+              <label><span data-i18n="page.abx.warmUp">ウォームアップ</span> <select id="abx-a-warmup" aria-label="A のウォームアップ" data-i18n-aria-label="page.abx.aWarmUp"><option value="off" data-i18n="page.abx.none">なし</option><option value="now" data-i18n="page.abx.warmUpNow">今の状態</option><option value="cold" data-i18n="page.abx.warmUpCold">起動直後に固定</option></select></label>
+              <label><span data-i18n="page.abx.unit">球の番号</span> <input type="number" id="abx-a-unit" min="0" max="99" step="1" aria-label="A の球の番号（0 は個体差なし）" data-i18n-aria-label="page.abx.aUnit" /></label>
             </div>
             <div class="abx-side">
               <b>B</b>
-              <label>EQ <select id="abx-b-eq" aria-label="B の EQ"></select></label>
-              <label>トーン <select id="abx-b-tone" aria-label="B のトーン"><option value="current">今のトーン</option><option value="flat">なし</option></select></label>
-              <label>真空管 <select id="abx-b-tube" aria-label="B の真空管"><option value="none">なし</option><option value="se300b">SE 300B</option><option value="ppel34">PP EL34</option><option value="ppclassa">PP CLASS A</option></select></label>
-              <label>DRIVE <input type="number" id="abx-b-drive" min="-30" max="6" step="0.5" aria-label="B の DRIVE" /> dB</label>
-              <label>ウォームアップ <select id="abx-b-warmup" aria-label="B のウォームアップ"><option value="off">なし</option><option value="now">今の状態</option><option value="cold">起動直後に固定</option></select></label>
-              <label>球の番号 <input type="number" id="abx-b-unit" min="0" max="99" step="1" aria-label="B の球の番号（0 は個体差なし）" /></label>
+              <label>EQ <select id="abx-b-eq" aria-label="B の EQ" data-i18n-aria-label="page.abx.bEq"></select></label>
+              <label><span data-i18n="page.abx.tone">トーン</span> <select id="abx-b-tone" aria-label="B のトーン" data-i18n-aria-label="page.abx.bTone"><option value="current" data-i18n="page.abx.toneCurrent">今のトーン</option><option value="flat" data-i18n="page.abx.none">なし</option></select></label>
+              <label><span data-i18n="page.abx.tube">真空管</span> <select id="abx-b-tube" aria-label="B の真空管" data-i18n-aria-label="page.abx.bTube"><option value="none" data-i18n="page.abx.none">なし</option><option value="se300b">SE 300B</option><option value="ppel34">PP EL34</option><option value="ppclassa">PP CLASS A</option></select></label>
+              <label>DRIVE <input type="number" id="abx-b-drive" min="-30" max="6" step="0.5" aria-label="B の DRIVE" data-i18n-aria-label="page.abx.bDrive" /> dB</label>
+              <label><span data-i18n="page.abx.warmUp">ウォームアップ</span> <select id="abx-b-warmup" aria-label="B のウォームアップ" data-i18n-aria-label="page.abx.bWarmUp"><option value="off" data-i18n="page.abx.none">なし</option><option value="now" data-i18n="page.abx.warmUpNow">今の状態</option><option value="cold" data-i18n="page.abx.warmUpCold">起動直後に固定</option></select></label>
+              <label><span data-i18n="page.abx.unit">球の番号</span> <input type="number" id="abx-b-unit" min="0" max="99" step="1" aria-label="B の球の番号（0 は個体差なし）" data-i18n-aria-label="page.abx.bUnit" /></label>
             </div>
-            <p class="note">どちらも音作りモードで、今の ReplayGain・ISP セーフ・音量をかけ、EQ・トーン・真空管を A と B で選んだものにします。B の音量は A に合わせます。真空管の DRIVE と演出（ウォームアップ・球の番号。0 は個体差なし）は、真空管を選んだ側だけに効きます。「起動直後に固定」は、起動したばかりの冷えた球の特性のまま比べます。</p>
+            <p class="note" data-i18n="page.abx.presetsNote">どちらも音作りモードで、今の ReplayGain・ISP セーフ・音量をかけ、EQ・トーン・真空管を A と B で選んだものにします。B の音量は A に合わせます。真空管の DRIVE と演出（ウォームアップ・球の番号。0 は個体差なし）は、真空管を選んだ側だけに効きます。「起動直後に固定」は、起動したばかりの冷えた球の特性のまま比べます。</p>
           </div>
           <p class="notice" id="abx-kind-note" hidden></p>
         </fieldset>
         <div class="abx-region">
-          <label for="abx-start">区間の始まり <b id="abx-start-text">0:00</b></label>
+          <label for="abx-start"><span data-i18n="page.abx.regionStart">区間の始まり</span> <b id="abx-start-text">0:00</b></label>
           <input id="abx-start" type="range" min="0" max="0" step="1" value="0" />
-          <button type="button" id="abx-here" class="link">今の再生位置から</button>
+          <button type="button" id="abx-here" class="link" data-i18n="page.abx.here">今の再生位置から</button>
         </div>
         <div class="abx-options">
-          <label>区間の長さ
+          <label><span data-i18n="page.abx.length">区間の長さ</span>
             <select id="abx-length">
-              <option value="10">10 秒</option>
-              <option value="20">20 秒</option>
-              <option value="30" selected>30 秒</option>
-              <option value="60">60 秒</option>
+              <option value="10" data-i18n="page.abx.length10">10 秒</option>
+              <option value="20" data-i18n="page.abx.length20">20 秒</option>
+              <option value="30" selected data-i18n="page.abx.length30">30 秒</option>
+              <option value="60" data-i18n="page.abx.length60">60 秒</option>
             </select>
           </label>
-          <label>回数
+          <label><span data-i18n="page.abx.trials">回数</span>
             <select id="abx-trials">
-              <option value="8">8 回</option>
-              <option value="12">12 回</option>
-              <option value="16" selected>16 回</option>
-              <option value="20">20 回</option>
-              <option value="24">24 回</option>
+              <option value="8" data-i18n="page.abx.trials8">8 回</option>
+              <option value="12" data-i18n="page.abx.trials12">12 回</option>
+              <option value="16" selected data-i18n="page.abx.trials16">16 回</option>
+              <option value="20" data-i18n="page.abx.trials20">20 回</option>
+              <option value="24" data-i18n="page.abx.trials24">24 回</option>
             </select>
           </label>
         </div>
-        <p class="note">
-          区間をくり返し流します（つなぎ目は 5 ms のクロスフェード）。B の音量は、この区間で解析して A に合わせます。
-          A と B は何度でも切り替えて聴けます。X は回ごとに A か B のどちらかで、OS の乱数で決めます。
-          正解数は最後まで出しません（途中で見ると、当たっているところでやめる偏りが入り、p の意味が崩れるため）。
-          p &lt; 0.05 なら「聞き分けられた可能性が高い」とします。どちらの音がよいかは判定しません。
-        </p>
+        <!-- How the test runs: written in by main.ts (page.abx.howItWorks), at
+             start and on a change of language. Its "p < 0.05" would be "&lt;"
+             here, which a data-i18n text cannot hold. -->
+        <p class="note"></p>
         <p class="error" id="abx-error" hidden></p>
         <div class="abx-actions">
-          <button type="button" id="abx-start-btn" class="primary">始める</button>
-          <span class="note" id="abx-preparing" hidden>区間を解析しています…</span>
+          <button type="button" id="abx-start-btn" class="primary" data-i18n="page.abx.start">始める</button>
+          <span class="note" id="abx-preparing" hidden data-i18n="page.abx.preparing">区間を解析しています…</span>
         </div>
       </section>
 
       <section id="abx-run" class="abx-run" hidden>
         <div class="abx-progress">
-          <span id="abx-trial">1 / 16 回目</span>
+          <span id="abx-trial" data-i18n="page.abx.trialPlaceholder">1 / 16 回目</span>
           <span class="note" id="abx-region"></span>
         </div>
-        <div class="abx-choices" role="group" aria-label="聴く音">
-          <button type="button" class="abx-choice" data-choice="A"><b>A</b><small id="abx-a-label">原音</small><kbd>A</kbd></button>
-          <button type="button" class="abx-choice" data-choice="B"><b>B</b><small id="abx-b-label">音作り</small><kbd>B</kbd></button>
-          <button type="button" class="abx-choice" data-choice="X"><b>X</b><small>A か B</small><kbd>X</kbd></button>
+        <div class="abx-choices" role="group" aria-label="聴く音" data-i18n-aria-label="page.abx.choices">
+          <button type="button" class="abx-choice" data-choice="A"><b>A</b><small id="abx-a-label" data-i18n="page.abx.aPlaceholder">原音</small><kbd>A</kbd></button>
+          <button type="button" class="abx-choice" data-choice="B"><b>B</b><small id="abx-b-label" data-i18n="page.abx.bPlaceholder">音作り</small><kbd>B</kbd></button>
+          <button type="button" class="abx-choice" data-choice="X"><b>X</b><small data-i18n="page.abx.xIs">A か B</small><kbd>X</kbd></button>
         </div>
-        <div class="abx-answers" role="group" aria-label="答え">
-          <button type="button" id="abx-answer-a">X は A <kbd>1</kbd></button>
-          <button type="button" id="abx-answer-b">X は B <kbd>2</kbd></button>
+        <div class="abx-answers" role="group" aria-label="答え" data-i18n-aria-label="page.abx.answers">
+          <button type="button" id="abx-answer-a"><span data-i18n="page.abx.answerA">X は A</span> <kbd>1</kbd></button>
+          <button type="button" id="abx-answer-b"><span data-i18n="page.abx.answerB">X は B</span> <kbd>2</kbd></button>
         </div>
         <p class="note" id="abx-match"></p>
         <div class="abx-actions">
-          <button type="button" id="abx-abort" class="link">中断する（Esc）</button>
+          <button type="button" id="abx-abort" class="link" data-i18n="page.abx.abort">中断する（Esc）</button>
         </div>
       </section>
 
@@ -597,8 +554,8 @@
         <p class="notice" id="abx-low" hidden></p>
         <p class="note" id="abx-level"></p>
         <div class="abx-actions">
-          <button type="button" id="abx-again">もう一度</button>
-          <button type="button" id="abx-done" class="primary">閉じる</button>
+          <button type="button" id="abx-again" data-i18n="page.abx.again">もう一度</button>
+          <button type="button" id="abx-done" class="primary" data-i18n="page.abx.close">閉じる</button>
         </div>
       </section>
     </dialog>
@@ -610,61 +567,61 @@
          BIT-PERFECT judgement with its reasons, and the meters. -->
     <dialog id="output-dialog" class="output-dialog">
       <div class="dialog-head">
-        <h2>出力の確認</h2>
+        <h2 data-i18n="page.output.heading">出力の確認</h2>
         <span class="oc-file" id="oc-file"></span>
         <span class="spacer-flex"></span>
-        <button id="output-close" type="button" class="icon" aria-label="閉じる">✕</button>
+        <button id="output-close" type="button" class="icon" aria-label="閉じる" data-i18n-aria-label="page.dialog.close">✕</button>
       </div>
       <div class="oc-body">
         <div class="oc-main">
-          <section class="oc-path" aria-label="経路">
-            <h3>経路</h3>
+          <section class="oc-path" aria-label="経路" data-i18n-aria-label="page.output.pathLabel">
+            <h3 data-i18n="page.output.path">経路</h3>
             <div class="oc-diagram" id="oc-diagram"></div>
           </section>
           <div class="notice oc-isp" id="oc-isp" hidden>
             <span id="oc-isp-text"></span>
-            <button type="button" id="oc-isp-on">ISP セーフをオンにする（計測した値で下げる）</button>
+            <button type="button" id="oc-isp-on" data-i18n="page.output.ispOn">ISP セーフをオンにする（計測した値で下げる）</button>
           </div>
-          <section class="oc-verdict" id="oc-verdict" aria-label="BIT-PERFECT の判定"></section>
+          <section class="oc-verdict" id="oc-verdict" aria-label="BIT-PERFECT の判定" data-i18n-aria-label="page.output.verdict"></section>
           <div class="oc-abx">
-            <button type="button" id="oc-abx">ABX で聴き比べる…</button>
-            <span class="note">今の曲で、原音と音作り（または 16bit）を聞き分けられるかを確かめます。</span>
+            <button type="button" id="oc-abx" data-i18n="page.output.abx">ABX で聴き比べる…</button>
+            <span class="note" data-i18n="page.output.abxNote">今の曲で、原音と音作り（または 16bit）を聞き分けられるかを確かめます。</span>
           </div>
           <details class="oc-details">
-            <summary>詳細</summary>
+            <summary data-i18n="page.details">詳細</summary>
             <dl>
-              <dt>入力</dt>
+              <dt data-i18n="page.output.input">入力</dt>
               <dd id="source-format">—</dd>
-              <dt>ファイルの検証</dt>
+              <dt data-i18n="page.output.integrity">ファイルの検証</dt>
               <dd id="integrity">—</dd>
-              <dt>出力デバイス</dt>
+              <dt data-i18n="page.output.device">出力デバイス</dt>
               <dd><span id="output-name">—</span><p class="notice" id="output-notice" hidden></p></dd>
-              <dt>出力の方式</dt>
+              <dt data-i18n="page.output.mode">出力の方式</dt>
               <dd id="output-mode">—</dd>
-              <dt>Windows の音量</dt>
+              <dt data-i18n="page.output.windowsVolume">Windows の音量</dt>
               <dd id="volume">—</dd>
-              <dt>送る形式</dt>
+              <dt data-i18n="page.output.format">送る形式</dt>
               <dd id="output-format">—</dd>
-              <dt>詰め替え</dt>
+              <dt data-i18n="page.output.repack">詰め替え</dt>
               <dd id="repack">—</dd>
-              <dt>処理</dt>
-              <dd id="processing">なし（原音経路：音量・変換・ディザをかけません）</dd>
-              <dt>ビットパーフェクト</dt>
+              <dt data-i18n="page.output.processing">処理</dt>
+              <dd id="processing" data-i18n="page.output.processingPlaceholder">なし（原音経路：音量・変換・ディザをかけません）</dd>
+              <dt data-i18n="page.output.bitPerfect">ビットパーフェクト</dt>
               <dd id="bit-perfect">—</dd>
-              <dt>自己確認</dt>
+              <dt data-i18n="page.output.selfCheck">自己確認</dt>
               <dd id="self-check">—</dd>
-              <dt>曲の切り替え</dt>
+              <dt data-i18n="page.output.transitions">曲の切り替え</dt>
               <dd><ul class="transitions" id="transitions"><li>—</li></ul></dd>
-              <dt>音切れ</dt>
+              <dt data-i18n="page.output.dropouts">音切れ</dt>
               <dd id="dropouts">—</dd>
-              <dt>再生スレッド</dt>
+              <dt data-i18n="page.output.priority">再生スレッド</dt>
               <dd id="priority">—</dd>
             </dl>
             <p class="notice" id="dop-note" hidden></p>
             <p class="error" id="integrity-failures" hidden></p>
           </details>
         </div>
-        <aside class="oc-meters" aria-label="メーター">
+        <aside class="oc-meters" aria-label="メーター" data-i18n-aria-label="page.output.meters">
           <h3>True Peak <small>dBTP</small></h3>
           <div class="oc-tp">
             <div class="oc-bars" id="oc-peaks"></div>
@@ -675,15 +632,15 @@
             </div>
           </div>
           <div class="oc-values" id="oc-peak-values"></div>
-          <h3>ラウドネス <small>LUFS</small></h3>
+          <h3><span data-i18n="page.output.loudness">ラウドネス</span> <small>LUFS</small></h3>
           <div class="oc-loudness">
             <div class="oc-bar loud"><div class="fill" id="oc-loud-fill"></div></div>
             <dl>
-              <dt>瞬時（0.4 秒）</dt>
+              <dt data-i18n="page.output.momentary">瞬時（0.4 秒）</dt>
               <dd id="oc-momentary">—</dd>
-              <dt>短時間（3 秒）</dt>
+              <dt data-i18n="page.output.shortTerm">短時間（3 秒）</dt>
               <dd id="oc-short">—</dd>
-              <dt>この曲の統合値</dt>
+              <dt data-i18n="page.output.integrated">この曲の統合値</dt>
               <dd id="oc-integrated" class="big">—</dd>
             </dl>
           </div>

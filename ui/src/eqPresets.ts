@@ -3,6 +3,7 @@
 // list is kept by the app (settingsSetEqPresets, saved with the settings);
 // the page edits it as a whole with these pure functions.
 
+import { t } from "./i18n";
 import type { EqBand, ListeningSettings } from "./settings";
 
 export interface EqPreset {
@@ -15,8 +16,16 @@ export interface EqPreset {
 export const MAX_PRESETS = 100;
 export const MAX_PRESET_NAME = 60;
 
-// For the ABX's 設定 A と設定 B: the EQ left out.
-export const FLAT_PRESET: EqPreset = { name: "EQ なし（平ら）", bands: [], autoPreamp: true, manualPreampDb: 0 };
+// For the ABX's 設定 A と設定 B: the EQ left out. Its name is read in the
+// language in use each time (a getter; a copy keeps the name it was made with).
+export const FLAT_PRESET: EqPreset = {
+  get name() {
+    return t("controls.eqPresets.flat");
+  },
+  bands: [],
+  autoPreamp: true,
+  manualPreampDb: 0,
+};
 
 export function presetName(raw: string): string | null {
   const name = [...raw.replace(/\s+/g, " ").trim()].slice(0, MAX_PRESET_NAME).join("").trim();
@@ -58,20 +67,20 @@ export type ListResult = { ok: true; list: EqPreset[] } | { ok: false; message: 
 // Saves under the preset's name: a name in use is replaced in its place.
 export function withSaved(list: EqPreset[], p: EqPreset): ListResult {
   const name = presetName(p.name);
-  if (!name) return { ok: false, message: "名前を入れてください" };
+  if (!name) return { ok: false, message: t("controls.eqPresets.noName") };
   const saved = { ...structuredClone(p), name };
   const at = list.findIndex((q) => q.name === name);
   if (at >= 0) return { ok: true, list: list.map((q, i) => (i === at ? saved : q)) };
-  if (list.length >= MAX_PRESETS) return { ok: false, message: `プリセットは ${MAX_PRESETS} 個までです。使わないものを消してください` };
+  if (list.length >= MAX_PRESETS) return { ok: false, message: t("controls.eqPresets.tooMany", { max: MAX_PRESETS }) };
   return { ok: true, list: [...list, saved] };
 }
 
 export function withRenamed(list: EqPreset[], from: string, to: string): ListResult {
   const name = presetName(to);
-  if (!name) return { ok: false, message: "名前を入れてください" };
+  if (!name) return { ok: false, message: t("controls.eqPresets.noName") };
   const at = list.findIndex((p) => p.name === from);
-  if (at < 0) return { ok: false, message: "そのプリセットは見つかりません" };
-  if (name !== from && list.some((p) => p.name === name)) return { ok: false, message: `「${name}」はもうあります` };
+  if (at < 0) return { ok: false, message: t("controls.eqPresets.notFound") };
+  if (name !== from && list.some((p) => p.name === name)) return { ok: false, message: t("controls.eqPresets.taken", { name }) };
   return { ok: true, list: list.map((p, i) => (i === at ? { ...p, name } : p)) };
 }
 

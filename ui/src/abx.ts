@@ -3,6 +3,7 @@
 // "distinguished" means p < 0.05, and the texts never say which sounds better.
 
 import { FLAT_PRESET, presetFrom, type EqPreset } from "./eqPresets";
+import { t } from "./i18n";
 import { TUBE_LABELS, type ListeningSettings, type TubeType } from "./settings";
 import { unitLabel } from "./tubeCharacter";
 
@@ -45,17 +46,23 @@ export interface AbxRequest {
   b?: SideRequest;
 }
 
-export const KINDS: Record<AbxKind, { title: string; a: string; b: string }> = {
-  processed: { title: "原音 と 音作り（今の設定）", a: "原音", b: "音作り" },
-  "16bit": { title: "原音 と 16bit（TPDF ディザ）", a: "原音", b: "16bit" },
-  presets: { title: "設定 A と 設定 B（EQ・トーン・真空管）", a: "設定 A", b: "設定 B" },
-};
+// What each kind compares, and its two sides, in the language in use.
+function kindTexts(kind: AbxKind): { title: string; a: string; b: string } {
+  switch (kind) {
+    case "processed":
+      return { title: t("controls.abx.kind.processed"), a: t("controls.abx.side.original"), b: t("controls.abx.side.processed") };
+    case "16bit":
+      return { title: t("controls.abx.kind.sixteenBit"), a: t("controls.abx.side.original"), b: "16bit" };
+    case "presets":
+      return { title: t("controls.abx.kind.presets"), a: t("controls.abx.side.a"), b: t("controls.abx.side.b") };
+  }
+}
 
 // What the A and B buttons and the run's description call the two sides.
 export function sideLabels(a: { kind: AbxKind; aName?: string; bName?: string }) {
   if (a.kind === "presets" && a.aName && a.bName)
-    return { a: a.aName, b: a.bName, title: `設定 A「${a.aName}」と 設定 B「${a.bName}」` };
-  return { ...KINDS[a.kind] };
+    return { a: a.aName, b: a.bName, title: t("controls.abx.presetsTitle", { a: a.aName, b: a.bName }) };
+  return kindTexts(a.kind);
 }
 
 // --- 設定 A と設定 B (tasks 6-9, 9-4) ----------------------------------------------------
@@ -110,23 +117,31 @@ const db = (v: number) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`;
 export function sideRequest(c: SideChoice, l: ListeningSettings, presets: EqPreset[]): SideRequest {
   const eq =
     c.eq === "current"
-      ? presetFrom(l, "今の EQ")
-      : (presets.find((p) => `p:${p.name}` === c.eq) ?? { ...FLAT_PRESET, name: "EQ なし" });
+      ? presetFrom(l, t("controls.abx.eq.currentName"))
+      : (presets.find((p) => `p:${p.name}` === c.eq) ?? { ...FLAT_PRESET, name: t("controls.abx.eq.none") });
   const bass = c.tone === "current" ? l.toneBassDb : 0;
   const treble = c.tone === "current" ? l.toneTrebleDb : 0;
+  const sep = t("controls.abx.side.separator");
   const parts = [eq.name];
-  const tone = [bass !== 0 ? `BASS ${db(bass)}` : "", treble !== 0 ? `TREBLE ${db(treble)}` : ""].filter((t) => t);
-  if (tone.length > 0) parts.push(`トーン（${tone.join("、")}）`);
+  const tone = [bass !== 0 ? `BASS ${db(bass)}` : "", treble !== 0 ? `TREBLE ${db(treble)}` : ""].filter((x) => x);
+  if (tone.length > 0) parts.push(t("controls.abx.side.tone", { tone: tone.join(t("list.separator")) }));
   const warmUp = c.warmUp ?? "off";
   const unit = c.unit ?? 0;
-  const show = [
-    warmUp === "now" ? "・ウォームアップ：今の状態" : warmUp === "cold" ? "・ウォームアップ：起動直後" : "",
-    unit > 0 ? `・${unitLabel(unit)}` : "",
-  ].join("");
-  parts.push(c.tube === "none" ? "真空管なし" : `${TUBE_LABELS[c.tube]}（DRIVE ${db(c.drive)}${show}）`);
+  const extras = [
+    warmUp === "now" ? t("controls.abx.side.warmUpNow") : warmUp === "cold" ? t("controls.abx.side.warmUpCold") : "",
+    unit > 0 ? unitLabel(unit) : "",
+  ]
+    .filter((x) => x)
+    .map((x) => sep + x)
+    .join("");
+  parts.push(
+    c.tube === "none"
+      ? t("controls.abx.side.noTube")
+      : t("controls.abx.side.tube", { tube: TUBE_LABELS[c.tube], drive: db(c.drive), extras }),
+  );
   return {
     ...structuredClone(eq),
-    name: parts.join("・"),
+    name: parts.join(sep),
     toneBassDb: bass,
     toneTrebleDb: treble,
     tubeEnabled: c.tube !== "none",
@@ -145,7 +160,7 @@ export function sidePairProblem(a: SideChoice, b: SideChoice): string {
     a.tube === "none" ||
     (a.drive === b.drive && (a.warmUp ?? "off") === (b.warmUp ?? "off") && (a.unit ?? 0) === (b.unit ?? 0));
   const same = a.eq === b.eq && a.tone === b.tone && a.tube === b.tube && sameTube;
-  return same ? "A と B に違う設定を選んでください。" : "";
+  return same ? t("controls.abx.problem.samePair") : "";
 }
 
 function choose(n: number, k: number): number {
@@ -182,30 +197,24 @@ export interface ResultText {
 export function resultText(r: AbxResultInfo): ResultText {
   const level =
     r.levelDifferenceDb === null
-      ? "音量差：測れませんでした（流した時間が短すぎます。比べ始めの 3 秒は測りません）"
-      : `音量差 ${signed(r.levelDifferenceDb, 2)} dB（基準は 0.1 dB 以内）` +
-        (r.levelMatched ? "" : "：基準を超えたので、結果は参考です（音量の違いで聞き分けた可能性があります）");
+      ? t("controls.abx.result.levelUnmeasured")
+      : t(r.levelMatched ? "controls.abx.result.level" : "controls.abx.result.levelOver", {
+          db: signed(r.levelDifferenceDb, 2),
+        });
   if (!r.finished || r.correct === null || r.pValue === null)
     return {
-      headline: "中断しました",
+      headline: t("controls.abx.result.aborted"),
       p: "",
-      verdict: "途中で中断したので、結果は出しません（途中の結果で判断すると、p の意味が崩れるため）。",
+      verdict: t("controls.abx.result.abortedVerdict"),
       level: "",
       low: "",
     };
-  const verdict = r.distinguished
-    ? "p < 0.05：偶然とは考えにくい結果です。A と B の違いを聞き分けられた可能性が高いと言えます。"
-    : "p ≥ 0.05：偶然でも十分に起こりうる結果です。聞き分けられたとは言えません（違いがないという意味ではありません）。";
+  const verdict = r.distinguished ? t("controls.abx.result.distinguished") : t("controls.abx.result.notDistinguished");
   const lower = lowerTailP(r.correct, r.trials);
-  const low =
-    lower < 0.05
-      ? `正解が少なすぎます（当てずっぽうでこれ以下になる確率は ${(lower * 100).toFixed(1)}%）。` +
-        "A と B の違いは聞こえていて、取り違えている可能性があります。" +
-        "この検定は「当たりが多いか」だけを見るので、これを「聞き分けられた」とは数えません。もう一度試すと確かめられます。"
-      : "";
+  const low = lower < 0.05 ? t("controls.abx.result.tooFew", { percent: (lower * 100).toFixed(1) }) : "";
   return {
-    headline: `${r.trials} 回中 ${r.correct} 回正解`,
-    p: `p = ${r.pValue.toFixed(4)}（当てずっぽうでこれ以上当たる確率）`,
+    headline: t("controls.abx.result.headline", { trials: r.trials, correct: r.correct }),
+    p: t("controls.abx.result.p", { p: r.pValue.toFixed(4) }),
     verdict,
     level,
     low,
@@ -220,7 +229,7 @@ function clock(seconds: number): string {
 export function regionText(startFrames: number, lengthFrames: number, rate: number): string {
   if (rate <= 0) return "";
   const a = startFrames / rate, len = lengthFrames / rate;
-  return `${clock(a)}〜${clock(a + len)}（${Math.round(len)} 秒）をくり返し`;
+  return t("controls.abx.region", { from: clock(a), to: clock(a + len), seconds: Math.round(len) });
 }
 
 // The region to start with: from the current position, moved back so it fits.

@@ -16,6 +16,7 @@ import {
   type Param,
 } from "./eqEdit";
 import { autoPreampDb, responsePoints, usesGain } from "./eqResponse";
+import { onLangChange, t } from "./i18n";
 import { Knob } from "./knob";
 import {
   dbText,
@@ -75,23 +76,31 @@ export class EqEditor {
     menu: $("eqd-menu"),
   };
 
-  private readonly preampKnob: Knob;
+  private preampKnob: Knob;
   private bandKnobs: Record<"frequency" | "gainDb" | "q", Knob> | null = null;
   private controlsFor = -2; // the band the controls were built for (-1: none)
+  private lastLimiter: LimiterStats | null = null;
 
   constructor(
     private readonly host: EqEditorHost,
     private readonly setMode: (processed: boolean) => void,
   ) {
-    this.preampKnob = new Knob({
-      param: "preamp",
-      label: "プリアンプ",
-      value: 0,
-      defaultValue: () => 0,
-      parse: (t) => this.parse("preamp", t),
-      onChange: (v) => this.host.update({ eqManualPreampDb: v }, DRAG_SEND_MS),
-    });
+    this.preampKnob = this.makePreampKnob();
     this.els.preampKnobBox.append(this.preampKnob.el);
+    // The words drawn here, again in the language chosen: the knobs are made
+    // again (their names are set when made), the rest is drawn again.
+    onLangChange(() => {
+      const before = this.preampKnob;
+      this.preampKnob = this.makePreampKnob();
+      before.el.replaceWith(this.preampKnob.el);
+      const l = this.host.listening();
+      this.preampKnob.set(l.eqAutoPreamp ? this.autoPreamp() : l.eqManualPreampDb);
+      this.preampKnob.setDisabled(l.eqAutoPreamp);
+      this.controlsFor = -2;
+      if (this.lastLimiter) this.showStatus(this.lastLimiter, this.solo);
+      this.render();
+      this.hideMenu();
+    });
 
     this.els.close.addEventListener("click", () => {
       if (this.solo !== null) this.setSolo(null);
@@ -132,6 +141,17 @@ export class EqEditor {
     new ResizeObserver(() => this.els.dialog.open && this.drawGraph()).observe(this.els.graph);
   }
 
+  private makePreampKnob(): Knob {
+    return new Knob({
+      param: "preamp",
+      label: t("controls.eqEditor.preamp"),
+      value: 0,
+      defaultValue: () => 0,
+      parse: (text) => this.parse("preamp", text),
+      onChange: (v) => this.host.update({ eqManualPreampDb: v }, DRAG_SEND_MS),
+    });
+  }
+
   open() {
     const bands = this.bands();
     if (this.selected >= bands.length) this.selected = -1;
@@ -154,19 +174,17 @@ export class EqEditor {
 
     const original = l.mode === "original";
     this.els.modeNote.hidden = !original && l.eqEnabled;
-    this.els.modeText.textContent = original
-      ? "⚠ 今は原音モードなので、EQ はかかりません（ここで決めた設定は残ります）。"
-      : "⚠ 「EQ を使う」がオフなので、EQ はかかりません。";
+    this.els.modeText.textContent = `⚠ ${original ? t("controls.eqEditor.originalMode") : t("controls.eqEditor.eqOff")}`;
     this.els.toProcessed.hidden = !original;
     this.els.enabled.checked = l.eqEnabled;
     this.els.clear.disabled = bands.length === 0;
-    this.els.state.textContent = `${bands.length} / ${MAX_BANDS} バンド`;
+    this.els.state.textContent = t("controls.eqEditor.bandCount", { n: bands.length, max: MAX_BANDS });
 
     this.els.autoPreamp.checked = l.eqAutoPreamp;
     this.preampKnob.set(l.eqAutoPreamp ? this.autoPreamp() : l.eqManualPreampDb);
     this.preampKnob.setDisabled(l.eqAutoPreamp);
     this.els.preampNote.textContent = l.eqAutoPreamp
-      ? `自動：${dbText(this.autoPreamp())}（${RATE / 1000} kHz で計算。曲のレートで少し変わります）。EQ そのものでは 0 dB を超えません。`
+      ? t("controls.eqEditor.preampAuto", { db: dbText(this.autoPreamp()), khz: RATE / 1000 })
       : this.manualNote(l);
 
     this.renderChips();
@@ -177,10 +195,11 @@ export class EqEditor {
   // From the playback status: the limiter's count and the solo state.
   showStatus(limiter: LimiterStats, eqSolo: number | null) {
     this.solo = eqSolo;
+    this.lastLimiter = limiter;
     this.els.limiter.textContent =
       limiter.events === 0
-        ? "保険のリミッター：働いていません（設定を変えてから、または再生を始めてから）。"
-        : `⚠ 保険のリミッター：${limiter.events} 回、最大 ${dbText(limiter.maxReductionDb)}（設定を変えてから、または再生を始めてから）。`;
+        ? t("controls.eqEditor.limiterIdle")
+        : `⚠ ${t("controls.eqEditor.limiterActive", { events: limiter.events, db: dbText(limiter.maxReductionDb) })}`;
     this.els.limiter.className = limiter.events === 0 ? "note" : "notice";
     if (this.els.dialog.open) {
       this.renderChips();
@@ -207,8 +226,8 @@ export class EqEditor {
   private manualNote(l: ListeningSettings) {
     const over = -autoPreamp(l) - -l.eqManualPreampDb; // the largest boost minus what the preamp takes off
     return over > 0.05
-      ? `⚠ 手動：最大のブーストより ${over.toFixed(1)} dB 少なく下げています。0 dBFS に近い曲では、超えた分を保険のリミッターが抑えます。`
-      : "手動：最大のブースト以上に下げているので、EQ そのものでは 0 dB を超えません。";
+      ? `⚠ ${t("controls.eqEditor.preampManualShort", { db: over.toFixed(1) })}`
+      : t("controls.eqEditor.preampManualOk");
   }
 
   private parse(p: Param, text: string): number | null {
@@ -267,9 +286,9 @@ export class EqEditor {
         chip.innerHTML = "";
         const no = document.createElement("b");
         no.textContent = String(i + 1);
-        const t = document.createElement("span");
-        t.textContent = `${FILTER_LABELS[b.type]} ${frequencyText(b.frequency)}${usesGain(b.type) ? ` ${dbText(b.gainDb)}` : ""}`;
-        chip.append(no, t);
+        const text = document.createElement("span");
+        text.textContent = bandText(b);
+        chip.append(no, text);
         chip.addEventListener("click", () => this.select(i));
         return chip;
       }),
@@ -277,7 +296,7 @@ export class EqEditor {
     if (bands.length === 0) {
       const p = document.createElement("p");
       p.className = "note";
-      p.textContent = "バンドがありません。グラフをダブルクリックして足してください。";
+      p.textContent = t("controls.eqEditor.noBands");
       this.els.chips.append(p);
     }
   }
@@ -289,7 +308,7 @@ export class EqEditor {
       this.bandKnobs = null;
       const p = document.createElement("p");
       p.className = "note";
-      p.textContent = "バンドを選ぶと、ここで周波数・ゲイン・Q をツマミで変えられます。";
+      p.textContent = t("controls.eqEditor.chooseBand");
       this.els.controls.replaceChildren(p);
       return;
     }
@@ -312,7 +331,7 @@ export class EqEditor {
     const head = document.createElement("div");
     head.className = "eq-control-head";
     const title = document.createElement("b");
-    title.textContent = `バンド ${i + 1}`;
+    title.textContent = t("controls.eqEditor.bandTitle", { n: i + 1 });
     const onLabel = document.createElement("label");
     onLabel.className = "check";
     const on = document.createElement("input");
@@ -320,22 +339,22 @@ export class EqEditor {
     on.className = "eq-on";
     on.checked = band.enabled;
     on.addEventListener("change", () => this.setBand(i, { enabled: on.checked }));
-    onLabel.append(on, " 使う");
+    onLabel.append(on, ` ${t("controls.eqEditor.use")}`);
     const type = document.createElement("select");
     type.className = "eq-type";
-    type.setAttribute("aria-label", "種類");
+    type.setAttribute("aria-label", t("controls.eqEditor.type"));
     for (const [value, label] of Object.entries(FILTER_LABELS)) type.add(new Option(label, value));
     type.value = band.type;
     type.addEventListener("change", () => this.setBand(i, { type: type.value as EqFilterType }));
     const solo = document.createElement("button");
     solo.type = "button";
     solo.className = "eq-solo";
-    solo.title = "このバンドの周波数のあたりだけを聴く（バンドパス。保存はしません）";
+    solo.title = t("controls.eqEditor.soloTitle");
     solo.addEventListener("click", () => this.setSolo(this.solo === i ? null : i));
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "link";
-    remove.textContent = "このバンドを消す";
+    remove.textContent = t("controls.eqEditor.removeBand");
     remove.addEventListener("click", () => this.removeBand(i));
     head.append(title, onLabel, type, solo, remove);
 
@@ -348,10 +367,14 @@ export class EqEditor {
         value: band[param],
         centred: param === "gainDb",
         defaultValue: () => defaultValue(param, this.bands()[i] ?? null),
-        parse: (t) => this.parse(param, t),
+        parse: (text) => this.parse(param, text),
         onChange: (v) => this.setBand(i, { [param]: v }, DRAG_SEND_MS),
       });
-    this.bandKnobs = { frequency: make("frequency", "周波数"), gainDb: make("gainDb", "ゲイン"), q: make("q", "Q") };
+    this.bandKnobs = {
+      frequency: make("frequency", t("controls.eqEditor.frequency")),
+      gainDb: make("gainDb", t("controls.eqEditor.gain")),
+      q: make("q", "Q"),
+    };
     this.bandKnobs.gainDb.setDisabled(!usesGain(band.type));
     knobs.append(this.bandKnobs.frequency.el, this.bandKnobs.gainDb.el, this.bandKnobs.q.el);
     this.els.controls.replaceChildren(head, knobs);
@@ -363,7 +386,7 @@ export class EqEditor {
     if (!b) return;
     const on = this.solo !== null && this.solo === this.selected;
     b.classList.toggle("active", on);
-    b.textContent = on ? "Solo 中" : "Solo";
+    b.textContent = on ? t("controls.eqEditor.soloOn") : "Solo";
     b.setAttribute("aria-pressed", String(on));
     const l = this.host.listening();
     b.disabled = l.mode === "original" || !l.eqEnabled;
@@ -471,15 +494,15 @@ export class EqEditor {
     };
     const l = this.host.listening();
     this.els.menu.replaceChildren(
-      item(b.enabled ? "使わない" : "使う", () => this.setBand(i, { enabled: !b.enabled })),
-      item(this.solo === i ? "Solo をやめる" : "Solo", () => this.setSolo(this.solo === i ? null : i), false,
+      item(b.enabled ? t("controls.eqEditor.dontUse") : t("controls.eqEditor.use"), () => this.setBand(i, { enabled: !b.enabled })),
+      item(this.solo === i ? t("controls.eqEditor.soloStop") : "Solo", () => this.setSolo(this.solo === i ? null : i), false,
         l.mode === "original" || !l.eqEnabled),
       sep(),
-      ...(Object.entries(FILTER_LABELS) as [EqFilterType, string][]).map(([t, label]) =>
-        item(label, () => this.setBand(i, { type: t }), b.type === t),
+      ...(Object.entries(FILTER_LABELS) as [EqFilterType, string][]).map(([type, label]) =>
+        item(label, () => this.setBand(i, { type }), b.type === type),
       ),
       sep(),
-      item("消す", () => this.removeBand(i)),
+      item(t("controls.eqEditor.remove"), () => this.removeBand(i)),
     );
     const menu = this.els.menu;
     menu.hidden = false;
@@ -508,9 +531,9 @@ export class EqEditor {
       const x = graphX(hz, f);
       children.push(svgEl("line", { x1: x, x2: x, y1: 0, y2: f.height, class: "grid" }));
       if (hz > 20 && hz < 20000) {
-        const t = svgEl("text", { x: x + 3, y: f.height - 5, class: "axis" });
-        t.textContent = hz >= 1000 ? `${hz / 1000}k` : String(hz);
-        children.push(t);
+        const label = svgEl("text", { x: x + 3, y: f.height - 5, class: "axis" });
+        label.textContent = hz >= 1000 ? `${hz / 1000}k` : String(hz);
+        children.push(label);
       }
     }
     const step = f.rangeDb <= 6 ? 2 : f.rangeDb <= 12 ? 3 : 6;
@@ -518,9 +541,9 @@ export class EqEditor {
       const y = graphY(db, f);
       children.push(svgEl("line", { x1: 0, x2: f.width, y1: y, y2: y, class: db === 0 ? "zero" : "grid" }));
       if (db !== -f.rangeDb && db !== f.rangeDb) {
-        const t = svgEl("text", { x: 5, y: y - 3, class: "axis" });
-        t.textContent = db === 0 ? "0 dB" : `${db > 0 ? "+" : "−"}${Math.abs(db)}`;
-        children.push(t);
+        const label = svgEl("text", { x: 5, y: y - 3, class: "axis" });
+        label.textContent = db === 0 ? "0 dB" : `${db > 0 ? "+" : "−"}${Math.abs(db)}`;
+        children.push(label);
       }
     }
 
@@ -560,16 +583,21 @@ export class EqEditor {
         .join(" ");
       const gNode = svgEl("g", { class: cls, transform: `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})` });
       gNode.append(svgEl("circle", { r: 9 }));
-      const t = svgEl("text", { y: 3.5 });
-      t.textContent = String(i + 1);
-      gNode.append(t);
+      const no = svgEl("text", { y: 3.5 });
+      no.textContent = String(i + 1);
+      gNode.append(no);
       const title = svgEl("title");
-      title.textContent = `バンド ${i + 1}：${FILTER_LABELS[b.type]} ${frequencyText(b.frequency)}${usesGain(b.type) ? ` ${dbText(b.gainDb)}` : ""} Q ${b.q.toFixed(2)}`;
+      title.textContent = t("controls.eqEditor.nodeTitle", { n: i + 1, band: bandText(b), q: b.q.toFixed(2) });
       gNode.append(title);
       children.push(gNode);
     }
     svg.replaceChildren(...children);
   }
+}
+
+// A band in a few words: its type, frequency and (when it has one) gain.
+function bandText(b: EqBand): string {
+  return `${FILTER_LABELS[b.type]} ${frequencyText(b.frequency)}${usesGain(b.type) ? ` ${dbText(b.gainDb)}` : ""}`;
 }
 
 function autoPreamp(l: ListeningSettings) {

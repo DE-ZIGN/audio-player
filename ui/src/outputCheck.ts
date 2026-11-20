@@ -6,8 +6,9 @@
 import { CROSSFEED_LEVELS, TUBE_LABELS, parseSpaceDetail, spaceText, type CrossfeedLevel } from "./settings";
 import { characterParts, parseTubeDetail } from "./tubeCharacter";
 import { resampleText } from "./outputRate";
-import { dsdRateName, meterNote } from "./messages";
+import { amountText, bitsText, dsdRateName, meterNote, stageName } from "./messages";
 import { dbText } from "./settings";
+import { t, type MessageKey } from "./i18n";
 import type { FormatInfo, Level, PlaybackStatus, StageState } from "./status";
 
 export interface PathBox {
@@ -57,24 +58,28 @@ export interface VerdictModel {
 const rateText = (rate: number) => `${Number((rate / 1000).toFixed(3))} kHz`;
 
 function shortFormat(f: FormatInfo): string {
-  let bits: string;
-  if (f.sampleType === "float") bits = `${f.containerBits}bit 浮動小数点`;
-  else if (f.validBits === f.containerBits) bits = `${f.validBits}bit`;
-  else bits = `${f.validBits}bit（${f.containerBits}bit コンテナ）`;
-  return `${bits}${bits.endsWith("）") ? "" : " "}/ ${rateText(f.sampleRate)}`;
+  const bits = bitsText(f);
+  const values = { bits: bits.text, rate: rateText(f.sampleRate) };
+  return bits.padded ? t("status.path.formatPadded", values) : t("status.path.format", values);
 }
 
-const DECODERS: Record<string, string> = {
+// The decoders by container; null: the app's own (自前).
+const DECODERS: Record<string, string | null> = {
   FLAC: "libFLAC",
-  WAV: "自前",
-  AIFF: "自前",
-  AIFC: "自前",
+  WAV: null,
+  AIFF: null,
+  AIFC: null,
   ALAC: "Apple ALAC",
   MP3: "mpg123",
   AAC: "Media Foundation",
-  DSF: "自前",
-  DFF: "自前",
+  DSF: null,
+  DFF: null,
 };
+
+function decoderOf(container: string): string {
+  if (!Object.prototype.hasOwnProperty.call(DECODERS, container)) return "—";
+  return DECODERS[container] ?? t("status.path.decoderOwn");
+}
 
 function containerOf(s: PlaybackStatus): string {
   if (s.path?.container) return s.path.container;
@@ -83,15 +88,15 @@ function containerOf(s: PlaybackStatus): string {
   return ext === "M4A" ? "" : ext;
 }
 
-const gainText = (db: number | "-inf" | null) => (db === null ? "" : db === "-inf" ? "ミュート" : dbText(db));
-
-function durationText(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const sec = Math.floor(seconds % 60);
-  return m > 0 ? `${m} 分 ${sec} 秒` : `${sec} 秒`;
-}
+const gainText = (db: number | "-inf" | null) => (db === null ? "" : db === "-inf" ? t("status.path.muted") : dbText(db));
 
 // --- the diagram -------------------------------------------------------------------
+
+const INTEGRITY_LINES: Record<string, () => string> = {
+  passed: () => t("status.path.md5Passed"),
+  failed: () => `⚠ ${t("status.path.md5Failed")}`,
+  pending: () => t("status.path.md5Pending"),
+};
 
 export function pathModel(s: PlaybackStatus): PathModel {
   const src = s.sourceFormat;
@@ -102,17 +107,23 @@ export function pathModel(s: PlaybackStatus): PathModel {
   else {
     fileLines.push(container || "—");
     fileLines.push(
-      s.dop ? `${dsdRateName(s.dop.dsdRate)}（${Number((s.dop.dsdRate / 1e6).toFixed(4))} MHz）` : shortFormat(src),
+      s.dop
+        ? t("status.path.dsdRate", { dsd: dsdRateName(s.dop.dsdRate), mhz: Number((s.dop.dsdRate / 1e6).toFixed(4)) })
+        : shortFormat(src),
     );
-    const integrity = { passed: "MD5 一致", failed: "⚠ MD5 不一致", pending: "MD5 照合中" } as Record<string, string>;
-    if (integrity[s.integrity.state]) fileLines.push(integrity[s.integrity.state]);
+    const integrity = INTEGRITY_LINES[s.integrity.state];
+    if (integrity) fileLines.push(integrity());
   }
 
   const decoderLines = !src
     ? ["—"]
     : [
-        DECODERS[container] ?? "—",
-        s.dop ? "DoP に包む（値はそのまま）" : src.sampleType === "float" ? `${src.containerBits}bit 浮動小数点` : "整数のまま",
+        decoderOf(container),
+        s.dop
+          ? t("status.path.dopWrap")
+          : src.sampleType === "float"
+            ? t("status.format.float", { bits: src.containerBits })
+            : t("status.path.integer"),
       ];
 
   // Processing: the fixed order of the stages (CLAUDE.md chapter 4).
@@ -129,48 +140,60 @@ export function pathModel(s: PlaybackStatus): PathModel {
     if (!st) return { name, on: false, value: "OFF" };
     return sub ? { name, on: true, value: value(st.gainDb, st), sub: sub(st) } : { name, on: true, value: value(st.gainDb, st) };
   };
+  const preamp = (g: number | "-inf" | null) => (g === null ? "ON" : t("status.path.preamp", { db: gainText(g) }));
   const limiterOn = !!stage("limiter");
+  const limiterName = t("status.pathRow.limiter");
+  const ditherName = t("status.pathRow.dither");
   const rows: StageRow[] = [
     row("ReplayGain", "replaygain", gainText),
-    row("EQ", "eq", (g) => (g === null ? "ON" : `プリアンプ ${gainText(g)}`)),
-    row("トーン", "tone", (g) => (g === null ? "ON" : `プリアンプ ${gainText(g)}`)),
+    row("EQ", "eq", preamp),
+    row(t("status.pathRow.tone"), "tone", preamp),
     row(
-      "真空管",
+      t("status.pathRow.tube"),
       "tube",
       (g, st) => {
         const d = parseTubeDetail(st.detail);
         const type = d.type ? TUBE_LABELS[d.type] : "ON";
-        return g === null ? type : `${type}・DRIVE ${gainText(g)}`;
+        return g === null ? type : t("status.path.tubeValue", { type, drive: gainText(g) });
       },
       (st) => {
         // What chose the type (task 9-7) and the show (task 9-8), a line each.
         const c = s.tubeAuto?.choice;
-        const why = c ? [c.reason === "album" ? "アルバムの指定で選択" : `ジャンル（${c.matched}）で選択`] : [];
+        const why = c ? [c.reason === "album" ? t("status.path.byAlbum") : t("status.path.byGenre", { genre: c.matched })] : [];
         const d = parseTubeDetail(st.detail);
         return [...why, ...characterParts(d.warmUpSeconds, d.unit)];
       },
     ),
-    row("空間", "space", (_g, st) => {
+    row(t("status.pathRow.space"), "space", (_g, st) => {
       const sp = parseSpaceDetail(st.detail);
       return sp ? spaceText(sp.room, sp.mix, sp.source) : "ON";
     }),
-    row("クロスフィード", "crossfeed", (_g, st) => CROSSFEED_LEVELS[st.detail as CrossfeedLevel]?.numbers ?? "ON"),
-    row("デジタル音量", "volume", gainText),
-    row("ISP セーフ", "isp-safe", gainText),
+    row(t("status.pathRow.crossfeed"), "crossfeed", (_g, st) => CROSSFEED_LEVELS[st.detail as CrossfeedLevel]?.numbers ?? "ON"),
+    row(t("status.pathRow.volume"), "volume", gainText),
+    row(t("status.pathRow.ispSafe"), "isp-safe", gainText),
     limiterOn
       ? {
-          name: "保険のリミッター",
+          name: limiterName,
           on: true,
-          value: s.limiter.events > 0 ? `${s.limiter.events} 回・最大 ${dbText(s.limiter.maxReductionDb)}` : "0 回",
+          value:
+            s.limiter.events > 0
+              ? t("status.path.limiterEvents", { count: s.limiter.events, db: dbText(s.limiter.maxReductionDb) })
+              : t("status.path.limiterZero"),
           warn: s.limiter.events > 0,
         }
-      : { name: "保険のリミッター", on: false, value: "OFF" },
-    row("リサンプラー", "resampler", (_g, st) => resampleText(st.detail)), // task 10-4
-    active && p.dither ? { name: "ディザ", on: true, value: "TPDF" } : { name: "ディザ", on: false, value: "OFF" },
+      : { name: limiterName, on: false, value: "OFF" },
+    row(t("status.pathRow.resampler"), "resampler", (_g, st) => resampleText(st.detail)), // task 10-4
+    active && p.dither ? { name: ditherName, on: true, value: "TPDF" } : { name: ditherName, on: false, value: "OFF" },
   ];
-  if (active && p.comparison) rows.push({ name: "聴き比べ", on: true, value: "ON" });
-  const badge = !p ? "—" : s.dop ? "DoP：処理をかけられません" : active ? "64bit 浮動小数点" : "BYPASS（原音経路）";
-  const note = active && p.processingRequired ? "浮動小数点の曲を整数にする（このデバイスは浮動小数点を受け付けないため）" : "";
+  if (active && p.comparison) rows.push({ name: t("status.pathRow.comparison"), on: true, value: "ON" });
+  const badge = !p
+    ? "—"
+    : s.dop
+      ? t("status.path.badgeDop")
+      : active
+        ? t("status.path.badgeFloat")
+        : t("status.path.badgeBypass");
+  const note = active && p.processingRequired ? t("status.path.toInteger") : "";
 
   const outputLines: string[] = [];
   if (!p) outputLines.push("—");
@@ -178,42 +201,42 @@ export function pathModel(s: PlaybackStatus): PathModel {
     const o = p.output;
     outputLines.push(
       o.api === "wasapiExclusive"
-        ? `WASAPI 排他${o.eventDriven ? "（イベント駆動）" : ""}`
+        ? t(o.eventDriven ? "status.path.wasapiEvent" : "status.path.wasapi")
         : o.api === "asio"
-          ? `ASIO${o.asio ? `（${o.asio.driverName}）` : ""}`
-          : "ダミー出力（ファイル）",
+          ? o.asio
+            ? t("status.path.asioDriver", { name: o.asio.driverName })
+            : "ASIO"
+          : t("status.path.dummy"),
     );
     outputLines.push(s.outputFormat ? shortFormat(s.outputFormat) : "—");
-    if (s.dop && s.outputFormat) outputLines.push(`DoP（PCM ${rateText(s.outputFormat.sampleRate)} の枠）`);
-    else if (s.repack !== "none" && !active) outputLines.push("詰め替え（値は同じ）");
+    if (s.dop && s.outputFormat) outputLines.push(t("status.path.dopFrame", { rate: rateText(s.outputFormat.sampleRate) }));
+    else if (s.repack !== "none" && !active) outputLines.push(t("status.path.repacked"));
   }
 
   const dacLines = [s.outputName || "—"];
   const ev = p?.output.endpointVolume;
   if (ev && ev.hardware && (ev.muted || ev.scalar < 1))
-    dacLines.push(`⚠ 機器の音量 ${ev.muted ? "ミュート" : `${Math.round(ev.scalar * 100)}%`}`);
+    dacLines.push(
+      `⚠ ${t("status.path.deviceVolume", { volume: ev.muted ? t("status.path.muted") : `${Math.round(ev.scalar * 100)}%` })}`,
+    );
 
   return {
-    file: { title: "ファイル", lines: fileLines },
-    decoder: { title: "デコード", lines: decoderLines },
-    processing: { title: "処理", badge, active, rows, note },
-    output: { title: "出力", lines: outputLines },
+    file: { title: t("status.path.file"), lines: fileLines },
+    decoder: { title: t("status.path.decoder"), lines: decoderLines },
+    processing: { title: t("status.path.processing"), badge, active, rows, note },
+    output: { title: t("status.path.output"), lines: outputLines },
     dac: { title: "DAC", lines: dacLines },
   };
 }
 
 // --- BIT-PERFECT and why -------------------------------------------------------------
 
-const STAGE_NAMES: Record<string, string> = {
-  replaygain: "ReplayGain",
-  eq: "パラメトリック EQ",
-  tone: "トーン",
-  tube: "真空管",
-  space: "空間",
-  crossfeed: "クロスフィード",
-  volume: "デジタル音量",
-  "isp-safe": "ISP セーフ",
-  resampler: "リサンプラー",
+// The stages named in the verdict (not the limiter, a safety net).
+const VERDICT_STAGES = new Set(["replaygain", "eq", "tone", "tube", "space", "crossfeed", "volume", "isp-safe", "resampler"]);
+
+const EXCLUSIVE_KEYS: Record<string, MessageKey> = {
+  wasapiExclusive: "status.verdict.exclusiveWasapi",
+  asio: "status.verdict.exclusiveAsio",
 };
 
 export function verdictModel(s: PlaybackStatus): VerdictModel | null {
@@ -224,79 +247,87 @@ export function verdictModel(s: PlaybackStatus): VerdictModel | null {
   const checks: Check[] = [];
 
   // The digital volume.
-  if (s.dop) checks.push({ label: "音量 100%", state: "ok", detail: "DoP には音量をかけません" });
-  else if (s.volumeDb === 0) checks.push({ label: "音量 100%", state: "ok", detail: "100%" });
+  const volume = t("status.verdict.volume");
+  if (s.dop) checks.push({ label: volume, state: "ok", detail: t("status.verdict.volumeDop") });
+  else if (s.volumeDb === 0) checks.push({ label: volume, state: "ok", detail: "100%" });
   else
     checks.push({
-      label: "音量 100%",
+      label: volume,
       state: "ng",
-      detail: s.volumeDb === "-inf" ? "ミュート" : `DIGITAL VOL ${dbText(s.volumeDb)}`,
+      detail: s.volumeDb === "-inf" ? t("status.path.muted") : `DIGITAL VOL ${dbText(s.volumeDb)}`,
     });
 
   // Processing.
-  if (!processing) checks.push({ label: "処理なし", state: "ok", detail: "原音経路（処理のコードを通りません）" });
+  const none = t("status.verdict.processing");
+  if (!processing) checks.push({ label: none, state: "ok", detail: t("status.verdict.direct") });
   else {
-    const what = s.stages.filter((st) => STAGE_NAMES[st.name]).map((st) => STAGE_NAMES[st.name]);
-    if (v.quantized) what.push("浮動小数点の曲を整数に変換");
-    if (v.comparison) what.push("聴き比べ");
-    if (p.dither) what.push("TPDF ディザ");
-    checks.push({ label: "処理なし", state: "ng", detail: what.join("、") || "処理経路" });
+    const what = s.stages.filter((st) => VERDICT_STAGES.has(st.name)).map((st) => stageName(st.name));
+    if (v.quantized) what.push(t("status.stage.quantize"));
+    if (v.comparison) what.push(t("status.stage.comparison"));
+    if (p.dither) what.push(t("status.stage.dither"));
+    checks.push({ label: none, state: "ng", detail: what.join(t("list.separator")) || t("status.verdict.processingPath") });
   }
 
   // The format sent.
   const out = s.outputFormat;
+  const formatLabel = t("status.verdict.format");
   let format: Check;
-  if (processing) format = { label: "形式がファイルと一致", state: "ng", detail: `処理経路の形式${out ? `（${shortFormat(out)}）` : ""}で送ります` };
-  else if (s.dop) format = { label: "形式がファイルと一致", state: "ok", detail: "DoP（DSD のビットはそのまま）" };
+  if (processing)
+    format = {
+      label: formatLabel,
+      state: "ng",
+      detail: out ? t("status.verdict.formatProcessed", { format: shortFormat(out) }) : t("status.verdict.formatProcessedNone"),
+    };
+  else if (s.dop) format = { label: formatLabel, state: "ok", detail: t("status.verdict.formatDop") };
   else if (s.repack === "widerContainer" && out)
-    format = { label: "形式がファイルと一致", state: "ok", detail: `${out.containerBits}bit コンテナに詰め替え（値は同じ）` };
+    format = { label: formatLabel, state: "ok", detail: t("status.verdict.formatWider", { bits: out.containerBits }) };
   else if (s.repack === "zeroPadded" && out)
-    format = { label: "形式がファイルと一致", state: "ok", detail: `下位を 0 で埋めて ${out.validBits}bit に（値は同じ）` };
-  else if (v.floatSource) format = { label: "形式がファイルと一致", state: "ok", detail: "デコードした浮動小数点の値のまま" };
-  else format = { label: "形式がファイルと一致", state: "ok", detail: "ファイルの形式のまま" };
+    format = { label: formatLabel, state: "ok", detail: t("status.verdict.formatZeroPadded", { bits: out.validBits }) };
+  else if (v.floatSource) format = { label: formatLabel, state: "ok", detail: t("status.verdict.formatFloat") };
+  else format = { label: formatLabel, state: "ok", detail: t("status.verdict.formatSame") };
   checks.push(format);
 
   // Exclusive access to the device.
-  const api = p.output.api;
+  const exclusive = EXCLUSIVE_KEYS[p.output.api];
   checks.push(
-    api === "wasapiExclusive"
-      ? { label: "排他モード", state: "ok", detail: "WASAPI 排他（ほかのアプリの音は混ざりません）" }
-      : api === "asio"
-        ? { label: "排他モード", state: "ok", detail: "ASIO（Windows のミキサーを通りません）" }
-        : { label: "排他モード", state: "info", detail: "ダミー出力（ファイルに書き出すだけ）" },
+    exclusive
+      ? { label: t("status.verdict.exclusive"), state: "ok", detail: t(exclusive) }
+      : { label: t("status.verdict.exclusive"), state: "info", detail: t("status.verdict.exclusiveDummy") },
   );
 
   // The device's own volume (after the driver).
   const ev = p.output.endpointVolume;
   if (ev) {
     const pct = Math.round(ev.scalar * 100);
+    const label = t("status.verdict.windowsVolume");
     checks.push(
       !ev.hardware
-        ? { label: "Windows の音量", state: "ok", detail: "ソフトウェアの音量なので、排他モードではかかりません" }
+        ? { label, state: "ok", detail: t("status.verdict.windowsVolumeSoftware") }
         : ev.muted
-          ? { label: "Windows の音量", state: "warn", detail: "ミュート（DAC の中でかかります）" }
+          ? { label, state: "warn", detail: t("status.verdict.windowsVolumeMuted") }
           : pct < 100
-            ? { label: "Windows の音量", state: "warn", detail: `${pct}%（DAC に届いたあとで信号が変わります。この判定はドライバーまで）` }
-            : { label: "Windows の音量", state: "ok", detail: "100%" },
+            ? { label, state: "warn", detail: t("status.verdict.windowsVolumeLowered", { percent: pct }) }
+            : { label, state: "ok", detail: "100%" },
     );
   }
 
   // The self-check (task 4-3).
   const d = s.delivery;
-  if (processing) checks.push({ label: "自己確認", state: "info", detail: "処理経路では行いません（値を変える経路のため）" });
+  const selfCheck = t("status.verdict.selfCheck");
+  if (processing) checks.push({ label: selfCheck, state: "info", detail: t("status.verdict.selfCheckProcessing") });
   else if (d && d.mismatchedFrames > 0)
-    checks.push({ label: "自己確認", state: "ng", detail: `${d.mismatchedFrames} フレームが、ファイルの値と違っていました` });
+    checks.push({ label: selfCheck, state: "ng", detail: t("status.verdict.selfCheckMismatch", { frames: d.mismatchedFrames }) });
   else if (d && d.matchedFrames > 0) {
     const rate = out?.sampleRate ?? 0;
-    const amount = rate > 0 ? `${durationText(d.matchedFrames / rate)}分` : `${d.matchedFrames} フレーム分`;
-    checks.push({ label: "自己確認", state: "ok", detail: `${amount}、ドライバーに渡した値がファイルの値と一致` });
-  } else checks.push({ label: "自己確認", state: "info", detail: "確認中（データを渡すと結果が出ます）" });
+    const amount = amountText(d.matchedFrames, rate, rate > 0);
+    checks.push({ label: selfCheck, state: "ok", detail: t("status.verdict.selfCheckMatched", { amount }) });
+  } else checks.push({ label: selfCheck, state: "info", detail: t("status.verdict.selfCheckChecking") });
 
   return {
-    title: v.bitPerfect ? "BIT-PERFECT" : "BIT-PERFECT ではありません",
+    title: v.bitPerfect ? "BIT-PERFECT" : t("status.verdict.notBitPerfect"),
     bitPerfect: v.bitPerfect,
     checks,
-    scope: "判定と自己確認の範囲は、アプリからドライバーまでです。ドライバーの中、USB などの転送、DAC の中は確かめられません。",
+    scope: t("status.verdict.scope"),
   };
 }
 
@@ -305,11 +336,7 @@ export function verdictModel(s: PlaybackStatus): VerdictModel | null {
 export function ispWarning(s: PlaybackStatus): string | null {
   const tp = s.trackTruePeakDb;
   if (!s.path || s.path.processing || s.dop || tp === null || tp <= 0) return null;
-  return (
-    `この曲の True Peak は ${dbText(tp).replace(" dB", " dBTP")} で、0 dBTP を超えています（取り込み時に測った値）。` +
-    "DAC がオーバーサンプリングするとき、サンプルの間のピークがクリップすることがあります。" +
-    "ISP セーフをオンにすると、−0.5 dBTP 以下になるように音量を線形に下げます（処理経路になるので、BIT-PERFECT ではなくなります）。"
-  );
+  return t("status.isp.warning", { truePeak: dbText(tp).replace(" dB", " dBTP") });
 }
 
 // --- meters -----------------------------------------------------------------------------
@@ -360,9 +387,6 @@ export function meterModel(s: PlaybackStatus): MeterModel {
       shortTerm: running ? levelText(running.shortTermLufs) : "—",
       integrated: track ? levelText(track.integratedLufs) : "—",
     },
-    note:
-      m.state === "notPcm"
-        ? "DoP の経路では測りません（DSD のデータで、PCM の音の値ではないため）"
-        : meterNote(s),
+    note: m.state === "notPcm" ? t("status.meter.notPcm") : meterNote(s),
   };
 }

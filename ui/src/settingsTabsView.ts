@@ -96,7 +96,9 @@ export class SettingsTabsView {
 
   private headingOf(section: string): string {
     const h = this.groups.find((g) => g.dataset.group === section)?.querySelector("h2");
-    // The heading's own words, without the small note beside it.
-    return [...(h?.childNodes ?? [])].filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent?.trim() ?? "").join("");
+    // The heading's own words (a text, or a span of the tables), without the
+    // small note beside it.
+    const own = (n: ChildNode) => n.nodeType === Node.TEXT_NODE || (n.nodeType === Node.ELEMENT_NODE && (n as Element).tagName === "SPAN");
+    return [...(h?.childNodes ?? [])].filter(own).map((n) => n.textContent?.trim() ?? "").join("");
   }
 }

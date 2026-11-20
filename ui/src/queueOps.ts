@@ -1,5 +1,7 @@
 // Pure helpers for the playback controls (task 6-2).
 
+import { t } from "./i18n";
+
 export type Db = number | "-inf";
 
 // The volume slider (0..1) and the digital volume in dB. The curve is
@@ -18,7 +20,7 @@ export function dbToSlider(db: Db): number {
 }
 
 export function volumeLabel(db: Db): string {
-  if (db === "-inf") return "ミュート";
+  if (db === "-inf") return t("page.volume.muted");
   if (db === 0) return "100%";
   return `${db > 0 ? "+" : ""}${db.toFixed(1)} dB`;
 }

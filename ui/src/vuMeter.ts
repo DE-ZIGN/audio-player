@@ -6,6 +6,7 @@
 // keeps moving in 原音モード, where only its light is lowered.
 
 import type { Level } from "./status";
+import { onLangChange, t } from "./i18n";
 // The face behind the scale: cut out of the concept image with its print
 // removed (tools/ui_mockup_parts.py).
 import faceUrl from "./textures/vu-face.jpg";
@@ -56,7 +57,10 @@ export class VuMeter {
   private readonly needle: SVGLineElement;
 
   constructor(label: string) {
-    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, class: "vu", role: "img", "aria-label": `VU メーター ${label}` });
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, class: "vu", role: "img" });
+    const name = () => svg.setAttribute("aria-label", t("page.vu.label", { channel: label }));
+    name();
+    onLangChange(name);
     svg.append(el("image", { href: faceUrl, x: 0, y: 0, width: W, height: H, preserveAspectRatio: "none", class: "vu-face" }));
     // The red zone from 0 VU to +3, just inside the arc.
     const a0 = point(needleAngle(0), R - 2.5), a3 = point(needleAngle(3), R - 2.5);

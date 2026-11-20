@@ -1,10 +1,10 @@
-import { currentLang, onLangChange, saveLang, setLang, startLang, type Lang } from "./i18n";
+import { currentLang, onLangChange, saveLang, setLang, startLang, t, type Lang, type MessageKey } from "./i18n";
 import "./style.css";
 import { createBackend, type Backend, type QueueInfo } from "./backend";
 import { afterInsert, afterMove, afterRemove, dbToSlider, sliderToDb, volumeLabel, type Db } from "./queueOps";
 import { countsText } from "./libraryFormat";
 import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
-import { applyStandardZoom, applyUiView, currentUiView, loadUiView, onUiViewChange, otherViews, saveUiView, VIEW_LABELS, type UiView } from "./uiView";
+import { applyStandardZoom, applyUiView, currentUiView, loadUiView, onUiViewChange, otherViews, saveUiView, type UiView } from "./uiView";
 import { AmpView } from "./ampView";
 import {
   loadPlayModes,
@@ -52,6 +52,7 @@ import {
   volumeText,
 } from "./messages";
 import type { PlaybackStatus } from "./status";
+import type { LibraryCounts } from "./library";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -146,11 +147,11 @@ function storageOrNull(): Storage | null {
 
 function renderModes() {
   els.shuffle.setAttribute("aria-pressed", String(modes.shuffle));
-  els.shuffle.title = `${shuffleLabel(modes.shuffle)}（この先の曲の順番を混ぜる）`;
+  els.shuffle.title = t("page.shuffle.title", { state: shuffleLabel(modes.shuffle) });
   els.repeat.setAttribute("aria-pressed", String(modes.repeat !== "off"));
   els.repeat.dataset.repeat = modes.repeat;
   setIcon(els.repeat, repeatIcon(modes.repeat)); // repeat one carries a 1
-  els.repeat.title = `${repeatLabel(modes.repeat)}（押すごとに オフ → 全曲 → 1 曲）`;
+  els.repeat.title = t("page.repeat.title", { state: repeatLabel(modes.repeat) });
   if (current) render(current);
 }
 
@@ -190,10 +191,9 @@ function setUpPlayModes() {
   });
 }
 
-// The standard view's VU meters (task 6-8).
-const vuMeters = [new VuMeter("L"), new VuMeter("R")];
+// The standard view's VU meters (task 6-8), made once the language is known (main).
+let vuMeters: VuMeter[] = [];
 let shownTagsKey = "";
-document.getElementById("vu-meters")!.append(...vuMeters.map((m) => m.el));
 
 function levelWidth(db: number | "-inf" | undefined): number {
   if (db === undefined || db === "-inf") return 0;
@@ -204,7 +204,7 @@ function renderTopBar(s: PlaybackStatus) {
   const item = queue.items[s.queueIndex];
   const id = item && item.id > 0 ? item.id : null;
   const loaded = s.state !== "empty";
-  els.fileName.textContent = loaded ? s.fileName : "曲を選んでください";
+  els.fileName.textContent = loaded ? s.fileName : t("page.now.choose");
   els.nowArtist.textContent = loaded ? item?.artist ?? "" : "";
   const cover = id !== null ? backend.library.coverUrl(id) : "";
   if (els.nowCover.dataset.src !== cover) {
@@ -251,8 +251,8 @@ function renderTopBar(s: PlaybackStatus) {
   els.next.disabled = !loaded || nextTrackIndex(s.queueIndex, s.queueLength, modes.repeat) === null;
   const playing = s.state === "playing";
   setIcon(els.play, playIcon(playing));
-  els.play.title = playing ? "一時停止（スペース）" : "再生（スペース）";
-  els.play.setAttribute("aria-label", playing ? "一時停止" : "再生");
+  els.play.title = t(playing ? "page.transport.pauseTitle" : "page.transport.playTitle");
+  els.play.setAttribute("aria-label", t(playing ? "page.transport.pause" : "page.transport.play"));
 
   // The volume as the app has it (unless the slider is being moved).
   if (!volumeDragging) els.volSlider.value = String(Math.round(dbToSlider(s.volumeDb) * 1000));
@@ -278,7 +278,10 @@ function renderQueue(s: PlaybackStatus) {
   const fromFiles = queue.items.some((i) => i.id === 0);
   els.queueCount.textContent = !loaded
     ? "—"
-    : `${queue.items.length} 曲${fromFiles ? "（ファイルを開いて再生）" : ""}・あと ${Math.max(0, queue.items.length - s.queueIndex - 1)} 曲`;
+    : t(fromFiles ? "page.queue.countFromFiles" : "page.queue.count", {
+        total: queue.items.length,
+        left: Math.max(0, queue.items.length - s.queueIndex - 1),
+      });
   els.queueClear.disabled = !loaded || s.queueIndex + 1 >= queue.items.length || fromFiles;
   if (drawnQueue.version === queue.version && drawnQueue.index === s.queueIndex && drawnQueue.state === s.state) return;
   drawnQueue = { version: queue.version, index: s.queueIndex, state: s.state };
@@ -296,14 +299,14 @@ function renderQueue(s: PlaybackStatus) {
       n.className = "q-name";
       n.textContent = item.name;
       n.title = `${item.name}${item.artist ? ` — ${item.artist}` : ""}`;
-      const t = document.createElement("span");
-      t.className = "q-time";
-      t.textContent = lengthText(item.seconds);
+      const time = document.createElement("span");
+      time.className = "q-time";
+      time.textContent = lengthText(item.seconds);
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "q-remove";
       remove.textContent = "×";
-      remove.title = "キューから外す";
+      remove.title = t("page.queue.remove");
       const upcoming = loaded && i > s.queueIndex && !fromFiles;
       remove.hidden = !upcoming;
       remove.addEventListener("click", (e) => {
@@ -311,7 +314,7 @@ function renderQueue(s: PlaybackStatus) {
         const next = afterRemove(queueIds(), s.queueIndex, i);
         if (next) void backend.library.replaceUpcoming(next);
       });
-      li.append(no, n, t, remove);
+      li.append(no, n, time, remove);
       li.addEventListener("dblclick", () => void backend.playAt(i));
       if (upcoming) {
         // Drag to reorder what comes next.
@@ -347,7 +350,7 @@ function render(s: PlaybackStatus) {
   const loaded = s.state !== "empty";
 
   // Stopped part-way is a pause (the play button goes on from there).
-  els.state.textContent = s.state === "stopped" && s.positionFrames > 0 ? "一時停止中" : stateLabel(s.state);
+  els.state.textContent = s.state === "stopped" && s.positionFrames > 0 ? t("page.state.paused") : stateLabel(s.state);
   // One button plays and pauses (task 6-2): usable whenever something is loaded.
   els.play.disabled = !loaded;
   // Stop (back to the start of the track): also from a pause, not when already there.
@@ -381,9 +384,11 @@ function render(s: PlaybackStatus) {
   els.outputMode.textContent = s.path ? outputModeText(s.path) : "—";
   els.volume.textContent = (s.path && volumeText(s.path)) || "—";
   const rateChange = rateChangeText(s);
-  els.outputFormat.textContent = s.outputFormat
-    ? describeFormat(s.outputFormat) + (rateChange ? `（${rateChange}）` : "")
-    : "—";
+  els.outputFormat.textContent = !s.outputFormat
+    ? "—"
+    : rateChange
+      ? t("page.output.formatRateChange", { format: describeFormat(s.outputFormat), change: rateChange })
+      : describeFormat(s.outputFormat);
   els.repack.textContent = s.outputFormat ? repackText(s) : "—";
   els.queue.textContent = queue.items.some((i) => i.id > 0) ? "" : queueText(s);
   const started = s.outputFormat !== null;
@@ -433,7 +438,7 @@ async function enqueue(ids: number[], where: "next" | "end") {
   if (queue.items.some((i) => i.id === 0)) {
     els.error.hidden = false;
     els.error.dataset.from = "action";
-    els.error.textContent = "ファイルを開いて再生している列には、ライブラリの曲を足せません（ライブラリから再生し直してください）";
+    els.error.textContent = t("page.queue.cannotAdd");
     return;
   }
   if (modes.shuffle && shuffleOriginal)
@@ -463,6 +468,12 @@ function seekTarget(): number {
 
 // The views (tasks 6-7, 9-9): the standard view first, then the view last
 // used. The side bar offers the other two.
+const SWITCH_TO: Record<UiView, MessageKey> = {
+  standard: "page.view.toStandard",
+  library: "page.view.toLibrary",
+  amp: "page.view.toAmp",
+};
+
 function setUpViews() {
   const toggles = [
     document.getElementById("ui-view-toggle") as HTMLButtonElement,
@@ -472,7 +483,7 @@ function setUpViews() {
   const themeSet = document.getElementById("theme-set") as HTMLFieldSetElement;
   const show = (v: UiView) => {
     otherViews(v).forEach((o, i) => {
-      toggles[i].textContent = `${VIEW_LABELS[o]}にする`;
+      toggles[i].textContent = t(SWITCH_TO[o]);
       toggles[i].dataset.view = o;
     });
     for (const r of radios) r.checked = r.value === v;
@@ -492,7 +503,8 @@ function setUpViews() {
   onUiViewChange(() => applyStandardZoom());
   addEventListener("resize", () => applyStandardZoom());
   onUiViewChange(show);
-  for (const t of toggles) t.addEventListener("click", () => choose((t.dataset.view as UiView) ?? currentUiView()));
+  onLangChange(() => show(currentUiView())); // the toggles' names
+  for (const b of toggles) b.addEventListener("click", () => choose((b.dataset.view as UiView) ?? currentUiView()));
   for (const r of radios) r.addEventListener("change", () => r.checked && choose(r.value as UiView));
   applyUiView(storage ? loadUiView(storage) : "standard");
 }
@@ -519,8 +531,39 @@ function setUpLanguage() {
   show();
 }
 
+// The ABX dialog's explanation: its "p < 0.05" keeps it out of the page's
+// data-i18n texts (index.html has it as "&lt;"), so it is written in here.
+function drawAbxNote() {
+  const note = document.querySelector<HTMLElement>("#abx-setup > p.note");
+  if (note) note.textContent = t("page.abx.howItWorks");
+}
+
+// Texts drawn here once, drawn again in the language chosen.
+let shownCounts: LibraryCounts | null = null;
+function drawCounts(c: LibraryCounts) {
+  shownCounts = c;
+  els.counts.textContent = countsText(c);
+  els.statusDot.classList.toggle("busy", c.scanning || c.toMeasure > 0);
+}
+
+function drawBackendKind() {
+  els.backendKind.textContent = backend?.kind === "mock" ? t("page.backend.mock") : "";
+}
+
+function redrawForLanguage() {
+  drawAbxNote();
+  drawBackendKind();
+  if (shownCounts) drawCounts(shownCounts);
+  drawnQueue = { version: -2, index: -1, state: "" }; // the queue's buttons
+  renderModes(); // the shuffle and repeat titles, and the status (render)
+}
+
 async function main() {
   setUpLanguage(); // first: everything drawn after it is in that language
+  vuMeters = [new VuMeter("L"), new VuMeter("R")];
+  document.getElementById("vu-meters")!.append(...vuMeters.map((m) => m.el));
+  drawAbxNote();
+  onLangChange(redrawForLanguage);
   loadTheme();
   setUpViews();
   // The concept image over the page (task 6-8). Dev server only: the app's
@@ -529,7 +572,7 @@ async function main() {
     void import("./dev/mockupOverlay").then((m) => m.installMockupOverlay());
   }
   backend = await createBackend();
-  els.backendKind.textContent = backend.kind === "mock" ? "模擬エンジン（ブラウザー単体で表示中）" : "";
+  drawBackendKind();
 
   library = new LibraryView(
     backend,
@@ -587,14 +630,9 @@ async function main() {
     outputView.render(s);
     abxView.render(s);
   });
-  backend.library.onChanged((c) => {
-    els.counts.textContent = countsText(c);
-    els.statusDot.classList.toggle("busy", c.scanning || c.toMeasure > 0);
-  });
+  backend.library.onChanged((c) => drawCounts(c));
   render(await backend.getStatus());
-  const counts = await backend.library.counts();
-  els.counts.textContent = countsText(counts);
-  els.statusDot.classList.toggle("busy", counts.scanning || counts.toMeasure > 0);
+  drawCounts(await backend.library.counts());
   await library.start();
 
   setUpPlayModes();

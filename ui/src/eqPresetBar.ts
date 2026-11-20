@@ -14,6 +14,7 @@ import {
   type EqPreset,
   type ListResult,
 } from "./eqPresets";
+import { onLangChange, t, type MessageKey } from "./i18n";
 import type { ListeningSettings } from "./settings";
 
 export interface PresetHost {
@@ -30,14 +31,16 @@ const CONFIRM_MS = 4000;
 
 export class PresetBar {
   private readonly select = document.createElement("select");
-  private readonly saveBtn = this.button("保存…", "今の EQ をプリセットとして保存します（同じ名前は置き換え）");
-  private readonly renameBtn = this.button("名前を変える…", "選んでいるプリセットの名前を変えます");
-  private readonly deleteBtn = this.button("消す", "選んでいるプリセットを消します");
+  private readonly saveBtn = this.button();
+  private readonly renameBtn = this.button();
+  private readonly deleteBtn = this.button();
   private readonly form = document.createElement("div");
   private readonly input = document.createElement("input");
-  private readonly okBtn = this.button("OK");
-  private readonly cancelBtn = this.button("キャンセル");
+  private readonly okBtn = this.button();
+  private readonly cancelBtn = this.button();
+  private readonly labelText = document.createTextNode("");
   private readonly message = document.createElement("span");
+  private said: () => string = () => ""; // the message shown, drawn again in another language
   private mode: "save" | "rename" | null = null;
   private renaming = "";
   private confirmTimer: ReturnType<typeof setTimeout> | undefined;
@@ -49,12 +52,9 @@ export class PresetBar {
     root.classList.add("eq-presets");
     const label = document.createElement("label");
     label.className = "eq-preset-choice";
-    label.append("プリセット ", this.select);
-    this.select.setAttribute("aria-label", "EQ のプリセット");
+    label.append(this.labelText, this.select);
     this.input.type = "text";
     this.input.maxLength = MAX_PRESET_NAME;
-    this.input.placeholder = "プリセットの名前";
-    this.input.setAttribute("aria-label", "プリセットの名前");
     this.form.className = "eq-preset-form";
     this.form.hidden = true;
     this.form.append(this.input, this.okBtn, this.cancelBtn);
@@ -82,6 +82,32 @@ export class PresetBar {
         this.closeForm();
       }
     });
+    this.name();
+    onLangChange(() => {
+      this.name();
+      this.render();
+      this.say(this.said);
+    });
+  }
+
+  // The bar's own words, in the language in use.
+  private name() {
+    this.labelText.data = `${t("controls.eqPresets.label")} `;
+    this.select.setAttribute("aria-label", t("controls.eqPresets.selectLabel"));
+    this.input.placeholder = t("controls.eqPresets.name");
+    this.input.setAttribute("aria-label", t("controls.eqPresets.name"));
+    const words: [HTMLButtonElement, MessageKey, MessageKey | null][] = [
+      [this.saveBtn, "controls.eqPresets.save", "controls.eqPresets.saveTitle"],
+      [this.renameBtn, "controls.eqPresets.rename", "controls.eqPresets.renameTitle"],
+      [this.deleteBtn, "controls.eqPresets.delete", "controls.eqPresets.deleteTitle"],
+      [this.cancelBtn, "controls.eqPresets.cancel", null],
+    ];
+    for (const [b, text, title] of words) {
+      b.textContent = t(text);
+      if (title) b.title = t(title);
+    }
+    if (this.deleteBtn.dataset.confirm !== undefined) this.deleteBtn.textContent = t("controls.eqPresets.confirmDelete");
+    this.okBtn.textContent = this.mode === "rename" ? t("controls.eqPresets.renameOk") : this.mode === "save" ? t("controls.eqPresets.saveOk") : "OK";
   }
 
   render() {
@@ -89,7 +115,7 @@ export class PresetBar {
     const current = matchingPreset(this.host.listening(), presets, this.host.chosen);
     const options: HTMLOptionElement[] = [];
     if (current === null)
-      options.push(new Option(presets.length === 0 ? "（プリセットはまだありません）" : "（今の EQ：保存していません）", NONE));
+      options.push(new Option(presets.length === 0 ? t("controls.eqPresets.none") : t("controls.eqPresets.unsaved"), NONE));
     for (const p of presets) options.push(new Option(p.name, p.name));
     this.select.replaceChildren(...options);
     this.select.value = current ?? NONE;
@@ -99,11 +125,9 @@ export class PresetBar {
     if (current === null) this.resetDelete();
   }
 
-  private button(text: string, title = "") {
+  private button() {
     const b = document.createElement("button");
     b.type = "button";
-    b.textContent = text;
-    if (title) b.title = title;
     return b;
   }
 
@@ -118,7 +142,7 @@ export class PresetBar {
     this.mode = mode;
     this.renaming = current ?? "";
     this.input.value = mode === "rename" ? this.renaming : (current ?? this.host.chosen);
-    this.okBtn.textContent = mode === "save" ? "保存" : "名前を変える";
+    this.okBtn.textContent = mode === "save" ? t("controls.eqPresets.saveOk") : t("controls.eqPresets.renameOk");
     this.form.hidden = false;
     this.input.focus();
     this.input.select();
@@ -128,15 +152,15 @@ export class PresetBar {
   private closeForm() {
     this.mode = null;
     this.form.hidden = true;
-    this.say("");
+    this.say(() => "");
   }
 
   private showNameNote() {
     const name = presetName(this.input.value);
     const taken = name !== null && this.host.presets().some((p) => p.name === name);
-    if (this.mode === "save" && taken) this.say(`「${name}」を今の EQ で置き換えます`);
-    else if (this.mode === "rename" && taken && name !== this.renaming) this.say(`⚠ 「${name}」はもうあります`);
-    else this.say("");
+    if (this.mode === "save" && taken) this.say(() => t("controls.eqPresets.willReplace", { name }));
+    else if (this.mode === "rename" && taken && name !== this.renaming) this.say(() => `⚠ ${t("controls.eqPresets.taken", { name })}`);
+    else this.say(() => "");
   }
 
   private async submit() {
@@ -147,7 +171,8 @@ export class PresetBar {
         ? withSaved(list, presetFrom(this.host.listening(), this.input.value))
         : withRenamed(list, this.renaming, this.input.value);
     if (!r.ok) {
-      this.say(`⚠ ${r.message}`);
+      const message = r.message;
+      this.say(() => `⚠ ${message}`);
       return;
     }
     const name = presetName(this.input.value)!;
@@ -156,13 +181,13 @@ export class PresetBar {
     const error = await this.host.save(r.list);
     if (error) {
       this.host.chosen = before;
-      this.say(`⚠ ${error}`);
+      this.say(() => `⚠ ${error}`);
       return;
     }
     const renamed = this.mode === "rename";
     this.mode = null;
     this.form.hidden = true;
-    this.say(renamed ? `名前を「${name}」に変えました` : `「${name}」を保存しました`);
+    this.say(() => (renamed ? t("controls.eqPresets.renamed", { name }) : t("controls.eqPresets.saved", { name })));
   }
 
   // Pressed once: asks; pressed again within a few seconds: deletes.
@@ -172,7 +197,7 @@ export class PresetBar {
     if (this.deleteBtn.dataset.confirm !== current) {
       this.closeForm();
       this.deleteBtn.dataset.confirm = current;
-      this.deleteBtn.textContent = "もう一度押すと消します";
+      this.deleteBtn.textContent = t("controls.eqPresets.confirmDelete");
       this.deleteBtn.classList.add("danger");
       clearTimeout(this.confirmTimer);
       this.confirmTimer = setTimeout(() => this.resetDelete(), CONFIRM_MS);
@@ -180,17 +205,19 @@ export class PresetBar {
     }
     this.resetDelete();
     const error = await this.host.save(withDeleted(this.host.presets(), current));
-    this.say(error ? `⚠ ${error}` : `「${current}」を消しました（今の EQ はそのままです）`);
+    this.say(() => (error ? `⚠ ${error}` : t("controls.eqPresets.deleted", { name: current })));
   }
 
   private resetDelete() {
     clearTimeout(this.confirmTimer);
     delete this.deleteBtn.dataset.confirm;
-    this.deleteBtn.textContent = "消す";
+    this.deleteBtn.textContent = t("controls.eqPresets.delete");
     this.deleteBtn.classList.remove("danger");
   }
 
-  private say(text: string) {
-    this.message.textContent = text;
+  // `text` is kept, so the message is drawn again when the language changes.
+  private say(text: () => string) {
+    this.said = text;
+    this.message.textContent = text();
   }
 }

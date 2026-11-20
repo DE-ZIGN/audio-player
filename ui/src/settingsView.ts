@@ -4,6 +4,7 @@
 // own dialog (eqEditor.ts).
 
 import type { SettingsApi } from "./backend";
+import { onLangChange, t } from "./i18n";
 import { EqEditor } from "./eqEditor";
 import { PresetBar, type PresetHost } from "./eqPresetBar";
 import { applyPreset, type EqPreset } from "./eqPresets";
@@ -129,20 +130,42 @@ export class SettingsView {
   private warmUpSeconds: number | null = null; // task 9-8: since the app started (the amp's switch-on)
   private playingTube: TubeType | null = null;
 
+  // The choices' names, drawn again when the language changes (relabel).
+  private readonly namers: (() => void)[] = [];
+
+  // A radio button and its name (read again by relabel).
+  private radio(name: string, value: string, label: () => string, onChoose: () => void): HTMLLabelElement {
+    const l = document.createElement("label");
+    const r = document.createElement("input");
+    r.type = "radio";
+    r.name = name;
+    r.value = value;
+    r.addEventListener("change", () => r.checked && onChoose());
+    const text = document.createTextNode("");
+    const draw = () => (text.textContent = ` ${label()}`);
+    draw();
+    this.namers.push(draw);
+    l.append(r, text);
+    return l;
+  }
+
+  // An option of a select and its name (read again by relabel).
+  private option(value: string, label: () => string): HTMLOptionElement {
+    const o = document.createElement("option");
+    o.value = value;
+    const draw = () => (o.textContent = label());
+    draw();
+    this.namers.push(draw);
+    return o;
+  }
+
   constructor(private readonly api: SettingsApi) {
     for (const sel of [this.els.ispOriginal, this.els.ispProcessed])
-      for (const [value, label] of Object.entries(ISP_LABELS)) sel.add(new Option(label, value));
+      for (const value of Object.keys(ISP_LABELS) as IspSafeMode[]) sel.add(this.option(value, () => ISP_LABELS[value]));
     this.els.replayGain.replaceChildren(
-      ...Object.entries(REPLAY_GAIN_LABELS).map(([value, label]) => {
-        const l = document.createElement("label");
-        const r = document.createElement("input");
-        r.type = "radio";
-        r.name = "replaygain";
-        r.value = value;
-        r.addEventListener("change", () => r.checked && this.change({ replayGain: value as ReplayGainMode }));
-        l.append(r, ` ${label}`);
-        return l;
-      }),
+      ...(Object.keys(REPLAY_GAIN_LABELS) as ReplayGainMode[]).map((value) =>
+        this.radio("replaygain", value, () => REPLAY_GAIN_LABELS[value], () => this.change({ replayGain: value })),
+      ),
     );
 
     this.editor = new EqEditor(
@@ -167,7 +190,7 @@ export class SettingsView {
       },
       save: async (list) => {
         const r = await this.api.setEqPresets(list);
-        if (!r.ok) return r.message ?? "プリセットを保存できませんでした";
+        if (!r.ok) return r.message ?? t("page.settings.eq.presetSaveFailed");
         this.presets = r.eqPresets ?? list;
         this.renderPresets();
         return null;
@@ -201,16 +224,9 @@ export class SettingsView {
     this.els.toneReset.addEventListener("click", () => this.change({ toneBassDb: 0, toneTrebleDb: 0 }));
     this.els.tubeEnabled.addEventListener("change", () => this.change({ tubeEnabled: this.els.tubeEnabled.checked }));
     this.els.tubeType.replaceChildren(
-      ...(Object.entries(TUBE_LABELS) as [TubeType, string][]).map(([value, label]) => {
-        const l = document.createElement("label");
-        const r = document.createElement("input");
-        r.type = "radio";
-        r.name = "tube-type";
-        r.value = value;
-        r.addEventListener("change", () => r.checked && this.change({ tubeType: value }));
-        l.append(r, ` ${label}`);
-        return l;
-      }),
+      ...(Object.keys(TUBE_LABELS) as TubeType[]).map((value) =>
+        this.radio("tube-type", value, () => TUBE_LABELS[value], () => this.change({ tubeType: value })),
+      ),
     );
     this.els.tubeDrive.addEventListener("input", () => this.change({ tubeDriveDb: Number(this.els.tubeDrive.value) }, SLIDER_SEND_MS));
     this.els.tubeDriveReset.addEventListener("click", () => this.change({ tubeDriveDb: DRIVE_DEFAULT_DB }));
@@ -224,46 +240,20 @@ export class SettingsView {
     // The crossfeed (task 9-5).
     this.els.crossfeedEnabled.addEventListener("change", () => this.change({ crossfeedEnabled: this.els.crossfeedEnabled.checked }));
     this.els.crossfeedLevel.replaceChildren(
-      ...(Object.entries(CROSSFEED_LEVELS) as [CrossfeedLevel, { label: string }][]).map(([value, { label }]) => {
-        const l = document.createElement("label");
-        const r = document.createElement("input");
-        r.type = "radio";
-        r.name = "crossfeed-level";
-        r.value = value;
-        r.addEventListener("change", () => r.checked && this.change({ crossfeedLevel: value }));
-        l.append(r, ` ${label}`);
-        return l;
-      }),
+      ...(Object.keys(CROSSFEED_LEVELS) as CrossfeedLevel[]).map((value) =>
+        this.radio("crossfeed-level", value, () => CROSSFEED_LEVELS[value].label, () => this.change({ crossfeedLevel: value })),
+      ),
     );
 
     // The output rate (task 10-4).
     this.els.rateMode.replaceChildren(
-      ...(Object.entries(OUTPUT_RATE_MODES) as [OutputRateMode, string][]).map(([value, label]) => {
-        const l = document.createElement("label");
-        const r = document.createElement("input");
-        r.type = "radio";
-        r.name = "rate-mode";
-        r.value = value;
-        r.addEventListener("change", () => r.checked && this.change({ outputRateMode: value }));
-        l.append(r, ` ${label}`);
-        return l;
-      }),
+      ...(Object.keys(OUTPUT_RATE_MODES) as OutputRateMode[]).map((value) =>
+        this.radio("rate-mode", value, () => OUTPUT_RATE_MODES[value], () => this.change({ outputRateMode: value })),
+      ),
     );
-    this.els.rateHz.replaceChildren(
-      ...OUTPUT_RATE_CHOICES.map((hz) => {
-        const o = document.createElement("option");
-        o.value = String(hz);
-        o.textContent = rateText(hz);
-        return o;
-      }),
-    );
+    this.els.rateHz.replaceChildren(...OUTPUT_RATE_CHOICES.map((hz) => this.option(String(hz), () => rateText(hz))));
     this.els.rateMultiple.replaceChildren(
-      ...OUTPUT_RATE_MULTIPLES.map((k) => {
-        const o = document.createElement("option");
-        o.value = String(k);
-        o.textContent = `${k} 倍`;
-        return o;
-      }),
+      ...OUTPUT_RATE_MULTIPLES.map((k) => this.option(String(k), () => t("page.settings.rate.multipleOption", { k }))),
     );
     this.els.rateHz.addEventListener("change", () => this.change({ outputRateHz: Number(this.els.rateHz.value) }));
     this.els.rateMultiple.addEventListener("change", () =>
@@ -271,21 +261,16 @@ export class SettingsView {
     );
 
     // The space (task 9-6). The bundled measured IR's credit (CC BY 4.0).
-    this.els.spaceCredit.textContent = Object.values(SPACE_MEASURED)
-      .map((m) => m.credit)
-      .join(" ");
-    const rooms: [SpaceRoom, string][] = [["off", "OFF"], ...Object.entries(SPACE_ROOMS).map(([k, v]) => [k as SpaceRoom, v.label] as [SpaceRoom, string])];
+    const credit = () =>
+      (this.els.spaceCredit.textContent = Object.values(SPACE_MEASURED)
+        .map((m) => m.credit)
+        .join(" "));
+    credit();
+    this.namers.push(credit);
+    const roomLabel = (room: SpaceRoom) => (room === "off" ? "OFF" : SPACE_ROOMS[room].label);
+    const rooms: SpaceRoom[] = ["off", ...(Object.keys(SPACE_ROOMS) as Exclude<SpaceRoom, "off">[])];
     this.els.spaceRoom.replaceChildren(
-      ...rooms.map(([value, label]) => {
-        const l = document.createElement("label");
-        const r = document.createElement("input");
-        r.type = "radio";
-        r.name = "space-room";
-        r.value = value;
-        r.addEventListener("change", () => r.checked && this.change({ spaceRoom: value }));
-        l.append(r, ` ${label}`);
-        return l;
-      }),
+      ...rooms.map((value) => this.radio("space-room", value, () => roomLabel(value), () => this.change({ spaceRoom: value }))),
     );
     this.els.spaceMix.addEventListener("input", () => this.change({ spaceMixPercent: Number(this.els.spaceMix.value) }, SLIDER_SEND_MS));
     this.els.spacePreDelay.addEventListener("input", () =>
@@ -323,6 +308,15 @@ export class SettingsView {
     this.els.device.addEventListener("change", () => void this.chooseOutput());
     this.els.dop.addEventListener("change", () => void this.setDop());
     this.api.onOutputsChanged(() => void this.refreshOutputs());
+    onLangChange(() => this.relabel());
+  }
+
+  // Everything this screen drew, again in the language chosen.
+  private relabel() {
+    for (const draw of this.namers) draw();
+    if (!this.loaded) return;
+    this.renderListening(); // the notes, the curve's line, the space's IR list (and the EQ editor, the amp view)
+    this.renderOutputs();
   }
 
   // --- for the amp view (task 9-9): the same settings, changed from its knobs ---
@@ -366,7 +360,7 @@ export class SettingsView {
       this.renderListening();
       await this.refreshOutputs();
     } catch (e) {
-      this.showError(`設定を読めませんでした: ${String(e)}`);
+      this.showError(t("page.settings.readFailed", { error: String(e) }));
     }
   }
 
@@ -400,7 +394,7 @@ export class SettingsView {
 
   private renderOutputs() {
     this.options = outputOptions(this.outputs, this.output);
-    const groups = { wasapi: this.group("WASAPI 排他"), asio: this.group("ASIO") };
+    const groups = { wasapi: this.group(t("page.settings.output.wasapiGroup")), asio: this.group("ASIO") };
     for (const o of this.options) groups[o.group].append(new Option(o.label, o.value));
     this.els.device.replaceChildren(...[groups.wasapi, groups.asio].filter((g) => g.children.length > 0));
     this.els.device.value = selectedOutputValue(this.outputs, this.output);
@@ -408,7 +402,7 @@ export class SettingsView {
     const missing = this.options.find((o) => o.missing);
     this.showDeviceStatus(
       this.outputs.message ??
-        (missing ? "選んである出力が今は見つかりません。つなぐと使えます（WASAPI は見つからない間、Windows の既定のデバイスで出します）。" : ""),
+        (missing ? t("page.settings.output.missing") : ""),
     );
   }
 
@@ -424,12 +418,12 @@ export class SettingsView {
     const choice: OutputChoice = { ...option.choice, allowDop: false }; // DoP only after the user says so
     this.els.device.disabled = true;
     this.els.error.hidden = true;
-    this.showDeviceStatus(choice.kind === "asio" ? "ASIO ドライバーを別のプロセスで読み込んで確かめています…" : "", false);
+    this.showDeviceStatus(choice.kind === "asio" ? t("page.settings.output.asioChecking") : "", false);
     const r = await this.api.setOutput(choice);
     this.els.device.disabled = false;
     this.showDeviceStatus("");
     if (r.ok) this.output = choice;
-    else this.showError(r.message ?? "この出力は選べませんでした");
+    else this.showError(r.message ?? t("page.settings.output.chooseFailed"));
     this.renderOutputs();
   }
 
@@ -438,7 +432,7 @@ export class SettingsView {
     const choice = { ...this.output, allowDop: this.els.dop.checked };
     const r = await this.api.setOutput(choice);
     if (r.ok) this.output = choice;
-    else this.showError(r.message ?? "設定できませんでした");
+    else this.showError(r.message ?? t("page.settings.output.dopFailed"));
     this.els.dop.checked = this.output.allowDop;
   }
 
@@ -459,7 +453,7 @@ export class SettingsView {
     clearTimeout(this.sendTimer);
     this.sendTimer = setTimeout(async () => {
       const r = await this.api.setListening(this.listening);
-      if (!r.ok) this.showError(r.message ?? "設定を反映できませんでした");
+      if (!r.ok) this.showError(r.message ?? t("page.settings.applyFailed"));
       if (r.spaceIrs) {
         this.spaceIrs = r.spaceIrs;
         this.renderSpace();
@@ -530,10 +524,12 @@ export class SettingsView {
     e.tubeWarmUpNow.textContent = !l.tubeWarmUp
       ? ""
       : this.warmUpSeconds === null
-        ? "起動からの時間に合わせて移ります。"
+        ? t("page.settings.tube.warmUpWaiting")
         : warmUpText(this.warmUpSeconds);
     const type = this.playingTube ?? l.tubeType;
-    e.tubeUnitNow.textContent = l.tubeUnits ? `${unitLabel(l.tubeUnit)}（${TUBE_LABELS[type]}）：${unitChannelsText(l.tubeUnit, type)}` : "";
+    e.tubeUnitNow.textContent = l.tubeUnits
+      ? t("page.settings.tube.unitNow", { unit: unitLabel(l.tubeUnit), type: TUBE_LABELS[type], channels: unitChannelsText(l.tubeUnit, type) })
+      : "";
   }
 
   // The space (task 9-6): the room, the sliders and each room's IR file.
@@ -545,12 +541,16 @@ export class SettingsView {
     if (document.activeElement !== e.spacePreDelay) e.spacePreDelay.value = String(l.spacePreDelayMs);
     if (document.activeElement !== e.spaceLowCut) e.spaceLowCut.value = String(l.spaceLowCutHz <= 0 ? 10 : l.spaceLowCutHz);
     e.spaceMixValue.textContent = `${Math.round(l.spaceMixPercent)}%`;
-    e.spacePreDelayValue.textContent = `${Math.round(l.spacePreDelayMs)} ms${l.spacePreDelayMs < 3 ? "（最小 約 3 ms）" : ""}`;
+    const preDelay = `${Math.round(l.spacePreDelayMs)} ms`;
+    e.spacePreDelayValue.textContent = l.spacePreDelayMs < 3 ? t("page.settings.space.preDelayBelowMin", { value: preDelay }) : preDelay;
     e.spaceLowCutValue.textContent = lowCutText(l.spaceLowCutHz);
     e.spaceRoomNote.textContent =
       l.spaceRoom === "off"
-        ? "OFF：空間をかけません。"
-        : `${SPACE_ROOMS[l.spaceRoom].label}：${spaceIrText(l, l.spaceRoom, this.spaceIrs[SPACE_ROOMS[l.spaceRoom].index])}`;
+        ? t("page.settings.space.off")
+        : t("page.settings.space.roomNote", {
+            room: SPACE_ROOMS[l.spaceRoom].label,
+            ir: spaceIrText(l, l.spaceRoom, this.spaceIrs[SPACE_ROOMS[l.spaceRoom].index]),
+          });
     // Each room: which IR it plays (measured where there is one, synthesized, the user's file).
     e.spaceIrs.replaceChildren(
       ...(Object.entries(SPACE_ROOMS) as [Exclude<SpaceRoom, "off">, (typeof SPACE_ROOMS)["club"]][]).map(([room, info]) => {
@@ -562,13 +562,13 @@ export class SettingsView {
         const radios = document.createElement("span");
         radios.className = "radios";
         radios.setAttribute("role", "radiogroup");
-        radios.setAttribute("aria-label", `${info.label} の IR`);
+        radios.setAttribute("aria-label", t("page.settings.space.irGroup", { room: info.label }));
         const path = l.spaceIr[i];
         const fileName = path.split(/[\\/]/).pop() ?? path;
         const options: [SpaceIrSource, string][] = [
-          ...(SPACE_MEASURED[room] ? ([["measured", "実測（St Paul's Hall）"]] as [SpaceIrSource, string][]) : []),
-          ["synth", "合成"],
-          ["file", path === "" ? "自分のファイル" : `自分のファイル（${fileName}）`],
+          ...(SPACE_MEASURED[room] ? ([["measured", t("page.settings.space.irMeasured")]] as [SpaceIrSource, string][]) : []),
+          ["synth", t("page.settings.space.irSynth")],
+          ["file", path === "" ? t("page.settings.space.irFile") : t("page.settings.space.irFileNamed", { file: fileName })],
         ];
         const chosen = l.spaceSource[i];
         for (const [value, label] of options) {
@@ -585,7 +585,7 @@ export class SettingsView {
         }
         const choose = document.createElement("button");
         choose.type = "button";
-        choose.textContent = "ファイルを選ぶ…";
+        choose.textContent = t("page.settings.space.chooseFile");
         choose.addEventListener("click", () => void this.chooseIr(i));
         const st = this.spaceIrs[i];
         const note = document.createElement("p");
@@ -622,13 +622,13 @@ export class SettingsView {
     const r = await this.api.importEq();
     if (r.cancelled) return;
     if (!r.ok || !r.bands) {
-      this.showError(r.message ?? "読み込めませんでした");
+      this.showError(r.message ?? t("page.settings.eq.importFailed"));
       return;
     }
     const notes = [...(r.warnings ?? [])];
-    if (r.bands.length > MAX_BANDS) notes.push(`バンドは ${MAX_BANDS} までです。残りは読み込みませんでした。`);
+    if (r.bands.length > MAX_BANDS) notes.push(t("page.settings.eq.tooManyBands", { max: MAX_BANDS }));
     if (r.filePreampDb !== undefined && r.filePreampDb !== null)
-      notes.push(`ファイルのプリアンプ（${dbText(r.filePreampDb)}）は使いません（プリアンプは自動か、手で決めます）。`);
+      notes.push(t("page.settings.eq.filePreamp", { db: dbText(r.filePreampDb) }));
     this.els.warnings.hidden = notes.length === 0;
     this.els.warnings.textContent = notes.map((n) => `⚠ ${n}`).join("\n");
     this.editor.showWarnings(notes);
@@ -670,9 +670,9 @@ export class SettingsView {
 
     this.els.preamp.textContent =
       bands === 0
-        ? "EQ はかかりません。"
-        : `${bands} バンド、プリアンプ ${dbText(preamp)}（${l.eqAutoPreamp ? "自動" : "手動"}）。実線が EQ、点線がプリアンプを含めた出力。` +
-          (l.mode === "original" ? " 今は原音モードなのでかけません。" : "");
+        ? t("page.settings.eq.none")
+        : t(l.eqAutoPreamp ? "page.settings.eq.preampAuto" : "page.settings.eq.preampManual", { bands, db: dbText(preamp) }) +
+          (l.mode === "original" ? ` ${t("page.settings.eq.originalNotApplied")}` : "");
   }
 
   private showError(text: string) {
