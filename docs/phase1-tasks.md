@@ -191,10 +191,15 @@
 | 8-3b | アプリのアイコン：プロダクトサイト（https://audio.dezign.jp/）の真空管の印を、線を太くして使う（2026-11-21 に決定。その前は「ユーザーが元の絵を作る」だった。画像生成の注文書 `imagegen/requests/ICON-*` も残してある）。`tools/make_icon.py` が絵を描き、元の SVG（`app/resources/icon/`）、exe のアイコン（.ico：16・20・24・32・40・48・64・256）、MSIX の絵（`packaging/msix/Assets/`：Square44x44Logo の各倍率と targetsize、Square150x150Logo、StoreLogo）を書き出す | CC＋U（見た目） | exe とスタートメニューにアイコンが出る。小さい大きさでも形が分かる（U） | ☑ 自動テスト・exe への組み込み・見た目（U、2026-11-21）。下の「記録」 |
 | 8-3c | MSIX の本番の作り：`packaging/msix/`（マニフェストの雛形、作るスクリプト）。Store に出す未署名の MSIX と、手元で試すための自己署名の MSIX。パッケージの ID（Name・Publisher）は 8-5 で Partner Center が出す値を、CMake の設定で入れる（それまでは仮）。CI で MSIX が作れることを確かめる | CC＋U（手元での導入） | MSIX が作れ、手元に入れて起動・再生できる。Store の検査（Windows App Certification Kit）を通る | ☑ 自動テスト・未署名の MSIX が作れる（CI でも）・手元に入れて起動し、排他モードで再生できる（U、2026-11-21）・Store の検査は PASS（任意の項目に 1 つ FAIL）。下の「記録」 |
 | 8-4 | SignPath Foundation に申請 | U | 承認 | ☐ |
-
-決めたこと（ユーザー、2026-11-21）：ファイル用の名前は「DEZIGN Audio Player」（実行ファイルは `DEZIGNAudioPlayer.exe`、フォルダーは `DEZIGN Audio Player`）。Store に出る発行者の表示名は「DE:ZIGN」（Partner Center の登録名と一致させる。8-5 で登録した値に合わせる）。アイコンは、プロダクトサイトの真空管の印を線を太くして使う（最初は画像生成、次にユーザーが描く案だった）。今の `%LOCALAPPDATA%\AudioPlayer` のライブラリと設定は新しいフォルダーへ移さない（公開前で、使っているのは開発者だけ）。進め方：8-3a → 8-3b（絵が届いたら）→ 8-3c。
-| 8-5 | Microsoft Store に開発者登録、製品名の予約、提出 | U | 公開 | ☐ |
+| 8-5 | Microsoft Store に開発者登録、製品名の予約、提出（2026-11-21 に準備を分けた。手順は `packaging/store/README.md`） | U＋CC | 公開 | ☐ |
+| 8-5a | 掲載情報（日本語・英語）：説明文、短い説明、機能の一覧、画面写真の字幕、検索語、著作権、追加のライセンス条項、開発者（`packaging/store/listing.json`） | CC＋U（文面） | 字数の上限と言い方を自動テストで確かめる。文面は U | ◐ 自動テスト。文面は U（下の「記録」） |
+| 8-5b | プライバシーポリシー（日本語・英語、`packaging/store/privacy-policy.md`） | CC＋U（文面） | 保存するもの・送らないことが実際と合う | ◐ 文案。文面は U |
+| 8-5c | Partner Center での答え：価格と提供、プロパティ（カテゴリ・URL）、製品の宣言、年齢区分、runFullTrust の理由と審査の人への注記（英語） | CC＋U（答え） | `packaging/store/README.md` にある | ◐ 案。答えは U |
+| 8-5d | 画面写真：テスト信号の曲と、作った名前・絵のライブラリ（実在のジャケットや曲名を写さない）。日本語と英語、各 5 枚 | CC＋U（見た目） | 1366 × 768 以上の PNG | ☐ |
+| 8-5e | 登録と名前の予約、製品 ID を `CMakeLists.txt` に入れて MSIX を作り直す、提出 | U（登録・提出）＋CC（ID） | 公開 | ☐ |
 | 8-6 | 配布ページ（GitHub 版の警告の説明、寄付の窓口） | U＋CC | 公開 | ☐ |
+
+決めたこと（8-3、ユーザー、2026-11-21）：ファイル用の名前は「DEZIGN Audio Player」（実行ファイルは `DEZIGNAudioPlayer.exe`、フォルダーは `DEZIGN Audio Player`）。Store に出る発行者の表示名は「DE:ZIGN」（Partner Center の登録名と一致させる。8-5 で登録した値に合わせる）。アイコンは、プロダクトサイトの真空管の印を線を太くして使う（最初は画像生成、次にユーザーが描く案だった）。今の `%LOCALAPPDATA%\AudioPlayer` のライブラリと設定は新しいフォルダーへ移さない（公開前で、使っているのは開発者だけ）。進め方：8-3a → 8-3b（絵が届いたら）→ 8-3c。
 
 ---
 
@@ -1948,6 +1953,17 @@
 - **Store の検査**（Windows App Certification Kit、2026-11-21、署名なしの MSIX）：**全体の結果は PASS**。24 項目のうち 23 項目が PASS。FAIL は任意の項目（OPTIONAL）「ブロック済みの実行可能ファイル」の 1 つだけ：exe がプロセスを起動する API（`CreateProcessW`、`ShellExecuteW`）を参照していることと、`cmd` と `CdB` の文字列が入っていること。`ShellExecuteW` は、記事の外のリンクをブラウザーで開く処理（`ArticleWindow.cpp` の `launchInDefaultBrowser`）が使う。`CreateProcessW` と `cmd` は JUCE の部品が持つもので、アプリからは呼んでいない。`CdB` は文字列がたまたま一致したものと見られる。この項目は主に Windows の S モードで動くかに関わるもので、任意の項目のため、Store の提出は止めない。今のままにする。
 - **実機確認（U、2026-11-21、確認済み）**：入れたパッケージ版（スタートメニューの「DE:ZIGN AUDIO PLAYER」）で、出力デバイスを選び、排他モードで曲が鳴った。出力欄に形式・レート・BIT-PERFECT が出た。消すときは `Get-AppxPackage DEZIGN.AudioPlayer | Remove-AppxPackage`（ライブラリと設定は、この機械では前からのフォルダーにあるので残る）。
 - **CI**（2026-11-21、`fe1db37`）：テスト、アプリの自己テスト、「MSIX package」の段がすべて成功し、署名なしの `DEZIGNAudioPlayer-0.1.0.0-x64.msix` が作れた。
+
+### 8-5a〜8-5c：Store の準備（2026-11-21）
+
+- **調べたこと**（Microsoft Learn、2026-11-21）：説明文 10,000 字、短い説明 1,000 字（一部の画面で見えるのは最初の 270 字）、機能 20 個・各 200 字、デスクトップの画面写真 1366 × 768 以上・4K まで・PNG・10 枚・字幕 200 字、短い題 50 字。カテゴリは必須。プライバシーポリシーは個人情報を扱わなければ任意だが、審査で要ると判断されると不合格になる。`runFullTrust` は制限付きの機能で、提出の設定で理由を書く。CSV での取り込みもできる（列は Field・ID・Type・default と言語ごと。今回は使わず、手で貼る）。検索語・著作権・追加のライセンス条項・開発者の上限は、ページになかった。
+- **掲載情報**（`packaging/store/listing.json`）：日本語と英語で同じ項目。「何をするか」と「何を測るか」だけを書き、音が良くなるとは書かない。ロマン枠は「効果を確かめていない」と書く。ASIO の商標の文と AGPL の文は、アプリの「情報」タブと同じ。英語は用語集どおり（Pure mode、Processing mode など）。
+- **プライバシーポリシー**（`packaging/store/privacy-policy.md`）：集めない・送らない。アプリ自身はインターネットに接続しない（コードで確かめた：記事の窓は同梱のページだけで、外のリンクは既定のブラウザー）。保存するもの（ライブラリ、ジャケットの縮小画像、設定、WebView2 の保存領域）と場所。使っている Microsoft の部品（WebView2、Media Foundation）。接続する機能を足すときは、その前にポリシーに書き足す。公開の URL は GitHub のこのファイル。
+- **Partner Center の答え**（`packaging/store/README.md`）：カテゴリは音楽、価格は無料、製品の宣言、年齢区分の方針（見込みは 3+）、`runFullTrust` の理由と、審査の人への注記（英語。原音モードでは変換しないので、デバイスが受け付けない曲は鳴らない、という設計の説明を含む）。
+- **自動テスト**（`ui/src/storeListing.test.ts`、19 件）：2 つの言語で項目がそろう、空がない、字数の上限、機能の頭に自前の印を付けない、製品名と開発者が `CMakeLists.txt` と同じ、言い過ぎの語がない（日本語・英語）、商標と AGPL の文が「情報」タブと同じ、用語集の語、英語に日本語が混ざらない。
+- **要確認（U）**：
+  1. 掲載情報とプライバシーポリシーの文面（`packaging/store/listing.json`、`privacy-policy.md`）。特に、検索語（「ハイレゾ」を入れてよいか）、Web サイトとサポートの連絡先の URL、プライバシーポリシーを GitHub に置くか、プロダクトサイトに置くか。
+  2. Partner Center への登録（個人か会社か）と名前の予約。製品 ID の 3 つの値を Claude Code に渡す（README の 1）。
 
 ## フェーズ1と並行して決めること（ユーザー）
 

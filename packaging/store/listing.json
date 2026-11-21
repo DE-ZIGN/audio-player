@@ -1,0 +1,153 @@
+{
+  "_comment": [
+    "Microsoft Store listing (task 8-5a). One entry per language, the same fields in both (Partner Center's labels).",
+    "Paste each field into Partner Center > the submission > Store listings > the language. description and shortDescription are lines joined by line breaks.",
+    "Say what the app does and what it measures, never that it sounds better (CLAUDE.md chapter 1). ui/src/storeListing.test.ts checks the fields, the limits and the wording."
+  ],
+  "ja-JP": {
+    "productName": "DE:ZIGN AUDIO PLAYER",
+    "shortTitle": "DE:ZIGN AUDIO PLAYER",
+    "shortDescription": [
+      "Windows 向けの無料の音楽プレイヤー。何も処理せずに DAC へ届ける原音モードと、64bit 浮動小数点で EQ・真空管・空間などをかける音作りモードを切り替えて、ABX で聴き比べられます。"
+    ],
+    "description": [
+      "DE:ZIGN AUDIO PLAYER は、Windows 向けの無料の音楽プレイヤーです。ソースコードを GNU AGPL v3 で公開しています。寄付の有無で機能は変わりません。",
+      "",
+      "■ 2 つのモード",
+      "・原音モード：何も処理せず、ファイルのデータをそのまま DAC に届けます（ビットパーフェクト）。音量の変更、レートの変換、ディザもかけません。DAC が受け付けない形式やレートは変換せず、再生できない理由を表示します。",
+      "・音作りモード：ReplayGain、パラメトリック EQ、真空管の段（SE 300B・PP EL34・PP CLASS A）、トーン（BASS・TREBLE）、空間（IR の畳み込み）、クロスフィード、リサンプラーを、64bit 浮動小数点で処理します。",
+      "",
+      "■ 何をしているかを確かめられる",
+      "・「出力の確認」画面に、信号の経路、処理の段ごとの ON / OFF、BIT-PERFECT の判定とその根拠を表示します。",
+      "・BIT-PERFECT の表示は、実際の状態（音量 100%、処理なし、出力形式の一致、排他モード）から判定し、一つでも外れたら表示しません。",
+      "・True Peak（8 倍のオーバーサンプリングで測定）と LUFS のメーター。曲一覧に True Peak の列があり、0 dBTP を超える曲に印を付けます。",
+      "・ABX テストで、原音と音作り、設定 A と設定 B などを、音量差 0.1 dB 以内にそろえて聴き比べられます。どちらがよいかを、アプリは判定しません。",
+      "",
+      "■ 出力",
+      "・WASAPI 排他モード（イベント駆動）と ASIO",
+      "・DSD（DSF・DFF）は DoP で送ります（DoP に対応した DAC で、出力ごとに設定をオンにしたときだけ）",
+      "・曲ごとに出力のレートを切り替え、曲の境目に欠けも重なりもないギャップレス再生",
+      "",
+      "■ 対応形式",
+      "FLAC、WAV、AIFF、ALAC、MP3、AAC（Windows の Media Foundation でデコード）、DSF、DFF",
+      "",
+      "■ ライブラリ",
+      "・監視フォルダーを登録すると、曲を取り込み、追加・移動・改名に追従します。音楽ファイルは読むだけで、書き換えません。",
+      "・日本語の部分一致検索（ひらがな・カタカナ、全角・半角をまたいで探せます）。古い ID3 タグの Shift_JIS を自動で判別します。",
+      "・表の一覧と、アルバムのジャケットを並べたタイル表示",
+      "",
+      "■ 画面",
+      "・標準ビュー、真空管アンプ風のアンプビュー、平坦なライブラリビュー（2 つの配色）。違うのは見た目と配置だけで、機能はどのビューでも同じです。",
+      "・日本語と英語",
+      "",
+      "■ 効果を主張しない機能",
+      "真空管のウォームアップと個体差は「ロマン枠」として、効果を確かめていないことを画面に明記しています。効果があるかどうかは、ABX で自分で確かめられます。",
+      "",
+      "ASIO は Steinberg Media Technologies GmbH の商標です。本製品は ASIO のロゴを使っていません。"
+    ],
+    "features": [
+      "原音モード：何も処理せずに DAC へ届けるビットパーフェクト再生",
+      "音作りモード：ReplayGain、パラメトリック EQ、真空管、トーン、空間（IR）、クロスフィード、リサンプラーを 64bit 浮動小数点で処理",
+      "BIT-PERFECT の表示は実際の状態から判定し、条件が一つでも外れたら表示しない",
+      "「出力の確認」画面：信号の経路、段ごとの ON / OFF、判定の根拠",
+      "True Peak（8 倍のオーバーサンプリング）と LUFS のメーター",
+      "ABX テスト：音量差 0.1 dB 以内にそろえて聴き比べ",
+      "WASAPI 排他モード、ASIO、DoP（DSD）",
+      "曲ごとのレートの切り替えと、ギャップレス再生",
+      "FLAC、WAV、AIFF、ALAC、MP3、AAC、DSF、DFF",
+      "監視フォルダーのライブラリ。音楽ファイルは書き換えない",
+      "ひらがな・カタカナ、全角・半角をまたぐ日本語の検索",
+      "標準・アンプ・ライブラリの 3 つのビュー（機能は同じ）",
+      "日本語と英語",
+      "無料、ソースコードを公開（GNU AGPL v3）"
+    ],
+    "screenshotCaptions": [
+      "標準ビュー：ライブラリと再生キュー",
+      "アンプビュー：真空管アンプ風の画面（シングルエンド）",
+      "ライブラリビュー：平坦な画面で、大量の曲を一覧",
+      "出力の確認：信号の経路と BIT-PERFECT の判定",
+      "ABX テスト：音量をそろえて聴き比べ"
+    ],
+    "searchTerms": ["音楽プレイヤー", "ハイレゾ", "FLAC", "DSD", "ASIO", "WASAPI", "真空管"],
+    "copyrightAndTrademark": "© 2026 DE:ZIGN. ASIO は Steinberg Media Technologies GmbH の商標です。",
+    "additionalLicenseTerms": [
+      "このアプリはフリーソフトウェアです。GNU Affero General Public License 第 3 版（AGPLv3）の条件のもとで、使う・調べる・変える・配ることができます。保証はありません。",
+      "ソースコード：https://github.com/DE-ZIGN/audio-player",
+      "使っている部品とそのライセンスは、アプリの設定の「情報」で見られます。"
+    ],
+    "developedBy": "DE:ZIGN"
+  },
+  "en-US": {
+    "productName": "DE:ZIGN AUDIO PLAYER",
+    "shortTitle": "DE:ZIGN AUDIO PLAYER",
+    "shortDescription": [
+      "A free music player for Windows. Switch between Pure mode, which sends the data to the DAC untouched, and Processing mode, which applies EQ, tubes, space and more in 64-bit float, and compare the two blind with ABX."
+    ],
+    "description": [
+      "DE:ZIGN AUDIO PLAYER is a free music player for Windows. Its source code is published under the GNU AGPL v3. Donations change nothing in what the app can do.",
+      "",
+      "■ Two modes",
+      "- Pure mode: nothing is processed. The file's data goes to the DAC as it is (bit-perfect): no volume change, no rate conversion, no dither. A format or rate the DAC does not accept is not converted; the app shows why it cannot be played.",
+      "- Processing mode: ReplayGain, parametric EQ, a tube stage (SE 300B, PP EL34, PP CLASS A), tone (BASS, TREBLE), space (IR convolution), crossfeed and a resampler, all in 64-bit floating point.",
+      "",
+      "■ See what it is doing",
+      "- The Signal path screen shows the path, each stage on or off, and the BIT-PERFECT verdict with its reasons.",
+      "- BIT-PERFECT is judged from the actual state (volume at 100%, no processing, the output format matching, exclusive mode). If any of these is off, it is not shown.",
+      "- True Peak (measured with 8x oversampling) and LUFS meters. The track list has a True Peak column and marks tracks above 0 dBTP.",
+      "- An ABX test compares Pure vs. processed, settings A vs. settings B and more, with the levels matched within 0.1 dB. The app does not judge which of the two is preferable.",
+      "",
+      "■ Output",
+      "- WASAPI exclusive mode (event-driven) and ASIO",
+      "- DSD (DSF, DFF) is sent as DoP, only to a DAC that supports DoP and only when you turn it on for that output",
+      "- The output rate follows each track, and playback is gapless: nothing missing or overlapping where tracks meet",
+      "",
+      "■ Formats",
+      "FLAC, WAV, AIFF, ALAC, MP3, AAC (decoded by Windows Media Foundation), DSF, DFF",
+      "",
+      "■ Library",
+      "- Add watched folders: the app imports the tracks and follows additions, moves and renames. Music files are only read, never changed.",
+      "- Search Japanese text by any part of it, across hiragana and katakana and full- and half-width characters. Shift_JIS in old ID3 tags is detected.",
+      "- A table of tracks, or tiles of album covers",
+      "",
+      "■ Views",
+      "- Standard view, Amp view (a tube amplifier look) and Library view (flat, in two color themes). Only the look and the layout differ; every view has the same features.",
+      "- Japanese and English",
+      "",
+      "■ Features that claim no effect",
+      "Tube warm-up and tube-to-tube variation are marked \"Just for fun: no effect verified\". Whether they make a difference you can check yourself with ABX.",
+      "",
+      "ASIO is a trademark of Steinberg Media Technologies GmbH. This product does not use the ASIO logo."
+    ],
+    "features": [
+      "Pure mode: bit-perfect playback, the data sent to the DAC untouched",
+      "Processing mode: ReplayGain, parametric EQ, tubes, tone, space (IR), crossfeed and a resampler in 64-bit float",
+      "BIT-PERFECT is judged from the actual state and not shown when any condition is off",
+      "Signal path screen: the path, each stage on or off, and the reasons for the verdict",
+      "True Peak (8x oversampling) and LUFS meters",
+      "ABX test with the levels matched within 0.1 dB",
+      "WASAPI exclusive mode, ASIO, DoP (DSD)",
+      "The output rate follows each track; gapless playback",
+      "FLAC, WAV, AIFF, ALAC, MP3, AAC, DSF, DFF",
+      "A library of watched folders; music files are never changed",
+      "Japanese search across hiragana and katakana, full- and half-width",
+      "Standard, Amp and Library views, with the same features",
+      "Japanese and English",
+      "Free, with the source code published (GNU AGPL v3)"
+    ],
+    "screenshotCaptions": [
+      "Standard view: the library and the queue",
+      "Amp view: a tube amplifier look (single-ended)",
+      "Library view: a flat screen for long lists of tracks",
+      "Signal path: the path and the BIT-PERFECT verdict",
+      "ABX test: compare blind with the levels matched"
+    ],
+    "searchTerms": ["music player", "bit-perfect", "FLAC", "DSD", "ASIO", "WASAPI", "ABX"],
+    "copyrightAndTrademark": "© 2026 DE:ZIGN. ASIO is a trademark of Steinberg Media Technologies GmbH.",
+    "additionalLicenseTerms": [
+      "This app is free software: you may use, study, change and share it under the terms of the GNU Affero General Public License, version 3 (AGPLv3). It comes with no warranty.",
+      "Source code: https://github.com/DE-ZIGN/audio-player",
+      "The components it uses and their licenses are listed in the app, under Settings > About."
+    ],
+    "developedBy": "DE:ZIGN"
+  }
+}
