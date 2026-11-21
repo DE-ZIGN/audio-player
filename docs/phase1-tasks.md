@@ -186,10 +186,10 @@
 |---|---|---|---|---|
 | 8-1 | GitHub Actions でビルドとテスト | CC | プッシュごとにテストが走る | ☑ GitHub Actions で、ビルドと全テスト（593 件＋アプリの自己テスト 4 件）が通った（2026-11-19、3 回目の実行）（下の「記録」） |
 | 8-2 | ライセンス画面（依存部品の表示を自動生成） | CC | すべての依存が載っている | ◐ 自動テスト・ブラウザー（模擬）・アプリの自己テスト。見た目は U（下の「記録」） |
-| 8-3 | MSIX パッケージの本番設定（2026-11-21 に 3 つに分けた。決めたことは表の下） | CC | Store に出せる形式 | ☐ |
-| 8-3a | ファイル用の名前：実行ファイル `DEZIGNAudioPlayer.exe`、データの置き場所 `%LOCALAPPDATA%\DEZIGN Audio Player`（WebView2 の保存領域も）、exe の版情報（製品名・説明は DE:ZIGN AUDIO PLAYER、会社名は DE:ZIGN）。今の `AudioPlayer` のライブラリと設定は移さない。README・資料の名前も直す | CC | 新しい名前で起動し、新しいフォルダーにライブラリと設定ができる。テストと CI が通る | ◐ 自動テスト・アプリの自己テスト。新しい名前での起動は U（下の「記録」） |
-| 8-3b | アプリのアイコン：プロダクトサイト（https://audio.dezign.jp/）の真空管の印を、線を太くして使う（2026-11-21 に決定。その前は「ユーザーが元の絵を作る」だった。画像生成の注文書 `imagegen/requests/ICON-*` も残してある）。`tools/make_icon.py` が絵を描き、元の SVG（`app/resources/icon/`）、exe のアイコン（.ico：16・20・24・32・40・48・64・256）、MSIX の絵（`packaging/msix/Assets/`：Square44x44Logo の各倍率と targetsize、Square150x150Logo、StoreLogo）を書き出す | CC＋U（見た目） | exe とスタートメニューにアイコンが出る。小さい大きさでも形が分かる（U） | ◐ 自動テスト・exe への組み込み。見た目は U（下の「記録」） |
-| 8-3c | MSIX の本番の作り：`packaging/msix/`（マニフェストの雛形、作るスクリプト）。Store に出す未署名の MSIX と、手元で試すための自己署名の MSIX。パッケージの ID（Name・Publisher）は 8-5 で Partner Center が出す値を、CMake の設定で入れる（それまでは仮）。CI で MSIX が作れることを確かめる | CC＋U（手元での導入） | MSIX が作れ、手元に入れて起動・再生できる。Store の検査（Windows App Certification Kit）を通る | ◐ 自動テスト・未署名の MSIX が作れる・手元に入れて起動できる・Store の検査は PASS（任意の項目に 1 つ FAIL）。CI で作れる。パッケージ版での再生は U（下の「記録」） |
+| 8-3 | MSIX パッケージの本番設定（2026-11-21 に 3 つに分けた。決めたことは表の下） | CC | Store に出せる形式 | ☑ 8-3a〜8-3c がすべて済んだ（2026-11-21）。パッケージの ID は 8-5 まで仮 |
+| 8-3a | ファイル用の名前：実行ファイル `DEZIGNAudioPlayer.exe`、データの置き場所 `%LOCALAPPDATA%\DEZIGN Audio Player`（WebView2 の保存領域も）、exe の版情報（製品名・説明は DE:ZIGN AUDIO PLAYER、会社名は DE:ZIGN）。今の `AudioPlayer` のライブラリと設定は移さない。README・資料の名前も直す | CC | 新しい名前で起動し、新しいフォルダーにライブラリと設定ができる。テストと CI が通る | ☑ 自動テスト・アプリの自己テスト・新しい名前での起動と再生（U、2026-11-21）。下の「記録」 |
+| 8-3b | アプリのアイコン：プロダクトサイト（https://audio.dezign.jp/）の真空管の印を、線を太くして使う（2026-11-21 に決定。その前は「ユーザーが元の絵を作る」だった。画像生成の注文書 `imagegen/requests/ICON-*` も残してある）。`tools/make_icon.py` が絵を描き、元の SVG（`app/resources/icon/`）、exe のアイコン（.ico：16・20・24・32・40・48・64・256）、MSIX の絵（`packaging/msix/Assets/`：Square44x44Logo の各倍率と targetsize、Square150x150Logo、StoreLogo）を書き出す | CC＋U（見た目） | exe とスタートメニューにアイコンが出る。小さい大きさでも形が分かる（U） | ☑ 自動テスト・exe への組み込み・見た目（U、2026-11-21）。下の「記録」 |
+| 8-3c | MSIX の本番の作り：`packaging/msix/`（マニフェストの雛形、作るスクリプト）。Store に出す未署名の MSIX と、手元で試すための自己署名の MSIX。パッケージの ID（Name・Publisher）は 8-5 で Partner Center が出す値を、CMake の設定で入れる（それまでは仮）。CI で MSIX が作れることを確かめる | CC＋U（手元での導入） | MSIX が作れ、手元に入れて起動・再生できる。Store の検査（Windows App Certification Kit）を通る | ☑ 自動テスト・未署名の MSIX が作れる（CI でも）・手元に入れて起動し、排他モードで再生できる（U、2026-11-21）・Store の検査は PASS（任意の項目に 1 つ FAIL）。下の「記録」 |
 | 8-4 | SignPath Foundation に申請 | U | 承認 | ☐ |
 
 決めたこと（ユーザー、2026-11-21）：ファイル用の名前は「DEZIGN Audio Player」（実行ファイルは `DEZIGNAudioPlayer.exe`、フォルダーは `DEZIGN Audio Player`）。Store に出る発行者の表示名は「DE:ZIGN」（Partner Center の登録名と一致させる。8-5 で登録した値に合わせる）。アイコンは、プロダクトサイトの真空管の印を線を太くして使う（最初は画像生成、次にユーザーが描く案だった）。今の `%LOCALAPPDATA%\AudioPlayer` のライブラリと設定は新しいフォルダーへ移さない（公開前で、使っているのは開発者だけ）。進め方：8-3a → 8-3b（絵が届いたら）→ 8-3c。
@@ -1917,7 +1917,7 @@
 - **自動テスト**（`ui/src/productName.test.ts`、4 件を足した）：決めた名前とファイル名に使えない文字がないこと、発行者、3 か所のデータの置き場所が `AP_DATA_FOLDER` からで実行ファイル名を使っていないこと、版情報のファイルを差し替えていてその中身（説明・製品名・会社名・元のファイル名・版、UTF-8）。
 - **確かめたこと**：作り直した Release 版の版情報を、Windows の読み方で読んだ（上のとおり）。ctest 全 613 件（アプリの自己テストを含む）、vitest 全 406 件。アプリを動かしたあと、`%LOCALAPPDATA%\DEZIGN Audio Player` に WebView2 の保存領域ができ、古い `AudioPlayer` のフォルダーはそのまま残っている。
 - **手元のビルドで気をつけること**：CMake は、前に構成したときの名前を覚えている（キャッシュ）。名前を変えたあとは、`cmake -S . -B build/vs2022 -U AP_PRODUCT_NAME -U AP_COMPANY_NAME -U AP_BUNDLE_ID` のように覚えている値を消して構成し直す（CI はいつも新しく構成するので要らない）。ビルドの出力先に古い `AudioPlayer.exe` が残るので消した。
-- **要実機確認（U）**：作り直した Release 版の `DEZIGNAudioPlayer.exe` を起動する。新しいフォルダーで始まるので、ライブラリは空・設定は初期の状態（決めたとおり）。監視フォルダーを足し直し、出力デバイスなどを設定し直してから、再生できるか。タスク マネージャーで、名前が「DE:ZIGN AUDIO PLAYER」と出るか。古い `%LOCALAPPDATA%\AudioPlayer` は、要らなければ自分で消してよい。
+- **実機確認（U、2026-11-21、確認済み）**：作り直した Release 版の `DEZIGNAudioPlayer.exe` を起動する。新しいフォルダーで始まるので、ライブラリは空・設定は初期の状態（決めたとおり）。監視フォルダーを足し直し、出力デバイスなどを設定し直してから、再生できるか。タスク マネージャーで、名前が「DE:ZIGN AUDIO PLAYER」と出るか。古い `%LOCALAPPDATA%\AudioPlayer` は、要らなければ自分で消してよい。
 
 ### 8-3b：アプリのアイコン（2026-11-21）
 
@@ -1930,7 +1930,7 @@
 - **exe への組み込み**：`app/resources/version.rc.in` に `IDI_ICON1 ICON`。ファイルの場所は `app/CMakeLists.txt` の `AP_ICON_FILE`。JUCE は exe の最初のアイコンを窓に付ける（`ExtractAssociatedIcon`）ので、題名の欄とタスクバーにも同じものが出る。
 - **自動テスト**（`ui/src/icon.test.ts`、7 件）：rc と CMake の組み込み、.ico に 8 つの大きさがあり 256 px だけが PNG であること、SVG がサイトの色と線であること、MSIX の絵がそろっていて大きさが合うこと。
 - **確かめたこと**：作り直した Release 版の exe から、Windows の読み方（`PrivateExtractIcons`）で 16・20・24・32・48・256 px を取り出し、それぞれその大きさの絵が出ること。vitest 全 413 件、ctest のアプリの自己テスト（smoke）4 件。
-- **要実機確認（U）**：作り直した Release 版の `DEZIGNAudioPlayer.exe` を、エクスプローラー（表示を「小アイコン」「大アイコン」に切り替えて）、起動したときのタスクバー（明るいテーマと暗いテーマ）、窓の左上で見る。小さい大きさでも真空管と分かるか、線が太すぎないか。エクスプローラーが古いアイコンを覚えていて変わらないときは、exe を別のフォルダーに写すと新しく読む。
+- **実機確認（U、2026-11-21、確認済み）**：作り直した Release 版の `DEZIGNAudioPlayer.exe` を、エクスプローラー（表示を「小アイコン」「大アイコン」に切り替えて）、起動したときのタスクバー（明るいテーマと暗いテーマ）、窓の左上で見る。小さい大きさでも真空管と分かるか、線が太すぎないか。エクスプローラーが古いアイコンを覚えていて変わらないときは、exe を別のフォルダーに写すと新しく読む。
 
 ### 8-3c：MSIX の本番の作り（2026-11-21）
 
@@ -1946,7 +1946,7 @@
 - **手元での導入**（2026-11-21）：S2 のテスト用証明書（`CN=AudioPlayer Test`、信頼済み）で署名付きの MSIX を作り、`Add-AppxPackage` で入れた。スタートメニューに「DE:ZIGN AUDIO PLAYER」（`DEZIGN.AudioPlayer_0ynhcjem7agkc!App`）が出る。そこから起動すると、窓の題名が DE:ZIGN AUDIO PLAYER で、exe は `C:\Program Files\WindowsApps\` の下から動き、画面（標準ビュー、ライブラリ、VU メーター）も読み込まれた。
   - データの置き場所：この機械では、パッケージ版も前からある `%LOCALAPPDATA%\DEZIGN Audio Player` をそのまま使い、ライブラリ（51 曲）が出た。パッケージ専用の場所（`Packages\…\LocalCache\Local\`）には作られなかった。新しく作るものだけが振り替えられ、前からあるフォルダーはそのまま使われる、という Windows の動きのため。初めて入れる利用者では、パッケージ専用の場所に作られる。README の「別になる」という説明は、確かめたとおりに直した。
 - **Store の検査**（Windows App Certification Kit、2026-11-21、署名なしの MSIX）：**全体の結果は PASS**。24 項目のうち 23 項目が PASS。FAIL は任意の項目（OPTIONAL）「ブロック済みの実行可能ファイル」の 1 つだけ：exe がプロセスを起動する API（`CreateProcessW`、`ShellExecuteW`）を参照していることと、`cmd` と `CdB` の文字列が入っていること。`ShellExecuteW` は、記事の外のリンクをブラウザーで開く処理（`ArticleWindow.cpp` の `launchInDefaultBrowser`）が使う。`CreateProcessW` と `cmd` は JUCE の部品が持つもので、アプリからは呼んでいない。`CdB` は文字列がたまたま一致したものと見られる。この項目は主に Windows の S モードで動くかに関わるもので、任意の項目のため、Store の提出は止めない。今のままにする。
-- **要実機確認（U）**：入れたパッケージ版（スタートメニューの「DE:ZIGN AUDIO PLAYER」）で、出力デバイスを選び、排他モードで再生できるか。出力欄に形式・レート・BIT-PERFECT が出るか。消すときは `Get-AppxPackage DEZIGN.AudioPlayer | Remove-AppxPackage`（ライブラリと設定は、この機械では前からのフォルダーにあるので残る）。
+- **実機確認（U、2026-11-21、確認済み）**：入れたパッケージ版（スタートメニューの「DE:ZIGN AUDIO PLAYER」）で、出力デバイスを選び、排他モードで曲が鳴った。出力欄に形式・レート・BIT-PERFECT が出た。消すときは `Get-AppxPackage DEZIGN.AudioPlayer | Remove-AppxPackage`（ライブラリと設定は、この機械では前からのフォルダーにあるので残る）。
 - **CI**（2026-11-21、`fe1db37`）：テスト、アプリの自己テスト、「MSIX package」の段がすべて成功し、署名なしの `DEZIGNAudioPlayer-0.1.0.0-x64.msix` が作れた。
 
 ## フェーズ1と並行して決めること（ユーザー）
