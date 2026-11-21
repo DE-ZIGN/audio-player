@@ -11,7 +11,7 @@ export const ja = {
   "about.heading": "このアプリ",
   "about.app.version": "バージョン {version}",
   "about.app.free":
-    "このアプリは自由ソフトウェアです。GNU Affero General Public License 第 3 版（AGPLv3）の条件のもとで、使う・調べる・変える・配ることができます。保証はありません（くわしくはライセンス本文）。",
+    "このアプリはフリーソフトウェアです。GNU Affero General Public License 第 3 版（AGPLv3）の条件のもとで、使う・調べる・変える・配ることができます。保証はありません（くわしくはライセンス本文）。",
   "about.label.license": "ライセンス",
   "about.label.source": "ソースコード",
   // The heading over the trademark notices.
