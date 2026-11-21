@@ -186,8 +186,13 @@
 |---|---|---|---|---|
 | 8-1 | GitHub Actions でビルドとテスト | CC | プッシュごとにテストが走る | ☑ GitHub Actions で、ビルドと全テスト（593 件＋アプリの自己テスト 4 件）が通った（2026-11-19、3 回目の実行）（下の「記録」） |
 | 8-2 | ライセンス画面（依存部品の表示を自動生成） | CC | すべての依存が載っている | ◐ 自動テスト・ブラウザー（模擬）・アプリの自己テスト。見た目は U（下の「記録」） |
-| 8-3 | MSIX パッケージの本番設定 | CC | Store に出せる形式 | ☐ |
+| 8-3 | MSIX パッケージの本番設定（2026-11-21 に 3 つに分けた。決めたことは表の下） | CC | Store に出せる形式 | ☐ |
+| 8-3a | ファイル用の名前：実行ファイル `DEZIGNAudioPlayer.exe`、データの置き場所 `%LOCALAPPDATA%\DEZIGN Audio Player`（WebView2 の保存領域も）、exe の版情報（製品名・説明は DE:ZIGN AUDIO PLAYER、会社名は DE:ZIGN）。今の `AudioPlayer` のライブラリと設定は移さない。README・資料の名前も直す | CC | 新しい名前で起動し、新しいフォルダーにライブラリと設定ができる。テストと CI が通る | ☐ |
+| 8-3b | アプリのアイコン：画像生成で元の絵を作り（U、注文書は `imagegen/requests/ICON-*`）、そこから exe のアイコン（.ico）と MSIX・Store の絵の全部の大きさを作る道具 | U（絵の選定）＋CC | exe とスタートメニューにアイコンが出る。小さい大きさでも形が分かる（U） | ☐ |
+| 8-3c | MSIX の本番の作り：`packaging/msix/`（マニフェストの雛形、作るスクリプト）。Store に出す未署名の MSIX と、手元で試すための自己署名の MSIX。パッケージの ID（Name・Publisher）は 8-5 で Partner Center が出す値を、CMake の設定で入れる（それまでは仮）。CI で MSIX が作れることを確かめる | CC＋U（手元での導入） | MSIX が作れ、手元に入れて起動・再生できる。Store の検査（Windows App Certification Kit）を通る | ☐ |
 | 8-4 | SignPath Foundation に申請 | U | 承認 | ☐ |
+
+決めたこと（ユーザー、2026-11-21）：ファイル用の名前は「DEZIGN Audio Player」（実行ファイルは `DEZIGNAudioPlayer.exe`、フォルダーは `DEZIGN Audio Player`）。Store に出る発行者の表示名は「DE:ZIGN」（Partner Center の登録名と一致させる。8-5 で登録した値に合わせる）。アイコンは画像生成で作る。今の `%LOCALAPPDATA%\AudioPlayer` のライブラリと設定は新しいフォルダーへ移さない（公開前で、使っているのは開発者だけ）。進め方：8-3a → 8-3b（絵が届いたら）→ 8-3c。
 | 8-5 | Microsoft Store に開発者登録、製品名の予約、提出 | U | 公開 | ☐ |
 | 8-6 | 配布ページ（GitHub 版の警告の説明、寄付の窓口） | U＋CC | 公開 | ☐ |
 
