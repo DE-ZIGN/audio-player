@@ -22,6 +22,12 @@ set(AP_DATA_FOLDER  "DEZIGN Audio Player" CACHE STRING "The data folder's name u
 # account's display name, task 8-5); also the executable's company name.
 set(AP_COMPANY_NAME "DE:ZIGN" CACHE STRING "The publisher's display name")
 set(AP_BUNDLE_ID    "io.github.de-zign.audioplayer" CACHE STRING "Reverse-DNS application ID")
+# The MSIX package's identity (task 8-3c). Partner Center gives both when the
+# name is reserved (task 8-5); until then these are provisional, and a
+# package made with them can only be tried at hand (signed with a test
+# certificate whose subject the build script puts in place of the Publisher).
+set(AP_MSIX_IDENTITY_NAME "DEZIGN.AudioPlayer" CACHE STRING "MSIX Identity Name (from Partner Center)")
+set(AP_MSIX_PUBLISHER     "CN=DEZIGN-PROVISIONAL" CACHE STRING "MSIX Identity Publisher (from Partner Center)")
 
 option(AP_BUILD_APP   "Build the JUCE application (downloads JUCE)" ON)
 option(AP_BUILD_TESTS "Build unit and acceptance tests (downloads Catch2)" ON)

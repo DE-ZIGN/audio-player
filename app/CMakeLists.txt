@@ -67,6 +67,12 @@ set(AP_ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/resources/icon/icon.ico")
 configure_file(resources/version.rc.in "${CMAKE_CURRENT_BINARY_DIR}/resources/ap_version.rc" @ONLY)
 target_include_directories(ap_app PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/resources")
 
+# The MSIX package's manifest (task 8-3c), packed by packaging/msix/build-msix.ps1.
+# The Store wants four numbers with the last one 0.
+set(AP_MSIX_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}.0")
+configure_file("${PROJECT_SOURCE_DIR}/packaging/msix/AppxManifest.xml.in"
+               "${PROJECT_BINARY_DIR}/packaging/msix/AppxManifest.xml" @ONLY)
+
 ap_apply_juce_target_settings(ap_app)
 ap_copy_engine_dlls(ap_app) # mpg123.dll next to the program
 set_target_properties(ap_app PROPERTIES FOLDER "app")

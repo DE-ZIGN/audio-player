@@ -118,6 +118,12 @@ jobs:
       - name: The app's self tests (WebView2)
         run: ctest --preset release -L smoke
 
+      # The MSIX package as the Store takes it (unsigned; task 8-3c). makeappx
+      # checks the manifest against its schema as it packs.
+      - name: MSIX package
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File packaging\msix\build-msix.ps1
+
       - name: Keep the test logs
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

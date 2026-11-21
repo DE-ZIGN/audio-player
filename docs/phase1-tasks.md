@@ -189,7 +189,7 @@
 | 8-3 | MSIX パッケージの本番設定（2026-11-21 に 3 つに分けた。決めたことは表の下） | CC | Store に出せる形式 | ☐ |
 | 8-3a | ファイル用の名前：実行ファイル `DEZIGNAudioPlayer.exe`、データの置き場所 `%LOCALAPPDATA%\DEZIGN Audio Player`（WebView2 の保存領域も）、exe の版情報（製品名・説明は DE:ZIGN AUDIO PLAYER、会社名は DE:ZIGN）。今の `AudioPlayer` のライブラリと設定は移さない。README・資料の名前も直す | CC | 新しい名前で起動し、新しいフォルダーにライブラリと設定ができる。テストと CI が通る | ◐ 自動テスト・アプリの自己テスト。新しい名前での起動は U（下の「記録」） |
 | 8-3b | アプリのアイコン：プロダクトサイト（https://audio.dezign.jp/）の真空管の印を、線を太くして使う（2026-11-21 に決定。その前は「ユーザーが元の絵を作る」だった。画像生成の注文書 `imagegen/requests/ICON-*` も残してある）。`tools/make_icon.py` が絵を描き、元の SVG（`app/resources/icon/`）、exe のアイコン（.ico：16・20・24・32・40・48・64・256）、MSIX の絵（`packaging/msix/Assets/`：Square44x44Logo の各倍率と targetsize、Square150x150Logo、StoreLogo）を書き出す | CC＋U（見た目） | exe とスタートメニューにアイコンが出る。小さい大きさでも形が分かる（U） | ◐ 自動テスト・exe への組み込み。見た目は U（下の「記録」） |
-| 8-3c | MSIX の本番の作り：`packaging/msix/`（マニフェストの雛形、作るスクリプト）。Store に出す未署名の MSIX と、手元で試すための自己署名の MSIX。パッケージの ID（Name・Publisher）は 8-5 で Partner Center が出す値を、CMake の設定で入れる（それまでは仮）。CI で MSIX が作れることを確かめる | CC＋U（手元での導入） | MSIX が作れ、手元に入れて起動・再生できる。Store の検査（Windows App Certification Kit）を通る | ☐ |
+| 8-3c | MSIX の本番の作り：`packaging/msix/`（マニフェストの雛形、作るスクリプト）。Store に出す未署名の MSIX と、手元で試すための自己署名の MSIX。パッケージの ID（Name・Publisher）は 8-5 で Partner Center が出す値を、CMake の設定で入れる（それまでは仮）。CI で MSIX が作れることを確かめる | CC＋U（手元での導入） | MSIX が作れ、手元に入れて起動・再生できる。Store の検査（Windows App Certification Kit）を通る | ◐ 自動テスト・未署名の MSIX が作れる。手元での導入と Store の検査は U（下の「記録」） |
 | 8-4 | SignPath Foundation に申請 | U | 承認 | ☐ |
 
 決めたこと（ユーザー、2026-11-21）：ファイル用の名前は「DEZIGN Audio Player」（実行ファイルは `DEZIGNAudioPlayer.exe`、フォルダーは `DEZIGN Audio Player`）。Store に出る発行者の表示名は「DE:ZIGN」（Partner Center の登録名と一致させる。8-5 で登録した値に合わせる）。アイコンは、プロダクトサイトの真空管の印を線を太くして使う（最初は画像生成、次にユーザーが描く案だった）。今の `%LOCALAPPDATA%\AudioPlayer` のライブラリと設定は新しいフォルダーへ移さない（公開前で、使っているのは開発者だけ）。進め方：8-3a → 8-3b（絵が届いたら）→ 8-3c。
@@ -1931,6 +1931,21 @@
 - **自動テスト**（`ui/src/icon.test.ts`、7 件）：rc と CMake の組み込み、.ico に 8 つの大きさがあり 256 px だけが PNG であること、SVG がサイトの色と線であること、MSIX の絵がそろっていて大きさが合うこと。
 - **確かめたこと**：作り直した Release 版の exe から、Windows の読み方（`PrivateExtractIcons`）で 16・20・24・32・48・256 px を取り出し、それぞれその大きさの絵が出ること。vitest 全 413 件、ctest のアプリの自己テスト（smoke）4 件。
 - **要実機確認（U）**：作り直した Release 版の `DEZIGNAudioPlayer.exe` を、エクスプローラー（表示を「小アイコン」「大アイコン」に切り替えて）、起動したときのタスクバー（明るいテーマと暗いテーマ）、窓の左上で見る。小さい大きさでも真空管と分かるか、線が太すぎないか。エクスプローラーが古いアイコンを覚えていて変わらないときは、exe を別のフォルダーに写すと新しく読む。
+
+### 8-3c：MSIX の本番の作り（2026-11-21）
+
+- **作り**（`packaging/msix/`、手順は同じ場所の README）：
+  - `AppxManifest.xml.in`：CMake（`app/CMakeLists.txt`）が値を入れて `build\vs2022\packaging\msix\AppxManifest.xml` に書き出す。表示名 DE:ZIGN AUDIO PLAYER、発行者名 DE:ZIGN、実行ファイル `DEZIGNAudioPlayer.exe`、版は CMake の版に `.0` を足した 4 つの数（Store の決まり）。デスクトップアプリ（`Windows.FullTrustApplication`、`runFullTrust`）。Windows 10 1809（10.0.17763）以降。
+  - パッケージの ID は仮：`AP_MSIX_IDENTITY_NAME` = `DEZIGN.AudioPlayer`、`AP_MSIX_PUBLISHER` = `CN=DEZIGN-PROVISIONAL`（`CMakeLists.txt`）。8-5 で Partner Center が出す値に書き換える。
+  - 言語：日本語（既定）と英語。文字は `Strings\<言語>\Resources.resw`（今は説明文だけ。表示名は両方とも DE:ZIGN AUDIO PLAYER）。説明文は「何をするか」だけを書き、音が良くなるとは書かない（自動テストで確かめる）。
+  - `build-msix.ps1`：アプリ（exe、mpg123.dll、ui フォルダー）、VC++ ランタイム（app-local。S2 と同じにした。VCLibs のフレームワークに頼らないので、入れる側の準備が要らない）、絵、文字の索引（resources.pri）を並べて包む。引数なしなら Store に出す署名なしのもの、`-Thumbprint` を付けると手元で試す署名付きのもの（Publisher を証明書の Subject に置き換える）。
+  - 文字と絵の索引：makepri の既定は、言語と倍率ごとに索引を別のファイルに分ける。分けた索引はバンドルでしか読まれず、1 つのパッケージでは英語の文字や倍率ごとの絵が使われないので、1 つにまとめた。
+- **CI**：テストのあとに、署名なしの MSIX を作る（makeappx が包むときにマニフェストを検査する）。
+- **自動テスト**（`ui/src/msix.test.ts`、11 件）：マニフェストの値がすべて `CMakeLists.txt` から来ること、版の形、ID の形、フルトラストのデスクトップアプリであること、名前を挙げた絵があること、言語の順と両方の言語の文字がそろっていること、説明文の言い方、スクリプトの索引のまとめ方と署名の分け方、スクリプトの BOM（Windows PowerShell 5.1 が日本語を UTF-8 として読むため）。
+- **確かめたこと**：手元で署名なしの MSIX（6.5 MB）が作れた。resources.pri を読み出して、説明文が日本語（既定）と英語の 2 つ、Square44x44Logo が 47 通り（倍率 5 つと、14 の大きさ × 板あり・unplated・lightunplated）、Square150x150Logo と StoreLogo が倍率 5 つずつ入っていること。vitest 全 424 件。
+- **要実機確認（U）**：
+  1. 手元で試す署名付きの MSIX を作って入れる（README の「手元で試す」）。スタートメニューに「DE:ZIGN AUDIO PLAYER」と真空管のアイコンが出るか。起動して、ライブラリに監視フォルダーを足し、排他モードで再生できるか（パッケージ版はライブラリと設定が別になるので、空から始まる）。
+  2. Windows App Certification Kit で、署名なしの MSIX を検査する（README の「Store の検査」）。結果をここに記録する。
 
 ## フェーズ1と並行して決めること（ユーザー）
 

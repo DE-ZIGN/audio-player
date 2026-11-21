@@ -22,6 +22,7 @@ ctest --preset debug
 - 画面の開発：`npm --prefix ui run dev` で Vite の開発サーバーを起動し、`DEZIGNAudioPlayer.exe --dev-server` で開く（保存するとすぐ反映される）。ブラウザーで http://localhost:5173 を直接開くと、模擬エンジンで画面だけを確認できる。
 - エンジンとテストだけをビルドする（JUCE を取得しない）：`vs2022-tests-only` の構成と、`tests-only-debug` のビルド・テスト
 - AddressSanitizer（メモリーの誤った読み書きを見つける仕組み）を入れてテストする：`cmake --preset vs2022-asan`、`cmake --build --preset asan`、`ctest --preset asan`。デコーダーは外から来るファイルを読むので、デコーダーに手を入れたらこれも通す。
+- MSIX パッケージ（Store に出すもの・手元で試すもの）を作る：[`packaging/msix/README.md`](packaging/msix/README.md)
 - 自動ビルド：main へのプッシュとプルリクエストのたびに、GitHub Actions（[`.github/workflows/build.yml`](.github/workflows/build.yml)）が Release 版をビルドして、上と同じテスト（`ctest --preset release`）を走らせる。資料（`docs/` と Markdown）だけの変更では走らない。
 
 ## ライセンス
