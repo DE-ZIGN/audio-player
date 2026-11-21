@@ -96,3 +96,15 @@ ap_signalgen all --out-dir tools/out
   ISP 信号は、窓付き sinc 補間でサンプル間の値を求め、+3.01 dB（±0.01 dB）になることも確かめている。
 - `tests/files/signal_files_test.cpp`：ctest の中で `ap_signalgen all` を実行してファイルを書き出し、
   生成側とは別に書いた WAV 読み込みコード（`tests/support/wav_reader.cpp`）で値を確かめる。
+
+## make_icon.py（アプリのアイコン）
+
+プロダクトサイトの真空管の印を、線を太くして描き、アイコンのファイルをすべて書き出す（8-3b）。Python 3 と Pillow が要る。
+
+```
+python tools/make_icon.py [--preview 見本.png]
+```
+
+- 書き出すもの：`app/resources/icon/`（元の SVG を 3 通りと、exe 用の `icon.ico`）、`packaging/msix/Assets/`（MSIX の絵）。
+- 絵はスクリプトの中に一度だけ書いてある。形や色を変えるときはここを直して、書き出し直す（できたファイルを手で直さない）。
+- `--preview` は、各大きさを明るい背景と暗い背景に並べた見本と、小さい大きさを拡大したものを書く。

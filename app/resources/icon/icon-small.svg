@@ -1,0 +1,9 @@
+<!-- Made by tools/make_icon.py (icon-small). Do not edit by hand. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#0c0907"/>
+  <g transform="translate(8.9 2.6) scale(2.1)" fill="none" stroke="#e8a24a" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 21V9a6 6 0 0 1 12 0v12"/>
+    <path d="M3 21h16"/>
+    <path d="M8 25v-4 M14 25v-4"/>
+  </g>
+</svg>

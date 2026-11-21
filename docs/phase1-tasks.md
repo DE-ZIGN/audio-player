@@ -188,11 +188,11 @@
 | 8-2 | ライセンス画面（依存部品の表示を自動生成） | CC | すべての依存が載っている | ◐ 自動テスト・ブラウザー（模擬）・アプリの自己テスト。見た目は U（下の「記録」） |
 | 8-3 | MSIX パッケージの本番設定（2026-11-21 に 3 つに分けた。決めたことは表の下） | CC | Store に出せる形式 | ☐ |
 | 8-3a | ファイル用の名前：実行ファイル `DEZIGNAudioPlayer.exe`、データの置き場所 `%LOCALAPPDATA%\DEZIGN Audio Player`（WebView2 の保存領域も）、exe の版情報（製品名・説明は DE:ZIGN AUDIO PLAYER、会社名は DE:ZIGN）。今の `AudioPlayer` のライブラリと設定は移さない。README・資料の名前も直す | CC | 新しい名前で起動し、新しいフォルダーにライブラリと設定ができる。テストと CI が通る | ◐ 自動テスト・アプリの自己テスト。新しい名前での起動は U（下の「記録」） |
-| 8-3b | アプリのアイコン：ユーザーがシンプルなフラットデザインで元の絵を作る（2026-11-21 に変更。画像生成の注文書 `imagegen/requests/ICON-*` も残してある）。受け取るもの：元の絵 1 枚（PNG・RGBA・背景は透明・1024 × 1024、または SVG。図柄は中央、上下左右に幅の 6〜10% の余白、背景の板なし）。任意で、小さい大きさを描き直した 16・24・32・48 の PNG と、明るい背景用の色違い。置き場所は `app/resources/icon/`。CC が、そこから exe のアイコン（.ico：16・20・24・32・40・48・64・256）と MSIX の絵（Square44x44Logo の各倍率と targetsize、Square150x150Logo、StoreLogo）を作る道具 | U（絵）＋CC | exe とスタートメニューにアイコンが出る。小さい大きさでも形が分かる（U） | ☐ 絵の到着待ち |
+| 8-3b | アプリのアイコン：プロダクトサイト（https://audio.dezign.jp/）の真空管の印を、線を太くして使う（2026-11-21 に決定。その前は「ユーザーが元の絵を作る」だった。画像生成の注文書 `imagegen/requests/ICON-*` も残してある）。`tools/make_icon.py` が絵を描き、元の SVG（`app/resources/icon/`）、exe のアイコン（.ico：16・20・24・32・40・48・64・256）、MSIX の絵（`packaging/msix/Assets/`：Square44x44Logo の各倍率と targetsize、Square150x150Logo、StoreLogo）を書き出す | CC＋U（見た目） | exe とスタートメニューにアイコンが出る。小さい大きさでも形が分かる（U） | ◐ 自動テスト・exe への組み込み。見た目は U（下の「記録」） |
 | 8-3c | MSIX の本番の作り：`packaging/msix/`（マニフェストの雛形、作るスクリプト）。Store に出す未署名の MSIX と、手元で試すための自己署名の MSIX。パッケージの ID（Name・Publisher）は 8-5 で Partner Center が出す値を、CMake の設定で入れる（それまでは仮）。CI で MSIX が作れることを確かめる | CC＋U（手元での導入） | MSIX が作れ、手元に入れて起動・再生できる。Store の検査（Windows App Certification Kit）を通る | ☐ |
 | 8-4 | SignPath Foundation に申請 | U | 承認 | ☐ |
 
-決めたこと（ユーザー、2026-11-21）：ファイル用の名前は「DEZIGN Audio Player」（実行ファイルは `DEZIGNAudioPlayer.exe`、フォルダーは `DEZIGN Audio Player`）。Store に出る発行者の表示名は「DE:ZIGN」（Partner Center の登録名と一致させる。8-5 で登録した値に合わせる）。アイコンは画像生成で作る。今の `%LOCALAPPDATA%\AudioPlayer` のライブラリと設定は新しいフォルダーへ移さない（公開前で、使っているのは開発者だけ）。進め方：8-3a → 8-3b（絵が届いたら）→ 8-3c。
+決めたこと（ユーザー、2026-11-21）：ファイル用の名前は「DEZIGN Audio Player」（実行ファイルは `DEZIGNAudioPlayer.exe`、フォルダーは `DEZIGN Audio Player`）。Store に出る発行者の表示名は「DE:ZIGN」（Partner Center の登録名と一致させる。8-5 で登録した値に合わせる）。アイコンは、プロダクトサイトの真空管の印を線を太くして使う（最初は画像生成、次にユーザーが描く案だった）。今の `%LOCALAPPDATA%\AudioPlayer` のライブラリと設定は新しいフォルダーへ移さない（公開前で、使っているのは開発者だけ）。進め方：8-3a → 8-3b（絵が届いたら）→ 8-3c。
 | 8-5 | Microsoft Store に開発者登録、製品名の予約、提出 | U | 公開 | ☐ |
 | 8-6 | 配布ページ（GitHub 版の警告の説明、寄付の窓口） | U＋CC | 公開 | ☐ |
 
@@ -1918,6 +1918,19 @@
 - **確かめたこと**：作り直した Release 版の版情報を、Windows の読み方で読んだ（上のとおり）。ctest 全 613 件（アプリの自己テストを含む）、vitest 全 406 件。アプリを動かしたあと、`%LOCALAPPDATA%\DEZIGN Audio Player` に WebView2 の保存領域ができ、古い `AudioPlayer` のフォルダーはそのまま残っている。
 - **手元のビルドで気をつけること**：CMake は、前に構成したときの名前を覚えている（キャッシュ）。名前を変えたあとは、`cmake -S . -B build/vs2022 -U AP_PRODUCT_NAME -U AP_COMPANY_NAME -U AP_BUNDLE_ID` のように覚えている値を消して構成し直す（CI はいつも新しく構成するので要らない）。ビルドの出力先に古い `AudioPlayer.exe` が残るので消した。
 - **要実機確認（U）**：作り直した Release 版の `DEZIGNAudioPlayer.exe` を起動する。新しいフォルダーで始まるので、ライブラリは空・設定は初期の状態（決めたとおり）。監視フォルダーを足し直し、出力デバイスなどを設定し直してから、再生できるか。タスク マネージャーで、名前が「DE:ZIGN AUDIO PLAYER」と出るか。古い `%LOCALAPPDATA%\AudioPlayer` は、要らなければ自分で消してよい。
+
+### 8-3b：アプリのアイコン（2026-11-21）
+
+- **決めたこと**（ユーザー）：プロダクトサイトの真空管の印（サイトの favicon。暗い角丸の板 `#0c0907` に、アンバー `#e8a24a` の線で、ガラス・台座・ピン 3 本・フィラメント）を、線を太くして使う。サイトのままの線（64 px の板で 3.2 px）は、16〜24 px でフィラメントとピンがつぶれて塊になるため。
+- **作り**：`tools/make_icon.py`。絵はスクリプトの中に、サイトの SVG と同じ単位（22 × 26）で一度だけ書いてあり、SVG も PNG もそこから作る（ずれない）。PNG は 16 倍の大きさで描いて縮める。
+  - 大きさで 3 通りに描き分ける。48 px 以上：サイトのとおり（線 2.2。サイトは 1.52）。25〜40 px：フィラメントなし（線 2.6）。24 px 以下：フィラメントなし、ピン 2 本（線 2.8）。
+  - 48 px 以下は、線の幅を画素の整数にし、線を画素の格子にそろえる（にじまないように）。
+  - 板は、大きさの 1/16 の透明な縁を残して置く（16 px で 1 px、256 px で 16 px）。図柄は板の中央。
+  - 書き出すもの：`app/resources/icon/icon.svg`・`icon-medium.svg`・`icon-small.svg`（3 通りの絵）、`icon.ico`（exe 用。256 px は PNG、それより小さいものは 32bit のビットマップ。Pillow に任せるとすべて PNG になり、.NET などの古い読み方では小さい大きさが読めずに別の大きさで代わりにされたため、自前で書く）、`packaging/msix/Assets/` の 57 枚（8-3c で使う。Square44x44Logo の倍率 5 つと targetsize 14 個×板あり・unplated・lightunplated、Square150x150Logo の倍率 5 つ（タイルの 2/3 の大きさで中央）、StoreLogo の倍率 5 つ）。大きさは Microsoft の表のとおり（62.5 は 63 に）。
+- **exe への組み込み**：`app/resources/version.rc.in` に `IDI_ICON1 ICON`。ファイルの場所は `app/CMakeLists.txt` の `AP_ICON_FILE`。JUCE は exe の最初のアイコンを窓に付ける（`ExtractAssociatedIcon`）ので、題名の欄とタスクバーにも同じものが出る。
+- **自動テスト**（`ui/src/icon.test.ts`、7 件）：rc と CMake の組み込み、.ico に 8 つの大きさがあり 256 px だけが PNG であること、SVG がサイトの色と線であること、MSIX の絵がそろっていて大きさが合うこと。
+- **確かめたこと**：作り直した Release 版の exe から、Windows の読み方（`PrivateExtractIcons`）で 16・20・24・32・48・256 px を取り出し、それぞれその大きさの絵が出ること。vitest 全 413 件、ctest のアプリの自己テスト（smoke）4 件。
+- **要実機確認（U）**：作り直した Release 版の `DEZIGNAudioPlayer.exe` を、エクスプローラー（表示を「小アイコン」「大アイコン」に切り替えて）、起動したときのタスクバー（明るいテーマと暗いテーマ）、窓の左上で見る。小さい大きさでも真空管と分かるか、線が太すぎないか。エクスプローラーが古いアイコンを覚えていて変わらないときは、exe を別のフォルダーに写すと新しく読む。
 
 ## フェーズ1と並行して決めること（ユーザー）
 

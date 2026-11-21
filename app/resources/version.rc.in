@@ -10,6 +10,11 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+// The icon (task 8-3b): the first icon in the file is the one Windows shows
+// for the exe, and the one JUCE puts on the window (ExtractAssociatedIcon).
+// 16 to 256 px, made by tools/make_icon.py.
+IDI_ICON1 ICON "@AP_ICON_FILE@"
+
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
 PRODUCTVERSION  @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0

@@ -61,7 +61,9 @@ target_link_libraries(ap_app
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
-# The version information JUCE compiles in place of its own (task 8-3a).
+# The version information JUCE compiles in place of its own (task 8-3a), and
+# the executable's icon (task 8-3b; made by tools/make_icon.py).
+set(AP_ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/resources/icon/icon.ico")
 configure_file(resources/version.rc.in "${CMAKE_CURRENT_BINARY_DIR}/resources/ap_version.rc" @ONLY)
 target_include_directories(ap_app PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/resources")
 
