@@ -36,6 +36,10 @@ target_compile_definitions(ap_app PRIVATE
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:ap_app,JUCE_PRODUCT_NAME>"
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:ap_app,JUCE_VERSION>"
     AP_DISPLAY_NAME_STRING="${AP_DISPLAY_NAME}" # the name shown (the window's title); UTF-8
+    AP_DATA_FOLDER_STRING="${AP_DATA_FOLDER}"   # the folder under %LOCALAPPDATA% (task 8-3a)
+    # The executable's version information is ours (resources/version.rc.in),
+    # so that it describes the product by the name shown.
+    JUCE_USER_DEFINED_RC_FILE="ap_version.rc"
     JUCE_WEB_BROWSER=1
     JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
     JUCE_USE_CURL=0
@@ -56,6 +60,10 @@ target_link_libraries(ap_app
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+# The version information JUCE compiles in place of its own (task 8-3a).
+configure_file(resources/version.rc.in "${CMAKE_CURRENT_BINARY_DIR}/resources/ap_version.rc" @ONLY)
+target_include_directories(ap_app PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/resources")
 
 ap_apply_juce_target_settings(ap_app)
 ap_copy_engine_dlls(ap_app) # mpg123.dll next to the program

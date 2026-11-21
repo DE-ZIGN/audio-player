@@ -176,7 +176,7 @@ void applyEqPreset(ListeningSettings& l, const NamedEqPreset& p)
 std::string settingsToText(const AppSettings& s)
 {
     std::ostringstream out;
-    out << "# AudioPlayer settings (task 6-3). key=value, one per line.\n";
+    out << "# Settings (task 6-3). key=value, one per line.\n";
     out << "output.kind=" << (s.output.kind == OutputKind::Asio ? "asio" : "wasapi") << '\n';
     out << "output.id=" << oneLine(s.output.id) << '\n';
     out << "output.name=" << oneLine(s.output.name) << '\n';

@@ -11,14 +11,17 @@ project(audio_player
 # The product's name, as shown to the user (decided 2026-11-18): the window's
 # title, the page's title.
 set(AP_DISPLAY_NAME "DE:ZIGN AUDIO PLAYER" CACHE STRING "The product's name as shown to users")
-# The name used for files: the executable and the data folder under
-# %LOCALAPPDATA%. Still the provisional one: a colon cannot be in a file or
-# folder name, and renaming the data folder means moving the user's library
-# and settings (to be decided with the release work, M8). The same goes for
-# the publisher's name and the application ID below.
-set(AP_PRODUCT_NAME "AudioPlayer" CACHE STRING "Provisional name for the executable and the data folder")
-set(AP_COMPANY_NAME "AudioPlayer Project" CACHE STRING "Provisional company / publisher name")
-set(AP_BUNDLE_ID    "com.audioplayer.app" CACHE STRING "Provisional reverse-DNS application ID")
+# The names used for files (decided 2026-11-21, task 8-3a): a colon cannot be
+# in a file or folder name. The executable (DEZIGNAudioPlayer.exe), and the
+# folder of the library, the settings and the web views' storage under
+# %LOCALAPPDATA%. The library and settings of the provisional name
+# (%LOCALAPPDATA%\AudioPlayer) are not moved (the user, 2026-11-21).
+set(AP_PRODUCT_NAME "DEZIGNAudioPlayer" CACHE STRING "The executable's name (no extension)")
+set(AP_DATA_FOLDER  "DEZIGN Audio Player" CACHE STRING "The data folder's name under %LOCALAPPDATA%")
+# The publisher, as the Store shows it (it must match the Partner Center
+# account's display name, task 8-5); also the executable's company name.
+set(AP_COMPANY_NAME "DE:ZIGN" CACHE STRING "The publisher's display name")
+set(AP_BUNDLE_ID    "io.github.de-zign.audioplayer" CACHE STRING "Reverse-DNS application ID")
 
 option(AP_BUILD_APP   "Build the JUCE application (downloads JUCE)" ON)
 option(AP_BUILD_TESTS "Build unit and acceptance tests (downloads Catch2)" ON)

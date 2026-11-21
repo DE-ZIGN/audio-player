@@ -16,7 +16,7 @@ const juce::Colour kBackground{0xff14120f};
 juce::File webViewDataFolder()
 {
     return juce::File::getSpecialLocation(juce::File::windowsLocalAppData)
-        .getChildFile(JUCE_APPLICATION_NAME_STRING)
+        .getChildFile(AP_DATA_FOLDER_STRING)
         .getChildFile("WebView2");
 }
 

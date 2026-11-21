@@ -106,7 +106,7 @@ public:
                              .getParentDirectory()
                              .getChildFile("ui");
         options.libraryFolder = juce::File::getSpecialLocation(juce::File::windowsLocalAppData)
-                                    .getChildFile(JUCE_APPLICATION_NAME_STRING);
+                                    .getChildFile(AP_DATA_FOLDER_STRING);
         bool libraryGiven = false;
         for (auto arg : args)
         {

@@ -187,7 +187,7 @@
 | 8-1 | GitHub Actions でビルドとテスト | CC | プッシュごとにテストが走る | ☑ GitHub Actions で、ビルドと全テスト（593 件＋アプリの自己テスト 4 件）が通った（2026-11-19、3 回目の実行）（下の「記録」） |
 | 8-2 | ライセンス画面（依存部品の表示を自動生成） | CC | すべての依存が載っている | ◐ 自動テスト・ブラウザー（模擬）・アプリの自己テスト。見た目は U（下の「記録」） |
 | 8-3 | MSIX パッケージの本番設定（2026-11-21 に 3 つに分けた。決めたことは表の下） | CC | Store に出せる形式 | ☐ |
-| 8-3a | ファイル用の名前：実行ファイル `DEZIGNAudioPlayer.exe`、データの置き場所 `%LOCALAPPDATA%\DEZIGN Audio Player`（WebView2 の保存領域も）、exe の版情報（製品名・説明は DE:ZIGN AUDIO PLAYER、会社名は DE:ZIGN）。今の `AudioPlayer` のライブラリと設定は移さない。README・資料の名前も直す | CC | 新しい名前で起動し、新しいフォルダーにライブラリと設定ができる。テストと CI が通る | ☐ |
+| 8-3a | ファイル用の名前：実行ファイル `DEZIGNAudioPlayer.exe`、データの置き場所 `%LOCALAPPDATA%\DEZIGN Audio Player`（WebView2 の保存領域も）、exe の版情報（製品名・説明は DE:ZIGN AUDIO PLAYER、会社名は DE:ZIGN）。今の `AudioPlayer` のライブラリと設定は移さない。README・資料の名前も直す | CC | 新しい名前で起動し、新しいフォルダーにライブラリと設定ができる。テストと CI が通る | ◐ 自動テスト・アプリの自己テスト。新しい名前での起動は U（下の「記録」） |
 | 8-3b | アプリのアイコン：画像生成で元の絵を作り（U、注文書は `imagegen/requests/ICON-*`）、そこから exe のアイコン（.ico）と MSIX・Store の絵の全部の大きさを作る道具 | U（絵の選定）＋CC | exe とスタートメニューにアイコンが出る。小さい大きさでも形が分かる（U） | ☐ |
 | 8-3c | MSIX の本番の作り：`packaging/msix/`（マニフェストの雛形、作るスクリプト）。Store に出す未署名の MSIX と、手元で試すための自己署名の MSIX。パッケージの ID（Name・Publisher）は 8-5 で Partner Center が出す値を、CMake の設定で入れる（それまでは仮）。CI で MSIX が作れることを確かめる | CC＋U（手元での導入） | MSIX が作れ、手元に入れて起動・再生できる。Store の検査（Windows App Certification Kit）を通る | ☐ |
 | 8-4 | SignPath Foundation に申請 | U | 承認 | ☐ |
@@ -1905,6 +1905,19 @@
 - **ブラウザー（模擬）**：「情報」タブの日本語・英語。ビルドが作ったデータを一時的に模擬に渡して、部品の一覧・含まれる部品・本文の表示を見た（見た後に消した）。アンプビューで、英語では 8 つのタブが 2 段になったので、タブの左右の余白を詰めて 1 段にした（日本語も 1 段）。
 - **CC BY 4.0 の本文**：手元に正式な全文がなく、TypeScript の注意書きの中にあった全文から改行を直して作った写し（文言は同じで、変えたのは段落の区切りの空白だけ）。creativecommons.org の正式な `legalcode.txt` と、MAIR のリポジトリの `licence.txt` には差し替えず、今のままにする（ユーザー、2026-11-21）。MAIR の欄は CC BY 4.0 の全文で代えている。
 - **要実機確認（U）**：アプリ（Release 版）で設定 →「情報」を開き、部品の一覧が出て、ライセンス本文を開けるか。3 つのビューで。
+
+### 8-3a：ファイル用の名前（2026-11-21）
+
+- **決めたこと**（ユーザー）：実行ファイル `DEZIGNAudioPlayer.exe`、データの置き場所 `%LOCALAPPDATA%\DEZIGN Audio Player`、発行者 DE:ZIGN。今の `%LOCALAPPDATA%\AudioPlayer` のライブラリと設定は移さない。
+- **変えたこと**：
+  - `CMakeLists.txt`：`AP_PRODUCT_NAME` = `DEZIGNAudioPlayer`（実行ファイル）、新しく `AP_DATA_FOLDER` = `DEZIGN Audio Player`（データの置き場所）、`AP_COMPANY_NAME` = `DE:ZIGN`、`AP_BUNDLE_ID` = `io.github.de-zign.audioplayer`（GitHub の組織名から。Windows ではほぼ使われない）。名前はここだけで決まる。
+  - データの置き場所：ライブラリと設定、本体の WebView2、記事の WebView2 の 3 か所とも、実行ファイル名ではなく `AP_DATA_FOLDER` を使う（前は実行ファイル名と同じ名前のフォルダーだった）。
+  - 実行ファイルの版情報：JUCE が作るものは「説明」が実行ファイル名になるので、自前のもの（`app/resources/version.rc.in`、JUCE の `JUCE_USER_DEFINED_RC_FILE` で差し替え）にした。説明・製品名 DE:ZIGN AUDIO PLAYER、会社名 DE:ZIGN、元のファイル名 DEZIGNAudioPlayer.exe、版 0.1.0、著作権の欄「DE:ZIGN. GNU AGPL v3.」。タスク マネージャーやファイルのプロパティに、この説明が出る。
+  - 設定ファイルの 1 行目の注記から、仮の名前を外した。README の実行ファイルの場所。
+- **自動テスト**（`ui/src/productName.test.ts`、4 件を足した）：決めた名前とファイル名に使えない文字がないこと、発行者、3 か所のデータの置き場所が `AP_DATA_FOLDER` からで実行ファイル名を使っていないこと、版情報のファイルを差し替えていてその中身（説明・製品名・会社名・元のファイル名・版、UTF-8）。
+- **確かめたこと**：作り直した Release 版の版情報を、Windows の読み方で読んだ（上のとおり）。ctest 全 613 件（アプリの自己テストを含む）、vitest 全 406 件。アプリを動かしたあと、`%LOCALAPPDATA%\DEZIGN Audio Player` に WebView2 の保存領域ができ、古い `AudioPlayer` のフォルダーはそのまま残っている。
+- **手元のビルドで気をつけること**：CMake は、前に構成したときの名前を覚えている（キャッシュ）。名前を変えたあとは、`cmake -S . -B build/vs2022 -U AP_PRODUCT_NAME -U AP_COMPANY_NAME -U AP_BUNDLE_ID` のように覚えている値を消して構成し直す（CI はいつも新しく構成するので要らない）。ビルドの出力先に古い `AudioPlayer.exe` が残るので消した。
+- **要実機確認（U）**：作り直した Release 版の `DEZIGNAudioPlayer.exe` を起動する。新しいフォルダーで始まるので、ライブラリは空・設定は初期の状態（決めたとおり）。監視フォルダーを足し直し、出力デバイスなどを設定し直してから、再生できるか。タスク マネージャーで、名前が「DE:ZIGN AUDIO PLAYER」と出るか。古い `%LOCALAPPDATA%\AudioPlayer` は、要らなければ自分で消してよい。
 
 ## フェーズ1と並行して決めること（ユーザー）
 
