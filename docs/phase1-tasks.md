@@ -189,7 +189,7 @@
 | 8-3 | MSIX パッケージの本番設定（2026-11-21 に 3 つに分けた。決めたことは表の下） | CC | Store に出せる形式 | ☐ |
 | 8-3a | ファイル用の名前：実行ファイル `DEZIGNAudioPlayer.exe`、データの置き場所 `%LOCALAPPDATA%\DEZIGN Audio Player`（WebView2 の保存領域も）、exe の版情報（製品名・説明は DE:ZIGN AUDIO PLAYER、会社名は DE:ZIGN）。今の `AudioPlayer` のライブラリと設定は移さない。README・資料の名前も直す | CC | 新しい名前で起動し、新しいフォルダーにライブラリと設定ができる。テストと CI が通る | ◐ 自動テスト・アプリの自己テスト。新しい名前での起動は U（下の「記録」） |
 | 8-3b | アプリのアイコン：プロダクトサイト（https://audio.dezign.jp/）の真空管の印を、線を太くして使う（2026-11-21 に決定。その前は「ユーザーが元の絵を作る」だった。画像生成の注文書 `imagegen/requests/ICON-*` も残してある）。`tools/make_icon.py` が絵を描き、元の SVG（`app/resources/icon/`）、exe のアイコン（.ico：16・20・24・32・40・48・64・256）、MSIX の絵（`packaging/msix/Assets/`：Square44x44Logo の各倍率と targetsize、Square150x150Logo、StoreLogo）を書き出す | CC＋U（見た目） | exe とスタートメニューにアイコンが出る。小さい大きさでも形が分かる（U） | ◐ 自動テスト・exe への組み込み。見た目は U（下の「記録」） |
-| 8-3c | MSIX の本番の作り：`packaging/msix/`（マニフェストの雛形、作るスクリプト）。Store に出す未署名の MSIX と、手元で試すための自己署名の MSIX。パッケージの ID（Name・Publisher）は 8-5 で Partner Center が出す値を、CMake の設定で入れる（それまでは仮）。CI で MSIX が作れることを確かめる | CC＋U（手元での導入） | MSIX が作れ、手元に入れて起動・再生できる。Store の検査（Windows App Certification Kit）を通る | ◐ 自動テスト・未署名の MSIX が作れる。手元での導入と Store の検査は U（下の「記録」） |
+| 8-3c | MSIX の本番の作り：`packaging/msix/`（マニフェストの雛形、作るスクリプト）。Store に出す未署名の MSIX と、手元で試すための自己署名の MSIX。パッケージの ID（Name・Publisher）は 8-5 で Partner Center が出す値を、CMake の設定で入れる（それまでは仮）。CI で MSIX が作れることを確かめる | CC＋U（手元での導入） | MSIX が作れ、手元に入れて起動・再生できる。Store の検査（Windows App Certification Kit）を通る | ◐ 自動テスト・未署名の MSIX が作れる・手元に入れて起動できる・Store の検査は PASS（任意の項目に 1 つ FAIL）。パッケージ版での再生は U、CI は push の後（下の「記録」） |
 | 8-4 | SignPath Foundation に申請 | U | 承認 | ☐ |
 
 決めたこと（ユーザー、2026-11-21）：ファイル用の名前は「DEZIGN Audio Player」（実行ファイルは `DEZIGNAudioPlayer.exe`、フォルダーは `DEZIGN Audio Player`）。Store に出る発行者の表示名は「DE:ZIGN」（Partner Center の登録名と一致させる。8-5 で登録した値に合わせる）。アイコンは、プロダクトサイトの真空管の印を線を太くして使う（最初は画像生成、次にユーザーが描く案だった）。今の `%LOCALAPPDATA%\AudioPlayer` のライブラリと設定は新しいフォルダーへ移さない（公開前で、使っているのは開発者だけ）。進め方：8-3a → 8-3b（絵が届いたら）→ 8-3c。
@@ -1943,9 +1943,11 @@
 - **CI**：テストのあとに、署名なしの MSIX を作る（makeappx が包むときにマニフェストを検査する）。
 - **自動テスト**（`ui/src/msix.test.ts`、11 件）：マニフェストの値がすべて `CMakeLists.txt` から来ること、版の形、ID の形、フルトラストのデスクトップアプリであること、名前を挙げた絵があること、言語の順と両方の言語の文字がそろっていること、説明文の言い方、スクリプトの索引のまとめ方と署名の分け方、スクリプトの BOM（Windows PowerShell 5.1 が日本語を UTF-8 として読むため）。
 - **確かめたこと**：手元で署名なしの MSIX（6.5 MB）が作れた。resources.pri を読み出して、説明文が日本語（既定）と英語の 2 つ、Square44x44Logo が 47 通り（倍率 5 つと、14 の大きさ × 板あり・unplated・lightunplated）、Square150x150Logo と StoreLogo が倍率 5 つずつ入っていること。vitest 全 424 件。
-- **要実機確認（U）**：
-  1. 手元で試す署名付きの MSIX を作って入れる（README の「手元で試す」）。スタートメニューに「DE:ZIGN AUDIO PLAYER」と真空管のアイコンが出るか。起動して、ライブラリに監視フォルダーを足し、排他モードで再生できるか（パッケージ版はライブラリと設定が別になるので、空から始まる）。
-  2. Windows App Certification Kit で、署名なしの MSIX を検査する（README の「Store の検査」）。結果をここに記録する。
+- **手元での導入**（2026-11-21）：S2 のテスト用証明書（`CN=AudioPlayer Test`、信頼済み）で署名付きの MSIX を作り、`Add-AppxPackage` で入れた。スタートメニューに「DE:ZIGN AUDIO PLAYER」（`DEZIGN.AudioPlayer_0ynhcjem7agkc!App`）が出る。そこから起動すると、窓の題名が DE:ZIGN AUDIO PLAYER で、exe は `C:\Program Files\WindowsApps\` の下から動き、画面（標準ビュー、ライブラリ、VU メーター）も読み込まれた。
+  - データの置き場所：この機械では、パッケージ版も前からある `%LOCALAPPDATA%\DEZIGN Audio Player` をそのまま使い、ライブラリ（51 曲）が出た。パッケージ専用の場所（`Packages\…\LocalCache\Local\`）には作られなかった。新しく作るものだけが振り替えられ、前からあるフォルダーはそのまま使われる、という Windows の動きのため。初めて入れる利用者では、パッケージ専用の場所に作られる。README の「別になる」という説明は、確かめたとおりに直した。
+- **Store の検査**（Windows App Certification Kit、2026-11-21、署名なしの MSIX）：**全体の結果は PASS**。24 項目のうち 23 項目が PASS。FAIL は任意の項目（OPTIONAL）「ブロック済みの実行可能ファイル」の 1 つだけ：exe がプロセスを起動する API（`CreateProcessW`、`ShellExecuteW`）を参照していることと、`cmd` と `CdB` の文字列が入っていること。`ShellExecuteW` は、記事の外のリンクをブラウザーで開く処理（`ArticleWindow.cpp` の `launchInDefaultBrowser`）が使う。`CreateProcessW` と `cmd` は JUCE の部品が持つもので、アプリからは呼んでいない。`CdB` は文字列がたまたま一致したものと見られる。この項目は主に Windows の S モードで動くかに関わるもので、任意の項目のため、Store の提出は止めない。今のままにする。
+- **要実機確認（U）**：入れたパッケージ版（スタートメニューの「DE:ZIGN AUDIO PLAYER」）で、出力デバイスを選び、排他モードで再生できるか。出力欄に形式・レート・BIT-PERFECT が出るか。消すときは `Get-AppxPackage DEZIGN.AudioPlayer | Remove-AppxPackage`（ライブラリと設定は、この機械では前からのフォルダーにあるので残る）。
+- **残り（CC）**：このコミットを push して、CI で署名なしの MSIX が作れることを確かめる。
 
 ## フェーズ1と並行して決めること（ユーザー）
 
