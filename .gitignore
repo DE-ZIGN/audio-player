@@ -38,3 +38,53 @@ Testing/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# This is a public repository. What must never be committed follows.
+
+# Secrets: environment files, keys, certificates, tokens
+.env
+.env.*
+!.env.example
+.envrc
+.dev.vars
+.npmrc
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+id_rsa
+id_ed25519
+credentials.json
+client_secret*.json
+secrets.json
+.claude/settings.local.json
+
+# The developer's own material (commercial music, private notes)
+/テスト用音源/
+/資料/
+
+# Music and other sound files. The tests make their own signals; the bundled
+# IRs are the exception (a new one needs its license in THIRD_PARTY_NOTICES.md).
+*.flac
+*.mp3
+*.m4a
+*.aac
+*.ogg
+*.opus
+*.wma
+*.wav
+*.aif
+*.aiff
+*.aifc
+*.dsf
+*.dff
+!/engine/resources/ir/*.wav
+
+# The app's data (file paths, play history), packages, crash dumps
+library.db
+library.db-*
+library.db.*
+*.msix
+*.msixupload
+*.dmp
