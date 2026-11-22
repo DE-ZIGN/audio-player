@@ -28,6 +28,7 @@ What comes out:
                                       Square44x44Logo (each scale, each
                                       targetsize, plated and unplated),
                                       Square150x150Logo, StoreLogo (each scale)
+  packaging/store/logos/app-tile-300.png  the Store listing's 1:1 app tile icon
 --preview writes a sheet of every size, on a light and a dark background, for
 looking at by eye.
 """
@@ -46,6 +47,7 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parent.parent
 ICON_DIR = ROOT / "app" / "resources" / "icon"
 MSIX_ASSETS = ROOT / "packaging" / "msix" / "Assets"
+STORE_LOGOS = ROOT / "packaging" / "store" / "logos"
 
 PLATE = (0x0C, 0x09, 0x07)  # the site's favicon
 AMBER = (0xE8, 0xA2, 0x4A)
@@ -271,6 +273,9 @@ def main() -> None:
     MSIX_ASSETS.mkdir(parents=True, exist_ok=True)
     for name, img in msix_assets().items():
         img.save(MSIX_ASSETS / name, optimize=True)
+
+    STORE_LOGOS.mkdir(parents=True, exist_ok=True)
+    render(300).save(STORE_LOGOS / "app-tile-300.png", optimize=True)
 
     if args.preview:
         preview(args.preview)

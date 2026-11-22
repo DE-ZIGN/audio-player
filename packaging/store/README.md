@@ -1,10 +1,11 @@
 # Microsoft Store への提出（タスク 8-5）
 
-Partner Center に入れるものを、ここにまとめる。パッケージ（`.msix`）の作り方は `packaging/msix/README.md`。
+Partner Center に入れるものを、ここにまとめる。**実際に入力するときは、`python tools/make_submission_guide.py` が作る `build/store/submission-guide.html`**（画面の順、コピーボタン付き）を開く。パッケージ（`.msix`）の作り方は `packaging/msix/README.md`。
 
 | ファイル | 内容 |
 |---|---|
 | `listing.json` | 掲載情報（日本語・英語）。Partner Center の「ストア登録情報」に、言語ごとに貼る。`ui/src/storeListing.test.ts` が、字数の上限と言い方を確かめる |
+| `logos/app-tile-300.png` | 1:1 のアプリのタイル（300 × 300。Microsoft が強く推奨）。`tools/make_icon.py` が書き出す |
 | `privacy-policy.md` | プライバシーポリシー（日本語・英語）の元の文。プロダクトサイトに載せる（下の「プロパティ」）。文面を変えたら、サイトのほうも同じに直す |
 
 字数の上限は Microsoft Learn の「Create app Store listings」（2026-11-21 に読んだ）による。検索語・著作権・追加のライセンス条項・開発者の上限はそのページになかったので、テストは短めの値で確かめている。Partner Center の画面に出る上限と違えば、テストを直す。
@@ -33,8 +34,8 @@ Partner Center に入れるものを、ここにまとめる。パッケージ�
 | 項目 | 値 |
 |---|---|
 | カテゴリ | 音楽（Music）。サブカテゴリはない |
-| 個人情報を扱うか | いいえ（集めない・送らない。`privacy-policy.md`） |
-| プライバシーポリシーの URL | https://audio.dezign.jp/privacy/ （プロダクトサイトに置く。2026-11-22 にユーザーが決定。パスは案で、実際に載せた URL に合わせる。「いいえ」でも入れておく。審査で要ると判断されると不合格になるため） |
+| 個人情報を扱うか | **はい**（集めないし送らないが、規約 10.5.1 がデスクトップアプリを「個人情報に触れ得る製品」として扱う。`runFullTrust` の宣言からも「はい」に変えられ得る。2026-11-22 に「いいえ」から改めた） |
+| プライバシーポリシーの URL | https://audio.dezign.jp/privacy/ （2026-11-22 に掲載を確かめた。文面を変えたら、提出の前にサイトも同じに直す） |
 | Web サイト | https://audio.dezign.jp/ |
 | サポートの連絡先 | https://github.com/DE-ZIGN/audio-player/issues |
 | システム要件 | 書かない（特別な機器は要らない。DAC がなくても、Windows の出力デバイスで鳴る） |
@@ -68,19 +69,21 @@ Partner Center に入れるものを、ここにまとめる。パッケージ�
 
 ### 制限付きの機能（Restricted capabilities）
 
-マニフェストが `runFullTrust` を宣言しているので、理由を書かないと審査に通らない。英語で書く：
+マニフェストが `runFullTrust` を宣言しているので、理由を書かないと審査に通らない。英語で書く（欄の上限が公式のページにないので 500 字以内）：
 
-> **runFullTrust**: DE:ZIGN AUDIO PLAYER is a Win32 desktop application (C++, JUCE) packaged as MSIX with the Windows.FullTrustApplication entry point; it is not a UWP app. It needs full trust to open audio output devices in WASAPI exclusive mode, to load ASIO drivers (in-process COM servers that audio interface makers register under HKLM\SOFTWARE\ASIO), to read music files from folders the user chooses (including network drives) and to watch those folders with ReadDirectoryChangesW. It installs no drivers or services and changes no system settings. Its library and settings are kept under the user's local app data. The source code is public: https://github.com/DE-ZIGN/audio-player
+> A Win32 desktop app (C++) packaged as MSIX, not UWP. Full trust is needed to open audio devices in WASAPI exclusive mode, to load ASIO drivers the user already installed (COM servers registered under HKLM\SOFTWARE\ASIO), and to read and watch music folders the user chooses, including network drives. It installs no drivers or services and changes no system settings. Source: https://github.com/DE-ZIGN/audio-player
 
 ### 審査の人への注記（Notes for certification）
 
-> No account or sign-in is needed. To try playback: open Settings > Output and pick an output device (any Windows output works; a DAC is not required). Then add a folder of music with the + next to "Watched folders" (on the left), or use "Open files". Supported formats: FLAC, WAV, AIFF, ALAC, MP3, AAC, DSF, DFF.
+> Notes of 2026-11-22. No account or sign-in is needed. To try playback: open Settings > Output and pick an output device (any Windows output works; a DAC is not required). Then add a music folder with the + next to "Watched folders" (on the left), or use "Open files". Formats: FLAC, WAV, AIFF, ALAC, MP3, AAC, DSF, DFF.
 >
-> In Pure mode (the default) the app does not convert anything: if the device does not accept a track's format or sample rate, the app shows why and does not play it. This is by design. Processing mode (Settings > Mode) converts such a track to a rate the device accepts.
+> By design, Pure mode (the default) converts nothing: if the device does not accept a track's format or rate, the app shows why and does not play it. Processing mode (Settings > Mode) converts such a track. In exclusive mode other apps' sound stops while this app plays.
 >
-> In exclusive mode the app takes the output device for itself while playing, so other apps' sound stops until playback stops; this is by design. DSD is sent only as DoP, which is off by default and must stay off unless the DAC supports DoP.
+> DSD is sent only as DoP. It is off by default; please leave it off unless the DAC supports DoP (DSD files then show why they are not played).
 >
-> The app has no feature that connects to the internet; links open in the default browser.
+> Dependencies: the Microsoft Edge WebView2 Runtime, disclosed at the beginning of the description; without it the app says so at start. The app does not depend on any non-Microsoft driver or NT service and installs none. ASIO is optional, used only when the user selects a driver already installed.
+>
+> DE:ZIGN is the name of an individual developer, not a company. The app is free, with no purchases and no donation feature. It has no feature that connects to the internet; links open in the default browser.
 
 ## 6. 画面写真（8-5d）
 
@@ -110,5 +113,6 @@ subst M: /d
 
 ## 7. パッケージ
 
+- **版の先頭の数字は 1 以上、4 つ目は 0**（Microsoft Learn の App package requirements。WACK は検査しない）。パッケージを出し直すたびに `CMakeLists.txt` の版を上げる。
 - 「パッケージ」の画面に、署名なしの `DEZIGNAudioPlayer-<版>-x64.msix` を上げる（Store が署名する）。ID を入れて作り直したものを使う（1 の 3）。
 - 上げる前に、Windows App Certification Kit で検査する（`packaging/msix/README.md`）。

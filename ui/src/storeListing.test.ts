@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import readme from "../../packaging/store/README.md?raw";
+import policy from "../../packaging/store/privacy-policy.md?raw";
 import listingRaw from "../../packaging/store/listing.json?raw";
 import cmake from "../../CMakeLists.txt?raw";
 import { en as aboutEn, ja as aboutJa } from "./i18n/parts/about";
@@ -21,6 +23,16 @@ type Listing = {
   developedBy: string;
 };
 
+const logos = Object.keys(import.meta.glob("../../packaging/store/logos/*.png"));
+// A block quote under a heading of packaging/store/README.md: a text to paste.
+const quoted = (heading: string) =>
+  readme
+    .split(/^### /m)
+    .find((part) => part.startsWith(heading))!
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith(">"))
+    .map((line) => line.replace(/^> ?/, ""))
+    .join("\n");
 const screenshots = Object.keys(import.meta.glob("../../packaging/store/screenshots/*/*.png"));
 const all = JSON.parse(listingRaw) as Record<string, unknown>;
 const LANGS = ["ja-JP", "en-US"] as const;
@@ -94,6 +106,38 @@ describe("the Store listing's limits (Partner Center)", () => {
       expect(text(l.additionalLicenseTerms).length).toBeLessThanOrEqual(10000);
     });
   }
+});
+
+describe("the Store's policies (7.20, read 2026-11-22)", () => {
+  it("10.2.4: what the app depends on is at the beginning of the description", () => {
+    expect(listing("ja-JP").description[0]).toMatch(/^必要なもの：.*WebView2 ランタイム/);
+    expect(listing("en-US").description[0]).toMatch(/^Requires .*WebView2 Runtime/);
+  });
+
+  it("10.2.4: the certification notes say about drivers, the WebView2 Runtime and the account", () => {
+    const notes = quoted("審査の人への注記");
+    expect(notes).toMatch(/does not depend on any non-Microsoft driver/);
+    expect(notes).toMatch(/WebView2 Runtime/);
+    expect(notes).toMatch(/individual developer/);
+    expect(notes.length).toBeLessThanOrEqual(2000);
+  });
+
+  it("the reason for runFullTrust is short enough for a small box", () => {
+    expect(quoted("制限付きの機能").length).toBeLessThanOrEqual(500);
+  });
+
+  it("10.5.1: the privacy policy says how the user sees and deletes what is kept, and how it is kept", () => {
+    for (const heading of ["確認と削除", "保護", "Your controls: seeing and deleting it", "How it is protected"])
+      expect(policy).toContain(`### ${heading}`);
+  });
+
+  it("a desktop app is answered as one that can reach personal information", () => {
+    expect(readme).toMatch(/\| 個人情報を扱うか \| \*\*はい\*\*/);
+  });
+
+  it("the 1:1 app tile icon is there (strongly recommended)", () => {
+    expect(logos.map((p) => p.split("/").pop())).toEqual(["app-tile-300.png"]);
+  });
 });
 
 describe("the Store's screenshots (task 8-5d)", () => {

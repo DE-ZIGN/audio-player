@@ -11,6 +11,8 @@
       "Windows 向けの無料の音楽プレイヤー。何も処理せずに DAC へ届ける原音モードと、64bit 浮動小数点で EQ・真空管・空間などをかける音作りモードを切り替えて、ABX で聴き比べられます。"
     ],
     "description": [
+      "必要なもの：Windows 10（バージョン 1809 以降）か Windows 11（どちらも x64）と、画面の表示に使う Microsoft Edge WebView2 ランタイム（Windows 11 には標準で入っています。ない場合は Microsoft のサイトから無料で入れられます）。",
+      "",
       "DE:ZIGN AUDIO PLAYER は、Windows 向けの無料の音楽プレイヤーです。ソースコードを GNU AGPL v3 で公開しています。寄付の有無で機能は変わりません。",
       "",
       "■ 2 つのモード",
@@ -84,6 +86,8 @@
       "A free music player for Windows. Switch between Pure mode, which sends the data to the DAC untouched, and Processing mode, which applies EQ, tubes, space and more in 64-bit float, and compare the two blind with ABX."
     ],
     "description": [
+      "Requires Windows 10 (version 1809 or later) or Windows 11, x64, and the Microsoft Edge WebView2 Runtime, which shows the app's screens (it comes with Windows 11; otherwise it is a free install from Microsoft's website).",
+      "",
       "DE:ZIGN AUDIO PLAYER is a free music player for Windows. Its source code is published under the GNU AGPL v3. Donations change nothing in what the app can do.",
       "",
       "■ Two modes",
