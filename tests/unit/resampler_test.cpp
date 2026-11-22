@@ -177,6 +177,30 @@ TEST_CASE("Resampler: aliases and images are at least 140 dB down", "[dsp][resam
     }
 }
 
+// The settings' note says "142 dB or more down" (2026-11-22: a sweep of all 90
+// pairs of the ten rates over the whole band found -142.63 dB at the worst).
+// These are the worst points of that sweep, which the cases above did not reach.
+TEST_CASE("Resampler: the worst points of the sweep stay 142 dB down, as the note says", "[dsp][resampler]")
+{
+    struct Case
+    {
+        std::uint32_t from, to;
+        double freq, unwanted; // whole Hz: whole cycles in the second measured
+    };
+    for (const auto [from, to, freq, unwanted] :
+         {Case{44100, 705600, 21480, 331320}, Case{48000, 768000, 23380, 360620},
+          Case{705600, 44100, 331300, 21500}, Case{768000, 48000, 360600, 23400}})
+    {
+        CAPTURE(from, to, freq, unwanted);
+        const auto x = tone(freq, 1.0, from * 2, from); // 2 s at full scale
+        const auto y = resample(x, from, to, 1);
+        const double a = amplitude(y, 1, 0, to / 2, to, unwanted, to); // the middle second
+        CAPTURE(dB(a));
+        CHECK(dB(a) < -142.0);
+        CHECK(dB(a) > -144.0); // if this improves, the note can say so
+    }
+}
+
 TEST_CASE("Resampler: the channels stay apart; the blocks do not matter", "[dsp][resampler]")
 {
     // A tone on the left only: the right stays silent.

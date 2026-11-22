@@ -97,7 +97,63 @@ Harmonics harmonics(TubeType type, double driveDb, double levelDb)
 
 const TubeType kTypes[] = {TubeType::Se300B, TubeType::PpEl34, TubeType::PpClassA};
 
+// The harmonics up to the 20th (the curves' high orders count when driven hard).
+double distortion(TubeType type, double driveDb, double levelDb)
+{
+    const double rate = 48000;
+    auto t = prepared(type, driveDb, rate);
+    const auto y = run(*t, sine(1000, std::pow(10.0, levelDb / 20), 72000, rate));
+    double sum = 0;
+    for (int k = 2; k <= 20; ++k)
+    {
+        const double a = amplitude(y, 48000, 24000, 1000.0 * k, rate);
+        sum += a * a;
+    }
+    return std::sqrt(sum) / amplitude(y, 48000, 24000, 1000, rate);
+}
+
 } // namespace
+
+// What the note of PP CLASS A says (corrected 2026-11-22: it is not so when driven harder).
+TEST_CASE("Tube: PP class A distorts least at 1 kHz up to DRIVE -6 dB, and not when driven hard", "[dsp][tube]")
+{
+    for (const double level : {-20.0, -12.0, -6.0, -3.0, -1.0, 0.0})
+        for (double drive = -30; drive <= -6; drive += 2)
+        {
+            CAPTURE(level, drive);
+            const double a = distortion(TubeType::PpClassA, drive, level);
+            CHECK(a < distortion(TubeType::Se300B, drive, level));
+            CHECK(a < distortion(TubeType::PpEl34, drive, level));
+        }
+    const double hard = distortion(TubeType::PpClassA, 6, -6);
+    CHECK(hard > distortion(TubeType::Se300B, 6, -6));
+    CHECK(hard > distortion(TubeType::PpEl34, 6, -6));
+}
+
+// What the stage's note says (the oversampling with ADAA, up to 100 kHz).
+TEST_CASE("Tube: about 0.5 dB down at 20 kHz from 44.1 to 96 kHz, flat at 192 kHz", "[dsp][tube]")
+{
+    for (const double rate : {44100.0, 48000.0, 88200.0, 96000.0, 192000.0})
+        for (const auto type : kTypes)
+        {
+            CAPTURE(rate, static_cast<int>(type));
+            const auto at = [&](double freq) {
+                auto t = prepared(type, -30, rate);
+                const auto second = static_cast<std::size_t>(rate);
+                const auto y = run(*t, sine(freq, 0.001, 2 * second, rate));
+                return amplitude(y, second, second, freq, rate);
+            };
+            const double drop = dB(at(20000) / at(1000));
+            CAPTURE(drop);
+            if (rate <= 96000)
+            {
+                CHECK(drop < -0.45);
+                CHECK(drop > -0.60);
+            }
+            else
+                CHECK(std::abs(drop) < 0.01);
+        }
+}
 
 TEST_CASE("Tube curve: each type's model sits on its load line, idle at 0", "[dsp][tube]")
 {

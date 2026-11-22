@@ -13,8 +13,9 @@
 //   PP EL34     two EL34 pentodes (Koren's pentode equations) in push-pull,
 //               class AB, fixed bias: the halves' even harmonics cancel,
 //               mostly 3rd.
-//   PP class A  the same pair biased hotter (class A): less distortion at the
-//               same drive.
+//   PP class A  the same pair biased hotter (class A): the least distortion
+//               of the three up to DRIVE -6 dB (1 kHz); driven harder it can
+//               have more.
 //
 // Level reference (quality-measures 13): with DRIVE at 0 dB a 0 dBFS peak swings
 // the grid from the bias point exactly to 0 V (where grid current starts;
@@ -25,7 +26,8 @@
 // Aliasing: the curve runs oversampled (4x up to 50 kHz, 2x up to 100 kHz;
 // Kaiser-windowed FIR, passband to 0.45 fs, stopband from 0.55 fs, about
 // 100 dB) with first-order antiderivative anti-aliasing (ADAA). Above 100 kHz
-// neither (what would fold back lies above 90 kHz).
+// neither (what would fold back lies above 90 kHz). Up to 100 kHz this takes
+// about 0.5 dB off at 20 kHz (measured 0.47 to 0.57 dB; tube_test.cpp).
 //
 // The time element: the curve's bending makes the average current change with
 // the signal (rectification). Its slow part shifts the operating point:
@@ -33,8 +35,8 @@
 //     (time constant from Rk and the bypass capacitor), moving the bias;
 //   - every type: the supply sags with the average current (supply impedance
 //     and reservoir capacitor), lowering the gain slightly.
-// Only the current's nonlinear part is used, so the stage's frequency response
-// stays flat (a self-biased stage would otherwise also lose low-frequency gain).
+// Only the current's nonlinear part is used, so the time element leaves the
+// frequency response flat (a self-biased stage would otherwise also lose low-frequency gain).
 //
 // Switching the stage on or off changes its latency (the oversampling
 // filters), so the player reopens the output (see ProcessingChain::needsReprepare).

@@ -288,7 +288,7 @@ export const ja = {
     "300B 1 本のシングルエンド（カソードバイアス）。主に 2 次の倍音を加えます（測定例：2 次 −37 dB、3 次 −53 dB）。",
   "status.tube.notePpel34":
     "EL34 2 本のプッシュプル（AB 級、固定バイアス）。偶数次が打ち消し合い、主に 3 次の倍音を加えます（測定例：3 次 −26 dB）。",
-  "status.tube.notePpclassa": "EL34 2 本のプッシュプル（A 級）。同じ DRIVE なら倍音は少なめです（測定例：3 次 −40 dB）。",
+  "status.tube.notePpclassa": "EL34 2 本のプッシュプル（A 級）。1 kHz の測定では、DRIVE −6 dB 以下で倍音が 3 種類の中で最少です。それより深いと逆転することがあります（測定例：3 次 −40 dB）。",
 
   // The space (settings.ts).
   "status.space.text": "{room}{tag}・MIX {mix}%",
@@ -626,7 +626,7 @@ export const en: Record<keyof typeof ja, string> = {
     "One 300B, single-ended (cathode bias). Adds mainly the 2nd harmonic (measured example: 2nd −37 dB, 3rd −53 dB).",
   "status.tube.notePpel34":
     "Two EL34s, push-pull (class AB, fixed bias). Even orders cancel; adds mainly the 3rd harmonic (measured example: 3rd −26 dB).",
-  "status.tube.notePpclassa": "Two EL34s, push-pull (class A). At the same DRIVE, lower harmonics (measured example: 3rd −40 dB).",
+  "status.tube.notePpclassa": "Two EL34s, push-pull (class A). Measured at 1 kHz: at DRIVE −6 dB and below, the least harmonics of the three; driven harder, it can have more (measured example: 3rd −40 dB).",
 
   "status.space.text": "{room}{tag} · MIX {mix}%",
   "status.space.roomNumbers": "{size}, reverb {seconds} s",
