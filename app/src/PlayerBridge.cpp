@@ -297,10 +297,15 @@ juce::WebBrowserComponent::Options PlayerBridge::registerFunctions(juce::WebBrow
         })
         .withNativeFunction("getStatus", [this](Args, Completion done) { done(statusAsVar()); })
         .withNativeFunction("playAt", [this](Args args, Completion done) {
-            if (!args.isEmpty())
-                player_.playAt(static_cast<std::size_t>(std::max<juce::int64>(0, static_cast<juce::int64>(args[0]))));
+            // Asked of a queue as the page saw it: not done on another one.
+            const bool asAsked = args.size() >= 3 && static_cast<int>(args[0]) >= 0
+                              && static_cast<int>(args[1]) == queueVersion_
+                              && (static_cast<int>(args[2]) < 0
+                                  || static_cast<std::size_t>(static_cast<int>(args[2])) == player_.status().queueIndex);
+            if (asAsked)
+                player_.playAt(static_cast<std::size_t>(static_cast<int>(args[0])));
             pushStatus(true);
-            done(true);
+            done(asAsked);
         })
         .withNativeFunction("getQueue", [this](Args, Completion done) {
             juce::Array<juce::var> items;
@@ -477,19 +482,26 @@ void PlayerBridge::refreshTubeTypes()
     chain_.tube->setTrackType(i < types.size() ? types[i] : std::nullopt);
 }
 
-void PlayerBridge::replaceUpcoming(std::vector<QueueFile> files)
+bool PlayerBridge::replaceUpcoming(std::vector<QueueFile> files, int version, std::size_t current)
 {
-    const auto current = player_.status().queueIndex;
+    if (version != queueVersion_)
+        return false;
     std::vector<QueueItem> items;
     for (const auto& f : files)
         items.push_back(itemFor(f));
-    player_.replaceUpcoming(std::move(items));
+    // The player looks at `current` as it edits: the track can move on at any time.
+    if (!player_.replaceUpcoming(std::move(items), current))
+    {
+        pushStatus(true);
+        return false;
+    }
     if (queueMeta_.size() > current + 1)
         queueMeta_.resize(current + 1);
     for (auto& f : files)
         queueMeta_.push_back(std::move(f));
     ++queueVersion_;
     pushStatus(true);
+    return true;
 }
 
 NativeMessage PlayerBridge::playQueue(std::vector<QueueFile> files, std::size_t start)

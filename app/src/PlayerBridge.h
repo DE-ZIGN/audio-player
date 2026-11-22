@@ -26,7 +26,9 @@ namespace ap::app {
 //   play(), stop(), seek(frame)
 //   getStatus()  returns the current status object
 //   uiReady()    the page has finished starting up
-//   playAt(i)    goes to queue track i (task 6-2)
+//   playAt(i, version, from)  goes to queue track i (task 6-2) of that version
+//                of the queue; from: the current track it was asked at (-1:
+//                any). false when the queue is another by now (nothing changes)
 //   getQueue()   { version, items: [{ id, name, artist, seconds }] }; id 0: not from the library
 //   setVolume(dB) the digital volume (0 = 100%: no processing, bit-perfect; "-inf" mutes)
 //   setRepeat("off" | "all" | "one") what follows the last track, or each track (task 9-9).
@@ -92,8 +94,10 @@ public:
         std::string album;
     };
     NativeMessage playQueue(std::vector<QueueFile> files, std::size_t start);
-    // Replaces the tracks after the current one; the current track plays on (task 6-2).
-    void replaceUpcoming(std::vector<QueueFile> files);
+    // Replaces the tracks after the current one; the current track plays on
+    // (task 6-2). The list was made for that version of the queue and that
+    // current track: false, and nothing changes, when either is another by now.
+    bool replaceUpcoming(std::vector<QueueFile> files, int version, std::size_t current);
 
     // Looked at 10 times a second with the library id of the current track
     // (0: none or not from the library), for counting plays (task 6-2).

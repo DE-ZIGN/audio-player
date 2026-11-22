@@ -89,49 +89,17 @@ public:
         while (got < want && !p_.stopRequested_ && p_.hasNext())
         {
             // The current track is exhausted; take the next one (opened in the
-            // background). The queue may be edited meanwhile (replaceUpcoming,
-            // setRepeat): the future is taken under the lock, and a track opened
-            // for a list that was replaced while it opened is dropped for the new one.
-            std::unique_ptr<PcmSource> next;
-            std::size_t nextIndex = 0;
-            bool noneLeft = false;
-            try
+            // background), for the list as it is by then (takeNext).
+            auto taken = p_.takeNext();
+            if (!taken)
+                break; // a short read: the queue ends after this data has played
+            if (!taken->source)
             {
-                for (;;)
-                {
-                    std::future<std::unique_ptr<PcmSource>> load;
-                    std::uint64_t generation = 0;
-                    {
-                        std::lock_guard lock(p_.mutex_);
-                        load = std::move(p_.nextLoad_);
-                        generation = p_.upcomingGeneration_;
-                        nextIndex = p_.nextLoadIndex_;
-                    }
-                    const bool loading = load.valid();
-                    next = loading ? load.get() : nullptr;
-                    std::lock_guard lock(p_.mutex_);
-                    if (generation == p_.upcomingGeneration_)
-                    {
-                        // Nothing was opening because nothing follows any more
-                        // (the list was emptied, or repeat turned off): the end.
-                        noneLeft = !loading && !p_.nextIndexLocked();
-                        break;
-                    }
-                    next.reset(); // replaced while it was opening: the new next track is opening now
-                }
-                if (!next && !noneLeft)
-                    throw std::runtime_error("track could not be opened");
-            }
-            catch (const std::exception& e)
-            {
-                p_.loadFailed_ = true;
-                p_.loadError_ = e.what();
-                p_.pendingNextIndex_ = nextIndex;
-                p_.dataEndedAt_ = std::chrono::steady_clock::now();
+                p_.handOver(std::move(*taken));
                 break;
             }
-            if (noneLeft)
-                break; // a short read: the queue ends after this data has played
+            auto& next = taken->source;
+            const auto nextIndex = taken->index;
 
             // A change between PCM and DoP is never joined, even at the same PCM format:
             // the output is reopened so the DoP check applies and the DAC can switch modes.
@@ -146,9 +114,7 @@ public:
                 }
             if (reopen)
             {
-                p_.pendingNext_ = std::move(next);
-                p_.pendingNextIndex_ = nextIndex;
-                p_.dataEndedAt_ = std::chrono::steady_clock::now();
+                p_.handOver(std::move(*taken));
                 break; // short read: the session ends after this data has played
             }
 
@@ -161,6 +127,8 @@ public:
             t.toFormat = next->format();
             {
                 std::lock_guard lock(p_.mutex_);
+                if (taken->generation != p_.upcomingGeneration_)
+                    continue; // the list was replaced since it was taken: the new list's next
                 p_.retireSourceLocked();
                 p_.index_ = nextIndex;
                 p_.source_ = std::move(next);
@@ -375,6 +343,81 @@ void Player::publishTrackLocked()
         status_.trackTruePeak = queue_[index_].replayGain->trackPeak;
 }
 
+std::optional<Player::TakenNext> Player::takeNext()
+{
+    // The queue may be edited meanwhile (replaceUpcoming, setRepeat): the future
+    // is taken under the lock, and a track opened (or not opened) for a list
+    // that was replaced while it opened is dropped for the new one.
+    for (;;)
+    {
+        TakenNext next;
+        std::future<std::unique_ptr<PcmSource>> load;
+        {
+            std::lock_guard lock(mutex_);
+            load = std::move(nextLoad_);
+            next.generation = upcomingGeneration_;
+            next.index = nextLoadIndex_;
+        }
+        const bool loading = load.valid();
+        if (loading)
+        {
+            try
+            {
+                next.source = load.get();
+            }
+            catch (const std::exception& e)
+            {
+                next.failure = e.what();
+            }
+        }
+        std::lock_guard lock(mutex_);
+        if (next.generation != upcomingGeneration_)
+            continue; // replaced while it was opening: the new next track is opening now
+        // Nothing was opening because nothing follows any more (the list was
+        // emptied, or repeat turned off): the end.
+        if (!loading && !nextIndexLocked())
+            return std::nullopt;
+        if (!next.source && next.failure.empty())
+            next.failure = "track could not be opened";
+        return next;
+    }
+}
+
+void Player::handOver(TakenNext next)
+{
+    pendingNextIndex_ = next.index;
+    pendingGeneration_ = next.generation;
+    if (next.source)
+    {
+        pendingNext_ = std::move(next.source);
+    }
+    else
+    {
+        loadFailed_ = true;
+        loadError_ = std::move(next.failure);
+    }
+    dataEndedAt_ = std::chrono::steady_clock::now();
+}
+
+std::unique_lock<std::mutex> Player::lockHandedOver()
+{
+    for (;;)
+    {
+        std::unique_lock lock(mutex_);
+        if ((!pendingNext_ && !loadFailed_) || pendingGeneration_ == upcomingGeneration_)
+            return lock;
+        // The list was replaced after the hand-over: its index means another track now, or none.
+        pendingNext_.reset();
+        loadFailed_ = false;
+        loadError_.clear();
+        if (stopRequested_)
+            return lock;
+        lock.unlock();
+        if (auto next = takeNext())
+            handOver(std::move(*next));
+    }
+}
+
 bool Player::hasNext() const
 {
     std::lock_guard lock(mutex_);
@@ -415,19 +458,21 @@ void Player::playAt(std::size_t index)
         play();
 }
 
-void Player::replaceUpcoming(std::vector<QueueItem> items)
+bool Player::replaceUpcoming(std::vector<QueueItem> items, std::optional<std::size_t> expectedCurrent)
 {
     std::lock_guard lock(mutex_);
-    if (queue_.empty())
-        return;
+    if (queue_.empty() || (expectedCurrent && *expectedCurrent != index_))
+        return false;
     queue_.resize(index_ + 1);
     for (auto& item : items)
         queue_.push_back(std::move(item));
     status_.queueLength = queue_.size();
     ++upcomingGeneration_;
     // The next track for the new list. (A next track already handed to the
-    // playback thread for the old list is dropped there: see QueueReader.)
+    // playback thread for the old list is dropped there: see QueueReader and
+    // lockHandedOver.)
     startLoadingNextLocked();
+    return true;
 }
 
 void Player::play()
@@ -639,6 +684,8 @@ void Player::threadMain()
                 continue;
             }
 
+            // Held until what follows has become the current track: no edit comes in between.
+            const auto lock = lockHandedOver();
             if (pendingNext_)
             {
                 // The next track has another format: switch to it and reopen.
@@ -648,7 +695,6 @@ void Player::threadMain()
                 t.kind = TransitionKind::Reopened;
                 t.fromFormat = source_->format();
                 t.toFormat = pendingNext_->format();
-                std::lock_guard lock(mutex_);
                 retireSourceLocked();
                 index_ = pendingNextIndex_;
                 source_ = std::move(pendingNext_);
@@ -666,7 +712,6 @@ void Player::threadMain()
 
             if (loadFailed_)
             {
-                std::lock_guard lock(mutex_);
                 retireSourceLocked();
                 index_ = pendingNextIndex_;
                 source_.reset();

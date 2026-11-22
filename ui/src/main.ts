@@ -1,6 +1,7 @@
 import { currentLang, onLangChange, saveLang, setLang, startLang, t, type Lang, type MessageKey } from "./i18n";
 import "./style.css";
 import { createBackend, type Backend, type QueueInfo } from "./backend";
+import { queueEditor, sameEntryTwice, type EditOutcome, type QueueChange } from "./queueEdit";
 import { afterInsert, afterMove, afterRemove, dbToSlider, sliderToDb, volumeLabel, type Db } from "./queueOps";
 import { countsText } from "./libraryFormat";
 import { LibraryView, loadTheme } from "./libraryView";
@@ -123,8 +124,6 @@ let volumeDragging = false;
 let unmutedDb: Db = 0;
 let ampView: AmpView | null = null; // task 9-9
 
-const queueIds = () => queue.items.map((i) => i.id);
-
 // Shuffle and repeat (task 9-9). While shuffle is on, the order the queue had
 // before it was mixed, to put back what is left when it goes off.
 let modes: PlayModes = { shuffle: false, repeat: "off" };
@@ -162,18 +161,34 @@ function renderModes() {
 // A queue of opened files is not reordered (as the other queue edits).
 async function applyShuffle(on: boolean) {
   if (!current || current.state === "empty") return;
-  queue = await backend.getQueue();
-  if (queue.items.length === 0 || queue.items.some((i) => i.id === 0)) return;
-  const ids = queueIds();
-  const cur = current.queueIndex;
-  const rest = ids.slice(cur + 1);
-  if (on) {
-    shuffleOriginal = ids;
-    await backend.library.replaceUpcoming(shuffled(rest));
-  } else if (shuffleOriginal) {
-    await backend.library.replaceUpcoming(restoreOrder(rest, shuffleOriginal));
-    shuffleOriginal = null;
-  }
+  const done = await editQueue((ids, cur) => {
+    const rest = ids.slice(cur + 1);
+    if (on) {
+      shuffleOriginal = ids;
+      return shuffled(rest);
+    }
+    return shuffleOriginal && restoreOrder(rest, shuffleOriginal);
+  });
+  if (done === "done" && !on) shuffleOriginal = null;
+}
+
+let edits: ReturnType<typeof queueEditor> | null = null;
+
+// Every change of what comes next (queueEdit.ts). `drawn`: the version of the
+// queue the rows it was made on were drawn from.
+async function editQueue(change: QueueChange, drawn?: number): Promise<EditOutcome> {
+  edits ??= queueEditor({
+    getStatus: () => backend.getStatus(),
+    getQueue: () => backend.getQueue(),
+    replaceUpcoming: (ids, at) => backend.library.replaceUpcoming(ids, at),
+  });
+  const done = await edits(change, drawn);
+  if (done === "stale") showQueueChanged();
+  return done;
+}
+
+function showQueueChanged() {
+  showActionError(() => t("page.queue.changed"));
 }
 
 function setUpPlayModes() {
@@ -266,7 +281,8 @@ function renderTopBar(s: PlaybackStatus) {
 }
 
 let drawnQueue = { version: -2, index: -1, state: "" };
-let dragFrom = -1;
+let dragFrom: { version: number; index: number } | null = null;
+let queueClicked: { version: number; index: number } | null = null; // where a double click began
 
 function renderQueue(s: PlaybackStatus) {
   const loaded = s.state !== "empty";
@@ -289,6 +305,7 @@ function renderQueue(s: PlaybackStatus) {
   if (drawnQueue.version === queue.version && drawnQueue.index === s.queueIndex && drawnQueue.state === s.state) return;
   drawnQueue = { version: queue.version, index: s.queueIndex, state: s.state };
 
+  const version = queue.version; // the rows' edits are of this queue
   els.queueList.replaceChildren(
     ...queue.items.map((item, i) => {
       const li = document.createElement("li");
@@ -314,20 +331,28 @@ function renderQueue(s: PlaybackStatus) {
       remove.hidden = !upcoming;
       remove.addEventListener("click", (e) => {
         e.stopPropagation();
-        const next = afterRemove(queueIds(), s.queueIndex, i);
-        if (next) void backend.library.replaceUpcoming(next);
+        queueClicked = null;
+        void editQueue((ids, cur) => afterRemove(ids, cur, i), version);
       });
+      // Removing several in the same place is a double click too: not the row's.
+      remove.addEventListener("dblclick", (e) => e.stopPropagation());
       li.append(no, n, time, remove);
-      li.addEventListener("dblclick", () => void backend.playAt(i));
+      li.addEventListener("click", (e) => {
+        if (e.detail <= 1) queueClicked = { version, index: i };
+      });
+      li.addEventListener("dblclick", async () => {
+        if (!sameEntryTwice(queueClicked, version, i)) return;
+        if (!(await backend.playAt(i, { version }))) showQueueChanged();
+      });
       if (upcoming) {
         // Drag to reorder what comes next.
         li.draggable = true;
         li.addEventListener("dragstart", (e) => {
-          dragFrom = i;
+          dragFrom = { version, index: i };
           e.dataTransfer?.setData("text/plain", String(i));
         });
         li.addEventListener("dragover", (e) => {
-          if (dragFrom < 0) return;
+          if (!dragFrom) return;
           e.preventDefault();
           li.classList.add("drop-before");
         });
@@ -335,10 +360,14 @@ function renderQueue(s: PlaybackStatus) {
         li.addEventListener("drop", (e) => {
           e.preventDefault();
           li.classList.remove("drop-before");
-          const next = afterMove(queueIds(), s.queueIndex, dragFrom, i);
-          dragFrom = -1;
-          if (next) void backend.library.replaceUpcoming(next);
+          const from = dragFrom;
+          dragFrom = null;
+          if (!from) return;
+          // Both ends of the move are rows of one queue.
+          if (from.version !== version) return showQueueChanged();
+          void editQueue((ids, cur) => afterMove(ids, cur, from.index, i), version);
         });
+        li.addEventListener("dragend", () => (dragFrom = null));
       }
       if (now) requestAnimationFrame(() => li.scrollIntoView({ block: "nearest" }));
       return li;
@@ -455,9 +484,12 @@ async function enqueue(ids: number[], where: "next" | "end") {
     showActionError(() => t("page.queue.cannotAdd"));
     return;
   }
-  if (modes.shuffle && shuffleOriginal)
-    shuffleOriginal = originalAfterInsert(shuffleOriginal, queueIds(), current!.queueIndex, ids, where);
-  await backend.library.replaceUpcoming(afterInsert(queueIds(), current!.queueIndex, ids, where));
+  let original = null as number[] | null;
+  const done = await editQueue((now, cur) => {
+    original = modes.shuffle && shuffleOriginal ? originalAfterInsert(shuffleOriginal, now, cur, ids, where) : null;
+    return afterInsert(now, cur, ids, where);
+  });
+  if (done === "done" && original) shuffleOriginal = original;
 }
 
 async function togglePlay() {
@@ -667,15 +699,16 @@ async function main() {
     // Past the first 3 seconds: back to the start of this track; else the previous one.
     const before = prevTrackIndex(current.queueIndex, current.queueLength, modes.repeat);
     if (rate > 0 && current.positionFrames > rate * 3) void backend.seek(0);
-    else if (before !== null) void backend.playAt(before);
+    else if (before !== null) void backend.playAt(before, { version: current.queueVersion, index: current.queueIndex });
     else void backend.seek(0);
   });
   els.next.addEventListener("click", () => {
     if (!current) return;
     const after = nextTrackIndex(current.queueIndex, current.queueLength, modes.repeat);
-    if (after !== null) void backend.playAt(after);
+    // (Refused once the track has moved on by itself: it is the next one already.)
+    if (after !== null) void backend.playAt(after, { version: current.queueVersion, index: current.queueIndex });
   });
-  els.queueClear.addEventListener("click", () => void backend.library.replaceUpcoming([]));
+  els.queueClear.addEventListener("click", () => void editQueue(() => []));
   document.addEventListener("keydown", (e) => {
     const t = e.target as HTMLElement;
     if (e.code !== "Space" || ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(t.tagName)) return;

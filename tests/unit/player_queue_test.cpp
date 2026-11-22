@@ -16,6 +16,7 @@
 #include <iterator>
 #include <stdexcept>
 #include <thread>
+#include <utility>
 #include <vector>
 
 using namespace ap::engine;
@@ -48,6 +49,58 @@ QueueItem item(const std::string& name, std::uint32_t rate, std::vector<std::byt
 {
     return {name, [rate, data] { return std::make_unique<MemoryPcmSource>(fmt(rate), data); }};
 }
+
+// An output that does something once, when the first session's data has run
+// out: the next track has then been handed over, and is not current yet.
+class HookedOutput final : public AudioOutput
+{
+public:
+    HookedOutput(std::unique_ptr<AudioOutput> inner, std::function<void()> afterData)
+        : inner_(std::move(inner)), afterData_(std::move(afterData))
+    {
+    }
+    std::string deviceName() const override { return inner_->deviceName(); }
+    FormatCheck checkFormat(const PcmFormat& format) override { return inner_->checkFormat(format); }
+    void open(const PcmFormat& format) override { inner_->open(format); }
+    RunStats run(const RenderCallback& render) override
+    {
+        const auto stats = inner_->run(render);
+        if (auto hook = std::exchange(afterData_, nullptr))
+            hook();
+        return stats;
+    }
+    void requestStop() noexcept override { inner_->requestStop(); }
+    void close() noexcept override { inner_->close(); }
+
+private:
+    std::unique_ptr<AudioOutput> inner_;
+    std::function<void()> afterData_;
+};
+
+// A track that does something once, when the player looks at its format: it
+// has then been taken as the next track, and is not current yet.
+class HookedSource final : public PcmSource
+{
+public:
+    HookedSource(PcmFormat format, std::vector<std::byte> data, std::function<void()> whenTaken)
+        : inner_(format, std::move(data)), whenTaken_(std::move(whenTaken))
+    {
+    }
+    const PcmFormat& format() const noexcept override
+    {
+        if (auto hook = std::exchange(whenTaken_, nullptr))
+            hook();
+        return inner_.format();
+    }
+    std::uint64_t totalFrames() const noexcept override { return inner_.totalFrames(); }
+    std::size_t read(std::span<std::byte> dst) override { return inner_.read(dst); }
+    bool seek(std::uint64_t frame) override { return inner_.seek(frame); }
+    std::uint64_t position() const noexcept override { return inner_.position(); }
+
+private:
+    MemoryPcmSource inner_;
+    mutable std::function<void()> whenTaken_;
+};
 
 std::vector<std::byte> readFile(const std::filesystem::path& p)
 {
@@ -546,4 +599,88 @@ TEST_CASE("Emptying what comes next at a track boundary ends the queue, not with
         player.waitUntilIdle();
         CHECK(player.status().state == PlayerState::Ended);
     }
+}
+
+TEST_CASE("What comes next changed after the next was handed over: the new list plays", "[engine][queue][edit]")
+{
+    Rig rig;
+    const auto a = trackData(44100, 4410, 0);
+    const auto b = trackData(48000, 4800, 1);
+    const auto c = trackData(48000, 4800, 2);
+    Player* playing = nullptr;
+    std::function<void()> edit;
+    auto inner = rig.factory();
+    Player player([&] { return std::make_unique<HookedOutput>(inner(), [&] { edit(); }); });
+    playing = &player;
+
+    SECTION("the next, of another format, was removed")
+    {
+        edit = [&] { playing->replaceUpcoming({item("C", 48000, c)}); };
+        player.setQueue({item("A", 44100, a), item("B", 48000, b), item("C", 48000, c)});
+        player.play();
+        player.waitUntilIdle();
+        const auto s = player.status();
+        CHECK(s.state == PlayerState::Ended);
+        CHECK(s.trackName == "C");
+        CHECK(s.queueIndex == 1u);
+        CHECK(rig.output() == concat({&a, &c}));
+    }
+    SECTION("the next, which could not be opened, was removed")
+    {
+        const QueueItem broken{"broken", []() -> std::unique_ptr<PcmSource> { throw std::runtime_error("gone"); }};
+        edit = [&] { playing->replaceUpcoming({item("C", 48000, c)}); };
+        player.setQueue({item("A", 44100, a), broken, item("C", 48000, c)});
+        player.play();
+        player.waitUntilIdle();
+        const auto s = player.status();
+        CHECK(s.state == PlayerState::Ended);
+        CHECK(s.trackName == "C");
+        CHECK(rig.output() == concat({&a, &c}));
+    }
+    SECTION("everything after the current one was removed")
+    {
+        edit = [&] { playing->replaceUpcoming({}); };
+        player.setQueue({item("A", 44100, a), item("B", 48000, b)});
+        player.play();
+        player.waitUntilIdle();
+        const auto s = player.status();
+        CHECK(s.state == PlayerState::Ended);
+        CHECK(s.queueIndex == 0u);
+        CHECK(s.queueLength == 1u);
+        CHECK(rig.output() == a);
+    }
+}
+
+TEST_CASE("What comes next changed as a gapless next was taken: the new list plays", "[engine][queue][edit]")
+{
+    Rig rig;
+    const auto a = trackData(48000, 4800, 0);
+    const auto b = trackData(48000, 4800, 1);
+    const auto c = trackData(48000, 4800, 2);
+    Player player(rig.factory());
+    const QueueItem taken{"B", [&] {
+                              return std::make_unique<HookedSource>(
+                                  fmt(48000), b, [&] { player.replaceUpcoming({item("C", 48000, c)}); });
+                          }};
+    player.setQueue({item("A", 48000, a), taken, item("C", 48000, c)});
+    player.play();
+    player.waitUntilIdle();
+    const auto s = player.status();
+    CHECK(s.state == PlayerState::Ended);
+    CHECK(s.trackName == "C");
+    CHECK(rig.output() == concat({&a, &c}));
+}
+
+TEST_CASE("An edit made for another current track changes nothing", "[engine][queue][edit]")
+{
+    Rig rig;
+    const auto a = trackData(48000, 480, 0);
+    Player player(rig.factory());
+    player.setQueue({item("A", 48000, a), item("B", 48000, a), item("C", 48000, a)}, 1);
+
+    // Made while A was current; the player has gone on to B.
+    CHECK_FALSE(player.replaceUpcoming({item("C", 48000, a)}, 0u));
+    CHECK(player.status().queueLength == 3u);
+    CHECK(player.replaceUpcoming({}, 1u));
+    CHECK(player.status().queueLength == 2u);
 }

@@ -181,8 +181,11 @@ public:
     // Replaces every track after the current one (task 6-2: add, remove,
     // reorder what comes next). The current track plays on; the new next
     // track follows it gaplessly when the formats allow. Safe while playing:
-    // a next track that was being opened for the old list is dropped.
-    void replaceUpcoming(std::vector<QueueItem> items);
+    // a next track that was being opened, or had been handed over, for the old
+    // list is dropped. `expectedCurrent`: the current track's index the new
+    // list was made for; when another is current by now, nothing is changed
+    // and false is returned (also without a queue).
+    bool replaceUpcoming(std::vector<QueueItem> items, std::optional<std::size_t> expectedCurrent = std::nullopt);
     // The tube type chosen for each queue entry, again (task 9-7: the table or
     // an album's choice changed). Takes effect from the next track start.
     void setTubeTypes(const std::vector<std::optional<TubeType>>& types);
@@ -216,6 +219,18 @@ private:
     std::optional<std::size_t> nextIndexLocked() const; // the track that follows index_ (RepeatMode)
     void publishTrackLocked();     // copies the current track's facts into status_
     void retireSourceLocked();     // adds the current source's dropout counters to the totals
+    // The next track, taken from the one opening in the background.
+    struct TakenNext
+    {
+        std::unique_ptr<PcmSource> source; // none: it could not be opened (`failure`)
+        std::string failure;
+        std::size_t index = 0;
+        std::uint64_t generation = 0; // the list it was opened for
+    };
+    std::optional<TakenNext> takeNext(); // waits for it; none: nothing follows
+    void handOver(TakenNext next);       // for after the session's end
+    // mutex_ held, with what was handed over opened for the list as it is now.
+    std::unique_lock<std::mutex> lockHandedOver();
     TrackInfo trackInfo(std::size_t index) const;       // takes mutex_
     TrackInfo trackInfoLocked(std::size_t index) const; // mutex_ held
 
@@ -240,6 +255,7 @@ private:
     std::size_t nextLoadIndex_ = 0;          // the queue index nextLoad_ opens
     std::unique_ptr<PcmSource> pendingNext_; // next track, different format: needs a reopen
     std::size_t pendingNextIndex_ = 0;       // its queue index (or the one that failed to open)
+    std::uint64_t pendingGeneration_ = 0;    // the list it was opened for (upcomingGeneration_)
     RepeatMode repeat_ = RepeatMode::Off;
     // Changes whenever the tracks after the current one are replaced: a next
     // track opened for an older list is not played.

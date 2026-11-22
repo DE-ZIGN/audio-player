@@ -63,7 +63,9 @@ MainComponent::MainComponent(MainOptions options)
           [this](std::vector<LibraryBridge::QueueEntry> entries, std::size_t start) {
               return bridge_.playQueue(toFiles(std::move(entries)), start);
           },
-          [this](std::vector<LibraryBridge::QueueEntry> entries) { bridge_.replaceUpcoming(toFiles(std::move(entries))); })
+          [this](std::vector<LibraryBridge::QueueEntry> entries, int version, std::size_t current) {
+              return bridge_.replaceUpcoming(toFiles(std::move(entries)), version, current);
+          })
 {
     bridge_.onPoll = [this](const ap::engine::PlayerStatus& s, std::int64_t id) { library_.observe(s, id); };
     setSize(1280, 800); // the library view (task 6-1): a list, the side bar and the queue side by side

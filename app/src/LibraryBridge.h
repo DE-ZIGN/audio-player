@@ -58,7 +58,8 @@ public:
         std::string album;
     };
     using PlayQueue = std::function<NativeMessage(std::vector<QueueEntry>, std::size_t start)>;
-    using ReplaceUpcoming = std::function<void(std::vector<QueueEntry>)>;
+    // The version of the queue and the current track the new list was made for; false when they are others by now.
+    using ReplaceUpcoming = std::function<bool(std::vector<QueueEntry>, int version, std::size_t current)>;
 
     // `folder` holds the database and the cover cache; created when missing.
     LibraryBridge(juce::File folder, PlayQueue playQueue, ReplaceUpcoming replaceUpcoming);

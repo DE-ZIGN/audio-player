@@ -7,6 +7,7 @@
 // sends the same codes, so the page shows the same sentences. The file
 // dialogs' titles are the page's, in its language.
 
+import type { QueueAt } from "./queueEdit";
 import type { EqPreset } from "./eqPresets";
 import { currentLang, t } from "./i18n";
 import type { NativeText } from "./nativeText";
@@ -70,7 +71,7 @@ export interface LibraryApi {
   albums(q: AlbumQuery): Promise<Page<AlbumRow>>;
   counts(): Promise<LibraryCounts>;
   play(ids: number[], start: number): Promise<ActionResult>; // these tracks as the queue
-  replaceUpcoming(ids: number[]): Promise<void>; // these tracks after the current one
+  replaceUpcoming(ids: number[], at: QueueAt): Promise<boolean>; // these tracks after the current one; false: not that queue any more
   coverUrl(trackId: number): string;
   onChanged(listener: (c: LibraryCounts) => void): void;
 }
@@ -109,7 +110,8 @@ export interface Backend {
   stop(): Promise<void>;
   seek(frame: number): Promise<void>;
   getStatus(): Promise<PlaybackStatus>;
-  playAt(index: number): Promise<void>;
+  // Of the queue as seen (and, with an index, at that current track); false: it is another by now.
+  playAt(index: number, at: { version: number; index?: number }): Promise<boolean>;
   getQueue(): Promise<QueueInfo>;
   setVolume(db: number | "-inf"): Promise<void>;
   setRepeat(mode: RepeatMode): Promise<void>; // task 9-9 (shuffle is the page's: playModes.ts)
@@ -167,8 +169,8 @@ class AppLibrary implements LibraryApi {
   async play(ids: number[], start: number) {
     return ((await this.fn("libraryPlay")(ids, start)) as ActionResult | null) ?? { ok: false };
   }
-  async replaceUpcoming(ids: number[]) {
-    await this.fn("libraryReplaceUpcoming")(ids);
+  async replaceUpcoming(ids: number[], at: QueueAt) {
+    return (await this.fn("libraryReplaceUpcoming")(ids, at.version, at.index)) === true;
   }
   coverUrl(trackId: number) {
     return `${this.coverBase}${trackId}.jpg`;
@@ -251,8 +253,8 @@ export class AppBackend implements Backend {
   async getStatus() {
     return (await this.fn("getStatus")()) as PlaybackStatus;
   }
-  async playAt(index: number) {
-    await this.fn("playAt")(index);
+  async playAt(index: number, at: { version: number; index?: number }) {
+    return (await this.fn("playAt")(index, at.version, at.index ?? -1)) === true;
   }
   async getQueue() {
     return ((await this.fn("getQueue")()) as QueueInfo | null) ?? { version: 0, items: [] };
@@ -529,8 +531,9 @@ export class MockBackend implements Backend {
         await this.play();
         return { ok: true };
       },
-      replaceUpcoming: async (ids) => {
+      replaceUpcoming: async (ids, at) => {
         const cur = this.status.queueIndex;
+        if (at.version !== this.queueVersion || at.index !== cur) return false;
         const found = ids.flatMap((id) => {
           const t = lib.track(id);
           return t ? [t] : [];
@@ -553,6 +556,7 @@ export class MockBackend implements Backend {
           ...found.map((t) => ({ id: t.id, name: t.title, artist: t.artist, seconds: t.seconds })),
         ]);
         this.update(this.withQueue(this.status));
+        return true;
       },
     };
   }
@@ -573,12 +577,14 @@ export class MockBackend implements Backend {
     return { ...s, queueLength: this.queueItems.length, queueVersion: this.queueVersion, volumeDb: this.volumeDb };
   }
 
-  async playAt(index: number) {
-    if (index < 0 || index >= this.tracks.length) return;
+  async playAt(index: number, at: { version: number; index?: number }) {
+    if (at.version !== this.queueVersion || (at.index !== undefined && at.index !== this.status.queueIndex)) return false;
+    if (index < 0 || index >= this.tracks.length) return false;
     const wasPlaying = this.status.state === "playing";
     this.halt();
     this.update({ ...this.status, ...this.trackFields(index), state: "stopped" });
     if (wasPlaying) await this.play();
+    return true;
   }
 
   async getQueue() {

@@ -344,8 +344,10 @@ juce::WebBrowserComponent::Options LibraryBridge::registerFunctions(juce::WebBro
         }))
         .withNativeFunction("libraryCounts", [this](Args, Completion done) { done(counts()); })
         .withNativeFunction("libraryReplaceUpcoming", guarded([this](Args args) {
-            replaceUpcoming_(entriesFor(args.isEmpty() ? juce::var() : args[0]));
-            return juce::var(true);
+            if (args.size() < 3 || static_cast<int>(args[2]) < 0)
+                return juce::var(false);
+            return juce::var(replaceUpcoming_(entriesFor(args[0]), static_cast<int>(args[1]),
+                                              static_cast<std::size_t>(static_cast<int>(args[2]))));
         }))
         .withNativeFunction("libraryPlay", guarded([this](Args args) {
             auto entries = entriesFor(args.isEmpty() ? juce::var() : args[0]);
