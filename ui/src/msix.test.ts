@@ -40,6 +40,13 @@ describe("the MSIX manifest", () => {
     expect(cached("AP_COMPANY_NAME")).toBe("DE:ZIGN"); // Package/Properties/PublisherDisplayName
   });
 
+  it("has a version the Store takes: the first number is not 0", () => {
+    // Microsoft Learn, "App package requirements", Package version numbering (read 2026-11-22).
+    // The Windows App Certification Kit does not check it.
+    const [major] = /project\(audio_player\s+VERSION (\d+)\.\d+\.\d+/.exec(cmake)!.slice(1).map(Number);
+    expect(major).toBeGreaterThanOrEqual(1);
+  });
+
   it("is a desktop app with full trust, as the app is", () => {
     expect(manifest).toMatch(/EntryPoint="Windows\.FullTrustApplication"/);
     expect(manifest).toMatch(/<rescap:Capability Name="runFullTrust" \/>/);
