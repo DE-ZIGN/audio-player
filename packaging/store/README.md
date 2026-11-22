@@ -77,9 +77,9 @@ Partner Center に入れるものを、ここにまとめる。**実際に入力
 
 > Notes of 2026-11-22. No account or sign-in is needed. To try playback: open Settings > Output and pick an output device (one that allows exclusive mode; a DAC is not required). Then add a music folder with the + next to "Watched folders" (on the left), or use "Open files". Formats: FLAC, WAV, AIFF, ALAC, MP3, AAC (m4a), DSF, DFF (not DST-compressed).
 >
-> By design, Pure mode (the default) never converts the rate or an integer format: if the device does not accept them, the app shows why and does not play the track. Floating-point sources such as MP3 and AAC are made integer with dither when the device does not take float. Processing mode (Settings > Mode) converts such a track. In exclusive mode other apps' sound stops while this app plays.
+> By design, Pure mode (the default) never converts the rate or an integer format: if the device does not accept them, the app shows why and does not play the track. Floating-point sources such as MP3 and AAC are made integer with dither when the device does not take float. Processing mode (Settings > Mode) converts a rate the device does not accept. In exclusive mode other apps' sound stops while this app plays.
 >
-> DSD is sent only as DoP. It is off by default; please leave it off unless the DAC supports DoP (DSD files then show why they are not played).
+> DSD is sent only as DoP. It is off by default; the app cannot detect DoP support, and a DAC without it plays loud noise, so please leave it off unless the DAC supports DoP (DSD files then show why they are not played).
 >
 > Dependencies: the Microsoft Edge WebView2 Runtime, disclosed at the beginning of the description; without it the app says so at start. Windows N and KN editions also need the Media Feature Pack (Media Foundation), disclosed there too. The app does not depend on any non-Microsoft driver or NT service and installs none. ASIO is optional, used only when the user selects a driver already installed.
 >

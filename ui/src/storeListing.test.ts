@@ -187,6 +187,18 @@ describe("the Store listing's claims", () => {
     expect(line(en, "- BIT-PERFECT")).toContain("driver");
   });
 
+  it("DoP: not detected, loud noise on a DAC without it (a matter of safety)", () => {
+    expect(line(ja, "・DSD")).toMatch(/自動では分かりません.*大きな雑音/);
+    expect(line(en, "- DSD")).toMatch(/cannot detect.*loud noise/);
+    expect(quoted("審査の人への注記")).toMatch(/cannot detect.*loud noise/);
+  });
+
+  it("the notes: what Processing mode converts is the rate", () => {
+    const notes = quoted("審査の人への注記");
+    expect(notes).not.toContain("converts such a track");
+    expect(notes).toMatch(/Processing mode \(Settings > Mode\) converts a rate/);
+  });
+
   it("the notes: exclusive mode is needed, and Pure mode's exception is said", () => {
     const notes = quoted("審査の人への注記");
     expect(notes).not.toMatch(/any Windows output works|converts nothing/);
