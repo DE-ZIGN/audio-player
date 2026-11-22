@@ -4,6 +4,7 @@ import { createBackend, type Backend, type QueueInfo } from "./backend";
 import { queueEditor, sameEntryTwice, type EditOutcome, type QueueChange } from "./queueEdit";
 import { afterInsert, afterMove, afterRemove, dbToSlider, sliderToDb, volumeLabel, type Db } from "./queueOps";
 import { countsText } from "./libraryFormat";
+import { errorLine } from "./errorLine";
 import { LibraryView, loadTheme } from "./libraryView";
 import type { PlayRequest } from "./libraryPlay";
 import { applyStandardZoom, applyUiView, currentUiView, loadUiView, onUiViewChange, otherViews, saveUiView, type UiView } from "./uiView";
@@ -183,6 +184,7 @@ async function editQueue(change: QueueChange, drawn?: number): Promise<EditOutco
     replaceUpcoming: (ids, at) => backend.library.replaceUpcoming(ids, at),
   });
   const done = await edits(change, drawn);
+  if (done === "done") clearActionError();
   if (done === "stale") showQueueChanged();
   return done;
 }
@@ -375,6 +377,8 @@ function renderQueue(s: PlaybackStatus) {
   );
 }
 
+let statusError: string | null = null; // the playback's error as last seen (errorLine)
+
 function render(s: PlaybackStatus) {
   current = s;
   ampView?.update(s);
@@ -439,13 +443,17 @@ function render(s: PlaybackStatus) {
 
 
   const err = errorText(s);
-  if (err) {
+  const which = err ? JSON.stringify([s.error, s.queueVersion, s.queueIndex, s.outputNotice]) : null;
+  const line = errorLine(els.error.dataset.from ?? "", statusError, which);
+  statusError = which;
+  if (line === "status") {
     els.error.hidden = false;
     els.error.textContent = err;
-  } else if (els.error.dataset.from === "status") {
+    els.error.dataset.from = "status";
+  } else if (line === "hide") {
     els.error.hidden = true;
+    els.error.dataset.from = "";
   }
-  els.error.dataset.from = err ? "status" : els.error.dataset.from ?? "";
 }
 
 async function playRequest(req: PlayRequest) {
@@ -455,6 +463,7 @@ async function playRequest(req: PlayRequest) {
     ? await backend.library.play(shuffleStart(req.ids, req.start), 0)
     : await backend.library.play(req.ids, req.start);
   const message = r.message;
+  if (r.ok) clearActionError();
   if (!r.ok && message) showActionError(() => nativeText(message));
   render(await backend.getStatus());
 }
@@ -467,6 +476,11 @@ function showActionError(text: () => string) {
   els.error.dataset.from = "action";
   els.error.textContent = text();
   actionError = { text, shown: els.error.textContent };
+}
+function clearActionError() {
+  if (els.error.dataset.from !== "action") return;
+  els.error.hidden = true;
+  els.error.dataset.from = "";
 }
 function redrawActionError() {
   if (!actionError || els.error.hidden || els.error.textContent !== actionError.shown) return;

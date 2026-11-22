@@ -652,6 +652,7 @@ export class LibraryView {
   private shownError: { text: () => string; shown: string } | null = null;
   showError(text: () => string) {
     this.els.error.hidden = false;
+    this.els.error.dataset.from = "action"; // not the playback's: the status does not take it away
     this.els.error.textContent = text();
     this.shownError = { text, shown: this.els.error.textContent };
   }
