@@ -65,7 +65,8 @@ private:
 // Command line:
 //   --dev-server[=URL]  load the UI from the Vite dev server (default http://localhost:5173/)
 //   --ui-dir=PATH       load the built UI from PATH instead of <exe dir>/ui
-//   --allow-dop         send DSD files as DoP (only for DACs that decode DoP)
+//   --allow-dop         send DSD files as DoP (only for DACs that decode DoP; only to
+//                       a device chosen in the settings, never to the Windows default)
 //   --library-dir=PATH  keep the library database and the cover cache in PATH
 //                       (default: %LOCALAPPDATA%\<app name>; a fresh temporary
 //                       one in self-test mode)
