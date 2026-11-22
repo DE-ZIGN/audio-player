@@ -242,6 +242,20 @@
 
 ---
 
+## 画面写真のスクリプトにだけ使うもの（配布物に含まない）
+
+`tools/make_store_demo.py` と `tools/store_screenshots.py`（タスク 8-5d）を動かすときに、開発者が自分で入れる。アプリのビルドには要らない。
+
+| 名前 | バージョン（確かめたもの） | ライセンス | 入手先 |
+|---|---|---|---|
+| NumPy | 2.5.5 | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | https://github.com/numpy/numpy |
+| python-soundfile | 0.14.0 | BSD-3-Clause（同梱の libsndfile 1.2.2 は LGPL-2.1-or-later） | https://github.com/bastibe/python-soundfile |
+| Mutagen | 1.48.1 | GPL-2.0-or-later（GPLv3 として使う） | https://github.com/quodlibet/mutagen |
+| Pillow | 13.0.0 | MIT-CMU | https://github.com/python-pillow/Pillow |
+| websockets | 17.4 | BSD-3-Clause | https://github.com/python-websockets/websockets |
+
+---
+
 ## Catch2
 
 - バージョン：3.16.1（コミット `08092139210881f01a34e60c5f2fd6afa0ea4024`）

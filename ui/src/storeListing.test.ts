@@ -21,6 +21,7 @@ type Listing = {
   developedBy: string;
 };
 
+const screenshots = Object.keys(import.meta.glob("../../packaging/store/screenshots/*/*.png"));
 const all = JSON.parse(listingRaw) as Record<string, unknown>;
 const LANGS = ["ja-JP", "en-US"] as const;
 const listing = (lang: (typeof LANGS)[number]) => all[lang] as Listing;
@@ -93,6 +94,18 @@ describe("the Store listing's limits (Partner Center)", () => {
       expect(text(l.additionalLicenseTerms).length).toBeLessThanOrEqual(10000);
     });
   }
+});
+
+describe("the Store's screenshots (task 8-5d)", () => {
+  it("are one for each caption, in each language, numbered in the captions' order", () => {
+    for (const lang of LANGS) {
+      const numbers = screenshots
+        .filter((p) => p.includes(`/screenshots/${lang}/`))
+        .map((p) => Number(p.split("/").pop()!.slice(0, 2)))
+        .sort((a, b) => a - b);
+      expect(numbers, lang).toEqual(listing(lang).screenshotCaptions.map((_, i) => i + 1));
+    }
+  });
 });
 
 describe("the Store listing's words", () => {

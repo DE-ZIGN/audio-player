@@ -108,3 +108,10 @@ python tools/make_icon.py [--preview 見本.png]
 - 書き出すもの：`app/resources/icon/`（元の SVG を 3 通りと、exe 用の `icon.ico`）、`packaging/msix/Assets/`（MSIX の絵）。
 - 絵はスクリプトの中に一度だけ書いてある。形や色を変えるときはここを直して、書き出し直す（できたファイルを手で直さない）。
 - `--preview` は、各大きさを明るい背景と暗い背景に並べた見本と、小さい大きさを拡大したものを書く。
+
+## make_store_demo.py、store_screenshots.py（Store の画面写真）
+
+8-5d。手順は `packaging/store/README.md` の「画面写真」。
+
+- `make_store_demo.py 出力先`：テスト信号と合成音の曲（FLAC）に、作った名前と絵を付けた架空のライブラリを書き出す。実在の録音・曲名・ジャケットは使わない。
+- `store_screenshots.py`：そのライブラリで実物のアプリを起動し、日本語と英語で 5 枚ずつ撮る。WebView2 のデバッグ用の口（127.0.0.1 だけ）から画面を操作する。利用者のライブラリと設定には触れない。画面の保存領域（言語、ビュー）は共通なので、撮影の前の状態に戻す。

@@ -82,11 +82,31 @@ Partner Center に入れるものを、ここにまとめる。パッケージ�
 >
 > The app has no feature that connects to the internet; links open in the default browser.
 
-## 6. 画面写真（8-5d で作る）
+## 6. 画面写真（8-5d）
 
 - デスクトップ用：1366 × 768 以上（4K まで）、PNG、50 MB 以下、10 枚まで。字幕は `listing.json` の `screenshotCaptions`（言語ごと）。
 - 実在のアルバムのジャケットや曲名を写さない（著作物のため）。テスト信号で作った曲と、作った名前・絵のライブラリで撮る。
 - 日本語と英語の画面で、それぞれ撮る。
+- できたものは `screenshots/ja-JP/` と `screenshots/en-US/`（1920 × 1080、5 枚ずつ）。ファイル名の番号が、字幕の順。
+- 上げる前に、利用者名の入ったパスや実在の曲名が写っていないか見る。
+
+撮り直すとき（PowerShell、リポジトリの直下で。`<作業用>` は空のフォルダー。M: は空いているドライブ文字）：
+
+```
+pip install numpy soundfile mutagen pillow websockets
+python tools\make_store_demo.py <作業用>\Music
+New-Item -ItemType Directory <作業用>\data
+subst M: <作業用>
+build\vs2022\tools\library\Release\ap_lib.exe scan M:\Music --db M:\data\library.db
+build\vs2022\tools\library\Release\ap_lib.exe analyze --db M:\data\library.db
+build\vs2022\tools\play\Release\ap_play.exe --list
+python tools\store_screenshots.py --device-id "<ID>" --device-name "<名前>"
+subst M: /d
+```
+
+- アプリは閉じてから始める。撮影中は、指定したデバイスから音が出る（音量とヘッドホンに注意）。24bit / 96 kHz を排他モードで受け付けるデバイスを選ぶ。
+- `subst` は、監視フォルダーの欄に利用者名の入ったパスを写さないため。
+- 出力の確認の画面には、そのデバイスの Windows の音量が写る。100% でなければ注意の印が付く。
 
 ## 7. パッケージ
 
