@@ -15,7 +15,6 @@ export interface PressedRow {
   list: Omit<TrackQuery, "offset" | "limit">;
   index: number;
   id: number;
-  present: boolean;
 }
 
 export const PLAY_LIMIT = 1000; // tracks put in the queue from a long list
@@ -31,30 +30,28 @@ export async function playFromRow(tracks: Tracks, pressed: PressedRow): Promise<
   if (pressed.list.albumKey !== undefined) {
     const { rows } = await ask(0, ALBUM_LIMIT);
     const at = rows.findIndex((r) => r.id === pressed.id);
-    if (at >= 0) return request(rows, at, pressed);
+    if (at >= 0) return request(rows, at);
     // Not among those given at once: an album that long is played as a list is.
   }
 
   const here = await ask(pressed.index, PLAY_LIMIT);
-  if (here.rows[0]?.id === pressed.id) return request(here.rows, 0, pressed);
+  if (here.rows[0]?.id === pressed.id) return request(here.rows, 0);
 
   // It has moved. The pages overlap by half: taken from the half that has a whole queue after it.
   for (let offset = 0; ; offset += PLAY_LIMIT) {
     const { rows, total } = await ask(offset, PLAY_LIMIT * 2);
     const last = rows.length === 0 || offset + rows.length >= total;
     const at = rows.findIndex((r) => r.id === pressed.id);
-    if (at >= 0 && (at < PLAY_LIMIT || last)) return request(rows.slice(at, at + PLAY_LIMIT), 0, pressed);
+    if (at >= 0 && (at < PLAY_LIMIT || last)) return request(rows.slice(at, at + PLAY_LIMIT), 0);
     if (last) return null;
   }
 }
 
-function request(rows: TrackRow[], at: number, pressed: PressedRow): PlayRequest | null {
+function request(rows: TrackRow[], at: number): PlayRequest | null {
   const found = rows[at];
-  if (pressed.present && !found.present) return null; // its file went after it was drawn
+  if (!found.present) return null; // its file is missing, shown so or since
   const playable = rows.filter((r) => r.present);
-  if (playable.length === 0) return null;
-  // A row already shown as missing stands for "from here": what can be played of the rows asked for.
-  return { ids: playable.map((r) => r.id), start: found.present ? playable.indexOf(found) : 0 };
+  return { ids: playable.map((r) => r.id), start: playable.indexOf(found) };
 }
 
 // Whether a double click's two clicks were on one track: the rows can arrive

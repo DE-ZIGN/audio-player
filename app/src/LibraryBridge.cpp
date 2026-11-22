@@ -1,5 +1,7 @@
 #include "LibraryBridge.h"
 
+#include <QueueStart.h>
+
 #include "NativeVar.h"
 
 #include <ap/library/analysis.h>
@@ -355,7 +357,21 @@ juce::WebBrowserComponent::Options LibraryBridge::registerFunctions(juce::WebBro
                 o->setProperty("message", nativeVar(msg::libraryNoPlayableTracks()));
                 return juce::var(o);
             }
-            const auto message = playQueue_(std::move(entries), start);
+            // entriesFor leaves out the tracks whose files went since the page read the list.
+            std::vector<std::int64_t> asked, kept;
+            if (const auto* ids = args[0].getArray())
+                for (const auto& id : *ids)
+                    asked.push_back(static_cast<juce::int64>(id));
+            for (const auto& e : entries)
+                kept.push_back(e.id);
+            const auto at = startAmongKept(asked, start, kept);
+            if (!at)
+            {
+                o->setProperty("ok", false);
+                o->setProperty("message", nativeVar(msg::libraryTrackUnavailable()));
+                return juce::var(o);
+            }
+            const auto message = playQueue_(std::move(entries), *at);
             o->setProperty("ok", message.empty());
             if (!message.empty())
                 o->setProperty("message", nativeVar(message));

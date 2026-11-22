@@ -431,7 +431,7 @@ export class LibraryView {
         }
         if (r.id === this.playingId) row.classList.add("playing");
         if (i === this.selected) row.classList.add("selected");
-        const pressed: PressedRow = { list, index: i, id: r.id, present: r.present };
+        const pressed: PressedRow = { list, index: i, id: r.id };
         this.drawn.set(i, pressed);
         row.addEventListener("click", (e) => {
           if (e.detail <= 1) this.firstClicked = r.id;
@@ -580,13 +580,13 @@ export class LibraryView {
   private selectedRow(): PressedRow | undefined {
     const index = this.selected;
     const r = this.rowAt<TrackRow>(index);
-    return this.drawn.get(index) ?? (r && { list: this.trackList(), index, id: r.id, present: r.present });
+    return this.drawn.get(index) ?? (r && { list: this.trackList(), index, id: r.id });
   }
 
   // Plays from the track a row showed (libraryPlay.ts).
   private async playFrom(pressed: PressedRow) {
     const req = await playFromRow((q) => this.backend.library.tracks(q), pressed);
-    if (!req) return this.showError(() => t("controls.library.noPlayable"));
+    if (!req) return this.showError(() => t("controls.library.cannotPlay"));
     this.onPlay(req);
   }
 

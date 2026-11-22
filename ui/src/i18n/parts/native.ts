@@ -40,6 +40,7 @@ export const ja = {
     "ライブラリのデータベースは、このアプリより新しい版で作られています。新しい版のアプリを使ってください: {path}",
   "native.library.openFailed": "ライブラリのデータベースを開けませんでした: {path} ({detail})",
   "native.library.noPlayableTracks": "再生できる曲がありません（ファイルが見つかりません）",
+  "native.library.trackUnavailable": "選んだ曲は再生できません（ファイルが見つかりません）",
   "native.library.addFolderFailed": "フォルダーを加えられませんでした: {detail}",
 
   // The output: the notice when playback is not on the chosen one, the device list.
@@ -90,6 +91,7 @@ export const en: Record<keyof typeof ja, string> = {
     "The library database was made by a newer version of this app. Use the newer version: {path}",
   "native.library.openFailed": "Could not open the library database: {path} ({detail})",
   "native.library.noPlayableTracks": "No playable tracks (files not found)",
+  "native.library.trackUnavailable": "The selected track cannot be played (file not found)",
   "native.library.addFolderFailed": "Could not add the folder: {detail}",
 
   "native.output.fallbackDefault": "The chosen output ({name}) was not found, so playback is on the Windows default device",

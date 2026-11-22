@@ -64,7 +64,7 @@ export const ja = {
   "controls.library.empty.search": "見つかりませんでした。かな・全角半角・大文字小文字は区別しません。漢字の読みでは探せません。",
   "controls.library.empty.albums": "アルバムがありません（アルバム名のタグがある曲が、ここに並びます）",
   "controls.library.empty.tracks": "曲がありません。左の「監視フォルダー」の「＋」で、音楽のフォルダーを加えてください。",
-  "controls.library.noPlayable": "再生できる曲がありません（ファイルが見つかりません）",
+  "controls.library.cannotPlay": "選んだ曲は再生できません（ファイルが見つかりません）",
   // The watched folders.
   "controls.library.folder.title": "{path}\n{n} 曲",
   "controls.library.folder.titleMissing": "{path}\n{n} 曲（見つからない {missing} 曲）",
@@ -285,7 +285,7 @@ export const en: Record<keyof typeof ja, string> = {
     "Nothing found. Hiragana and katakana, full- and half-width, and upper and lower case are treated alike. Kanji cannot be found by their reading.",
   "controls.library.empty.albums": "No albums (tracks with an album tag are listed here)",
   "controls.library.empty.tracks": "No tracks. Add your music folders with “+” under “Watched folders” on the left.",
-  "controls.library.noPlayable": "No playable tracks (files not found)",
+  "controls.library.cannotPlay": "The selected track cannot be played (file not found)",
   "controls.library.folder.title": "{path}\nTracks: {n}",
   "controls.library.folder.titleMissing": "{path}\nTracks: {n} (missing: {missing})",
   "controls.library.folder.removeTitle": "Remove this folder from the library",

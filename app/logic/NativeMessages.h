@@ -156,6 +156,7 @@ inline constexpr NativeCode eqFileUnreadable{"eq.fileUnreadable", "file", "detai
 inline constexpr NativeCode libraryNewerDatabase{"library.newerDatabase", "path"};
 inline constexpr NativeCode libraryOpenFailed{"library.openFailed", "path", "detail"};
 inline constexpr NativeCode libraryNoPlayableTracks{"library.noPlayableTracks"};
+inline constexpr NativeCode libraryTrackUnavailable{"library.trackUnavailable"};
 inline constexpr NativeCode libraryAddFolderFailed{"library.addFolderFailed", "detail"};
 
 // The output (PlayerBridge's notice, the settings' device list).

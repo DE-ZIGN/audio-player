@@ -20,17 +20,15 @@ function library(now: TrackRow[]) {
   return { tracks, asked };
 }
 
-const inList = (index: number, id: number, present = true): PressedRow => ({
+const inList = (index: number, id: number): PressedRow => ({
   list: { search: "", sort: "artist", descending: false },
   index,
   id,
-  present,
 });
-const inAlbum = (index: number, id: number, present = true): PressedRow => ({
+const inAlbum = (index: number, id: number): PressedRow => ({
   list: { search: "", sort: "artist", descending: false, albumKey: "album" },
   index,
   id,
-  present,
 });
 
 async function played(now: TrackRow[], pressed: PressedRow) {
@@ -58,7 +56,7 @@ describe("playing from a row of an unchanged list", () => {
   it("asks with the list the row was drawn in", async () => {
     const lib = library([track(7)]);
     const list = { search: "ferry", sort: "title", descending: true } as const;
-    await playFromRow(lib.tracks, { list, index: 0, id: 7, present: true });
+    await playFromRow(lib.tracks, { list, index: 0, id: 7 });
     expect(lib.asked[0]).toMatchObject(list);
   });
 
@@ -67,10 +65,14 @@ describe("playing from a row of an unchanged list", () => {
     expect(await playFromRow(library(now).tracks, inAlbum(3, 4))).toEqual({ ids: [2, 4, 5], start: 1 });
   });
 
-  it("from a row already shown missing, goes on as before: the list's next one, an album's first", async () => {
+  it("plays nothing from a row shown missing: not the list's next one, not an album's first", async () => {
     const now = [track(1), track(2, false), track(3)];
-    expect(await played(now, inList(1, 2, false))).toBe(3);
-    expect(await played(now, inAlbum(1, 2, false))).toBe(1);
+    expect(await played(now, inList(1, 2))).toBeNull();
+    expect(await played(now, inAlbum(1, 2))).toBeNull();
+  });
+
+  it("plays a row shown missing once its file is back", async () => {
+    expect(await played([track(1), track(2), track(3)], inAlbum(1, 2))).toBe(2);
   });
 });
 
