@@ -3,8 +3,8 @@
   The app's MSIX package (task 8-3c). CMake fills the @...@ from
   CMakeLists.txt (app/CMakeLists.txt: configure_file) into
   build/<preset>/packaging/msix/AppxManifest.xml; packaging/msix/build-msix.ps1
-  packs it. The Identity's Name and Publisher are provisional until Partner
-  Center gives them (task 8-5).
+  packs it. The Identity's Name and Publisher are the ones Partner Center gave
+  when the name was reserved (task 8-5e).
 -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"

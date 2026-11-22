@@ -186,17 +186,17 @@
 |---|---|---|---|---|
 | 8-1 | GitHub Actions でビルドとテスト | CC | プッシュごとにテストが走る | ☑ GitHub Actions で、ビルドと全テスト（593 件＋アプリの自己テスト 4 件）が通った（2026-11-19、3 回目の実行）（下の「記録」） |
 | 8-2 | ライセンス画面（依存部品の表示を自動生成） | CC | すべての依存が載っている | ◐ 自動テスト・ブラウザー（模擬）・アプリの自己テスト。見た目は U（下の「記録」） |
-| 8-3 | MSIX パッケージの本番設定（2026-11-21 に 3 つに分けた。決めたことは表の下） | CC | Store に出せる形式 | ☑ 8-3a〜8-3c がすべて済んだ（2026-11-21）。パッケージの ID は 8-5 まで仮 |
+| 8-3 | MSIX パッケージの本番設定（2026-11-21 に 3 つに分けた。決めたことは表の下） | CC | Store に出せる形式 | ☑ 8-3a〜8-3c がすべて済んだ（2026-11-21）。パッケージの ID は 8-5e で Partner Center の値に替えた（2026-11-22） |
 | 8-3a | ファイル用の名前：実行ファイル `DEZIGNAudioPlayer.exe`、データの置き場所 `%LOCALAPPDATA%\DEZIGN Audio Player`（WebView2 の保存領域も）、exe の版情報（製品名・説明は DE:ZIGN AUDIO PLAYER、会社名は DE:ZIGN）。今の `AudioPlayer` のライブラリと設定は移さない。README・資料の名前も直す | CC | 新しい名前で起動し、新しいフォルダーにライブラリと設定ができる。テストと CI が通る | ☑ 自動テスト・アプリの自己テスト・新しい名前での起動と再生（U、2026-11-21）。下の「記録」 |
 | 8-3b | アプリのアイコン：プロダクトサイト（https://audio.dezign.jp/）の真空管の印を、線を太くして使う（2026-11-21 に決定。その前は「ユーザーが元の絵を作る」だった。画像生成の注文書 `imagegen/requests/ICON-*` も残してある）。`tools/make_icon.py` が絵を描き、元の SVG（`app/resources/icon/`）、exe のアイコン（.ico：16・20・24・32・40・48・64・256）、MSIX の絵（`packaging/msix/Assets/`：Square44x44Logo の各倍率と targetsize、Square150x150Logo、StoreLogo）を書き出す | CC＋U（見た目） | exe とスタートメニューにアイコンが出る。小さい大きさでも形が分かる（U） | ☑ 自動テスト・exe への組み込み・見た目（U、2026-11-21）。下の「記録」 |
 | 8-3c | MSIX の本番の作り：`packaging/msix/`（マニフェストの雛形、作るスクリプト）。Store に出す未署名の MSIX と、手元で試すための自己署名の MSIX。パッケージの ID（Name・Publisher）は 8-5 で Partner Center が出す値を、CMake の設定で入れる（それまでは仮）。CI で MSIX が作れることを確かめる | CC＋U（手元での導入） | MSIX が作れ、手元に入れて起動・再生できる。Store の検査（Windows App Certification Kit）を通る | ☑ 自動テスト・未署名の MSIX が作れる（CI でも）・手元に入れて起動し、排他モードで再生できる（U、2026-11-21）・Store の検査は PASS（任意の項目に 1 つ FAIL）。下の「記録」 |
 | 8-4 | SignPath Foundation に申請 | U | 承認 | ☐ |
 | 8-5 | Microsoft Store に開発者登録、製品名の予約、提出（2026-11-21 に準備を分けた。手順は `packaging/store/README.md`） | U＋CC | 公開 | ☐ |
 | 8-5a | 掲載情報（日本語・英語）：説明文、短い説明、機能の一覧、画面写真の字幕、検索語、著作権、追加のライセンス条項、開発者（`packaging/store/listing.json`） | CC＋U（文面） | 字数の上限と言い方を自動テストで確かめる。文面は U | ◐ 自動テスト。文面は U（下の「記録」） |
-| 8-5b | プライバシーポリシー（日本語・英語、`packaging/store/privacy-policy.md`） | CC＋U（文面） | 保存するもの・送らないことが実際と合う | ◐ 文案。文面は U |
+| 8-5b | プライバシーポリシー（日本語・英語、`packaging/store/privacy-policy.md`）。プロダクトサイトに載せる（2026-11-22 に決定） | CC＋U（文面・サイトへの掲載） | 保存するもの・送らないことが実際と合う | ◐ 文案。文面とサイトへの掲載は U |
 | 8-5c | Partner Center での答え：価格と提供、プロパティ（カテゴリ・URL）、製品の宣言、年齢区分、runFullTrust の理由と審査の人への注記（英語） | CC＋U（答え） | `packaging/store/README.md` にある | ◐ 案。答えは U |
 | 8-5d | 画面写真：テスト信号の曲と、作った名前・絵のライブラリ（実在のジャケットや曲名を写さない）。日本語と英語、各 5 枚 | CC＋U（見た目） | 1366 × 768 以上の PNG | ☐ |
-| 8-5e | 登録と名前の予約、製品 ID を `CMakeLists.txt` に入れて MSIX を作り直す、提出 | U（登録・提出）＋CC（ID） | 公開 | ☐ |
+| 8-5e | 登録と名前の予約、製品 ID を `CMakeLists.txt` に入れて MSIX を作り直す、提出 | U（登録・提出）＋CC（ID） | 公開 | ◐ 登録と名前の予約（U、2026-11-22）・製品 ID を入れて MSIX を作り直した。提出は U（下の「記録」） |
 | 8-6 | 配布ページ（GitHub 版の警告の説明、寄付の窓口） | U＋CC | 公開 | ☐ |
 
 決めたこと（8-3、ユーザー、2026-11-21）：ファイル用の名前は「DEZIGN Audio Player」（実行ファイルは `DEZIGNAudioPlayer.exe`、フォルダーは `DEZIGN Audio Player`）。Store に出る発行者の表示名は「DE:ZIGN」（Partner Center の登録名と一致させる。8-5 で登録した値に合わせる）。アイコンは、プロダクトサイトの真空管の印を線を太くして使う（最初は画像生成、次にユーザーが描く案だった）。今の `%LOCALAPPDATA%\AudioPlayer` のライブラリと設定は新しいフォルダーへ移さない（公開前で、使っているのは開発者だけ）。進め方：8-3a → 8-3b（絵が届いたら）→ 8-3c。
@@ -1958,12 +1958,21 @@
 
 - **調べたこと**（Microsoft Learn、2026-11-21）：説明文 10,000 字、短い説明 1,000 字（一部の画面で見えるのは最初の 270 字）、機能 20 個・各 200 字、デスクトップの画面写真 1366 × 768 以上・4K まで・PNG・10 枚・字幕 200 字、短い題 50 字。カテゴリは必須。プライバシーポリシーは個人情報を扱わなければ任意だが、審査で要ると判断されると不合格になる。`runFullTrust` は制限付きの機能で、提出の設定で理由を書く。CSV での取り込みもできる（列は Field・ID・Type・default と言語ごと。今回は使わず、手で貼る）。検索語・著作権・追加のライセンス条項・開発者の上限は、ページになかった。
 - **掲載情報**（`packaging/store/listing.json`）：日本語と英語で同じ項目。「何をするか」と「何を測るか」だけを書き、音が良くなるとは書かない。ロマン枠は「効果を確かめていない」と書く。ASIO の商標の文と AGPL の文は、アプリの「情報」タブと同じ。英語は用語集どおり（Pure mode、Processing mode など）。
-- **プライバシーポリシー**（`packaging/store/privacy-policy.md`）：集めない・送らない。アプリ自身はインターネットに接続しない（コードで確かめた：記事の窓は同梱のページだけで、外のリンクは既定のブラウザー）。保存するもの（ライブラリ、ジャケットの縮小画像、設定、WebView2 の保存領域）と場所。使っている Microsoft の部品（WebView2、Media Foundation）。接続する機能を足すときは、その前にポリシーに書き足す。公開の URL は GitHub のこのファイル。
+- **プライバシーポリシー**（`packaging/store/privacy-policy.md`）：集めない・送らない。アプリ自身はインターネットに接続しない（コードで確かめた：記事の窓は同梱のページだけで、外のリンクは既定のブラウザー）。保存するもの（ライブラリ、ジャケットの縮小画像、設定、WebView2 の保存領域）と場所。使っている Microsoft の部品（WebView2、Media Foundation）。接続する機能を足すときは、その前にポリシーに書き足す。公開の場所はプロダクトサイト（2026-11-22 にユーザーが決定。最初の案は GitHub のこのファイルだった）。
 - **Partner Center の答え**（`packaging/store/README.md`）：カテゴリは音楽、価格は無料、製品の宣言、年齢区分の方針（見込みは 3+）、`runFullTrust` の理由と、審査の人への注記（英語。原音モードでは変換しないので、デバイスが受け付けない曲は鳴らない、という設計の説明を含む）。
 - **自動テスト**（`ui/src/storeListing.test.ts`、19 件）：2 つの言語で項目がそろう、空がない、字数の上限、機能の頭に自前の印を付けない、製品名と開発者が `CMakeLists.txt` と同じ、言い過ぎの語がない（日本語・英語）、商標と AGPL の文が「情報」タブと同じ、用語集の語、英語に日本語が混ざらない。
 - **要確認（U）**：
   1. 掲載情報とプライバシーポリシーの文面（`packaging/store/listing.json`、`privacy-policy.md`）。特に、検索語（「ハイレゾ」を入れてよいか）、Web サイトとサポートの連絡先の URL、プライバシーポリシーを GitHub に置くか、プロダクトサイトに置くか。
   2. Partner Center への登録（個人か会社か）と名前の予約。製品 ID の 3 つの値を Claude Code に渡す（README の 1）。
+- **答え（U、2026-11-22）**：Web サイトは https://audio.dezign.jp/ 、サポートの連絡先は GitHub の Issues、プライバシーポリシーはプロダクトサイトに置く（URL の案は https://audio.dezign.jp/privacy/ 。載せた URL に合わせて README を直す）。検索語の「ハイレゾ」と文面は、まだ答えを待っている。
+
+### 8-5e：製品 ID（2026-11-22）
+
+- **登録と名前の予約**（U、2026-11-22）：Partner Center で開発者として登録し、DE:ZIGN AUDIO PLAYER を予約した。製品 ID の値：`Package/Identity/Name` = `DEZIGN.DEZIGNAUDIOPLAYER`、`Package/Identity/Publisher` = `CN=955E5C32-0C31-4594-88D0-3D3367E883F3`、`Package/Properties/PublisherDisplayName` = `DE:ZIGN`。
+- **反映**：`CMakeLists.txt` の `AP_MSIX_IDENTITY_NAME`・`AP_MSIX_PUBLISHER` に入れた（`AP_COMPANY_NAME` は前から DE:ZIGN で同じ）。`ui/src/msix.test.ts` はこの 3 つの値をそのまま確かめる（ID が違うと Store が受け付けないため）。マニフェストの雛形と `packaging/msix/README.md` の「仮」の説明を直した。
+- **確かめたこと**：手元で構成し直してビルドし、署名なしの `DEZIGNAudioPlayer-0.1.0.0-x64.msix`（6.8 MB）を作った。パッケージの中の `AppxManifest.xml` が、上の Name・Publisher・PublisherDisplayName になっている。vitest 全 443 件。
+- **手元のパッケージ**：ID が変わったので、仮の ID（`DEZIGN.AudioPlayer`）で入れたものは別のアプリとして残る。`Get-AppxPackage DEZIGN.AudioPlayer | Remove-AppxPackage` で消せる。
+- **残り（U）**：プライバシーポリシーをプロダクトサイトに載せる、画面写真（8-5d）、Partner Center での入力と提出（`packaging/store/README.md`）。
 
 ## フェーズ1と並行して決めること（ユーザー）
 

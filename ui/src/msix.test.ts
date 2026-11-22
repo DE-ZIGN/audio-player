@@ -8,7 +8,7 @@ import reswEn from "../../packaging/msix/Strings/en-US/Resources.resw?raw";
 
 // The app's MSIX package (task 8-3c): the manifest's template, filled by
 // CMake, and the script that packs it. The words are in Japanese and English
-// (M11), and the identity waits for Partner Center (task 8-5).
+// (M11), and the identity is the one Partner Center gave (task 8-5e).
 
 const cached = (name: string) => new RegExp(`set\\(${name}\\s+"([^"]*)"\\s+CACHE STRING`).exec(cmake)?.[1];
 const assets = Object.keys(import.meta.glob("../../packaging/msix/Assets/*.png")).map((p) => p.split("/").pop()!);
@@ -33,9 +33,11 @@ describe("the MSIX manifest", () => {
     );
   });
 
-  it("has an identity a package can have, until Partner Center gives the real one", () => {
-    expect(cached("AP_MSIX_IDENTITY_NAME")).toMatch(/^[A-Za-z0-9.-]{3,50}$/);
-    expect(cached("AP_MSIX_PUBLISHER")).toMatch(/^CN=/);
+  it("has the identity Partner Center gave when the name was reserved (task 8-5e)", () => {
+    // Product identity, Partner Center, 2026-11-22. The Store refuses a package whose identity differs.
+    expect(cached("AP_MSIX_IDENTITY_NAME")).toBe("DEZIGN.DEZIGNAUDIOPLAYER");
+    expect(cached("AP_MSIX_PUBLISHER")).toBe("CN=955E5C32-0C31-4594-88D0-3D3367E883F3");
+    expect(cached("AP_COMPANY_NAME")).toBe("DE:ZIGN"); // Package/Properties/PublisherDisplayName
   });
 
   it("is a desktop app with full trust, as the app is", () => {

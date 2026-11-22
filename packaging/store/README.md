@@ -5,7 +5,7 @@ Partner Center に入れるものを、ここにまとめる。パッケージ�
 | ファイル | 内容 |
 |---|---|
 | `listing.json` | 掲載情報（日本語・英語）。Partner Center の「ストア登録情報」に、言語ごとに貼る。`ui/src/storeListing.test.ts` が、字数の上限と言い方を確かめる |
-| `privacy-policy.md` | プライバシーポリシー（日本語・英語）。公開の URL は下の「プロパティ」 |
+| `privacy-policy.md` | プライバシーポリシー（日本語・英語）の元の文。プロダクトサイトに載せる（下の「プロパティ」）。文面を変えたら、サイトのほうも同じに直す |
 
 字数の上限は Microsoft Learn の「Create app Store listings」（2026-11-21 に読んだ）による。検索語・著作権・追加のライセンス条項・開発者の上限はそのページになかったので、テストは短めの値で確かめている。Partner Center の画面に出る上限と違えば、テストを直す。
 
@@ -20,6 +20,8 @@ Partner Center に入れるものを、ここにまとめる。パッケージ�
 
    Claude Code が `CMakeLists.txt` に入れ、MSIX を作り直す。
 
+   済み（2026-11-22）：登録し、名前を予約した。値は `DEZIGN.DEZIGNAUDIOPLAYER`、`CN=955E5C32-0C31-4594-88D0-3D3367E883F3`、`DE:ZIGN`。
+
 ## 2. 価格と提供（Pricing and availability）
 
 - 価格：無料。試用版なし。
@@ -32,7 +34,7 @@ Partner Center に入れるものを、ここにまとめる。パッケージ�
 |---|---|
 | カテゴリ | 音楽（Music）。サブカテゴリはない |
 | 個人情報を扱うか | いいえ（集めない・送らない。`privacy-policy.md`） |
-| プライバシーポリシーの URL | https://github.com/DE-ZIGN/audio-player/blob/main/packaging/store/privacy-policy.md （「いいえ」でも入れておく。審査で要ると判断されると不合格になるため） |
+| プライバシーポリシーの URL | https://audio.dezign.jp/privacy/ （プロダクトサイトに置く。2026-11-22 にユーザーが決定。パスは案で、実際に載せた URL に合わせる。「いいえ」でも入れておく。審査で要ると判断されると不合格になるため） |
 | Web サイト | https://audio.dezign.jp/ |
 | サポートの連絡先 | https://github.com/DE-ZIGN/audio-player/issues |
 | システム要件 | 書かない（特別な機器は要らない。DAC がなくても、Windows の出力デバイスで鳴る） |

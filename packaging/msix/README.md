@@ -11,7 +11,7 @@ Microsoft Store に出すパッケージと、手元で試すパッケージを�
 | `Assets\` | 絵。`tools/make_icon.py` が書き出す（手で直さない） |
 | `build-msix.ps1` | パッケージを作るスクリプト |
 
-- パッケージの ID（`AP_MSIX_IDENTITY_NAME`・`AP_MSIX_PUBLISHER`）は仮の値。Store で名前を予約すると Partner Center が出すので（8-5）、`CMakeLists.txt` のその 2 つを書き換える。
+- パッケージの ID（`AP_MSIX_IDENTITY_NAME`・`AP_MSIX_PUBLISHER`）は、Store で名前を予約したときに Partner Center が出した値（2026-11-22、8-5e）。ID が違うパッケージは Store が受け付けないので、変えない。
 - VC++ ランタイムは、パッケージの中に一緒に入れる（app-local。S2 と同じ）。
 - パッケージで動くアプリは、`%LOCALAPPDATA%` に**新しく作る**フォルダーやファイルが、パッケージ専用の場所（`%LOCALAPPDATA%\Packages\<パッケージ ファミリー名>\LocalCache\Local\`）に振り替えられる。パッケージを消すと、その分も消える。
 - ただし、`%LOCALAPPDATA%\DEZIGN Audio Player` が**前からある**とき（ビルドした exe を直接動かしたことがある機械）は、パッケージ版もそのフォルダーをそのまま読み書きする。ライブラリと設定は、直接動かす版と同じものになり、パッケージを消しても残る（2026-11-21 に、開発者の機械で確かめた）。
@@ -38,7 +38,8 @@ powershell -ExecutionPolicy Bypass -File packaging\msix\build-msix.ps1 -Thumbpri
 
 - テスト用の証明書は、S2 のものが使える（`packaging/msix-test/new-test-cert.ps1` が作り、拇印を表示する）。
 - 証明書を信頼させる手順と、入れる手順は `packaging/msix-test/README.md` のとおり（ファイル名をこのパッケージのものに読み替える）。
-- 消すとき：`Get-AppxPackage DEZIGN.AudioPlayer | Remove-AppxPackage`
+- 消すとき：`Get-AppxPackage DEZIGN.DEZIGNAUDIOPLAYER | Remove-AppxPackage`
+- 仮の ID のころ（2026-11-22 より前）に入れたものは、別のアプリとして残る。`Get-AppxPackage DEZIGN.AudioPlayer | Remove-AppxPackage` で消す。
 
 ## Store の検査（Windows App Certification Kit）
 
