@@ -9,16 +9,12 @@ import { onLangChange, t, type MessageKey } from "./i18n";
 import type { AlbumRow, AlbumSort, Folder, LibraryCounts, TrackRow, TrackSort } from "./library";
 import { nativeText } from "./nativeText";
 import { dbtpText, formatText, lengthText, rateText, truePeakCell } from "./libraryFormat";
+import { playFromRow, sameTrackTwice, type PlayRequest, type PressedRow } from "./libraryPlay";
 import { gridLayout, pagesFor, visibleRange } from "./virtual";
 
 // "now" is the amp view's 再生中 (task 9-9): the panel shows what is playing.
 export type View = "tracks" | "albums" | "album" | "settings" | "now";
 export type Theme = "amber" | "bluegray";
-
-export interface PlayRequest {
-  ids: number[];
-  start: number;
-}
 
 export type Enqueue = (ids: number[], where: "next" | "end") => void;
 
@@ -30,7 +26,6 @@ const tileText = () => cssPixels("--tile-text", 48);
 // Gaps between tiles, across and down (each view sets its own).
 const tileGap = () => cssPixels("--tile-gap", 18);
 const tileRowGap = () => cssPixels("--tile-row-gap", 18);
-const PLAY_LIMIT = 1000; // tracks put in the queue from a long list
 
 const TRACK_SORTS: [TrackSort, MessageKey][] = [
   ["artist", "controls.library.sort.artist"],
@@ -73,6 +68,8 @@ export class LibraryView {
   private total = 0;
   private pages = new Map<number, TrackRow[] | AlbumRow[] | "loading">();
   private selected = -1;
+  private drawn = new Map<number, PressedRow>(); // what each row on the screen shows
+  private firstClicked: number | null = null; // the track a double click began on
   private playingId: number | null = null;
   private frame = 0;
   private lastCounts = "";
@@ -271,6 +268,10 @@ export class LibraryView {
     this.total = 0;
     this.selected = resetScroll ? -1 : this.selected;
     if (resetScroll) {
+      // Another list: the rows of the one before are not to be pressed while it comes.
+      this.drawn.clear();
+      this.firstClicked = null;
+      this.els.body.replaceChildren(this.els.bodySpacer);
       this.els.body.scrollTop = 0;
       this.els.grid.scrollTop = 0;
     }
@@ -294,14 +295,7 @@ export class LibraryView {
               offset: page * PAGE,
               limit: PAGE,
             })
-          : await lib.tracks({
-              search: this.view === "album" ? "" : this.search,
-              sort: this.trackSort,
-              descending: this.trackDesc,
-              albumKey: this.view === "album" ? this.album?.key : undefined,
-              offset: page * PAGE,
-              limit: PAGE,
-            });
+          : await lib.tracks({ ...this.trackList(), offset: page * PAGE, limit: PAGE });
       if (gen !== this.generation) return;
       this.pages.set(page, result.rows as TrackRow[] | AlbumRow[]);
       this.total = result.total;
@@ -310,6 +304,16 @@ export class LibraryView {
       this.showError(() => t("controls.library.readFailed", { error: String(e) }));
     }
     this.schedule();
+  }
+
+  private trackList(): PressedRow["list"] {
+    const album = this.view === "album";
+    return {
+      search: album ? "" : this.search,
+      sort: this.trackSort,
+      descending: this.trackDesc,
+      albumKey: album ? this.album?.key : undefined,
+    };
   }
 
   private rowAt<T>(i: number): T | undefined {
@@ -403,6 +407,8 @@ export class LibraryView {
     });
     for (const p of pagesFor(range, PAGE)) void this.fetchPage(p);
     const cols = this.columns();
+    const list = this.trackList();
+    this.drawn.clear();
     const rows: HTMLElement[] = [];
     for (let i = range.first; i < range.last; i++) {
       const r = this.rowAt<TrackRow>(i);
@@ -425,13 +431,20 @@ export class LibraryView {
         }
         if (r.id === this.playingId) row.classList.add("playing");
         if (i === this.selected) row.classList.add("selected");
-        row.addEventListener("click", () => this.select(i));
-        row.addEventListener("dblclick", () => void this.playFrom(i));
+        const pressed: PressedRow = { list, index: i, id: r.id, present: r.present };
+        this.drawn.set(i, pressed);
+        row.addEventListener("click", (e) => {
+          if (e.detail <= 1) this.firstClicked = r.id;
+          this.select(i);
+        });
+        row.addEventListener("dblclick", () => {
+          if (sameTrackTwice(this.firstClicked, r.id)) void this.playFrom(pressed);
+        });
         row.addEventListener("contextmenu", (e) => {
           e.preventDefault();
           this.select(i);
           this.showMenu(e, [
-            [t("controls.library.menu.playFrom"), () => void this.playFrom(i)],
+            [t("controls.library.menu.playFrom"), () => void this.playFrom(pressed)],
             [t("controls.library.menu.playNext"), () => this.onEnqueue([r.id], "next")],
             [t("controls.library.menu.enqueue"), () => this.onEnqueue([r.id], "end")],
           ]);
@@ -528,7 +541,8 @@ export class LibraryView {
       if (top < body.scrollTop) body.scrollTop = top;
       else if (top + ROW_H > body.scrollTop + body.clientHeight) body.scrollTop = top + ROW_H - body.clientHeight;
     } else if (e.key === "Enter" && this.selected >= 0) {
-      void this.playFrom(this.selected);
+      const pressed = this.selectedRow();
+      if (pressed) void this.playFrom(pressed);
     }
   }
 
@@ -562,23 +576,18 @@ export class LibraryView {
     this.menu.hidden = true;
   }
 
-  // Plays from row i: an album whole (from that track), or the list from that row on.
-  private async playFrom(i: number) {
-    const lib = this.backend.library;
-    const album = this.view === "album";
-    const page = await lib.tracks({
-      search: album ? "" : this.search,
-      sort: this.trackSort,
-      descending: this.trackDesc,
-      albumKey: album ? this.album?.key : undefined,
-      offset: album ? 0 : i,
-      limit: album ? 2000 : PLAY_LIMIT,
-    });
-    const rows = page.rows.filter((r) => r.present);
-    if (rows.length === 0) return this.showError(() => t("controls.library.noPlayable"));
-    const clicked = album ? page.rows[i] : page.rows[0];
-    const start = Math.max(0, rows.findIndex((r) => r.id === clicked?.id));
-    this.onPlay({ ids: rows.map((r) => r.id), start });
+  // The selected row as it is shown, or as read when it is scrolled out of sight.
+  private selectedRow(): PressedRow | undefined {
+    const index = this.selected;
+    const r = this.rowAt<TrackRow>(index);
+    return this.drawn.get(index) ?? (r && { list: this.trackList(), index, id: r.id, present: r.present });
+  }
+
+  // Plays from the track a row showed (libraryPlay.ts).
+  private async playFrom(pressed: PressedRow) {
+    const req = await playFromRow((q) => this.backend.library.tracks(q), pressed);
+    if (!req) return this.showError(() => t("controls.library.noPlayable"));
+    this.onPlay(req);
   }
 
   setPlaying(id: number | null) {

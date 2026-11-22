@@ -3,7 +3,8 @@ import "./style.css";
 import { createBackend, type Backend, type QueueInfo } from "./backend";
 import { afterInsert, afterMove, afterRemove, dbToSlider, sliderToDb, volumeLabel, type Db } from "./queueOps";
 import { countsText } from "./libraryFormat";
-import { LibraryView, loadTheme, type PlayRequest } from "./libraryView";
+import { LibraryView, loadTheme } from "./libraryView";
+import type { PlayRequest } from "./libraryPlay";
 import { applyStandardZoom, applyUiView, currentUiView, loadUiView, onUiViewChange, otherViews, saveUiView, type UiView } from "./uiView";
 import { AmpView } from "./ampView";
 import {
