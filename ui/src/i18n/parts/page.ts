@@ -93,7 +93,7 @@ export const ja = {
     "WASAPI は排他モードで出します（ほかのアプリの音は混ざりません）。ASIO ドライバーは、選んだときに別のプロセスで読み込んで確かめます。",
   "page.settings.output.dop": "DSD を DoP で送る",
   "page.settings.output.dopNote":
-    "DoP に対応した DAC だけでオンにしてください。対応していない DAC では大きな雑音になります（DAC が対応しているかは自動では分かりません）。出力を選び直すとオフに戻ります。",
+    "DoP に対応した DAC だけでオンにしてください。対応していない DAC では大きな雑音になります（DAC が対応しているかは自動では分かりません）。許可は選んだデバイスだけに効きます（「Windows の既定のデバイス」ではオンにできません）。出力を選び直すとオフに戻ります。",
   "page.settings.output.wasapiGroup": "WASAPI 排他",
   "page.settings.output.missing":
     "選んである出力が今は見つかりません。つなぐと使えます（WASAPI は見つからない間、Windows の既定のデバイスで出します）。",
@@ -434,7 +434,7 @@ export const en: Record<keyof typeof ja, string> = {
     "WASAPI plays in exclusive mode (sound from other apps is not mixed in). An ASIO driver is loaded and checked in a separate process when you choose it.",
   "page.settings.output.dop": "Send DSD as DoP",
   "page.settings.output.dopNote":
-    "Turn this on only with a DAC that supports DoP. On a DAC that does not, it plays as loud noise (whether the DAC supports it cannot be detected automatically). Choosing the output again turns this off.",
+    "Turn this on only with a DAC that supports DoP. On a DAC that does not, it plays as loud noise (whether the DAC supports it cannot be detected automatically). The permission holds only for the selected device (it cannot be turned on for the Windows default device). Choosing the output again turns this off.",
   "page.settings.output.wasapiGroup": "WASAPI exclusive",
   "page.settings.output.missing":
     "The selected output is not found right now. It can be used once it is connected (while it is missing, WASAPI plays through the Windows default device).",

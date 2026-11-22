@@ -75,3 +75,45 @@ TEST_CASE("No devices at all", "[engine][device]")
     CHECK(r.match == DeviceMatch::NotFound);
     CHECK_FALSE(r.device);
 }
+
+TEST_CASE("DoP goes only to the device it was allowed for", "[engine][device][dop]")
+{
+    const OutputDeviceInfo dac{"{0.0.0.00000000}.{2581a301}", "Speaker (FiiO KA11)", false};
+    const auto sent = [](const SavedOutputDevice& saved, const std::vector<OutputDeviceInfo>& devices) {
+        const auto r = resolveOutputDevice(saved, devices);
+        return r.device && mayReceiveDop(true, saved.id, r.device->id);
+    };
+
+    SECTION("that device: sent")
+    {
+        CHECK(sent({dac.id, dac.name}, {hdmi, ssl96, dac}));
+    }
+    SECTION("renamed in Windows, the same endpoint: sent")
+    {
+        CHECK(sent({dac.id, "an earlier name"}, {ssl96, dac}));
+    }
+    SECTION("unplugged, the default used instead: not sent")
+    {
+        CHECK_FALSE(sent({dac.id, dac.name}, {hdmi, ssl96}));
+    }
+    SECTION("another endpoint of the same name (it can be another DAC): not sent")
+    {
+        CHECK_FALSE(sent({"{old}", dac.name}, {ssl96, dac}));
+    }
+    SECTION("the Windows default, whatever it is now: not sent")
+    {
+        auto asDefault = dac;
+        asDefault.isDefault = true;
+        CHECK_FALSE(sent({}, {hdmi, asDefault}));
+        CHECK_FALSE(mayReceiveDop(true, "", ""));
+    }
+}
+
+TEST_CASE("DoP is not sent unless allowed; IDs ignore letter case", "[engine][device][dop]")
+{
+    CHECK_FALSE(mayReceiveDop(false, "{A}", "{A}"));
+    CHECK(mayReceiveDop(true, "{C0E4A803-D72F}", "{c0e4a803-d72f}"));
+    // An ASIO driver found by its name instead of its CLSID.
+    CHECK_FALSE(mayReceiveDop(true, "{C0E4A803-D72F}", "{11111111-2222}"));
+    CHECK_FALSE(mayReceiveDop(true, "{C0E4}", "{C0E4A803}"));
+}

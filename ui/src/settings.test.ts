@@ -5,6 +5,7 @@ import {
   curveRange,
   dbText,
   defaultListening,
+  dopSwitch,
   frequencyText,
   lowCutText,
   modeSummary,
@@ -213,5 +214,31 @@ describe("the space (task 9-6)", () => {
     expect(playingSpaceSource({ ...d, spaceSource: ["measured", "measured", "measured"] }, "club")).toBe("synth");
     expect(lowCutText(0)).toBe("なし");
     expect(lowCutText(120)).toBe("120 Hz");
+  });
+});
+
+describe("the DoP switch: for one DAC, never for whatever is the default", () => {
+  const dac = (id: string, allowDop: boolean) => ({ kind: "wasapi" as const, id, name: "FiiO KA11", allowDop });
+
+  it("is the chosen device's, when it is there", () => {
+    expect(dopSwitch(info, dac("{b}", true))).toEqual({ checked: true, enabled: true, target: dac("{b}", true) });
+    expect(dopSwitch(info, dac("{b}", false))).toMatchObject({ checked: false, enabled: true });
+    const asio = { kind: "asio" as const, id: "{C1}", name: "FiiO ASIO Driver", allowDop: true };
+    expect(dopSwitch(info, asio)).toMatchObject({ checked: true, enabled: true });
+  });
+
+  it("cannot be turned on for the Windows default", () => {
+    const byDefault = { kind: "wasapi" as const, id: "", name: "", allowDop: true };
+    expect(dopSwitch(info, byDefault)).toMatchObject({ checked: false, enabled: false });
+  });
+
+  it("is off for another endpoint of the same name; turning it on is for the one shown", () => {
+    expect(dopSwitch(info, dac("{old}", true))).toEqual({ checked: false, enabled: true, target: dac("{b}", false) });
+  });
+
+  it("can only be turned off while the device is missing", () => {
+    const gone = { kind: "wasapi" as const, id: "{gone}", name: "Unplugged DAC", allowDop: true };
+    expect(dopSwitch(info, gone)).toMatchObject({ checked: true, enabled: true, target: gone });
+    expect(dopSwitch(info, { ...gone, allowDop: false })).toMatchObject({ checked: false, enabled: false });
   });
 });

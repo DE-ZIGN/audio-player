@@ -402,6 +402,8 @@ AppSettings settingsFromText(std::string_view text)
     for (std::size_t i = 0; i < 3; ++i)
         if (!spaceSourceRead[i] && !l.spaceIr[i].empty())
             l.spaceSource[i] = SpaceIrSource::File;
+    if (s.output.id.empty())
+        s.output.allowDop = false; // DoP is allowed for one device, not for whatever is the default
     return s;
 }
 

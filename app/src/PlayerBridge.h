@@ -58,7 +58,8 @@ class PlayerBridge final : private juce::Timer
 public:
     // Without an output factory, plays on `output` (exclusive WASAPI or ASIO);
     // with one (the self-test's dummy output), on that, and setOutput() only
-    // changes whether DoP is allowed.
+    // changes whether DoP is allowed. On its own outputs DoP is allowed as
+    // each is opened, only for the device it was allowed for (openChosenOutput).
     PlayerBridge(ap::engine::Player::OutputFactory outputFactory, const ap::engine::AppSettings& settings);
     ~PlayerBridge() override;
 
@@ -168,6 +169,7 @@ private:
     std::vector<QueueMeta> queueMeta_; // parallel to the player's queue
     int queueVersion_ = 0;
 
+    const bool outputGiven_; // an output factory was given (the dummy output)
     ap::engine::Player player_;
     juce::WebBrowserComponent* browser_ = nullptr;
     std::unique_ptr<juce::FileChooser> chooser_;

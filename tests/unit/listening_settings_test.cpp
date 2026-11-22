@@ -774,3 +774,12 @@ TEST_CASE("Each room's IR source is saved and read back; older files and bad val
     const auto bad = settingsFromText("space.source.club=measured\nspace.source.hall=loud\nspace.source.stage=file\n");
     CHECK(bad.listening.spaceSource == std::array{SpaceIrSource::Synthesized, SpaceIrSource::Measured, SpaceIrSource::Synthesized});
 }
+
+TEST_CASE("DoP saved with the Windows default as the output is read as off", "[settings][dop]")
+{
+    // Saved so before 2026-11-22: the permission followed whatever the default became.
+    CHECK_FALSE(settingsFromText("output.kind=wasapi\noutput.id=\noutput.name=\noutput.dop=1\n").output.allowDop);
+    CHECK_FALSE(settingsFromText("output.dop=1\n").output.allowDop);
+    CHECK(settingsFromText("output.kind=wasapi\noutput.id={dac}\noutput.dop=1\n").output.allowDop);
+    CHECK(settingsFromText("output.dop=1\noutput.id={dac}\n").output.allowDop); // in either order
+}

@@ -278,3 +278,31 @@ TEST_CASE("DoP: DSF and DFF with the same bits give identical DoP", "[engine][do
     CHECK(fromDsf.dop()->container == "DSF");
     CHECK(fromDff.dop()->container == "DFF");
 }
+
+TEST_CASE("The output factory decides DoP for the output it opens", "[engine][dop][player]")
+{
+    // The app's factory sets it each time: the device it found may not be the one allowed.
+    ap::test::TempDir dir;
+    const auto f = dir.write("a.dsf", ap::test::makeDsf(channels(1000), 2822400));
+    const auto out = dir.path() / "out.raw";
+    Player* opening = nullptr;
+    bool theAllowedDevice = false;
+    Player player(
+        [&] {
+            opening->setAllowDop(theAllowedDevice);
+            return std::make_unique<DummyOutput>(DummyOutput::Options{.path = out, .periodFrames = {64}});
+        },
+        PlaybackOptions{.allowDop = true});
+    opening = &player;
+    player.setQueue({{"a.dsf", [f] { return openAudioFile(f); }}});
+
+    player.play();
+    player.waitUntilIdle();
+    CHECK(player.status().error.kind == PlayerErrorKind::DopNotAllowed);
+    CHECK_FALSE(std::filesystem::exists(out));
+
+    theAllowedDevice = true;
+    player.play();
+    player.waitUntilIdle();
+    CHECK(player.status().state == PlayerState::Ended);
+}

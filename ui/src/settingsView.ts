@@ -29,6 +29,7 @@ import {
   TUBE_LABELS,
   TUBE_NOTES,
   modeSummary,
+  dopSwitch,
   outputOptions,
   REPLAY_GAIN_LABELS,
   selectedOutputValue,
@@ -401,7 +402,7 @@ export class SettingsView {
     for (const o of this.options) groups[o.group].append(new Option(o.label, o.value));
     this.els.device.replaceChildren(...[groups.wasapi, groups.asio].filter((g) => g.children.length > 0));
     this.els.device.value = selectedOutputValue(this.outputs, this.output);
-    this.els.dop.checked = this.output.allowDop;
+    this.renderDop();
     const missing = this.options.find((o) => o.missing);
     this.showDeviceStatus(nativeText(this.outputs.message) || (missing ? t("page.settings.output.missing") : ""));
   }
@@ -429,11 +430,17 @@ export class SettingsView {
 
   private async setDop() {
     this.els.error.hidden = true;
-    const choice = { ...this.output, allowDop: this.els.dop.checked };
+    const choice = { ...dopSwitch(this.outputs, this.output).target, allowDop: this.els.dop.checked };
     const r = await this.api.setOutput(choice);
     if (r.ok) this.output = choice;
     else this.showFailure(r.message, "page.settings.output.dopFailed");
-    this.els.dop.checked = this.output.allowDop;
+    this.renderOutputs();
+  }
+
+  private renderDop() {
+    const dop = dopSwitch(this.outputs, this.output);
+    this.els.dop.checked = dop.checked;
+    this.els.dop.disabled = !dop.enabled;
   }
 
   // A warning carries the triangle mark (CLAUDE.md chapter 8); progress does not.

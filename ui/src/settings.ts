@@ -508,6 +508,28 @@ export function selectedOutputValue(info: OutputsInfo, current: OutputChoice): s
   return value;
 }
 
+// The "Send DSD as DoP" switch. The permission is for the output it was given
+// for (the engine checks it again as it opens one: mayReceiveDop).
+export interface DopSwitch {
+  checked: boolean;
+  enabled: boolean;
+  target: OutputChoice; // the output a change of the switch is for
+}
+
+export function dopSwitch(info: OutputsInfo, current: OutputChoice): DopSwitch {
+  if (current.id === "") return { checked: false, enabled: false, target: { ...current, allowDop: false } };
+  const devices = current.kind === "asio" ? info.asio : info.wasapi;
+  const id = current.id.toLowerCase();
+  if (devices.some((d) => d.id.toLowerCase() === id)) return { checked: current.allowDop, enabled: true, target: current };
+  // Shown as chosen by its name, with another ID: it may be another DAC.
+  const named = current.kind === "wasapi" ? devices.find((d) => d.name === current.name) : undefined;
+  if (named) {
+    const target = { ...current, id: named.id, name: named.name, allowDop: false };
+    return { checked: false, enabled: true, target };
+  }
+  return { checked: current.allowDop, enabled: current.allowDop, target: current }; // missing: it can only be turned off
+}
+
 // --- EQ bands ------------------------------------------------------------------
 
 export const LIMITS = {

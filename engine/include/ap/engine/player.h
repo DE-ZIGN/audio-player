@@ -193,9 +193,10 @@ public:
     void setRepeat(RepeatMode mode);
     RepeatMode repeat() const;
 
-    // Whether DSD may be sent as DoP (PlaybackOptions::allowDop), changed when
-    // another output is chosen (task 6-3). Takes effect from the next output
-    // session; the caller stops playback before changing the output.
+    // Whether DSD may be sent as DoP (PlaybackOptions::allowDop). Takes effect
+    // from the next output session. The output factory may set it, for the
+    // device it has opened: it is looked at after the factory returns. Others
+    // stop playback before changing it (task 6-3: another output is chosen).
     void setAllowDop(bool allow) noexcept { allowDop_ = allow; }
 
     PlayerStatus status() const;

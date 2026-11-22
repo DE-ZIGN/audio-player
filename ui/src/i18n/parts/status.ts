@@ -167,7 +167,7 @@ export const ja = {
   "status.error.device": "デバイスのエラーです（{detail}）。",
   "status.error.load": "{track} 曲目のファイルを開けません: {detail}",
   "status.error.dopNotAllowed":
-    "{track} 曲目は DSD です。DSD を DoP で送る設定がオフなので再生しません。DoP に対応していない DAC では大きな雑音になるため、対応している DAC のときだけ、設定の「出力」でオンにしてください。",
+    "{track} 曲目は DSD です。この出力には DoP で送る許可がないので再生しません。DoP に対応していない DAC では大きな雑音になるため、対応している DAC のときだけ、設定の「出力」でその DAC を選び、オンにしてください。",
   "status.error.other": "エラー: {detail}",
 
   // The output field's tags (the top bar).
@@ -511,7 +511,7 @@ export const en: Record<keyof typeof ja, string> = {
   "status.error.device": "Device error ({detail}).",
   "status.error.load": "Cannot open the file of track {track}: {detail}",
   "status.error.dopNotAllowed":
-    "Track {track} is DSD. Sending DSD as DoP is turned off, so it is not played. On a DAC that does not support DoP this comes out as loud noise; turn it on in the Output tab of the settings only for a DAC that supports DoP.",
+    "Track {track} is DSD. Sending DSD as DoP is not allowed for this output, so it is not played. On a DAC that does not support DoP this comes out as loud noise; select that DAC in the Output tab of the settings and turn it on, only for a DAC that supports DoP.",
   "status.error.other": "Error: {detail}",
 
   "status.tag.comparison": "Comparing (ABX)",

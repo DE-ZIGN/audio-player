@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace ap::engine {
@@ -39,5 +40,12 @@ struct DeviceResolution
 // ID the name is tried; failing both, the default device is used and the
 // caller should tell the user.
 DeviceResolution resolveOutputDevice(const SavedOutputDevice& saved, const std::vector<OutputDeviceInfo>& devices);
+
+// Whether the output just opened may be sent DSD as DoP. The permission is
+// for the one output it was given for: an endpoint ID, or an ASIO driver's
+// CLSID. None for "the Windows default" (an empty ID), and none for a device
+// found by its name or used instead of a missing one: it may be another DAC,
+// and on one without DoP it is loud noise.
+bool mayReceiveDop(bool allowed, std::string_view allowedId, std::string_view openedId);
 
 } // namespace ap::engine

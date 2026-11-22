@@ -1,6 +1,7 @@
 #include <ap/engine/output/device_selection.h>
 
 #include <algorithm>
+#include <cctype>
 #include <iterator>
 
 namespace ap::engine {
@@ -42,6 +43,15 @@ DeviceResolution resolveOutputDevice(const SavedOutputDevice& saved, const std::
     }
 
     return fallback(devices);
+}
+
+bool mayReceiveDop(bool allowed, std::string_view allowedId, std::string_view openedId)
+{
+    if (!allowed || allowedId.empty())
+        return false;
+    return std::equal(allowedId.begin(), allowedId.end(), openedId.begin(), openedId.end(), [](char a, char b) {
+        return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+    });
 }
 
 } // namespace ap::engine

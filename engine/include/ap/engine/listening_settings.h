@@ -106,7 +106,9 @@ struct OutputChoice
     // changed (see resolveOutputDevice).
     std::string name;
     // Send DSD as DoP. Only for a DAC that decodes DoP (others play it as loud
-    // noise, and it cannot be detected), so it is off for a newly chosen output.
+    // noise, and it cannot be detected), so it is off for a newly chosen output,
+    // and holds only for the device with this `id` (mayReceiveDop): never for
+    // the Windows default, nor for what is used while this device is missing.
     bool allowDop = false;
 
     bool operator==(const OutputChoice&) const = default;

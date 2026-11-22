@@ -243,10 +243,10 @@ juce::var formatVar(const PcmFormat& f)
 } // namespace
 
 PlayerBridge::PlayerBridge(Player::OutputFactory outputFactory, const AppSettings& settings)
-    : output_(settings.output),
+    : output_(settings.output), outputGiven_(static_cast<bool>(outputFactory)),
       player_(outputFactory ? std::move(outputFactory) : Player::OutputFactory([this] { return openChosenOutput(); }),
               PlaybackOptions{.allowRepack = true,
-                              .allowDop = settings.output.allowDop,
+                              .allowDop = outputGiven_ && settings.output.allowDop,
                               // The volume (task 6-2) and the settings screen's stages
                               // (task 6-3). With nothing active the chain is bypassed:
                               // the direct, bit-perfect path (task 3-2).
@@ -741,7 +741,7 @@ void PlayerBridge::setOutput(const OutputChoice& output)
         output_ = output;
         outputNotice_ = {};
     }
-    player_.setAllowDop(output.allowDop);
+    player_.setAllowDop(outputGiven_ && output.allowDop); // our own outputs: as each is opened
     if (wasPlaying)
         player_.play();
     pushStatus(true);
@@ -774,6 +774,8 @@ std::unique_ptr<AudioOutput> PlayerBridge::openChosenOutput()
         std::lock_guard lock(outputMutex_);
         c = output_;
     }
+    // DoP is allowed only for the device it was allowed for, found again each time an output is opened.
+    player_.setAllowDop(false);
     auto setNotice = [this](NativeMessage notice) {
         std::lock_guard lock(outputMutex_);
         outputNotice_ = std::move(notice);
@@ -802,6 +804,7 @@ std::unique_ptr<AudioOutput> PlayerBridge::openChosenOutput()
             throw OutputException(OutputError::DeviceError, "ASIO driver check failed: " + check.message);
         }
         setNotice({});
+        player_.setAllowDop(mayReceiveDop(c.allowDop, c.id, driver->clsid));
         return std::make_unique<AsioOutput>(driver->name, AsioOutput::factoryFor(*driver));
     }
 
@@ -813,7 +816,10 @@ std::unique_ptr<AudioOutput> PlayerBridge::openChosenOutput()
         if (r.match == DeviceMatch::DefaultDevice)
             notice = msg::outputFallbackDefault(c.name);
         if (r.device)
+        {
             id = r.device->id;
+            player_.setAllowDop(mayReceiveDop(c.allowDop, c.id, id));
+        }
     }
     setNotice(std::move(notice));
     return std::make_unique<WasapiExclusiveOutput>(id);
