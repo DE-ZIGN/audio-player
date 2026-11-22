@@ -166,6 +166,7 @@ packaging/ MSIX の設定
 | `pggb-dsd-verification.md` | PGGB、DSD、1ビットDAC の検証 |
 | `in-app-articles.md` | アプリ内記事の構成と記事リーダーの仕様 |
 | `monetization.md` | ライセンス、署名、配布、寄付 |
+| `distribution.md` | 配布と、ほかのサイトへの掲載の方針（Store へのリンクで載せる。掲載先と順番） |
 | `competitor-research.md` | 競合調査（初期）と高音質化アプローチの5系統 |
 | `ir-candidates.md` | 同梱する IR の候補と試聴手順（M9 で使う） |
 | `phase1-tasks.md` | フェーズ1の作業分解と進み具合 |
