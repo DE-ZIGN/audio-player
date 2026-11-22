@@ -149,7 +149,8 @@ packaging/ MSIX の設定
 ## 10. 配布
 
 - Microsoft Store（MSIX）が主な入り口。Store 経由なら SmartScreen の警告が出ない。
-- GitHub Releases も用意し、SignPath Foundation で署名する（申請は公開リポジトリと自動ビルドができてから）。署名しても、新しい版は最初に SmartScreen の警告が出ることがある。
+- **初回の公開は Store だけ**（2026-11-22 に決定）。サイトには実行ファイルを置かず、Store へリンクする。配った版のソースには版のタグを付ける。
+- GitHub Releases は後。SignPath Foundation で署名する予定だが、先に条件（JUCE・ASIO SDK のデュアルライセンス、公開済みであること）を問い合わせる（`docs/monetization.md`）。署名しても、新しい版は最初に SmartScreen の警告が出ることがある。
 - 依存部品の著作権表示をまとめた「ライセンス」画面を用意する。一覧は自動生成する。
 
 ## 11. 参照資料（docs/）
