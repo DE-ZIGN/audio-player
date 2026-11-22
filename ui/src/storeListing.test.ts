@@ -140,6 +140,61 @@ describe("the Store's policies (7.20, read 2026-11-22)", () => {
   });
 });
 
+// The claims against what the app does (2026-11-22, after the first submission
+// was taken back for saying more than that).
+describe("the Store listing's claims", () => {
+  const ja = listing("ja-JP");
+  const en = listing("en-US");
+  const line = (l: Listing, start: string) => l.description.find((d) => d.startsWith(start)) ?? "";
+
+  it("ABX: the levels are matched, not always within 0.1 dB (a loud master keeps a difference)", () => {
+    expect(everything(ja)).not.toMatch(/0\.1 dB 以内に|音量をそろえて/);
+    expect(everything(en)).not.toMatch(/matched within 0\.1 dB|the levels matched/);
+    expect(line(ja, "・ABX")).toMatch(/0\.1 dB を超え.*参考/);
+    expect(line(en, "- An ABX")).toMatch(/over 0\.1 dB.*reference/);
+  });
+
+  it("Pure mode: untouched only at 100% volume with ISP-safe off; float sources may be dithered", () => {
+    expect(line(ja, "・原音モード")).toMatch(/音量 100%.*ISP セーフがオフ/);
+    expect(line(ja, "・原音モード")).toMatch(/MP3.*ディザ/);
+    expect(line(en, "- Pure mode")).toMatch(/100%.*ISP-safe off/);
+    expect(line(en, "- Pure mode")).toMatch(/MP3.*dither/);
+    for (const s of [text(ja.shortDescription), ja.features[0]]) expect(s).toContain("音量 100%");
+    for (const s of [text(en.shortDescription), en.features[0]]) expect(s).toContain("100% volume");
+  });
+
+  it("gapless: only between tracks of the same format", () => {
+    for (const s of [...ja.description, ...ja.features].filter((s) => s.includes("ギャップレス")))
+      expect(s).toContain("同じ形式");
+    for (const s of [...en.description, ...en.features].filter((s) => /gapless/i.test(s)))
+      expect(s).toContain("same format");
+  });
+
+  it("formats: AAC is .m4a, and DST-compressed DFF is not played", () => {
+    expect(text(ja.description)).toMatch(/AAC（m4a/);
+    expect(text(ja.description)).toContain("DST 圧縮");
+    expect(text(en.description)).toMatch(/AAC \(m4a/);
+    expect(text(en.description)).toContain("DST-compressed");
+  });
+
+  it("10.2.4: Media Foundation, absent from Windows N, is among what the app depends on", () => {
+    for (const l of [ja, en]) expect(l.description[0]).toContain("Media Feature Pack");
+    expect(quoted("審査の人への注記")).toContain("Media Feature Pack");
+  });
+
+  it("BIT-PERFECT: judged up to the driver", () => {
+    expect(line(ja, "・BIT-PERFECT")).toContain("ドライバー");
+    expect(line(en, "- BIT-PERFECT")).toContain("driver");
+  });
+
+  it("the notes: exclusive mode is needed, and Pure mode's exception is said", () => {
+    const notes = quoted("審査の人への注記");
+    expect(notes).not.toMatch(/any Windows output works|converts nothing/);
+    expect(notes).toMatch(/allows exclusive mode/);
+    expect(notes).toMatch(/MP3.*dither/);
+  });
+});
+
 describe("the Store's screenshots (task 8-5d)", () => {
   it("are one for each caption, in each language, numbered in the captions' order", () => {
     for (const lang of LANGS) {
