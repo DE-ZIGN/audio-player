@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(audio_player
-    VERSION 1.0.0 # the Store refuses a first number of 0; raise it for each submission of a package
+    VERSION 1.0.1 # the Store refuses a first number of 0; raise it for each submission of a package
     DESCRIPTION "Windows audio player with a bit-perfect path and a 64-bit float processing path"
     LANGUAGES C CXX)
 

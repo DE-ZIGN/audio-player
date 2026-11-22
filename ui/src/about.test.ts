@@ -98,7 +98,7 @@ const repoTexts = import.meta.glob(["../../LICENSE", "../../third_party/**/LICEN
 // What the build makes of the list (cmake/AboutData.cmake): each text copied as <id>-<n>.txt.
 const baseName = (p: string) => p.split("/").at(-1)!;
 const built = {
-  app: { name: "DE:ZIGN AUDIO PLAYER", version: "1.0.0", texts: list.app.texts.map((t, i) => ({ file: `app-${i + 1}.txt`, name: baseName(t.path) })) },
+  app: { name: "DE:ZIGN AUDIO PLAYER", version: "1.0.1", texts: list.app.texts.map((t, i) => ({ file: `app-${i + 1}.txt`, name: baseName(t.path) })) },
   components: list.components.map((c) => ({
     ...c,
     texts: c.texts.map((t, i) => ({ file: `${c.id}-${i + 1}.txt`, name: baseName(t.path) })),
