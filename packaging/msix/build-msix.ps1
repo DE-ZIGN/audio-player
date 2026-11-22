@@ -60,7 +60,7 @@ New-Item -ItemType Directory -Force $stage | Out-Null
 # アプリ（exe、mpg123.dll、画面の ui フォルダー）
 Copy-Item (Join-Path $app "*") $stage -Recurse
 # VC++ ランタイム。パッケージの中に一緒に入れる（Microsoft の app-local の配り方）
-foreach ($dll in "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll") {
+foreach ($dll in "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_2.dll") {
     Copy-Item (Join-Path $crt.FullName $dll) $stage
 }
 # 絵（tools/make_icon.py が作ったもの）と、言語ごとの文字
@@ -85,6 +85,10 @@ $pri.Save($priConfig)
 if ($LASTEXITCODE -ne 0) { throw "makepri new が失敗しました（$LASTEXITCODE）" }
 # 文字は resources.pri に入ったので、元のファイルはパッケージに入れない
 Remove-Item -Recurse -Force (Join-Path $stage "Strings")
+
+# --- 読み込む DLL の漏れ ----------------------------------------------------------
+& (Join-Path $PSScriptRoot "check-imports.ps1") -Dir $stage
+if ($LASTEXITCODE -ne 0) { throw "パッケージに入っていない DLL があります" }
 
 # --- 包む・署名する --------------------------------------------------------------
 $base = [System.IO.Path]::GetFileNameWithoutExtension($exeName)

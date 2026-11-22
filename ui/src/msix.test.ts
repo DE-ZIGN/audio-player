@@ -3,6 +3,7 @@ import cmake from "../../CMakeLists.txt?raw";
 import appCmake from "../../app/CMakeLists.txt?raw";
 import manifest from "../../packaging/msix/AppxManifest.xml.in?raw";
 import script from "../../packaging/msix/build-msix.ps1?raw";
+import imports from "../../packaging/msix/check-imports.ps1?raw";
 import reswJa from "../../packaging/msix/Strings/ja-JP/Resources.resw?raw";
 import reswEn from "../../packaging/msix/Strings/en-US/Resources.resw?raw";
 
@@ -82,6 +83,18 @@ describe("the package's words (Japanese first, then English)", () => {
 });
 
 describe("the build script", () => {
+  // 1.0.0 went to the Store without msvcp140_2.dll (found 2026-11-22).
+  it("packs the VC++ runtime DLLs the app imports, and checks every import before packing", () => {
+    for (const dll of ["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_2.dll"])
+      expect(script).toContain(`"${dll}"`);
+    expect(script).toMatch(/check-imports\.ps1[\s\S]*makeappx pack/);
+  });
+
+  it("the check does not take the VC++ runtime for a part of Windows", () => {
+    expect(imports).not.toMatch(/^\s+[^#\n]*"(msvcp|vcruntime|concrt|vccorlib)[^"]*"/m);
+    expect(imports.charCodeAt(0)).toBe(0xfeff);
+  });
+
   it("keeps one index of the words and pictures (a single package does not read split ones)", () => {
     expect(script).toMatch(/SelectNodes\("\/\/packaging"\)/);
     expect(script).toMatch(/makepri new \/pr \$stage/);

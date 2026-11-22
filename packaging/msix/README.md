@@ -10,9 +10,10 @@ Microsoft Store に出すパッケージと、手元で試すパッケージを�
 | `Strings\ja-JP\`、`Strings\en-US\` | 言語ごとの文字（今は説明文だけ）。既定は日本語 |
 | `Assets\` | 絵。`tools/make_icon.py` が書き出す（手で直さない） |
 | `build-msix.ps1` | パッケージを作るスクリプト |
+| `check-imports.ps1` | 中身の exe と DLL が読み込む DLL に漏れがないかの検査。`build-msix.ps1` が包む前に呼ぶ（CI でも） |
 
 - パッケージの ID（`AP_MSIX_IDENTITY_NAME`・`AP_MSIX_PUBLISHER`）は、Store で名前を予約したときに Partner Center が出した値（2026-11-22、8-5e）。ID が違うパッケージは Store が受け付けないので、変えない。
-- VC++ ランタイムは、パッケージの中に一緒に入れる（app-local。S2 と同じ）。
+- VC++ ランタイムは、パッケージの中に一緒に入れる（app-local。S2 と同じ）。exe が使う DLL だけなので、コードを変えると増えることがある（`std::hypot` の 3 引数で `msvcp140_2.dll`）。開発機には再頒布可能パッケージが入っていて、手元への導入と WACK では漏れに気づけない。`check-imports.ps1` が落ちたら、それに従って足す。
 - パッケージで動くアプリは、`%LOCALAPPDATA%` に**新しく作る**フォルダーやファイルが、パッケージ専用の場所（`%LOCALAPPDATA%\Packages\<パッケージ ファミリー名>\LocalCache\Local\`）に振り替えられる。パッケージを消すと、その分も消える。
 - ただし、`%LOCALAPPDATA%\DEZIGN Audio Player` が**前からある**とき（ビルドした exe を直接動かしたことがある機械）は、パッケージ版もそのフォルダーをそのまま読み書きする。ライブラリと設定は、直接動かす版と同じものになり、パッケージを消しても残る（2026-11-21 に、開発者の機械で確かめた）。
 
